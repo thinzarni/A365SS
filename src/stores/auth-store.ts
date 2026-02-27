@@ -9,13 +9,15 @@ interface AuthState {
     refreshToken: string | null;
     userId: string | null;
     domain: string | null;
+    domains: any[];
     user: UserProfile | null;
     isAuthenticated: boolean;
 
     // Actions
-    login: (data: { token: string; refreshToken?: string; userId: string; domain: string }) => void;
+    login: (data: { token: string; refreshToken?: string; userId: string; domain?: string; domains?: any[] }) => void;
     setUser: (user: UserProfile) => void;
     setDomain: (domain: string) => void;
+    setDomains: (domains: any[]) => void;
     renewToken: () => Promise<void>;
     logout: () => void;
 }
@@ -27,6 +29,7 @@ export const useAuthStore = create<AuthState>()(
             refreshToken: null,
             userId: null,
             domain: null,
+            domains: [],
             user: null,
             isAuthenticated: false,
 
@@ -35,7 +38,8 @@ export const useAuthStore = create<AuthState>()(
                     token: data.token,
                     refreshToken: data.refreshToken || null,
                     userId: data.userId,
-                    domain: data.domain,
+                    domain: data.domain || null,
+                    domains: data.domains || [],
                     isAuthenticated: true,
                 });
             },
@@ -43,6 +47,8 @@ export const useAuthStore = create<AuthState>()(
             setUser: (user) => set({ user }),
 
             setDomain: (domain) => set({ domain }),
+
+            setDomains: (domains) => set({ domains }),
 
             renewToken: async () => {
                 const { token } = get();
@@ -65,6 +71,7 @@ export const useAuthStore = create<AuthState>()(
                     refreshToken: null,
                     userId: null,
                     domain: null,
+                    domains: [],
                     user: null,
                     isAuthenticated: false,
                 });
@@ -77,6 +84,7 @@ export const useAuthStore = create<AuthState>()(
                 refreshToken: state.refreshToken,
                 userId: state.userId,
                 domain: state.domain,
+                domains: state.domains,
                 user: state.user,
                 isAuthenticated: state.isAuthenticated,
             }),

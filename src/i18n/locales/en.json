@@ -14,7 +14,9 @@
         "verifyOtp": "Verify OTP",
         "changePassword": "Change Password",
         "logout": "Logout",
-        "loginSubtitle": "Sign in to your HR self-service portal"
+        "loginSubtitle": "Sign in to your HR self-service portal",
+        "qrSignIn": "Sign In with QR",
+        "azureSignIn": "Azure AD"
     },
     "nav": {
         "dashboard": "Dashboard",

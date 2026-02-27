@@ -3,7 +3,9 @@
    ═══════════════════════════════════════════════════════════ */
 
 // ── Auth ──
-export const RENEW_TOKEN = '/generate/renew-token';
+export const RENEW_TOKEN = 'generate/renew-token';
+export const GENERATE_QR = 'generate/qr';
+export const QR_SUCCESS = 'qr-success';
 export const DOMAIN_LIST = 'hxm/payroll/domainlist';
 export const USER_PROFILE = 'api/employees/profile';
 export const USER_PROFILE_UPDATE = 'api/employees/profile/update';

@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { RequireAuth, GuestOnly } from '../components/auth/AuthGuard';
 import AppLayout from '../components/layout/AppLayout';
 import LoginPage from '../pages/LoginPage/LoginPage';
+import QRLoginPage from '../pages/LoginPage/QRLoginPage';
 import RequestListPage from '../pages/RequestListPage/RequestListPage';
 import NewRequestPage from '../pages/NewRequestPage/NewRequestPage';
 import RequestDetailPage from '../pages/RequestDetailPage/RequestDetailPage';
@@ -18,6 +19,7 @@ import TeamDetailView from '../pages/TeamPage/TeamDetailView';
 import MemberDetailView from '../pages/TeamPage/MemberDetailView';
 import HolidaysPage from '../pages/HolidaysPage/HolidaysPage';
 import DashboardPage from '../pages/DashboardPage/DashboardPage';
+import DomainSelectPage from '../pages/DomainSelectPage/DomainSelectPage';
 
 export const router = createBrowserRouter([
     // ── Guest routes ──
@@ -25,6 +27,7 @@ export const router = createBrowserRouter([
         element: <GuestOnly />,
         children: [
             { path: '/login', element: <LoginPage /> },
+            { path: '/qr-login', element: <QRLoginPage /> },
         ],
     },
 
@@ -32,6 +35,7 @@ export const router = createBrowserRouter([
     {
         element: <RequireAuth />,
         children: [
+            { path: '/select', element: <DomainSelectPage /> },
             {
                 element: <AppLayout />,
                 children: [

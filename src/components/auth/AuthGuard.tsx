@@ -16,7 +16,7 @@ export function GuestOnly() {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
     if (isAuthenticated) {
-        return <Navigate to="/requests" replace />;
+        return <Navigate to="/dashboard" replace />;
     }
 
     return <Outlet />;

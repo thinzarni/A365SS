@@ -1,11 +1,15 @@
-import { useState, type FormEvent } from 'react';
+import { useState, /* useEffect, */ type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mail, Lock, Hash } from 'lucide-react';
+import { Mail, Lock, Hash, QrCode, /* Monitor, */ Eye, EyeOff } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
 import { makeSignInPayload, APP_ID } from '../../lib/auth-token';
+import { toast } from 'react-hot-toast';
+// import { useMsal } from '@azure/msal-react';
+// import { InteractionStatus } from '@azure/msal-browser';
+// import { loginRequest } from '../../config/msal-config';
 import styles from './LoginPage.module.css';
 
 type AuthMode = 'password' | 'otp';
@@ -15,16 +19,61 @@ type AuthMode = 'password' | 'otp';
 export default function LoginPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const { login, setUser } = useAuthStore();
+    // const { instance, inProgress } = useMsal();
+    const { login, setUser, /* isAuthenticated */ } = useAuthStore();
 
     const [mode, setMode] = useState<AuthMode>('otp');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [otp, setOtp] = useState('');
     const [otpSent, setOtpSent] = useState(false);
     const [otpSession, setOtpSession] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    /* ══════════════════════════════════════════════════════════════
+       Auto-login check (Silent SSO)
+       ══════════════════════════════════════════════════════════════ */
+    /* 
+    useEffect(() => {
+        if (isAuthenticated) return;
+
+        const checkSilentLogin = async () => {
+            const accounts = instance.getAllAccounts();
+            if (accounts.length > 0) {
+                try {
+                    const result = await instance.acquireTokenSilent({
+                        ...loginRequest,
+                        account: accounts[0]
+                    });
+
+                    if (result && result.account) {
+                        setLoading(true);
+                        const res = await authClient.post('azure-ad/signin', {
+                            user_id: result.account.username,
+                            appid: APP_ID,
+                        }, {
+                            headers: { Authorization: `Bearer ${result.idToken}` }
+                        });
+
+                        if (res.data.status === 200 || res.status === 200) {
+                            await completeLogin(res.data);
+                        }
+                    }
+                } catch (e) {
+                    // Silent check failed, no auto-login
+                } finally {
+                    setLoading(false);
+                }
+            }
+        };
+
+        if (inProgress === InteractionStatus.None) {
+            checkSilentLogin();
+        }
+    }, [instance, inProgress, isAuthenticated]);
+    */
 
     /* ══════════════════════════════════════════════════════════════
        Complete login flow — matches Flutter's signin_otp.dart:
@@ -34,26 +83,22 @@ export default function LoginPage() {
        ══════════════════════════════════════════════════════════════ */
     const completeLogin = async (signInData: Record<string, any>) => {
         const nested = signInData.data as Record<string, any> | undefined;
-        const iamToken = (nested?.access_token || signInData.token) as string;
-        const userId = (nested?.user_id || email) as string;
-        const usersyskey = (nested?.usersyskey || '') as string;
-        const role = String(nested?.role || '');
+        const iamToken = (nested?.access_token || signInData.token || signInData.access_token) as string;
+        const userId = (nested?.user_id || signInData.user_id || email) as string;
+        const usersyskey = (nested?.usersyskey || signInData.usersyskey || '') as string;
+        const role = String(nested?.role || signInData.approle || '');
 
         // ──────── Step 2: Fetch domain list ────────
         let domainId = '';
         let domainName = '';
+        let domainList: any[] = [];
         try {
-            const domRes = await authClient.post('/domain',
+            const domRes = await authClient.post('domain',
                 { user_id: userId, app_id: APP_ID },
                 { headers: { Authorization: `Bearer ${iamToken}` } },
             );
             const domData = domRes.data;
-            // Flutter: List<Map>.from(response['data']['domain'])
-            const domainList: any[] =
-                domData?.data?.domain ||
-                domData?.datalist ||
-                domData?.data ||
-                [];
+            domainList = domData?.data?.domain || domData?.datalist || domData?.data || [];
             if (Array.isArray(domainList) && domainList.length > 0) {
                 domainId = String(domainList[0].id || domainList[0].domaincode || '');
                 domainName = String(domainList[0].name || domainList[0].domainname || '');
@@ -62,137 +107,184 @@ export default function LoginPage() {
             console.warn('Domain list fetch failed, proceeding with defaults', err);
         }
 
-        // ──────── Step 3: /get-menu → exchange for final HXM token ────────
-        let finalToken = iamToken;
-        let finalRefresh = '';
-        try {
-            const menuRes = await authClient.post('/get-menu', {
-                usersyskey,
-                role,
-                user_id: userId,
-                app_id: APP_ID,
-                domain: domainId,
-                type: userId,
-                domain_name: domainName,
-            }, {
-                headers: { Authorization: `Bearer ${iamToken}` },
-            });
-            const menuData = menuRes.data;
-            // Flutter: response['access_token'], response['refresh_token']
-            finalToken = menuData.access_token || menuData.data?.access_token || iamToken;
-            finalRefresh = menuData.refresh_token || menuData.data?.refresh_token || '';
-        } catch (err) {
-            console.warn('get-menu failed, using IAM token directly', err);
-        }
-
-        // ──────── Store auth state and navigate ────────
+        // ──────── Store auth state and determine routing ────────
+        // Initial partial login
         login({
-            token: finalToken,
-            refreshToken: finalRefresh || undefined,
+            token: iamToken,
+            refreshToken: undefined,
             userId,
             domain: domainId,
+            domains: domainList,
         });
 
-        // Store extra profile hints for display
         setUser({
-            name: domainName ? `${userId}` : userId,
-            domainName,
+            name: userId,
             usersyskey,
             role,
         } as any);
 
-        // Profile fetch (non-blocking, to get full name)
-        try {
-            const { default: apiClient } = await import('../../lib/api-client');
-            const profileRes = await apiClient.get('/api/employees/profile');
-            const profile = profileRes.data?.datalist || profileRes.data?.data;
-            if (profile) setUser(profile);
-        } catch { /* non-blocking */ }
+        if (domainList.length > 1) {
+            navigate('/select');
+        } else {
+            // ──────── Step 3: Single domain → Auto-fetch menu and go to dashboard ────────
+            let finalToken = iamToken;
+            let finalRefresh = '';
+            try {
+                const menuRes = await authClient.post('get-menu', {
+                    usersyskey,
+                    role,
+                    user_id: userId,
+                    app_id: APP_ID,
+                    domain: domainId,
+                    type: userId,
+                    domain_name: domainName,
+                }, {
+                    headers: { Authorization: `Bearer ${iamToken}` },
+                });
+                const menuData = menuRes.data;
+                finalToken = menuData.access_token || menuData.data?.access_token || iamToken;
+                finalRefresh = menuData.refresh_token || menuData.data?.refresh_token || '';
 
-        navigate('/requests');
+                // Update store with final token
+                login({
+                    token: finalToken,
+                    refreshToken: finalRefresh || undefined,
+                    userId,
+                    domain: domainId,
+                    domains: domainList,
+                });
+
+                setUser({
+                    name: domainName ? `${userId}` : userId,
+                    domainName,
+                    usersyskey,
+                    role,
+                } as any);
+
+                // Profile fetch (non-blocking)
+                try {
+                    const { default: apiClient } = await import('../../lib/api-client');
+                    const profileRes = await apiClient.get('/api/employees/profile');
+                    const profile = profileRes.data?.datalist || profileRes.data?.data;
+                    if (profile) setUser(profile);
+                } catch { /* non-blocking */ }
+
+                navigate('/dashboard');
+            } catch (err) {
+                console.warn('get-menu failed, using IAM token directly', err);
+                navigate('/dashboard');
+            }
+        }
     };
 
-    /* ════════════════════════════════════════════════════
-       Password Login → /signin  req_type = 1
-       ════════════════════════════════════════════════════ */
+    /* 
+    const handleAzureLogin = async () => {
+        // Prevent multiple simultaneous login attempts
+        if (inProgress !== InteractionStatus.None) {
+            console.warn('MSAL Interaction already in progress:', inProgress);
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+
+        try {
+            console.log('Initiating Azure Login Popup...');
+            const result = await instance.loginPopup(loginRequest);
+
+            if (result && result.account) {
+                console.log('Azure Auth Success, communicating with backend...');
+                const res = await authClient.post('azure-ad/signin', {
+                    user_id: result.account.username,
+                    appid: APP_ID,
+                }, {
+                    headers: {
+                        Authorization: `Bearer ${result.idToken}`,
+                    }
+                });
+
+                if (res.data.status === 200 || res.status === 200) {
+                    console.log('Backend sync successful, finalizing login...');
+                    await completeLogin(res.data);
+                } else {
+                    const msg = res.data.message || 'Azure login failed on server.';
+                    console.error('Backend Login Error:', msg);
+                    setError(msg);
+                }
+            }
+        } catch (err: any) {
+            console.error('Azure Popup Error:', err);
+            if (err.errorCode === 'popup_window_error') {
+                setError('Login popup was blocked or closed. Please try again.');
+            } else {
+                setError(err.message || 'Azure login failed.');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+    */
+
     const handlePasswordLogin = async (e: FormEvent) => {
         e.preventDefault();
         setError('');
         setLoading(true);
-
         try {
-            // Flutter base64-encodes the password before sending
             const b64Password = btoa(password);
             const payload = await makeSignInPayload(email, 1, b64Password);
-            const res = await authClient.post('/signin', payload);
-            const data = res.data;
-
-            if (data.status === 200 || res.status === 200) {
-                await completeLogin(data);
+            const res = await authClient.post('signin', payload);
+            if (res.data.status === 200 || res.status === 200) {
+                await completeLogin(res.data);
             } else {
-                setError(data.message || 'Login failed. Please check your credentials.');
+                setError(res.data.message || 'Login failed.');
             }
-        } catch (err: unknown) {
-            const axiosErr = err as { response?: { data?: { message?: string } } };
-            setError(axiosErr.response?.data?.message || 'Login failed. Please check your credentials.');
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Login failed.');
         } finally {
             setLoading(false);
         }
     };
 
-    /* ════════════════════════════════════════════════════
-       OTP Request → /signin  req_type = 2
-       ════════════════════════════════════════════════════ */
     const handleRequestOtp = async () => {
         setError('');
         setLoading(true);
         try {
             const payload = await makeSignInPayload(email, 2);
-            const res = await authClient.post('/signin', payload);
-            const data = res.data;
-
-            if (data.status === 200 || res.status === 200) {
-                // Flutter: response['data']['session_id']
-                setOtpSession(data.data?.session_id || data.session_id || data.session || '');
+            const res = await authClient.post('signin', payload);
+            if (res.data.status === 200 || res.status === 200) {
+                setOtpSession(res.data.data?.session_id || res.data.session_id || '');
                 setOtpSent(true);
+                toast.success('OTP sent to your email/phone');
             } else {
-                setError(data.message || 'Failed to send OTP.');
+                setError(res.data.message || 'Failed to send OTP.');
             }
-        } catch (err: unknown) {
-            const axiosErr = err as { response?: { data?: { message?: string } } };
-            setError(axiosErr.response?.data?.message || 'Failed to send OTP.');
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Failed to send OTP.');
         } finally {
             setLoading(false);
         }
     };
 
-    /* ════════════════════════════════════════════════════
-       OTP Verify → /verify-otp
-       ════════════════════════════════════════════════════ */
     const handleOtpLogin = async (e: FormEvent) => {
         e.preventDefault();
+        if (!otpSent) return handleRequestOtp();
         setError('');
         setLoading(true);
-
         try {
-            // Flutter: OtpVerifyReq { user_id, otp, session, app_id, sid }
-            const res = await authClient.post('/verify-otp', {
+            const res = await authClient.post('verify-otp', {
                 user_id: email,
                 otp,
                 session: otpSession,
                 app_id: APP_ID,
-                sid: '999',  // from a365.json S_Id
+                sid: '999',
             });
-            const data = res.data;
-
-            if (data.status === 200 || res.status === 200) {
-                await completeLogin(data);
+            if (res.data.status === 200 || res.status === 200) {
+                await completeLogin(res.data);
             } else {
-                setError(data.message || 'OTP verification failed.');
+                setError(res.data.message || 'OTP verification failed.');
             }
-        } catch (err: unknown) {
-            const axiosErr = err as { response?: { data?: { message?: string } } };
-            setError(axiosErr.response?.data?.message || 'OTP verification failed.');
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'OTP verification failed.');
         } finally {
             setLoading(false);
         }
@@ -200,7 +292,6 @@ export default function LoginPage() {
 
     return (
         <div className={styles.login}>
-            {/* ── Hero Panel ── */}
             <div className={styles.login__hero}>
                 <div className={styles['login__hero-content']}>
                     <div className={styles['login__hero-logo']}>A</div>
@@ -211,7 +302,6 @@ export default function LoginPage() {
                 </div>
             </div>
 
-            {/* ── Form Panel ── */}
             <div className={styles['login__form-panel']}>
                 <div className={styles['login__form-container']}>
                     <div className={styles['login__form-header']}>
@@ -219,7 +309,6 @@ export default function LoginPage() {
                         <p className={styles['login__form-desc']}>{t('auth.loginSubtitle')}</p>
                     </div>
 
-                    {/* Auth Mode Tabs */}
                     <div className={styles.login__tabs}>
                         <button
                             className={`${styles.login__tab} ${mode === 'otp' ? styles['login__tab--active'] : ''}`}
@@ -252,11 +341,16 @@ export default function LoginPage() {
                             <Input
                                 id="password"
                                 label={t('auth.password')}
-                                type="password"
+                                type={showPassword ? 'text' : 'password'}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••"
                                 icon={<Lock size={18} />}
+                                rightIcon={
+                                    <button type="button" onClick={() => setShowPassword(!showPassword)}>
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                }
                                 required
                             />
                             <Button type="submit" fullWidth loading={loading}>
@@ -281,27 +375,52 @@ export default function LoginPage() {
                                 </Button>
                             ) : (
                                 <>
-                                    <div className={styles['login__otp-row']}>
-                                        <Input
-                                            id="otp-code"
-                                            label={t('auth.otp')}
-                                            value={otp}
-                                            onChange={(e) => setOtp(e.target.value)}
-                                            placeholder="Enter 6‑digit code"
-                                            icon={<Hash size={18} />}
-                                            required
-                                        />
-                                    </div>
+                                    <Input
+                                        id="otp-code"
+                                        label={t('auth.otp')}
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value)}
+                                        placeholder="Enter 6‑digit code"
+                                        icon={<Hash size={18} />}
+                                        required
+                                    />
                                     <Button type="submit" fullWidth loading={loading}>
                                         {t('auth.verifyOtp')}
                                     </Button>
-                                    <Button type="button" variant="ghost" fullWidth onClick={() => { setOtpSent(false); handleRequestOtp(); }}>
-                                        Resend OTP
+                                    <Button type="button" variant="ghost" fullWidth onClick={handleRequestOtp}>
+                                        {t('common.retry')}
                                     </Button>
                                 </>
                             )}
                         </form>
                     )}
+
+                    <div className={styles.login__separator}>
+                        <span>OR</span>
+                    </div>
+
+                    <div className={styles.login__secondary_actions}>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className={styles.login__secondary_button}
+                            onClick={() => navigate('/qr-login')}
+                        >
+                            <QrCode size={18} className="mr-2" />
+                            {t('auth.qrSignIn')}
+                        </Button>
+
+                        {/* <Button
+                            type="button"
+                            variant="ghost"
+                            className={styles.login__secondary_button}
+                            loading={loading}
+                            onClick={handleAzureLogin}
+                        >
+                            <Monitor size={18} className="mr-2" />
+                            {t('auth.azureSignIn')}
+                        </Button> */}
+                    </div>
                 </div>
             </div>
         </div>

@@ -7,11 +7,12 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     error?: string;
     hint?: string;
     icon?: ReactNode;
+    rightIcon?: ReactNode;
     required?: boolean;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-    ({ label, error, hint, icon, required, className = '', ...props }, ref) => {
+    ({ label, error, hint, icon, rightIcon, required, className = '', ...props }, ref) => {
         const inputClasses = [
             styles['input-group__input'],
             error && styles['input-group__input--error'],
@@ -26,10 +27,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                         {required && <span className={styles['input-group__required']}>*</span>}
                     </label>
                 )}
-                {icon ? (
+                {icon || rightIcon ? (
                     <div className={styles['input-group__wrapper']}>
-                        <span className={styles['input-group__icon']}>{icon}</span>
+                        {icon && <span className={styles['input-group__icon']}>{icon}</span>}
                         <input ref={ref} className={inputClasses} {...props} />
+                        {rightIcon && <span className={styles['input-group__right-icon']}>{rightIcon}</span>}
                     </div>
                 ) : (
                     <input ref={ref} className={inputClasses} {...props} />
