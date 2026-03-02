@@ -7,6 +7,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
+      - key: VITE_APP_ENV
+        value: prod
     routes:
       - type: rewrite
         source: /*
