@@ -294,7 +294,7 @@ export default function LoginPage() {
         <div className={styles.login}>
             <div className={styles.login__hero}>
                 <div className={styles['login__hero-content']}>
-                    <div className={styles['login__hero-logo']}>A</div>
+                    <img src="/favicon.png" className={styles['login__hero-logo']} alt="A365 Logo" />
                     <h1 className={styles['login__hero-title']}>HR Self-Service Portal</h1>
                     <p className={styles['login__hero-subtitle']}>
                         Submit requests, manage approvals, and track your HR activities — all in one place.

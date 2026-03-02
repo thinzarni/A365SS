@@ -29,7 +29,8 @@
         "team": "Team",
         "holidays": "Holidays",
         "profile": "Profile",
-        "settings": "Settings"
+        "settings": "Settings",
+        "chat": "Chat"
     },
     "request": {
         "title": "Requests",
@@ -84,6 +85,19 @@
         "title": "Approvals",
         "pendingApprovals": "Pending Approvals",
         "comment": "Comment"
+    },
+    "chat": {
+        "title": "Messages",
+        "newChat": "New Chat",
+        "individual": "Individual Chat",
+        "createGroup": "Create Group",
+        "teamMessage": "Team Message",
+        "groupName": "Group Name",
+        "searchEmployees": "Search employees...",
+        "createChat": "Create Chat",
+        "noConversations": "No conversations found",
+        "selectConversation": "Select a conversation to start chatting",
+        "online": "Online"
     },
     "common": {
         "loading": "Loading...",

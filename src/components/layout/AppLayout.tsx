@@ -15,8 +15,10 @@ import {
     Globe,
     Users,
     CalendarDays,
+    MessageSquare,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
+import { useChatStore } from '../../stores/chat-store';
 import styles from './AppLayout.module.css';
 
 const navItems = [
@@ -28,6 +30,7 @@ const navItems = [
     { path: '/claims', icon: Receipt, labelKey: 'nav.claims' },
     { path: '/leave-summary', icon: Palmtree, labelKey: 'nav.leaveSummary' },
     { path: '/holidays', icon: CalendarDays, labelKey: 'nav.holidays' },
+    { path: '/chat', icon: MessageSquare, labelKey: 'nav.chat' },
     { path: '/team', icon: Users, labelKey: 'nav.team' },
 ];
 
@@ -56,7 +59,7 @@ export default function AppLayout() {
             {/* ── Sidebar ── */}
             <aside className={`${styles.sidebar} ${sidebarOpen ? styles['sidebar--open'] : ''}`}>
                 <div className={styles.sidebar__brand}>
-                    <div className={styles.sidebar__logo}>A</div>
+                    <img src="/favicon.png" className={styles.sidebar__logo} alt="A365 Logo" />
                     <div className={styles['sidebar__brand-text']}>
                         <span className={styles.sidebar__title}>A365 HR</span>
                         <span className={styles.sidebar__subtitle}>Self-Service</span>
@@ -72,19 +75,29 @@ export default function AppLayout() {
 
                 <nav className={styles.sidebar__nav}>
                     <span className={styles['sidebar__section-label']}>Main</span>
-                    {navItems.map(({ path, icon: Icon, labelKey }) => (
-                        <NavLink
-                            key={path}
-                            to={path}
-                            onClick={() => setSidebarOpen(false)}
-                            className={({ isActive }) =>
-                                `${styles.sidebar__link} ${isActive ? styles['sidebar__link--active'] : ''}`
-                            }
-                        >
-                            <Icon size={20} className={styles['sidebar__link-icon']} />
-                            {t(labelKey)}
-                        </NavLink>
-                    ))}
+                    {navItems.map(({ path, icon: Icon, labelKey }) => {
+                        const isChat = labelKey === 'nav.chat';
+                        const unreadCount = useChatStore((state) => state.unreadCount);
+
+                        return (
+                            <NavLink
+                                key={path}
+                                to={path}
+                                onClick={() => setSidebarOpen(false)}
+                                className={({ isActive }) =>
+                                    `${styles.sidebar__link} ${isActive ? styles['sidebar__link--active'] : ''}`
+                                }
+                            >
+                                <div className={styles['sidebar__link-content']}>
+                                    <Icon size={20} className={styles['sidebar__link-icon']} />
+                                    {t(labelKey)}
+                                </div>
+                                {isChat && unreadCount > 0 && (
+                                    <span className={styles.sidebar__unreadBadge}>{unreadCount}</span>
+                                )}
+                            </NavLink>
+                        );
+                    })}
                 </nav>
 
                 <div className={styles.sidebar__user}>

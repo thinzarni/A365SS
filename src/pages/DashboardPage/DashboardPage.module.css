@@ -276,78 +276,111 @@
 
 /* ── Attendance Records ── */
 .recordsGrid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     margin-bottom: 32px;
 }
 
 .recordCard {
     background: #fff;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #f1f5f9;
     border-radius: 16px;
-    padding: 16px 18px;
+    padding: 14px 20px;
     display: flex;
-    flex-direction: column;
-    gap: 10px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .recordCard:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+    transform: translateX(4px);
+    border-color: #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-.recordHeader {
+.recordLeft {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 16px;
 }
 
-.recordDot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
+.recordIcon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
     flex-shrink: 0;
 }
 
-.recordDot.green {
-    background: #22c55e;
+.recordIcon.green {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
 }
 
-.recordDot.red {
-    background: #ef4444;
+.recordIcon.red {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
 }
 
-.recordDot.blue {
-    background: #3b82f6;
+.recordIcon.blue {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
 }
 
-.recordDot.purple {
-    background: #8b5cf6;
+.recordIcon.purple {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
 }
 
-.recordType {
-    font-size: 13px;
+.recordInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.recordTypeText {
+    font-size: 12px;
     font-weight: 600;
-    color: #64748b;
+    color: #94a3b8;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
-.recordTime {
-    font-size: 20px;
+.recordTimeText {
+    font-size: 18px;
     font-weight: 700;
     color: #1e293b;
     font-variant-numeric: tabular-nums;
 }
 
-.recordMeta {
+.recordRight {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.recordLocation {
     font-size: 12px;
-    color: #94a3b8;
+    color: #64748b;
     display: flex;
     align-items: center;
     gap: 4px;
+}
+
+.viewAllLink {
+    font-size: 13px;
+    font-weight: 600;
+    color: #2563eb;
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+.viewAllLink:hover {
+    opacity: 0.8;
+    text-decoration: underline;
 }
 
 .recordStatus {

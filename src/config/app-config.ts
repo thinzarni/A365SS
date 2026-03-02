@@ -11,6 +11,10 @@ export interface AppConfig {
     iamUrl: string;
     /** A365 main service URL */
     mainUrl: string;
+    /** Chat service URL */
+    chatUrl: string;
+    /** WebSocket URL (optional — derived from chatUrl if not set) */
+    wsUrl?: string;
     appName: string;
     appVersion: string;
     environment: 'dev' | 'staging' | 'sit' | 'prod';
@@ -22,6 +26,8 @@ const configs: Record<string, AppConfig> = {
         authUrl: import.meta.env.VITE_AUTH_URL || 'https://iam.omnicloudapi.com/api/auth/',
         iamUrl: import.meta.env.VITE_IAM_URL || 'https://iam.omnicloudapi.com/api/',
         mainUrl: import.meta.env.VITE_MAIN_URL || 'https://a365.omnicloudapi.com/',
+        chatUrl: import.meta.env.VITE_CHAT_URL || '/',
+        wsUrl: import.meta.env.VITE_WS_URL || undefined,
         appName: 'A365 HR',
         appVersion: '1.0.0',
         environment: 'dev',
@@ -31,6 +37,8 @@ const configs: Record<string, AppConfig> = {
         authUrl: import.meta.env.VITE_AUTH_URL || 'https://iam.omnicloudapi.com/api/auth/',
         iamUrl: import.meta.env.VITE_IAM_URL || 'https://iam.omnicloudapi.com/api/',
         mainUrl: import.meta.env.VITE_MAIN_URL || 'https://a365.omnicloudapi.com/',
+        chatUrl: import.meta.env.VITE_CHAT_URL || '/',
+        wsUrl: import.meta.env.VITE_WS_URL || undefined,
         appName: 'A365 HR',
         appVersion: '1.0.0',
         environment: 'staging',
@@ -40,6 +48,7 @@ const configs: Record<string, AppConfig> = {
         authUrl: import.meta.env.VITE_AUTH_URL || 'https://iam.omnicloudapi.com/api/auth/',
         iamUrl: import.meta.env.VITE_IAM_URL || 'https://iam.omnicloudapi.com/api/',
         mainUrl: import.meta.env.VITE_MAIN_URL || 'https://a365.omnicloudapi.com/',
+        chatUrl: import.meta.env.VITE_CHAT_URL || 'https://iam.omnicloudapi.com/api/',
         appName: 'A365 HR',
         appVersion: '1.0.0',
         environment: 'prod',

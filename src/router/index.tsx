@@ -19,6 +19,7 @@ import TeamDetailView from '../pages/TeamPage/TeamDetailView';
 import MemberDetailView from '../pages/TeamPage/MemberDetailView';
 import HolidaysPage from '../pages/HolidaysPage/HolidaysPage';
 import DashboardPage from '../pages/DashboardPage/DashboardPage';
+import ChatPage from '../pages/ChatPage/ChatPage';
 import DomainSelectPage from '../pages/DomainSelectPage/DomainSelectPage';
 
 export const router = createBrowserRouter([
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
                     { path: '/team', element: <TeamPage /> },
                     { path: '/team/view/:teamSyskey', element: <TeamDetailView /> },
                     { path: '/team/member/:memberSyskey', element: <MemberDetailView /> },
+                    { path: '/chat', element: <ChatPage /> },
                 ],
             },
         ],

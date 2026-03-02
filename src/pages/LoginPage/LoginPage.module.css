@@ -48,19 +48,15 @@
 }
 
 .login__hero-logo {
-    width: 72px;
-    height: 72px;
-    background: rgba(255, 255, 255, 0.1);
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-2xl);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--text-3xl);
-    font-weight: var(--font-bold);
-    color: white;
     margin: 0 auto var(--space-8);
+    object-fit: cover;
+    padding: var(--space-2);
 }
 
 .login__hero-title {

@@ -357,15 +357,19 @@ export default function DashboardPage() {
                 </div>
             </section>
 
-            {/* ── Today's Attendance Records ── */}
+            {/* ── Today Record ── */}
             <section>
                 <div className={styles.sectionHeader}>
                     <h2 className={styles.sectionTitle}>
-                        Today's Records
+                        <Activity size={20} style={{ color: '#2563eb' }} />
+                        Today Record
                         {records.length > 0 && (
                             <span className={styles.sectionBadge}>{records.length}</span>
                         )}
                     </h2>
+                    <Link to="/attendance" className={styles.viewAllLink}>
+                        View More
+                    </Link>
                 </div>
                 <div className={styles.recordsGrid}>
                     {records.length === 0 ? (
@@ -381,34 +385,39 @@ export default function DashboardPage() {
                                 : rec.time;
                             return (
                                 <div key={idx} className={styles.recordCard}>
-                                    <div className={styles.recordHeader}>
-                                        <span className={`${styles.recordDot} ${styles[meta.dot]}`} />
-                                        <span className={styles.recordType}>{meta.label}</span>
+                                    <div className={styles.recordLeft}>
+                                        <div className={`${styles.recordIcon} ${styles[meta.dot]}`}>
+                                            {rec.type === 601 ? <LogIn size={18} /> :
+                                                rec.type === 602 ? <LogOut size={18} /> :
+                                                    rec.type === 603 ? <Activity size={18} /> :
+                                                        <Clock size={18} />}
+                                        </div>
+                                        <div className={styles.recordInfo}>
+                                            <div className={styles.recordTypeText}>{meta.label}</div>
+                                            <div className={styles.recordTimeText}>{displayTime || '--:--'}</div>
+                                        </div>
                                     </div>
-                                    <div className={styles.recordTime}>{displayTime || '--:--'}</div>
-                                    {(rec.location || rec.description) && (
-                                        <div className={styles.recordMeta}>
-                                            <MapPin size={12} />
-                                            {rec.location || rec.description || ''}
-                                        </div>
-                                    )}
-                                    {rec.checkInType && rec.type === 604 && (
-                                        <div className={styles.recordMeta}>
-                                            {rec.checkInType}
-                                        </div>
-                                    )}
-                                    <span className={`${styles.recordStatus} ${rec.remoteapproval === 3 || rec.backdateapproval === 3
-                                        ? styles.failed
-                                        : rec.remoteapproval === 1 || rec.backdateapproval === 1
-                                            ? styles.pending
-                                            : styles.success
-                                        }`}>
-                                        {rec.remoteapproval === 3 || rec.backdateapproval === 3
-                                            ? 'Rejected'
+
+                                    <div className={styles.recordRight}>
+                                        <span className={`${styles.recordStatus} ${rec.remoteapproval === 3 || rec.backdateapproval === 3
+                                            ? styles.failed
                                             : rec.remoteapproval === 1 || rec.backdateapproval === 1
-                                                ? 'Pending'
-                                                : 'Synced'}
-                                    </span>
+                                                ? styles.pending
+                                                : styles.success
+                                            }`}>
+                                            {rec.remoteapproval === 3 || rec.backdateapproval === 3
+                                                ? 'Rejected'
+                                                : rec.remoteapproval === 1 || rec.backdateapproval === 1
+                                                    ? 'Pending'
+                                                    : 'Synced'}
+                                        </span>
+                                        {(rec.location || rec.description) && (
+                                            <div className={styles.recordLocation}>
+                                                <MapPin size={12} />
+                                                <span>{rec.location || rec.description || ''}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             );
                         })
