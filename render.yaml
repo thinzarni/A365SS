@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: hr-requests-client
+    name: a365ss
     runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
