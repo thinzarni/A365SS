@@ -35,4 +35,15 @@ export default defineConfig({
       process.env.VITE_WS_URL || 'wss://iam.omnicloudapi.com/api'
     ),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+        }
+      }
+    }
+  }
 })
