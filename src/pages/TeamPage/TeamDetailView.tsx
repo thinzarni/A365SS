@@ -48,7 +48,7 @@ export default function TeamDetailView() {
         queryKey: ['team-detail', teamSyskey],
         queryFn: async () => {
             const res = await mainClient.post(TEAM_BY_ID, {
-                syskey: teamSyskey,
+                teamsyskey: teamSyskey,
             });
             const raw = res.data?.data;
             if (!raw) throw new Error('No team detail data');
@@ -227,7 +227,9 @@ function ManagementCard({ member, onClick }: { member: TeamMember; onClick: () =
                 />
             </div>
             <div className={styles.mgmtCardName}>{member.userName}</div>
-            {member.rank && <span className={styles.rankBadge}>{member.rank}</span>}
+            {member.rank && !['1', '2', '3', '4', '5', '6'].includes(member.priority) && (
+                <span className={styles.rankBadge}>{member.rank}</span>
+            )}
             {member.role && <span className={styles.roleBadge}>{member.role}</span>}
             <div className={styles.mgmtCardIds}>
                 {member.employeeId && (
@@ -262,7 +264,9 @@ function MemberRow({ member, onClick }: { member: TeamMember; onClick: () => voi
             <div className={styles.memberRowInfo}>
                 <div className={styles.memberRowName}>{member.userName}</div>
                 <div className={styles.memberRowMeta}>
-                    {member.rank && <span className={styles.rankBadgeSm}>{member.rank}</span>}
+                    {member.rank && !['1', '2', '3', '4', '5', '6'].includes(member.priority) && (
+                        <span className={styles.rankBadgeSm}>{member.rank}</span>
+                    )}
                     {member.department && (
                         <span className={styles.metaText}>
                             <Building2 size={10} /> {member.department}
