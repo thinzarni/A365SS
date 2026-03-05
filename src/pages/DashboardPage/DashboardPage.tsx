@@ -24,6 +24,7 @@ import {
     Calendar,
     Users,
     MapPin,
+    Network,
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
@@ -164,6 +165,7 @@ const quickActions = [
     { path: '/reservations', icon: Calendar, label: 'Reservations', bg: '#e0e7ff', color: '#4338ca' },
     { path: '/leave-summary', icon: TreePalm, label: 'Leave Summary', bg: '#ccfbf1', color: '#0d9488' },
     { path: '/team', icon: Users, label: 'Team', bg: '#fef9c3', color: '#ca8a04' },
+    { path: '/organization', icon: Network, label: 'Organization', bg: '#e0f2fe', color: '#0369a1' },
 ];
 
 /* ── Component ── */

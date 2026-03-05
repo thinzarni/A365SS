@@ -1,7 +1,7 @@
 import { useState, /* useEffect, */ type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mail, Lock, Hash, QrCode, /* Monitor, */ Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Hash, QrCode, /* Monitor, */ Eye, EyeOff, Globe } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
@@ -20,7 +20,7 @@ export default function LoginPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     // const { instance, inProgress } = useMsal();
-    const { login, setUser, /* isAuthenticated */ } = useAuthStore();
+    const { login, setUser, setLanguage, language /* isAuthenticated */ } = useAuthStore();
 
     const [mode, setMode] = useState<AuthMode>('otp');
     const [email, setEmail] = useState('');
@@ -144,14 +144,16 @@ export default function LoginPage() {
                 const menuData = menuRes.data;
                 finalToken = menuData.access_token || menuData.data?.access_token || iamToken;
                 finalRefresh = menuData.refresh_token || menuData.data?.refresh_token || '';
+                const fetchedMenuList = menuData.datalist || menuData.data?.datalist || menuData.cards || [];
 
-                // Update store with final token
+                // Update store with final token and menu list
                 login({
                     token: finalToken,
                     refreshToken: finalRefresh || undefined,
                     userId,
                     domain: domainId,
                     domains: domainList,
+                    menuList: fetchedMenuList,
                 });
 
                 setUser({
@@ -296,6 +298,16 @@ export default function LoginPage() {
                 <div className={styles['login__hero-content']}>
                     <img src="/favicon.png" className={styles['login__hero-logo']} alt="A365 Logo" />
                     <h1 className={styles['login__hero-title']}>HR Self-Service Portal</h1>
+                    <div className={styles.login__lang_wrapper}>
+                        <button
+                            type="button"
+                            className={styles.login__lang_btn}
+                            onClick={() => setLanguage(language === 'en' ? 'my' : 'en')}
+                        >
+                            <Globe size={14} className="mr-2" />
+                            {language === 'en' ? 'English' : 'Myanmar'}
+                        </button>
+                    </div>
                     <p className={styles['login__hero-subtitle']}>
                         Submit requests, manage approvals, and track your HR activities — all in one place.
                     </p>

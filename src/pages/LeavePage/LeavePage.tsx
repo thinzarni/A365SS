@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Palmtree } from 'lucide-react';
+import { Plus, Palmtree, FileSpreadsheet } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
+import LeaveImportModal from './LeaveImportModal';
 import type { LeaveType, RequestModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import { LEAVE_TYPES, LEAVE_LIST } from '../../config/api-routes';
@@ -17,6 +18,8 @@ import '../../styles/pages.css';
 export default function LeavePage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const [importModalOpen, setImportModalOpen] = useState(false);
 
     /* ── Leave types (for resolving syskey → description) ── */
     const { data: leaveTypes = [] } = useQuery<LeaveType[]>({
@@ -82,12 +85,24 @@ export default function LeavePage() {
                             {leaveHistory.length} {leaveHistory.length === 1 ? 'leave request' : 'leave requests'}
                         </p>
                     </div>
-                    <Button onClick={() => navigate('/requests/new?type=leave')}>
-                        <Plus size={16} />
-                        {t('leave.apply')}
-                    </Button>
+                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                        <Button variant="ghost" onClick={() => setImportModalOpen(true)}>
+                            <FileSpreadsheet size={16} />
+                            {t('leave.importExcel')}
+                        </Button>
+                        <Button onClick={() => navigate('/requests/new?type=leave')}>
+                            <Plus size={16} />
+                            {t('leave.apply')}
+                        </Button>
+                    </div>
                 </div>
             </div>
+
+            <LeaveImportModal
+                open={importModalOpen}
+                onClose={() => setImportModalOpen(false)}
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ['leaveHistory'] })}
+            />
 
             {/* ── Summary cards ── */}
             <div className={styles['leave-summary']}>
@@ -132,33 +147,39 @@ export default function LeavePage() {
                         <p className="empty-state__desc">Your leave requests will appear here.</p>
                     </div>
                 ) : (
-                    <table className={styles['leave-table']}>
-                        <thead>
-                            <tr>
-                                <th>Ref #</th>
-                                <th>Date</th>
-                                <th>Type</th>
-                                <th>Duration</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {(leaveHistory as any[]).map((leave, i) => (
-                                <tr key={leave.syskey || i} onClick={() => navigate(`/requests/${leave.syskey}`)}>
-                                    <td>{leave.refno || '—'}</td>
-                                    <td className={styles['leave-table__dates']}>
-                                        {displayDate(leave.startdate || leave.date) || '—'}
-                                        {leave.enddate && leave.enddate !== leave.startdate ? ` → ${displayDate(leave.enddate)}` : ''}
-                                    </td>
-                                    <td>{resolveLeaveType(leave)}</td>
-                                    <td>{leave.duration != null && leave.duration !== '' ? `${leave.duration} day(s)` : '—'}</td>
-                                    <td>
-                                        <StatusBadge status={String(leave.requeststatus)} />
-                                    </td>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className={styles['leave-table']}>
+                            <thead>
+                                <tr>
+                                    <th>Employee ID</th>
+                                    <th>Employee Name</th>
+                                    <th>Ref #</th>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Duration</th>
+                                    <th>Status</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {(leaveHistory as any[]).map((leave, i) => (
+                                    <tr key={leave.syskey || i} onClick={() => navigate(`/requests/${leave.syskey}`)}>
+                                        <td>{leave.eid || '—'}</td>
+                                        <td>{leave.name || '—'}</td>
+                                        <td>{leave.refno || '—'}</td>
+                                        <td className={styles['leave-table__dates']}>
+                                            {displayDate(leave.startdate || leave.date) || '—'}
+                                            {leave.enddate && leave.enddate !== leave.startdate ? ` → ${displayDate(leave.enddate)}` : ''}
+                                        </td>
+                                        <td>{resolveLeaveType(leave)}</td>
+                                        <td>{leave.duration != null && leave.duration !== '' ? `${leave.duration} day(s)` : '—'}</td>
+                                        <td>
+                                            <StatusBadge status={String(leave.requeststatus)} />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
         </div>

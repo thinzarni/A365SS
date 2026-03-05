@@ -253,6 +253,15 @@ export interface RoomRequest {
   [key: string]: unknown;
 }
 
+export interface MenuListItem {
+  id: string;
+  label: string;
+  iconPath: string;
+  type?: number;
+  badgeCount?: number;
+  router?: string;
+}
+
 export interface UserProfile {
   syskey: string;
   userid: string;

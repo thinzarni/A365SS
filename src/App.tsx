@@ -9,6 +9,9 @@ import { router } from './router';
 import './i18n';
 import './styles/global.css';
 
+import { useAuthStore } from './stores/auth-store';
+import { useTranslation } from 'react-i18next';
+
 const msalInstance = new PublicClientApplication(msalConfig);
 const msalPromise = msalInstance.initialize();
 
@@ -24,10 +27,18 @@ const queryClient = new QueryClient({
 
 export default function App() {
   const [ready, setReady] = useState(false);
+  const { i18n } = useTranslation();
+  const language = useAuthStore((state) => state.language);
 
   useEffect(() => {
     msalPromise.then(() => setReady(true));
   }, []);
+
+  useEffect(() => {
+    if (i18n.language !== language) {
+      i18n.changeLanguage(language);
+    }
+  }, [language, i18n]);
 
   return (
     <MsalProvider instance={msalInstance}>

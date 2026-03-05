@@ -48,13 +48,16 @@ export default function DomainSelectPage() {
 
             const data = menuRes.data;
             if (data.access_token) {
-                // Update store with final token and selected domain
+                const fetchedMenuList = data.datalist || data.data?.datalist || data.cards || [];
+
+                // Update store with final token, selected domain and menu list
                 login({
                     token: data.access_token,
                     refreshToken: data.refresh_token,
                     userId: userId || '',
                     domain: domainId,
                     domains: domains, // keep them
+                    menuList: fetchedMenuList,
                 });
 
                 setUser({

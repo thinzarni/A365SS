@@ -183,51 +183,57 @@ export default function RequestListPage() {
                         </Button>
                     </div>
                 ) : (
-                    <table className={styles['requests-table']}>
-                        <thead>
-                            <tr>
-                                <th>Ref #</th>
-                                <th>Date</th>
-                                <th>Type</th>
-                                <th>Details</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {(requests as any[]).map((req, i) => {
-                                const typeDesc = req.requesttypedesc || req.requesttype || '';
-                                const variant = getTypeVariant(typeDesc);
-                                const Icon = getTypeIcon(variant);
-                                return (
-                                    <tr key={req.syskey || i} onClick={() => navigate(`/requests/${req.syskey}`)}>
-                                        <td>{req.refno || '—'}</td>
-                                        <td className={styles['requests-table__dates']}>
-                                            {displayDate(req.startdate || req.date) || '—'}
-                                            {req.enddate && req.enddate !== req.startdate ? ` → ${displayDate(req.enddate)}` : ''}
-                                        </td>
-                                        <td>
-                                            <span className={`${styles['requests-type-badge']} ${styles[`requests-type-badge--${variant}`]}`}>
-                                                <Icon size={12} />
-                                                {typeDesc || '—'}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            {req.requestsubtypedesc
-                                                ? req.requestsubtypedesc
-                                                : req.duration != null && req.duration !== ''
-                                                    ? `${req.duration} day(s)`
-                                                    : req.amount
-                                                        ? `${Number(req.amount).toLocaleString()}`
-                                                        : '—'}
-                                        </td>
-                                        <td>
-                                            <StatusBadge status={String(req.requeststatus)} />
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className={styles['requests-table']}>
+                            <thead>
+                                <tr>
+                                    <th>Employee ID</th>
+                                    <th>Employee Name</th>
+                                    <th>Ref #</th>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Details</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(requests as any[]).map((req, i) => {
+                                    const typeDesc = req.requesttypedesc || req.requesttype || '';
+                                    const variant = getTypeVariant(typeDesc);
+                                    const Icon = getTypeIcon(variant);
+                                    return (
+                                        <tr key={req.syskey || i} onClick={() => navigate(`/requests/${req.syskey}`)}>
+                                            <td>{req.eid || '—'}</td>
+                                            <td>{req.name || '—'}</td>
+                                            <td>{req.refno || '—'}</td>
+                                            <td className={styles['requests-table__dates']}>
+                                                {displayDate(req.startdate || req.date) || '—'}
+                                                {req.enddate && req.enddate !== req.startdate ? ` → ${displayDate(req.enddate)}` : ''}
+                                            </td>
+                                            <td>
+                                                <span className={`${styles['requests-type-badge']} ${styles[`requests-type-badge--${variant}`]}`}>
+                                                    <Icon size={12} />
+                                                    {typeDesc || '—'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {req.requestsubtypedesc
+                                                    ? req.requestsubtypedesc
+                                                    : req.duration != null && req.duration !== ''
+                                                        ? `${req.duration} day(s)`
+                                                        : req.amount
+                                                            ? `${Number(req.amount).toLocaleString()}`
+                                                            : '—'}
+                                            </td>
+                                            <td>
+                                                <StatusBadge status={String(req.requeststatus)} />
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
         </div>

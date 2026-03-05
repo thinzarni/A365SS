@@ -20,6 +20,7 @@
     },
     "nav": {
         "dashboard": "Dashboard",
+        "organization": "Organization",
         "myRequests": "My Requests",
         "approvals": "Approvals",
         "reservations": "Reservations",
@@ -70,7 +71,8 @@
         "used": "Used",
         "remaining": "Remaining",
         "summary": "Leave Summary",
-        "apply": "Apply Leave"
+        "apply": "Apply Leave",
+        "importExcel": "Import Excel"
     },
     "claim": {
         "title": "Claims",

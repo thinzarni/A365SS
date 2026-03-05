@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import authClient from '../lib/auth-client';
-import { RENEW_TOKEN } from '../config/api-routes';
-import type { UserProfile } from '../types/models';
+import type { UserProfile, MenuListItem } from '../types/models';
 
 interface AuthState {
     token: string | null;
@@ -10,15 +9,16 @@ interface AuthState {
     userId: string | null;
     domain: string | null;
     domains: any[];
+    menuList: MenuListItem[];
     user: UserProfile | null;
+    language: 'en' | 'my';
     isAuthenticated: boolean;
 
     // Actions
-    login: (data: { token: string; refreshToken?: string; userId: string; domain?: string; domains?: any[] }) => void;
+    login: (data: { token: string; refreshToken?: string; userId: string; domain?: string; domains?: any[]; menuList?: MenuListItem[] }) => void;
     setUser: (user: UserProfile) => void;
-    setDomain: (domain: string) => void;
-    setDomains: (domains: any[]) => void;
-    renewToken: () => Promise<void>;
+    setLanguage: (lang: 'en' | 'my') => void;
+    switchDomain: (domainId: string, domainName: string) => Promise<void>;
     logout: () => void;
 }
 
@@ -30,7 +30,9 @@ export const useAuthStore = create<AuthState>()(
             userId: null,
             domain: null,
             domains: [],
+            menuList: [],
             user: null,
+            language: 'en',
             isAuthenticated: false,
 
             login: (data) => {
@@ -40,28 +42,53 @@ export const useAuthStore = create<AuthState>()(
                     userId: data.userId,
                     domain: data.domain || null,
                     domains: data.domains || [],
+                    menuList: data.menuList || [],
                     isAuthenticated: true,
                 });
             },
 
             setUser: (user) => set({ user }),
+            setLanguage: (lang) => set({ language: lang }),
+            switchDomain: async (domainId, domainName) => {
+                const { token, userId, user } = get();
+                if (!token || !userId) return;
 
-            setDomain: (domain) => set({ domain }),
-
-            setDomains: (domains) => set({ domains }),
-
-            renewToken: async () => {
-                const { token } = get();
                 try {
-                    const res = await authClient.post(RENEW_TOKEN, {}, {
-                        headers: { Authorization: `Bearer ${token}` },
+                    const { APP_ID } = await import('../lib/auth-token');
+
+                    const menuRes = await authClient.post('get-menu', {
+                        usersyskey: user?.usersyskey || '',
+                        role: user?.role || '',
+                        user_id: userId,
+                        app_id: APP_ID,
+                        domain: domainId,
+                        type: userId,
+                        domain_name: domainName,
+                    }, {
+                        headers: { Authorization: `Bearer ${token}` }
                     });
-                    const newToken = res.data?.token || res.data?.datalist?.token;
-                    if (newToken) {
-                        set({ token: newToken });
+
+                    const data = menuRes.data;
+                    if (data.access_token) {
+                        const fetchedMenuList = data.datalist || data.data?.datalist || data.cards || [];
+
+                        set({
+                            token: data.access_token,
+                            refreshToken: data.refresh_token || null,
+                            domain: domainId,
+                            menuList: fetchedMenuList,
+                        });
+
+                        set((state) => ({
+                            user: state.user ? { ...state.user, domainName } : null
+                        }));
+
+                        // Optional: Clear other stores or trigger re-fetch if needed
+                        // For example, if you have a way to reset React Query cache
                     }
-                } catch {
-                    get().logout();
+                } catch (error) {
+                    console.error('Failed to switch domain:', error);
+                    throw error;
                 }
             },
 
@@ -72,6 +99,7 @@ export const useAuthStore = create<AuthState>()(
                     userId: null,
                     domain: null,
                     domains: [],
+                    menuList: [],
                     user: null,
                     isAuthenticated: false,
                 });
@@ -85,7 +113,9 @@ export const useAuthStore = create<AuthState>()(
                 userId: state.userId,
                 domain: state.domain,
                 domains: state.domains,
+                menuList: state.menuList,
                 user: state.user,
+                language: state.language,
                 isAuthenticated: state.isAuthenticated,
             }),
         }

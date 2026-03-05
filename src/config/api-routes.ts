@@ -58,6 +58,20 @@ export const CURRENCY_TYPES = 'hxm/setup/getSetupList/currency';
 export const MEMBER_LIST = 'hxm/integration/memberlist';
 export const PHOTO_UPLOAD = 'hxm/integration/photoupload';
 
+// ── Organization Structure ──
+export const ORG_UNITS = 'hxm/org/units';
+export const ORG_HIERARCHY = 'hxm/org/hierarchy';
+export const ORG_UNIT_DETAIL = 'hxm/org/units/:syskey';
+export const ORG_SPLIT = 'hxm/org/split';
+export const ORG_MERGE = 'hxm/org/merge';
+export const ORG_DEPT_HEADS = 'hxm/org/dept-heads';
+export const ORG_EMPLOYEE_MAPPING = 'hxm/org/employee-mapping';
+export const ORG_IMPORT_MAPPING = 'hxm/org/import-mapping';
+export const ORG_EXPORT_MAPPING = 'hxm/org/export-mapping';
+export const ORG_REPORT_HIERARCHY = 'hxm/org/report/hierarchy';
+export const ORG_REPORT_EMPLOYEES = 'hxm/org/report/employees';
+export const ORG_AUDIT_LOGS = 'hxm/org/audit-logs';
+
 // ── Team (uses mainUrl / a365.omnicloudapi.com) ──
 export const TEAM_LIST = 'api/teams';
 export const TEAM_BY_ID = 'api/teams/by-id';

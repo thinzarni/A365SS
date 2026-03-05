@@ -116,32 +116,38 @@ export default function ClaimsPage() {
                         <p className="empty-state__desc">Create your first expense claim to get started.</p>
                     </div>
                 ) : (
-                    <table className={styles['claims-table']}>
-                        <thead>
-                            <tr>
-                                <th>Ref #</th>
-                                <th>Date</th>
-                                <th>Type</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {(claims as any[]).map((claim, i) => (
-                                <tr key={claim.syskey || i} onClick={() => navigate(`/claims/${claim.syskey}`)}>
-                                    <td>{claim.refno || '—'}</td>
-                                    <td>{displayDate(claim.startdate || claim.date) || '—'}</td>
-                                    <td>{claim.claimtype || claim.requesttype || '—'}</td>
-                                    <td className={styles['claims-table__amount']}>
-                                        {(claim.amount || 0).toLocaleString()}
-                                    </td>
-                                    <td>
-                                        <StatusBadge status={String(claim.requeststatus)} />
-                                    </td>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className={styles['claims-table']}>
+                            <thead>
+                                <tr>
+                                    <th>Employee ID</th>
+                                    <th>Employee Name</th>
+                                    <th>Ref #</th>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {(claims as any[]).map((claim, i) => (
+                                    <tr key={claim.syskey || i} onClick={() => navigate(`/claims/${claim.syskey}`)}>
+                                        <td>{claim.eid || '—'}</td>
+                                        <td>{claim.name || '—'}</td>
+                                        <td>{claim.refno || '—'}</td>
+                                        <td>{displayDate(claim.startdate || claim.date) || '—'}</td>
+                                        <td>{claim.claimtype || claim.requesttype || '—'}</td>
+                                        <td className={styles['claims-table__amount']}>
+                                            {(claim.amount || 0).toLocaleString()}
+                                        </td>
+                                        <td>
+                                            <StatusBadge status={String(claim.requeststatus)} />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
         </div>

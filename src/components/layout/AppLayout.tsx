@@ -21,6 +21,7 @@ import {
     Check,
     Loader2
 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../stores/auth-store';
 import { useChatStore } from '../../stores/chat-store';
 import authClient from '../../lib/auth-client';
@@ -30,6 +31,7 @@ import styles from './AppLayout.module.css';
 
 const navItems = [
     { path: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
+    { path: '/organization', icon: Users, labelKey: 'nav.organization' },
     { path: '/requests', icon: ClipboardList, labelKey: 'nav.myRequests' },
     { path: '/approvals', icon: CheckSquare, labelKey: 'nav.approvals' },
     { path: '/reservations', icon: Calendar, labelKey: 'nav.reservations' },
@@ -44,7 +46,7 @@ const navItems = [
 export default function AppLayout() {
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
-    const { user, domain, domains, token, userId, login, setUser, logout } = useAuthStore();
+    const { user, domain, domains, token, userId, login, setUser, logout, menuList, setLanguage } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showDomainMenu, setShowDomainMenu] = useState(false);
     const [switchingDomainId, setSwitchingDomainId] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export default function AppLayout() {
 
     const toggleLanguage = () => {
         const nextLang = i18n.language === 'en' ? 'my' : 'en';
-        i18n.changeLanguage(nextLang);
+        setLanguage(nextLang);
     };
 
     const userInitial = user?.name
@@ -169,7 +171,32 @@ export default function AppLayout() {
 
                 <nav className={styles.sidebar__nav}>
                     <span className={styles['sidebar__section-label']}>Main</span>
-                    {navItems.map(({ path, icon: Icon, labelKey }) => {
+                    {navItems.filter(item => {
+                        // If menuList is empty, show everything (fallback for when API doesn't provide it)
+                        if (!menuList || menuList.length === 0) return true;
+
+                        const menuKeys: Record<string, string[]> = {
+                            'nav.dashboard': ['dashboard'],
+                            'nav.organization': ['organization', 'org structure'],
+                            'nav.myRequests': ['request', 'my request', 'requests'],
+                            'nav.approvals': ['approval', 'attendance approval', 'approvals'],
+                            'nav.reservations': ['reservation', 'reservations'],
+                            'nav.leave': ['leave', 'leave request'],
+                            'nav.claims': ['claim', 'claim request', 'claims'],
+                            'nav.leaveSummary': ['leave summary', 'leave'],
+                            'nav.holidays': ['holiday', 'holidays'],
+                            'nav.chat': ['chat'],
+                            'nav.team': ['team', 'my team'],
+                        };
+
+                        const allowedLabels = menuList.map(m => m.label.toLowerCase());
+                        const requiredLabels = menuKeys[item.labelKey] || [];
+
+                        // Dashboard is usually always visible or handled separately
+                        if (item.labelKey === 'nav.dashboard') return true;
+
+                        return requiredLabels.some(label => allowedLabels.includes(label));
+                    }).map(({ path, icon: Icon, labelKey }) => {
                         const isChat = labelKey === 'nav.chat';
                         const unreadCount = useChatStore((state) => state.unreadCount);
 
@@ -259,13 +286,14 @@ export default function AppLayout() {
                     <button className={styles.sidebar__logout} onClick={handleLogout} title={t('auth.logout')}>
                         <LogOut size={18} />
                     </button>
-                </div>
+                </div >
 
-            </aside>
+            </aside >
 
             {/* ── Mobile Overlay ── */}
-            <div
-                className={`${styles.sidebar__overlay} ${sidebarOpen ? styles['sidebar__overlay--visible'] : ''}`}
+            < div
+                className={`${styles.sidebar__overlay} ${sidebarOpen ? styles['sidebar__overlay--visible'] : ''}`
+                }
                 onClick={() => setSidebarOpen(false)}
             />
 
@@ -283,7 +311,7 @@ export default function AppLayout() {
                     <div className={styles['main__header-right']}>
                         <button className={styles['main__lang-btn']} onClick={toggleLanguage}>
                             <Globe size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                            {i18n.language === 'en' ? 'EN' : 'MY'}
+                            {i18n.language === 'en' ? 'English' : 'Myanmar'}
                         </button>
                     </div>
                 </header>
@@ -293,6 +321,6 @@ export default function AppLayout() {
                     <Outlet />
                 </div>
             </main>
-        </div>
+        </div >
     );
 }

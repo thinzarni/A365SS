@@ -1,0 +1,95 @@
+.import-modal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: var(--space-2);
+}
+
+.import-modal__steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.import-modal__step {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.import-modal__step-title {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-neutral-900);
+}
+
+.import-modal__template-btn {
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-primary-600);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.import-modal__preview {
+    margin-top: var(--space-4);
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.import-modal__preview-header {
+    background: var(--color-neutral-50);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-neutral-200);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.import-modal__preview-title {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+}
+
+.import-modal__table-container {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.import-modal__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-xs);
+}
+
+.import-modal__table th {
+    background: var(--color-neutral-50);
+    padding: var(--space-2) var(--space-4);
+    text-align: left;
+    font-weight: var(--font-semibold);
+    color: var(--color-neutral-600);
+    border-bottom: 1px solid var(--color-neutral-200);
+    position: sticky;
+    top: 0;
+}
+
+.import-modal__table td {
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--color-neutral-100);
+    color: var(--color-neutral-700);
+}
+
+.import-modal__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    margin-top: var(--space-6);
+}

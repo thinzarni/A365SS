@@ -74,6 +74,34 @@
     line-height: var(--leading-relaxed);
 }
 
+.login__lang_wrapper {
+    margin-bottom: var(--space-6);
+    display: flex;
+    justify-content: center;
+}
+
+.login__lang_btn {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+}
+
+.login__lang_btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
 /* ── Right Panel (Form) ── */
 .login__form-panel {
     width: 520px;
