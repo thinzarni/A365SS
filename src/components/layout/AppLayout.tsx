@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useLocation, NavLink, Outlet, useNavigate, ScrollRestoration } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
     LayoutDashboard,
@@ -16,9 +17,15 @@ import {
     Users,
     CalendarDays,
     MessageSquare,
+    ChevronDown,
+    Check,
+    Loader2
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import { useChatStore } from '../../stores/chat-store';
+import authClient from '../../lib/auth-client';
+import mainClient from '../../lib/main-client';
+import { APP_ID } from '../../lib/auth-token';
 import styles from './AppLayout.module.css';
 
 const navItems = [
@@ -37,8 +44,51 @@ const navItems = [
 export default function AppLayout() {
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
-    const { user, domain, logout } = useAuthStore();
+    const { user, domain, domains, token, userId, login, setUser, logout } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [showDomainMenu, setShowDomainMenu] = useState(false);
+    const [switchingDomainId, setSwitchingDomainId] = useState<string | null>(null);
+
+    const location = useLocation();
+    const isChatPage = location.pathname.startsWith('/chat');
+
+    // Fetch Profile data for Avatar
+    const { data: profile } = useQuery({
+        queryKey: ['employee-profile', user?.usersyskey],
+        queryFn: async () => {
+            if (!user?.usersyskey) return null;
+            try {
+                const res = await mainClient.post('api/employees/profile');
+                return res.data?.data ?? res.data ?? null;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 5 * 60 * 1000,
+        enabled: !!user?.usersyskey
+    });
+
+    // Sync Profile data to authStore so global tasks like Chat know the display name
+    useEffect(() => {
+        if (profile && user) {
+            const realName = profile.k_eng_name || profile.username || profile.name || user.name;
+            const updatedProfileObj = { ...user, name: realName, photo: profile.profile };
+            if (user.name !== realName || user.photo !== profile.profile) {
+                setUser(updatedProfileObj as any);
+            }
+        }
+    }, [profile, user, setUser]);
+
+    // Close domain menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (!(e.target as Element).closest('.domain-switcher-container')) {
+                setShowDomainMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const handleLogout = () => {
         logout();
@@ -53,6 +103,50 @@ export default function AppLayout() {
     const userInitial = user?.name
         ? user.name.charAt(0).toUpperCase()
         : user?.userid?.charAt(0).toUpperCase() || 'U';
+
+    const handleSwitchDomain = async (targetDomain: any) => {
+        const targetId = targetDomain.id || targetDomain.domaincode;
+        if (targetId === domain) return;
+
+        setSwitchingDomainId(targetId);
+        try {
+            const menuRes = await authClient.post('get-menu', {
+                usersyskey: user?.usersyskey || '',
+                role: user?.role || '',
+                user_id: userId,
+                app_id: APP_ID,
+                domain: targetId,
+                type: userId,
+                domain_name: targetDomain.name || targetDomain.domainname,
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const data = menuRes.data;
+            if (data.access_token) {
+                login({
+                    token: data.access_token,
+                    refreshToken: data.refresh_token,
+                    userId: userId || '',
+                    domain: targetId,
+                    domains: domains,
+                });
+                setUser({
+                    ...user,
+                    domainName: targetDomain.name || targetDomain.domainname,
+                } as any);
+
+                setShowDomainMenu(false);
+                // Reload to refresh all store data across the app for the new domain
+                window.location.href = '/dashboard';
+            }
+        } catch (err) {
+            console.error('Failed to switch domain:', err);
+        } finally {
+            setSwitchingDomainId(null);
+        }
+    };
+
 
     return (
         <div className={styles.layout}>
@@ -101,15 +195,72 @@ export default function AppLayout() {
                 </nav>
 
                 <div className={styles.sidebar__user}>
-                    <div className={styles.sidebar__avatar}>{userInitial}</div>
-                    <div className={styles['sidebar__user-info']}>
-                        <div className={styles['sidebar__user-name']}>{user?.name || user?.userid || 'User'}</div>
-                        <div className={styles['sidebar__user-role']}>{user?.domainName || user?.position || domain || ''}</div>
+                    <div
+                        className={styles.sidebar__avatar}
+                        style={{ cursor: 'pointer', backgroundImage: profile?.profile ? `url(${profile.profile})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: profile?.profile ? 'transparent' : '' }}
+                        onClick={() => {
+                            if (sidebarOpen) setSidebarOpen(false);
+                            navigate('/profile');
+                        }}
+                        title="View Profile"
+                    >
+                        {!profile?.profile && userInitial}
                     </div>
+
+                    <div className={`${styles['sidebar__user-info']} domain-switcher-container`} style={{ position: 'relative' }}>
+                        <div className={styles['sidebar__user-name']}>{user?.name || user?.userid || 'User'}</div>
+
+                        {domains && domains.length > 1 ? (
+                            <button
+                                className={styles['sidebar__domain-switch-btn']}
+                                onClick={() => setShowDomainMenu(!showDomainMenu)}
+                                title="Switch Domain"
+                            >
+                                <span className={styles['sidebar__user-role']}>
+                                    {switchingDomainId ? 'Switching...' : (user?.domainName || user?.position || domain || 'Select Domain')}
+                                </span>
+                                <ChevronDown size={14} style={{ color: '#94a3b8' }} />
+                            </button>
+                        ) : (
+                            <div className={styles['sidebar__user-role']}>{user?.domainName || user?.position || domain || ''}</div>
+                        )}
+
+                        {/* Domain Dropdown Menu */}
+                        {showDomainMenu && domains && domains.length > 1 && (
+                            <div className={styles.domainMenu}>
+                                <div className={styles.domainMenuHeader}>Switch Organization</div>
+                                <div className={styles.domainMenuList}>
+                                    {domains.map((d: any) => {
+                                        const dId = d.id || d.domaincode;
+                                        const dName = d.name || d.domainname;
+                                        const isActive = dId === domain;
+                                        const isSwitching = switchingDomainId === dId;
+                                        return (
+                                            <button
+                                                key={dId}
+                                                className={`${styles.domainMenuItem} ${isActive ? styles.domainMenuItemActive : ''}`}
+                                                onClick={() => handleSwitchDomain(d)}
+                                                disabled={!!switchingDomainId}
+                                            >
+                                                <span className={styles.domainMenuItemName}>{dName}</span>
+                                                {isSwitching ? (
+                                                    <Loader2 size={14} className="animate-spin" style={{ color: '#3b82f6' }} />
+                                                ) : isActive ? (
+                                                    <Check size={14} style={{ color: '#10b981' }} />
+                                                ) : null}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <button className={styles.sidebar__logout} onClick={handleLogout} title={t('auth.logout')}>
                         <LogOut size={18} />
                     </button>
                 </div>
+
             </aside>
 
             {/* ── Mobile Overlay ── */}
@@ -119,7 +270,7 @@ export default function AppLayout() {
             />
 
             {/* ── Main Content ── */}
-            <main className={styles.main}>
+            <main className={`${styles.main} ${isChatPage ? styles['main--chat'] : ''}`}>
                 <header className={styles.main__header}>
                     <div className={styles['main__header-left']}>
                         <button
@@ -137,7 +288,8 @@ export default function AppLayout() {
                     </div>
                 </header>
 
-                <div className={styles.main__content}>
+                <div className={`${styles.main__content} ${isChatPage ? styles['main__content--chat'] : ''}`}>
+                    <ScrollRestoration />
                     <Outlet />
                 </div>
             </main>
