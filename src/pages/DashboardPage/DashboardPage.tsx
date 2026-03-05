@@ -24,7 +24,6 @@ import {
     Calendar,
     Users,
     MapPin,
-    Network,
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
@@ -74,9 +73,9 @@ function formatDateYYYYMMDD(d: Date): string {
 }
 
 function getGreeting(hour: number): string {
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hour < 12) return 'dashboard.greetingMorning';
+    if (hour < 17) return 'dashboard.greetingAfternoon';
+    return 'dashboard.greetingEvening';
 }
 
 function formatLiveTime(d: Date): { time: string; ampm: string } {
@@ -88,14 +87,6 @@ function formatLiveTime(d: Date): { time: string; ampm: string } {
     return { time: `${h}:${m}:${s}`, ampm };
 }
 
-function formatDateDisplay(d: Date): string {
-    return d.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    });
-}
 
 function getAttTypeName(type: number): { label: string; color: string; dot: string } {
     switch (type) {
@@ -165,12 +156,11 @@ const quickActions = [
     { path: '/reservations', icon: Calendar, label: 'Reservations', bg: '#e0e7ff', color: '#4338ca' },
     { path: '/leave-summary', icon: TreePalm, label: 'Leave Summary', bg: '#ccfbf1', color: '#0d9488' },
     { path: '/team', icon: Users, label: 'Team', bg: '#fef9c3', color: '#ca8a04' },
-    { path: '/organization', icon: Network, label: 'Organization', bg: '#e0f2fe', color: '#0369a1' },
 ];
 
 /* ── Component ── */
 export default function DashboardPage() {
-    useTranslation();
+    const { t, i18n } = useTranslation();
     const { user, userId, domain } = useAuthStore();
     const [now, setNow] = useState(new Date());
 
@@ -182,7 +172,12 @@ export default function DashboardPage() {
 
     const greeting = getGreeting(now.getHours());
     const { time: liveTime, ampm } = formatLiveTime(now);
-    const dateDisplay = formatDateDisplay(now);
+    const dateDisplay = now.toLocaleDateString(i18n.language === 'my' ? 'my-MM' : 'en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
     const todayStr = formatDateYYYYMMDD(now);
 
     // ── Fetch monthly summary ──
@@ -229,7 +224,7 @@ export default function DashboardPage() {
     const timeOut = useMemo(() => records.find(r => r.type === 602), [records]);
     const workingHours = useMemo(() => calcWorkingHours(records), [records]);
 
-    const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const monthName = now.toLocaleDateString(i18n.language === 'my' ? 'my-MM' : 'en-US', { month: 'long', year: 'numeric' });
     const isLoading = summaryLoading || homeLoading;
 
     // ── Loading state ──
@@ -257,7 +252,7 @@ export default function DashboardPage() {
             {/* ── Hero / Greeting ── */}
             <section className={styles.hero}>
                 <div className={styles.heroLeft}>
-                    <div className={styles.greeting}>{greeting},</div>
+                    <div className={styles.greeting}>{t(greeting)},</div>
                     <div className={styles.userName}>{user?.name || user?.userid || 'User'}</div>
                     <div className={styles.dateStr}>{dateDisplay}</div>
                 </div>
@@ -274,39 +269,39 @@ export default function DashboardPage() {
                 <div className={styles.clockCard}>
                     <div className={styles.clockLabel}>
                         <LogIn size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                        Time In
+                        {t('dashboard.timeIn')}
                     </div>
                     <div className={`${styles.clockValue} ${!timeIn ? styles.dimmed : ''}`}>
                         {timeIn?.time || liveTime.slice(0, -3)}
                     </div>
                     <span className={`${styles.clockTag} ${styles.tagIn}`}>
-                        {timeIn ? 'Recorded' : 'Not yet'}
+                        {timeIn ? t('dashboard.recorded') : t('dashboard.notYet')}
                     </span>
                 </div>
 
                 <div className={styles.clockCard}>
                     <div className={styles.clockLabel}>
                         <LogOut size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                        Time Out
+                        {t('dashboard.timeOut')}
                     </div>
                     <div className={`${styles.clockValue} ${!timeOut ? styles.dimmed : ''}`}>
                         {timeOut?.time || '--:--'}
                     </div>
                     <span className={`${styles.clockTag} ${styles.tagOut}`}>
-                        {timeOut ? 'Recorded' : 'Waiting'}
+                        {timeOut ? t('dashboard.recorded') : t('dashboard.waiting')}
                     </span>
                 </div>
 
                 <div className={styles.clockCard}>
                     <div className={styles.clockLabel}>
                         <Timer size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                        Working Hours
+                        {t('dashboard.workingHours')}
                     </div>
                     <div className={`${styles.clockValue} ${workingHours === '00:00' ? styles.dimmed : ''}`}>
                         {workingHours}
                     </div>
                     <span className={`${styles.clockTag} ${styles.tagHours}`}>
-                        {timeIn && !timeOut ? 'In progress' : timeOut ? 'Complete' : 'Idle'}
+                        {timeIn && !timeOut ? t('dashboard.inProgress') : timeOut ? t('dashboard.complete') : t('dashboard.idle')}
                     </span>
                 </div>
             </section>
@@ -314,7 +309,7 @@ export default function DashboardPage() {
             {/* ── Monthly Summary Stats ── */}
             <section>
                 <div className={styles.sectionHeader}>
-                    <h2 className={styles.sectionTitle}>Monthly Overview</h2>
+                    <h2 className={styles.sectionTitle}>{t('dashboard.monthlyOverview')}</h2>
                     <span className={styles.monthLabel}>{monthName}</span>
                 </div>
                 <div className={styles.statsRow}>
@@ -329,7 +324,7 @@ export default function DashboardPage() {
                                 /{summary?.requiredWorkDays ?? summary?.workingDays ?? 0}
                             </span>
                         </div>
-                        <div className={styles.statLabel}>Attendance</div>
+                        <div className={styles.statLabel}>{t('dashboard.attendance')}</div>
                     </div>
 
                     <div
@@ -340,7 +335,7 @@ export default function DashboardPage() {
                         <div className={styles.statValue}>
                             {summary?.checkinCount ?? summary?.checkInCount ?? 0}
                         </div>
-                        <div className={styles.statLabel}>Check-ins</div>
+                        <div className={styles.statLabel}>{t('dashboard.checkins')}</div>
                     </div>
 
                     <div
@@ -351,7 +346,7 @@ export default function DashboardPage() {
                         <div className={styles.statValue}>
                             {summary?.activityCount ?? 0}
                         </div>
-                        <div className={styles.statLabel}>Activities</div>
+                        <div className={styles.statLabel}>{t('dashboard.activities')}</div>
                     </div>
 
                     <div
@@ -362,7 +357,7 @@ export default function DashboardPage() {
                         <div className={styles.statValue}>
                             {summary?.leaveCount ?? 0}
                         </div>
-                        <div className={styles.statLabel}>Leaves</div>
+                        <div className={styles.statLabel}>{t('dashboard.leaves')}</div>
                     </div>
                 </div>
             </section>
@@ -372,20 +367,20 @@ export default function DashboardPage() {
                 <div className={styles.sectionHeader}>
                     <h2 className={styles.sectionTitle}>
                         <Activity size={20} style={{ color: '#2563eb' }} />
-                        Today Record
+                        {t('dashboard.todayRecord')}
                         {records.length > 0 && (
                             <span className={styles.sectionBadge}>{records.length}</span>
                         )}
                     </h2>
                     <Link to="/attendance" className={styles.viewAllLink}>
-                        View More
+                        {t('dashboard.viewMore')}
                     </Link>
                 </div>
                 <div className={styles.recordsGrid}>
                     {records.length === 0 ? (
                         <div className={styles.emptyRecord}>
                             <Clock size={32} style={{ marginBottom: 8, opacity: 0.3 }} />
-                            <div>No attendance records for today</div>
+                            <div>{t('dashboard.noRecords')}</div>
                         </div>
                     ) : (
                         records.map((rec, idx) => {
@@ -416,10 +411,10 @@ export default function DashboardPage() {
                                                 : styles.success
                                             }`}>
                                             {rec.remoteapproval === 3 || rec.backdateapproval === 3
-                                                ? 'Rejected'
+                                                ? t('request.reject')
                                                 : rec.remoteapproval === 1 || rec.backdateapproval === 1
-                                                    ? 'Pending'
-                                                    : 'Synced'}
+                                                    ? t('status.pending')
+                                                    : t('dashboard.synced')}
                                         </span>
                                         {(rec.location || rec.description) && (
                                             <div className={styles.recordLocation}>
@@ -438,17 +433,31 @@ export default function DashboardPage() {
             {/* ── Quick Actions ── */}
             <section>
                 <div className={styles.sectionHeader}>
-                    <h2 className={styles.sectionTitle}>Quick Actions</h2>
+                    <h2 className={styles.sectionTitle}>{t('dashboard.quickActions')}</h2>
                 </div>
                 <div className={styles.actionsGrid}>
-                    {quickActions.map(({ path, icon: Icon, label, bg, color }) => (
-                        <Link key={path} to={path} className={styles.actionCard}>
-                            <div className={styles.actionIcon} style={{ background: bg, color }}>
-                                <Icon size={24} />
-                            </div>
-                            <span className={styles.actionLabel}>{label}</span>
-                        </Link>
-                    ))}
+                    {quickActions.map(({ path, icon: Icon, label, bg, color }) => {
+                        // Map the hardcoded label to its translation key
+                        const labelKeyMap: Record<string, string> = {
+                            'Leave': 'nav.leave',
+                            'Claims': 'nav.claims',
+                            'Holidays': 'nav.holidays',
+                            'Approvals': 'nav.approvals',
+                            'Requests': 'nav.myRequests',
+                            'Reservations': 'nav.reservations',
+                            'Leave Summary': 'nav.leaveSummary',
+                            'Team': 'nav.team'
+                        };
+                        const key = labelKeyMap[label] || label;
+                        return (
+                            <Link key={path} to={path} className={styles.actionCard}>
+                                <div className={styles.actionIcon} style={{ background: bg, color }}>
+                                    <Icon size={24} />
+                                </div>
+                                <span className={styles.actionLabel}>{t(key)}</span>
+                            </Link>
+                        );
+                    })}
                 </div>
             </section>
         </div>

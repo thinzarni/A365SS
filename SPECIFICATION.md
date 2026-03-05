@@ -56,11 +56,6 @@
 
 ### 4.4. Team & Organization
 - **Team View**: Hierarchical view of team members, reporting lines, and attendance status.
-- **Organization Structure**: Visual representation of the company hierarchy (Head Office, States, Regions, etc.).
-- **Unit Management**: CRUD operations for organizational units with detailed mapping.
-- **Restructuring Operations**: Support for complex organizational changes like Splitting or Merging units with automatic employee reassignment.
-- **Audit & Compliance**: Full historical tracking of structural changes with timestamped logs and user attribution.
-- **Data Exchange**: Support for importing/exporting organization templates and mappings.
 
 ### 4.5. Collaboration (Chat)
 - **Messaging**: Real-time 1:1 and group messaging.

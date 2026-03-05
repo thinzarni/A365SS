@@ -20,6 +20,7 @@ interface AuthState {
     setLanguage: (lang: 'en' | 'my') => void;
     switchDomain: (domainId: string, domainName: string) => Promise<void>;
     logout: () => void;
+    renewToken: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -103,6 +104,30 @@ export const useAuthStore = create<AuthState>()(
                     user: null,
                     isAuthenticated: false,
                 });
+            },
+
+            renewToken: async () => {
+                const { refreshToken, userId } = get();
+                if (!refreshToken || !userId) throw new Error('No refresh token available');
+
+                try {
+                    const res = await authClient.post('renew-token', {
+                        refresh_token: refreshToken,
+                        userid: userId,
+                    });
+
+                    if (res.data?.access_token) {
+                        set({
+                            token: res.data.access_token,
+                            refreshToken: res.data.refresh_token || refreshToken,
+                        });
+                    } else {
+                        throw new Error('Failed to refresh token');
+                    }
+                } catch (error) {
+                    console.error('Renew token failed:', error);
+                    throw error;
+                }
             },
         }),
         {

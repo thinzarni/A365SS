@@ -125,7 +125,7 @@
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: var(--space-4);
 }
 
 .sidebar__org_select {
@@ -207,6 +207,9 @@
 .sidebar__user-info {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .sidebar__user-name {
@@ -224,18 +227,26 @@
 }
 
 .sidebar__logout {
-    background: none;
-    border: none;
-    color: var(--color-neutral-500);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--color-neutral-400);
     cursor: pointer;
     padding: var(--space-2);
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    width: 100%;
 }
 
 .sidebar__logout:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--color-neutral-300);
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
 }
 
 /* ── Domain Switcher Menu ── */

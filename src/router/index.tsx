@@ -22,7 +22,6 @@ import DashboardPage from '../pages/DashboardPage/DashboardPage';
 import ChatPage from '../pages/ChatPage/ChatPage';
 import DomainSelectPage from '../pages/DomainSelectPage/DomainSelectPage';
 import ProfilePage from '../pages/ProfilePage/ProfilePage';
-import OrganizationStructurePage from '../pages/OrganizationStructurePage/OrganizationStructurePage';
 
 export const router = createBrowserRouter([
     // ── Guest routes ──
@@ -61,7 +60,6 @@ export const router = createBrowserRouter([
                     { path: '/team/member/:memberSyskey', element: <MemberDetailView /> },
                     { path: '/chat', element: <ChatPage /> },
                     { path: '/profile', element: <ProfilePage /> },
-                    { path: '/organization', element: <OrganizationStructurePage /> },
                 ],
             },
         ],

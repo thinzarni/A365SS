@@ -92,8 +92,8 @@ export default function ChatPage() {
     const [activeReactionTab, setActiveReactionTab] = useState<'all' | string>('all');
 
     // ── Pagination State ───────────────────────────────────────────
-    const [convPage, setConvPage] = useState(1);
-    const [msgPage, setMsgPage] = useState(1);
+    const [_, setConvPage] = useState(1);
+    const [__, setMsgPage] = useState(1);
 
     // ── Contact search debounce (mirrors Flutter's _searchUser) ──────
     const [contactChatLoading, setContactChatLoading] = useState(false);

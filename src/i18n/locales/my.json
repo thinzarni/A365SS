@@ -18,7 +18,6 @@
     },
     "nav": {
         "dashboard": "ဒက်ရှ်ဘုတ်",
-        "organization": "ဖွဲ့စည်းပုံ",
         "myRequests": "ကျွန်ုပ်၏ တောင်းဆိုမှုများ",
         "approvals": "ခွင့်ပြုချက်များ",
         "reservations": "ကြိုတင်မှာကြားမှုများ",
@@ -115,5 +114,29 @@
         "time": "အချိန်",
         "back": "နောက်သို့",
         "cancel": "မလုပ်တော့ပါ"
+    },
+    "dashboard": {
+        "greetingMorning": "မင်္ဂလာနံနက်ခင်းပါ",
+        "greetingAfternoon": "မင်္ဂလာနေ့လည်ခင်းပါ",
+        "greetingEvening": "မင်္ဂလာညနေခင်းပါ",
+        "timeIn": "အဝင်မှတ်တမ်း",
+        "timeOut": "အထွက်မှတ်တမ်း",
+        "workingHours": "အလုပ်လုပ်ချိန်",
+        "recorded": "မှတ်တမ်းတင်ပြီး",
+        "notYet": "မရှိသေးပါ",
+        "waiting": "စောင့်ဆိုင်းဆဲ",
+        "inProgress": "ဆောင်ရွက်ဆဲ",
+        "complete": "ပြီးဆုံး",
+        "idle": "ဘာမှမရှိ",
+        "monthlyOverview": "လစဉ်အကျဉ်းချုပ်",
+        "attendance": "တက်ရောက်မှု",
+        "checkins": "Check-ins",
+        "activities": "လုပ်ဆောင်ချက်များ",
+        "leaves": "ခွင့်ရက်များ",
+        "todayRecord": "ယနေ့မှတ်တမ်း",
+        "viewMore": "ပိုမိုကြည့်ရှုရန်",
+        "noRecords": "ယနေ့အတွက် တက်ရောက်မှုမှတ်တမ်းမရှိပါ",
+        "quickActions": "အမြန်လုပ်ဆောင်ချက်များ",
+        "synced": "စင့်ခ်လုပ်ပြီး"
     }
 }

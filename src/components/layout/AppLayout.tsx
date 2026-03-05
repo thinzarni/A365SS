@@ -21,7 +21,6 @@ import {
     Check,
     Loader2
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../stores/auth-store';
 import { useChatStore } from '../../stores/chat-store';
 import authClient from '../../lib/auth-client';
@@ -31,7 +30,6 @@ import styles from './AppLayout.module.css';
 
 const navItems = [
     { path: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
-    { path: '/organization', icon: Users, labelKey: 'nav.organization' },
     { path: '/requests', icon: ClipboardList, labelKey: 'nav.myRequests' },
     { path: '/approvals', icon: CheckSquare, labelKey: 'nav.approvals' },
     { path: '/reservations', icon: Calendar, labelKey: 'nav.reservations' },
@@ -177,7 +175,6 @@ export default function AppLayout() {
 
                         const menuKeys: Record<string, string[]> = {
                             'nav.dashboard': ['dashboard'],
-                            'nav.organization': ['organization', 'org structure'],
                             'nav.myRequests': ['request', 'my request', 'requests'],
                             'nav.approvals': ['approval', 'attendance approval', 'approvals'],
                             'nav.reservations': ['reservation', 'reservations'],
@@ -221,79 +218,80 @@ export default function AppLayout() {
                     })}
                 </nav>
 
-                <div className={styles.sidebar__user}>
-                    <div
-                        className={styles.sidebar__avatar}
-                        style={{ cursor: 'pointer', backgroundImage: profile?.profile ? `url(${profile.profile})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: profile?.profile ? 'transparent' : '' }}
-                        onClick={() => {
-                            if (sidebarOpen) setSidebarOpen(false);
-                            navigate('/profile');
-                        }}
-                        title="View Profile"
-                    >
-                        {!profile?.profile && userInitial}
+                <div className={`${styles.sidebar__user} domain-switcher-container`} style={{ position: 'relative' }}>
+                    <div className={styles.sidebar__user_meta}>
+                        <div
+                            className={styles.sidebar__avatar}
+                            style={{ cursor: 'pointer', backgroundImage: profile?.profile ? `url(${profile.profile})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: profile?.profile ? 'transparent' : '' }}
+                            onClick={() => {
+                                if (sidebarOpen) setSidebarOpen(false);
+                                navigate('/profile');
+                            }}
+                            title="View Profile"
+                        >
+                            {!profile?.profile && userInitial}
+                        </div>
+
+                        <div className={styles['sidebar__user-info']}>
+                            <div className={styles['sidebar__user-name']}>{user?.name || user?.userid || 'User'}</div>
+
+                            {domains && domains.length > 1 ? (
+                                <button
+                                    className={styles['sidebar__domain-switch-btn']}
+                                    onClick={() => setShowDomainMenu(!showDomainMenu)}
+                                    title="Switch Domain"
+                                >
+                                    <span className={styles['sidebar__user-role']}>
+                                        {switchingDomainId ? 'Switching...' : (user?.domainName || user?.position || domain || 'Select Domain')}
+                                    </span>
+                                    <ChevronDown size={14} style={{ color: '#94a3b8' }} />
+                                </button>
+                            ) : (
+                                <div className={styles['sidebar__user-role']}>{user?.domainName || user?.position || domain || ''}</div>
+                            )}
+                        </div>
                     </div>
 
-                    <div className={`${styles['sidebar__user-info']} domain-switcher-container`} style={{ position: 'relative' }}>
-                        <div className={styles['sidebar__user-name']}>{user?.name || user?.userid || 'User'}</div>
-
-                        {domains && domains.length > 1 ? (
-                            <button
-                                className={styles['sidebar__domain-switch-btn']}
-                                onClick={() => setShowDomainMenu(!showDomainMenu)}
-                                title="Switch Domain"
-                            >
-                                <span className={styles['sidebar__user-role']}>
-                                    {switchingDomainId ? 'Switching...' : (user?.domainName || user?.position || domain || 'Select Domain')}
-                                </span>
-                                <ChevronDown size={14} style={{ color: '#94a3b8' }} />
-                            </button>
-                        ) : (
-                            <div className={styles['sidebar__user-role']}>{user?.domainName || user?.position || domain || ''}</div>
-                        )}
-
-                        {/* Domain Dropdown Menu */}
-                        {showDomainMenu && domains && domains.length > 1 && (
-                            <div className={styles.domainMenu}>
-                                <div className={styles.domainMenuHeader}>Switch Organization</div>
-                                <div className={styles.domainMenuList}>
-                                    {domains.map((d: any) => {
-                                        const dId = d.id || d.domaincode;
-                                        const dName = d.name || d.domainname;
-                                        const isActive = dId === domain;
-                                        const isSwitching = switchingDomainId === dId;
-                                        return (
-                                            <button
-                                                key={dId}
-                                                className={`${styles.domainMenuItem} ${isActive ? styles.domainMenuItemActive : ''}`}
-                                                onClick={() => handleSwitchDomain(d)}
-                                                disabled={!!switchingDomainId}
-                                            >
-                                                <span className={styles.domainMenuItemName}>{dName}</span>
-                                                {isSwitching ? (
-                                                    <Loader2 size={14} className="animate-spin" style={{ color: '#3b82f6' }} />
-                                                ) : isActive ? (
-                                                    <Check size={14} style={{ color: '#10b981' }} />
-                                                ) : null}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <button className={styles.sidebar__logout} onClick={handleLogout} title={t('auth.logout')}>
-                        <LogOut size={18} />
+                    <button className={styles.sidebar__logout} onClick={handleLogout}>
+                        <LogOut size={16} />
+                        <span>{t('auth.logout')}</span>
                     </button>
-                </div >
 
-            </aside >
+                    {/* Domain Dropdown Menu - Moved outside info but inside relative container */}
+                    {showDomainMenu && domains && domains.length > 1 && (
+                        <div className={styles.domainMenu}>
+                            <div className={styles.domainMenuHeader}>Switch Organization</div>
+                            <div className={styles.domainMenuList}>
+                                {domains.map((d: any) => {
+                                    const dId = d.id || d.domaincode;
+                                    const dName = d.name || d.domainname;
+                                    const isActive = dId === domain;
+                                    const isSwitching = switchingDomainId === dId;
+                                    return (
+                                        <button
+                                            key={dId}
+                                            className={`${styles.domainMenuItem} ${isActive ? styles.domainMenuItemActive : ''}`}
+                                            onClick={() => handleSwitchDomain(d)}
+                                            disabled={!!switchingDomainId}
+                                        >
+                                            <span className={styles.domainMenuItemName}>{dName}</span>
+                                            {isSwitching ? (
+                                                <Loader2 size={14} className="animate-spin" style={{ color: '#3b82f6' }} />
+                                            ) : isActive ? (
+                                                <Check size={14} style={{ color: '#10b981' }} />
+                                            ) : null}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </aside>
 
             {/* ── Mobile Overlay ── */}
-            < div
-                className={`${styles.sidebar__overlay} ${sidebarOpen ? styles['sidebar__overlay--visible'] : ''}`
-                }
+            <div
+                className={`${styles.sidebar__overlay} ${sidebarOpen ? styles['sidebar__overlay--visible'] : ''}`}
                 onClick={() => setSidebarOpen(false)}
             />
 
@@ -321,6 +319,6 @@ export default function AppLayout() {
                     <Outlet />
                 </div>
             </main>
-        </div >
+        </div>
     );
 }

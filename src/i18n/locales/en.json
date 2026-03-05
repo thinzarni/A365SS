@@ -20,7 +20,6 @@
     },
     "nav": {
         "dashboard": "Dashboard",
-        "organization": "Organization",
         "myRequests": "My Requests",
         "approvals": "Approvals",
         "reservations": "Reservations",
@@ -117,5 +116,29 @@
         "time": "Time",
         "back": "Back",
         "cancel": "Cancel"
+    },
+    "dashboard": {
+        "greetingMorning": "Good Morning",
+        "greetingAfternoon": "Good Afternoon",
+        "greetingEvening": "Good Evening",
+        "timeIn": "Time In",
+        "timeOut": "Time Out",
+        "workingHours": "Working Hours",
+        "recorded": "Recorded",
+        "notYet": "Not yet",
+        "waiting": "Waiting",
+        "inProgress": "In progress",
+        "complete": "Complete",
+        "idle": "Idle",
+        "monthlyOverview": "Monthly Overview",
+        "attendance": "Attendance",
+        "checkins": "Check-ins",
+        "activities": "Activities",
+        "leaves": "Leaves",
+        "todayRecord": "Today Record",
+        "viewMore": "View More",
+        "noRecords": "No attendance records for today",
+        "quickActions": "Quick Actions",
+        "synced": "Synced"
     }
 }
