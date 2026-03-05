@@ -88,6 +88,18 @@ function calcLeaveDuration(startDate: string, endDate: string, startPeriod: stri
     return dur > 0 ? String(dur) : '0.5';
 }
 
+/* ── Map UI key → API description for matching requestTypes ── */
+const TYPE_DESC_MAP: Record<string, string> = {
+    leave: 'Leave',
+    overtime: 'Overtime',
+    wfh: 'Work From Home',
+    transportation: 'Transportation',
+    reservation: 'Reservation',
+    travel: 'Travel',
+    cashadvance: 'Cash Advance',
+    other: 'General',
+};
+
 /* ══════════════════════════════════════════════════════════════
    Component
    ══════════════════════════════════════════════════════════════ */
@@ -269,18 +281,6 @@ export default function NewRequestPage() {
         },
         enabled: selectedType === 'leave',
     });
-
-    // Map UI key → API description for matching requestTypes
-    const TYPE_DESC_MAP: Record<string, string> = {
-        leave: 'Leave',
-        overtime: 'Overtime',
-        wfh: 'Work From Home',
-        transportation: 'Transportation',
-        reservation: 'Reservation',
-        travel: 'Travel',
-        cashadvance: 'Cash Advance',
-        other: 'General',
-    };
 
     // Reset sub-fields when type changes; auto-default subType for ALL types
     useEffect(() => {

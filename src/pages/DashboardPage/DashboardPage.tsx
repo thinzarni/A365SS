@@ -62,6 +62,8 @@ interface HomeData {
     attendanceList?: AttendanceRecord[];
 }
 
+type HomeDataResponse = AttendanceRecord[] | HomeData;
+
 /* ── Helpers ── */
 function formatDateYYYYMMDD(d: Date): string {
     const y = d.getFullYear();
@@ -167,7 +169,7 @@ const quickActions = [
 /* ── Component ── */
 export default function DashboardPage() {
     useTranslation();
-    const { user } = useAuthStore();
+    const { user, userId, domain } = useAuthStore();
     const [now, setNow] = useState(new Date());
 
     // Live clock
@@ -196,14 +198,17 @@ export default function DashboardPage() {
     });
 
     // ── Fetch today's attendance records ──
-    const { data: homeData, isLoading: homeLoading } = useQuery<HomeData | null>({
+    const { data: homeData, isLoading: homeLoading } = useQuery<HomeDataResponse | null>({
         queryKey: ['dashboard-home', todayStr],
         queryFn: async () => {
             try {
-                const res = await mainClient.post(`api/checkin/home?startDate=${todayStr}`);
-                return res.data?.data ?? res.data ?? null;
+                const res = await mainClient.post(`api/checkin/list?date=${todayStr}`, {
+                    userid: userId,
+                    domain: domain,
+                });
+                return res.data?.data ?? res.data ?? [];
             } catch {
-                return null;
+                return [];
             }
         },
         staleTime: 30_000,
@@ -211,7 +216,10 @@ export default function DashboardPage() {
 
     // ── Derived data ──
     const records: AttendanceRecord[] = useMemo(() => {
-        const list = homeData?.attendanceList ?? [];
+        const list = Array.isArray(homeData)
+            ? homeData
+            : (homeData as HomeData)?.attendanceList ?? [];
+
         return list.filter(r => [601, 602, 603, 604].includes(r.type));
     }, [homeData]);
 
