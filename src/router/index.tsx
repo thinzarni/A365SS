@@ -21,6 +21,7 @@ import HolidaysPage from '../pages/HolidaysPage/HolidaysPage';
 import DashboardPage from '../pages/DashboardPage/DashboardPage';
 import ChatPage from '../pages/ChatPage/ChatPage';
 import DomainSelectPage from '../pages/DomainSelectPage/DomainSelectPage';
+import ProfilePage from '../pages/ProfilePage/ProfilePage';
 
 export const router = createBrowserRouter([
     // ── Guest routes ──
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
                     { path: '/team/view/:teamSyskey', element: <TeamDetailView /> },
                     { path: '/team/member/:memberSyskey', element: <MemberDetailView /> },
                     { path: '/chat', element: <ChatPage /> },
+                    { path: '/profile', element: <ProfilePage /> },
                 ],
             },
         ],

@@ -25,15 +25,18 @@ interface ChatState {
     messages: Message[];
     isLoading: boolean;
     error: string | null;
+    hasMoreConversations: boolean;
+    hasMoreMessages: boolean;
     searchResults: User[];
     userTeams: Team[];
     unreadCount: number;
     activeParticipants: any[];
     conversationParticipants: User[];
+    typingStatus: Record<string, { isTyping: boolean, username: string }>;
 
     // Actions
-    fetchConversations: () => Promise<void>;
-    fetchMessages: (conversationId: string) => Promise<void>;
+    fetchConversations: (page?: number) => Promise<void>;
+    fetchMessages: (conversationId: string, page?: number) => Promise<void>;
     setActiveConversation: (id: string | null) => void;
     sendMessage: (content: string, contentType?: string, parentMessageId?: string, mentions?: string[]) => Promise<void>;
     markAsRead: (conversationId: string, messageId?: string) => Promise<void>;
@@ -51,9 +54,10 @@ interface ChatState {
     changeGroupName: (conversationId: string, newName: string) => Promise<boolean>;
     // Attachment upload (mirrors Flutter's sendAttachment / fileToBase64New)
     sendAttachment: (files: File[]) => Promise<void>;
+
     // WebSocket
-    connectSocket: () => void;
-    disconnectSocket: () => void;
+    setTypingStatus: (conversationId: string, username: string, isTyping: boolean) => void;
+    receiveSocketMessage: (decodedMessage: any) => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -64,18 +68,22 @@ export const useChatStore = create<ChatState>()(
             messages: [],
             isLoading: false,
             error: null,
+            hasMoreConversations: true,
+            hasMoreMessages: true,
             searchResults: [],
             userTeams: [],
             unreadCount: 0,
             activeParticipants: [],
             conversationParticipants: [],
+            typingStatus: {},
 
-            fetchConversations: async () => {
-                set({ isLoading: true, error: null });
+            fetchConversations: async (page = 1) => {
+                // If appending, don't show full-page loading placeholder
+                if (page === 1) set({ isLoading: true, error: null });
                 try {
                     const response = await chatClient.post<ChatListResponse>(
-                        `${routes.CHAT_CONV_LIST}?curPage=1&pageSize=50`,
-                        { curPage: 1, pageSize: 50 }
+                        `${routes.CHAT_CONV_LIST}?curPage=${page}&pageSize=20`,
+                        { curPage: page, pageSize: 20 }
                     );
 
                     const rawData = response.data.data;
@@ -107,9 +115,37 @@ export const useChatStore = create<ChatState>()(
                         };
                     });
 
-                    const totalUnreadArr = mappedConversations.reduce((acc: number, c: any) => acc + (c.count || 0), 0);
+                    // ── PRESERVE NEW EMPTY GROUPS AND MERGE ──
+                    set(state => {
+                        // Deduplicate if merging
+                        const existingMap = new Map(state.conversations.map(c => [c.syskey, c]));
+                        if (page > 1) {
+                            mappedConversations.forEach(c => {
+                                if (!existingMap.has(c.syskey)) existingMap.set(c.syskey, c);
+                            });
+                        }
 
-                    set({ conversations: mappedConversations, unreadCount: totalUnreadArr as any, isLoading: false });
+                        let finalConvs = page === 1 ? [...mappedConversations] : Array.from(existingMap.values());
+
+                        if (state.activeConversationId) {
+                            const activeInNew = finalConvs.find(c => c.syskey === state.activeConversationId);
+                            if (!activeInNew) {
+                                const activeInOld = state.conversations.find(c => c.syskey === state.activeConversationId);
+                                if (activeInOld) {
+                                    // Prepend the missing active conversation so it stays in the list
+                                    finalConvs = [activeInOld, ...finalConvs];
+                                }
+                            }
+                        }
+
+                        const totalUnread = finalConvs.reduce((acc, c) => acc + (c.count || 0), 0);
+                        return {
+                            conversations: finalConvs,
+                            unreadCount: totalUnread,
+                            isLoading: false,
+                            hasMoreConversations: mappedConversations.length >= 20,
+                        };
+                    });
                 } catch (err: any) {
                     console.error('[fetchConversations] Error details:', err.response?.data);
                     const errorMsg = err.response?.data?.message || err.message;
@@ -117,10 +153,10 @@ export const useChatStore = create<ChatState>()(
                 }
             },
 
-            fetchMessages: async (conversationId: string) => {
-                // Only show full loading spinner on first load (no existing messages for this convo).
+            fetchMessages: async (conversationId: string, page = 1) => {
+                // Only show full loading spinner on first load and first page (no existing messages for this convo).
                 // Polling updates should be silent to avoid message list flickering every 5s.
-                const isFirstLoad = get().activeConversationId !== conversationId || get().messages.length === 0;
+                const isFirstLoad = page === 1 && (get().activeConversationId !== conversationId || get().messages.length === 0);
                 if (isFirstLoad) {
                     set({ isLoading: true, error: null, activeConversationId: conversationId });
                 } else {
@@ -128,10 +164,10 @@ export const useChatStore = create<ChatState>()(
                     set({ activeConversationId: conversationId });
                 }
                 try {
-                    const response = await chatClient.post<MessageListResponse>(`${routes.CHAT_MSG_LIST}?curPage=1&pageSize=50`, {
+                    const response = await chatClient.post<MessageListResponse>(`${routes.CHAT_MSG_LIST}?curPage=${page}&pageSize=20`, {
                         conversation_id: conversationId,
-                        curPage: 1,
-                        pageSize: 50
+                        curPage: page,
+                        pageSize: 20
                     });
 
                     const rawData = response.data.data;
@@ -175,7 +211,24 @@ export const useChatStore = create<ChatState>()(
                         };
                     }).sort((a: any, b: any) => new Date(a.send_at).getTime() - new Date(b.send_at).getTime());
 
-                    set({ messages: mappedMessages, activeParticipants: participants, isLoading: false });
+                    set(state => {
+                        const existingMap = new Map(state.messages.map(m => [m.syskey, m]));
+                        if (page > 1) {
+                            mappedMessages.forEach((m: any) => {
+                                if (!existingMap.has(m.syskey)) existingMap.set(m.syskey, m);
+                            });
+                        }
+
+                        let finalMessages = page === 1 ? [...mappedMessages] : Array.from(existingMap.values());
+                        finalMessages.sort((a: any, b: any) => new Date(a.send_at).getTime() - new Date(b.send_at).getTime());
+
+                        return {
+                            messages: finalMessages,
+                            activeParticipants: page === 1 ? participants : state.activeParticipants,
+                            isLoading: false,
+                            hasMoreMessages: mappedMessages.length >= 20,
+                        };
+                    });
 
                     // Auto-mark as read if this conversation is currently active
                     const { activeConversationId } = get();
@@ -254,7 +307,7 @@ export const useChatStore = create<ChatState>()(
                         username,                        // ← display name for the recipient
                         teamname,                        // ← group name (empty for private chat)
                         domain: domain || 'demouat',    // ← tenant/domain
-                        mentions,                       // ← user IDs to mention
+                        mention: mentions?.length ? mentions : undefined, // ← user IDs to mention
                     };
                     // Flutter uses 'parent_message' (not parent_message_id) for replies
                     if (parentMessageId) payload.parent_message = parentMessageId;
@@ -838,9 +891,100 @@ export const useChatStore = create<ChatState>()(
                             return { conversations: updated, unreadCount: totalUnread };
                         });
                     }
+                    get().receiveSocketMessage(decoded);
                 });
 
                 chatSocket.connect();
+            },
+
+            // ── WebSocket Helpers ──
+            setTypingStatus: (conversationId, username, isTyping) => {
+                set(state => ({
+                    typingStatus: {
+                        ...state.typingStatus,
+                        [conversationId]: { isTyping, username }
+                    }
+                }));
+
+                // Auto clear typing status after 3 seconds
+                if (isTyping) {
+                    setTimeout(() => {
+                        set(state => ({
+                            typingStatus: {
+                                ...state.typingStatus,
+                                [conversationId]: { isTyping: false, username }
+                            }
+                        }));
+                    }, 3000);
+                }
+            },
+
+            receiveSocketMessage: (decoded) => {
+                const convId = String(decoded.conversation_id || '');
+                const msgSyskey = String(decoded.syskey || `temp_${Date.now()}_${Math.random()}`);
+
+                const newMessage: any = {
+                    syskey: msgSyskey,
+                    conversation_id: convId,
+                    sender_id: String(decoded.sender_id || decoded.syskey || ''),
+                    content: decoded.content || '',
+                    send_at: decoded.send_at || new Date().toISOString(),
+                    role: 'user',
+                    sender_name: decoded.username || decoded.sender_id || 'User',
+                    sender_image: decoded.sender_image || decoded.profile || '',
+                    status: 'sent',
+                    content_type: String(decoded.content_type || 'text'),
+                };
+
+                // Use functional update so we don't have stale state issues
+                set((state) => {
+                    const isFocus = state.activeConversationId === convId;
+
+                    // 1) Update messages if active
+                    let newMessages = state.messages;
+                    if (isFocus) {
+                        const exists = state.messages.some(m => String(m.syskey) === msgSyskey);
+                        // Also prevent appending our own message if it matches an optimistic send (based on content + time)
+                        const myId = useAuthStore.getState().userId;
+                        const isMySocketEcho = newMessage.sender_id === myId;
+                        const alreadyGotOptimistic = state.messages.some(m =>
+                            m.content === newMessage.content && m.status === 'sending'
+                        );
+
+                        if (!exists && !(isMySocketEcho && alreadyGotOptimistic)) {
+                            newMessages = [...state.messages, newMessage];
+                        }
+                    }
+
+                    // 2) Update conversations list & counts
+                    const convIndex = state.conversations.findIndex(c => String(c.syskey) === convId);
+                    let newConvs = [...state.conversations];
+                    let unreadAdjustment = 0;
+
+                    if (convIndex > -1) {
+                        const targetConv = { ...newConvs[convIndex] };
+                        targetConv.content = newMessage.content;
+                        targetConv.send_at = newMessage.send_at;
+
+                        if (!isFocus) {
+                            targetConv.count = (targetConv.count || 0) + 1;
+                            targetConv.isRead = false;
+                            unreadAdjustment = 1;
+                        }
+
+                        newConvs.splice(convIndex, 1);
+                        newConvs.unshift(targetConv);
+                    } else {
+                        // Background fetch if it's a completely new chat
+                        setTimeout(() => get().fetchConversations(), 500);
+                    }
+
+                    return {
+                        messages: newMessages,
+                        conversations: newConvs,
+                        unreadCount: state.unreadCount + unreadAdjustment
+                    };
+                });
             },
 
             disconnectSocket: () => {
@@ -848,7 +992,7 @@ export const useChatStore = create<ChatState>()(
             },
         }),
         {
-            name: 'chat-storage',
+            name: 'a365-chat-storage',
             partialize: (state) => ({ activeConversationId: state.activeConversationId }),
         }
     )

@@ -1,6 +1,6 @@
 .chatPage {
     display: flex;
-    height: 100vh;
+    height: 100%;
     background: #f8fafc;
     overflow: hidden;
 }
@@ -126,7 +126,7 @@
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    background: linear-gradient(135deg, #9e9aeb, #6366f1);
     color: white;
     display: flex;
     align-items: center;
@@ -196,7 +196,7 @@
 
 /* phone → green */
 .contactActionBtn:last-child:hover {
-    color: #3b82f6;
+    color: #4f46e5;
 }
 
 /* message → blue */
@@ -251,7 +251,7 @@
 }
 
 .newChatBtn {
-    background: #3b82f6;
+    background: #4f46e5;
     color: white;
     border: none;
     border-radius: 10px;
@@ -295,7 +295,7 @@
 
 .searchInput:focus {
     background: #fff;
-    border-color: #3b82f6;
+    border-color: #4f46e5;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -320,7 +320,7 @@
 .unreadDot {
     width: 10px;
     height: 10px;
-    background: #3b82f6;
+    background: #4f46e5;
     border-radius: 50%;
     box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
     flex-shrink: 0;
@@ -343,7 +343,7 @@
     width: 48px;
     height: 48px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -398,7 +398,7 @@
 }
 
 .unreadBadge {
-    background: #3b82f6;
+    background: #4f46e5;
     color: #fff;
     font-size: 0.7rem;
     font-weight: 700;
@@ -416,6 +416,8 @@
 /* ── Chat Room ── */
 .chatRoom {
     flex: 1;
+    min-width: 0;
+    /* Add to prevent flex child overflow */
     display: flex;
     flex-direction: column;
     background: #fff;
@@ -452,7 +454,12 @@
 .messageList {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
+    /* Added to hide any horizontal overflow */
     padding: 24px;
+    box-sizing: border-box;
+    /* Added to keep padding from widening the container */
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -466,7 +473,8 @@
 }
 
 .messageMe {
-    align-self: flex-end;
+    margin-left: auto;
+    /* Replaces align-self: flex-end, pushes safely to the right edge */
 }
 
 .messageOther {
@@ -519,9 +527,11 @@
 }
 
 .messageMe .messageBubble {
-    background: #3b82f6;
-    color: #fff;
+    background: #d6e1ff;
+    /* Very light, white-ish indigo that is easy on the eyes */
+    color: #1e293b;
     border-bottom-right-radius: 4px;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.08);
 }
 
 .messageOther .messageBubble {
@@ -790,7 +800,7 @@
 
 .inputWrapper:focus-within {
     background: #fff;
-    border-color: #3b82f6;
+    border-color: #4f46e5;
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
 }
 
@@ -805,7 +815,7 @@
 }
 
 .sendBtn {
-    background: #3b82f6;
+    background: #4f46e5;
     color: white;
     border: none;
     border-radius: 10px;
@@ -846,7 +856,7 @@
 
 .attachBtn:hover {
     background: #e2e8f0;
-    color: #3b82f6;
+    color: #4f46e5;
 }
 
 /* ── Pending attachment preview strip ── */
@@ -933,7 +943,7 @@
 
 .startBtn {
     margin-top: 20px;
-    background: #3b82f6;
+    background: #4f46e5;
     color: white;
     border: none;
     padding: 12px 24px;
@@ -984,7 +994,7 @@
         right: 24px;
         width: 56px;
         height: 56px;
-        background: #3b82f6;
+        background: #4f46e5;
         color: white;
         border: none;
         border-radius: 50%;
@@ -998,13 +1008,30 @@
 
 /* ── Mentions, Reactions & Settings ── */
 .mention {
-    color: #3b82f6;
+    color: #4f46e5;
+    background: rgba(79, 70, 229, 0.1);
     font-weight: 600;
     cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+    transition: background 0.2s ease, transform 0.1s ease;
+    display: inline-block;
+    margin: 0 2px;
 }
 
 .mention:hover {
-    text-decoration: underline;
+    background: rgba(79, 70, 229, 0.2);
+    transform: scale(1.02);
+}
+
+.messageMe .mention {
+    color: #4f46e5;
+    background: #e2e4fd;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.messageMe .mention:hover {
+    background: #f8fafc;
 }
 
 .mentionSuggestions {
@@ -1063,7 +1090,7 @@
 }
 
 .mentionSpecial {
-    color: #3b82f6;
+    color: #4f46e5;
     font-weight: 600;
 }
 
@@ -1275,7 +1302,7 @@
 }
 
 .tabActive {
-    color: #3b82f6;
+    color: #4f46e5;
 }
 
 .tabActive::after {
@@ -1285,7 +1312,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: #3b82f6;
+    background: #4f46e5;
     border-radius: 2px 2px 0 0;
 }
 
@@ -1317,7 +1344,7 @@
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    color: #3b82f6;
+    color: #4f46e5;
     flex-shrink: 0;
 }
 
@@ -1490,7 +1517,7 @@
     align-items: center;
     justify-content: space-between;
     background: #f1f5f9;
-    border-left: 3px solid #3b82f6;
+    border-left: 3px solid #4f46e5;
     border-radius: 8px;
     padding: 8px 12px;
     margin-bottom: 8px;
@@ -1507,7 +1534,7 @@
 .replyBannerLabel {
     font-size: 0.75rem;
     font-weight: 600;
-    color: #3b82f6;
+    color: #4f46e5;
 }
 
 .replyBannerContent {
@@ -1537,7 +1564,7 @@
 
 .replyingIndicator {
     font-size: 0.7rem;
-    color: #3b82f6;
+    color: #4f46e5;
     font-style: italic;
     padding: 2px 0;
 }
@@ -1717,7 +1744,7 @@
 .replyQuoteSender {
     font-weight: 600;
     font-size: 0.78rem;
-    color: #3b82f6;
+    color: #4f46e5;
     display: block;
     white-space: nowrap;
     overflow: hidden;
@@ -1753,7 +1780,7 @@
     display: flex;
     align-items: stretch;
     gap: 10px;
-    border-left: 3px solid #3b82f6;
+    border-left: 3px solid #4f46e5;
     padding: 8px 12px;
     background: #f0f6ff;
     border-radius: 8px;
@@ -1770,7 +1797,7 @@
 .replyBannerLabel {
     font-weight: 600;
     font-size: 0.78rem;
-    color: #3b82f6;
+    color: #4f46e5;
 }
 
 .replyBannerContent {

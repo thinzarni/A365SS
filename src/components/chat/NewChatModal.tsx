@@ -9,7 +9,7 @@ import styles from './NewChatModal.module.css';
 interface NewChatModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onChatCreated: (conversationId: string) => void;
+    onChatCreated: (conversationId: string, groupName?: string, oppositeName?: string, image?: string) => void;
 }
 
 type ChatType = 'individual' | 'group' | 'team';
@@ -80,7 +80,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onC
             // Check if already exists
             const existingId = await getConversationByUniqueName(chatroomId);
             if (existingId) {
-                onChatCreated(existingId);
+                onChatCreated(existingId, '', targetUser.name, targetUser.profile);
                 return;
             }
 
@@ -101,7 +101,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onC
             const chatName = `${groupName}_${Date.now()}`;
             payload = {
                 userId,
-                participants: selectedUsers.map(u => u.userid),
+                participants: [userId, ...selectedUsers.map(u => u.userid)],
                 groupName,
                 name: chatName,
                 type: 'normal',
@@ -145,7 +145,16 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onC
         if (payload) {
             const id = await createChat(payload);
             if (id) {
-                onChatCreated(id);
+                let pGroup = '';
+                let pOpposite = '';
+                let pImg = '';
+                if (type === 'group') pGroup = groupName;
+                else if (type === 'team' && selectedTeam) pGroup = `${selectedTeam.teamId} - ${selectedTeam.teamName}`;
+                else if (type === 'individual' && selectedUsers.length === 1) {
+                    pOpposite = selectedUsers[0].name;
+                    pImg = selectedUsers[0].profile;
+                }
+                onChatCreated(id, pGroup, pOpposite, pImg);
             }
         }
     };

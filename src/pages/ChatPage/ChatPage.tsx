@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback, useLayoutEffect } from 'react';
 import {
     Send, MoreVertical, MessageSquare, Plus, Search, ChevronLeft, Users, SquarePen,
     File as FileIcon, Settings, UserPlus, X, Download, ZoomIn, ChevronLeft as PrevIcon,
@@ -39,6 +39,7 @@ const getAttachmentName = (item: any) => {
 import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../stores/chat-store';
 import { useAuthStore } from '../../stores/auth-store';
+import { useChatSocket } from '../../lib/useChatSocket';
 import { NewChatModal } from '../../components/chat/NewChatModal';
 import styles from './ChatPage.module.css';
 
@@ -65,12 +66,15 @@ export default function ChatPage() {
         changeGroupName,
         searchUsers,
         searchResults,
-        connectSocket,
-        disconnectSocket,
         sendAttachment,
         getConversationByUniqueName,
         createChat,
+        typingStatus,
+        hasMoreConversations,
+        hasMoreMessages,
     } = useChatStore();
+
+    const { sendTypingIndicator } = useChatSocket();
 
     const { userId } = useAuthStore();
     const [inputText, setInputText] = useState('');
@@ -86,6 +90,10 @@ export default function ChatPage() {
     const [pendingPreviews, setPendingPreviews] = useState<string[]>([]); // object URLs for preview
     const [selectedMessageForReactions, setSelectedMessageForReactions] = useState<any>(null);
     const [activeReactionTab, setActiveReactionTab] = useState<'all' | string>('all');
+
+    // ── Pagination State ───────────────────────────────────────────
+    const [convPage, setConvPage] = useState(1);
+    const [msgPage, setMsgPage] = useState(1);
 
     // ── Contact search debounce (mirrors Flutter's _searchUser) ──────
     const [contactChatLoading, setContactChatLoading] = useState(false);
@@ -370,15 +378,9 @@ export default function ChatPage() {
     }, [lightboxOpen, closeLightbox, lightboxPrev, lightboxNext]);
 
     useEffect(() => {
-        fetchConversations();
+        setConvPage(1);
+        fetchConversations(1);
     }, [fetchConversations]);
-
-    // ── WebSocket: start on mount, teardown on unmount ──────────────
-    useEffect(() => {
-        connectSocket();
-        return () => disconnectSocket();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Periodically refresh conversations sidebar as a safety-net fallback
     // (socket delivers real-time; poll ensures consistency after brief disconnects)
@@ -399,22 +401,57 @@ export default function ChatPage() {
             prevMessagesRef.current = 0;
             hasSetUnreadDividerRef.current = false;
             setFirstUnreadIndex(null);
+            setMsgPage(1);
             // Safety-net poll for the active conversation (socket handles real-time additions)
             const interval = setInterval(() => {
-                fetchMessages(activeConversationId);
+                fetchMessages(activeConversationId, 1);
             }, 30000); // every 30s — reduced from 5s
             return () => clearInterval(interval);
         }
     }, [activeConversationId, fetchMessages]);
 
-    // Intelligent scroll to bottom + read tracking
-    useEffect(() => {
+    const prevLastMsgIdRef = useRef<string | null>(null);
+    const prevFirstMsgIdRef = useRef<string | null>(null);
+    const prevScrollHeightRef = useRef<number>(0);
+    const prevScrollTopRef = useRef<number>(0);
+
+    // ── Infinite Scroll Handlers ──
+    const handleConvListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 50 && hasMoreConversations && !isLoading) {
+            setConvPage(p => {
+                const n = p + 1;
+                fetchConversations(n);
+                return n;
+            });
+        }
+    }, [fetchConversations, hasMoreConversations, isLoading]);
+
+    const handleMsgListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        const { scrollTop, scrollHeight } = e.currentTarget;
+        prevScrollTopRef.current = scrollTop;
+        prevScrollHeightRef.current = scrollHeight;
+
+        // Scroll up to load older messages
+        if (scrollTop < 50 && hasMoreMessages && !isLoading && activeConversationId) {
+            setMsgPage(p => {
+                const n = p + 1;
+                fetchMessages(activeConversationId, n);
+                return n;
+            });
+        }
+    }, [fetchMessages, activeConversationId, hasMoreMessages, isLoading]);
+
+    // Intelligent scroll to bottom + read tracking + preserve position on pagination
+    useLayoutEffect(() => {
         if (scrollRef.current) {
             const container = scrollRef.current;
-            const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+            const currentFirstMsgId = messages.length > 0 ? messages[0].syskey : null;
+            const currentLastMsgId = messages.length > 0 ? messages[messages.length - 1].syskey : null;
+
             const isFirstLoad = prevMessagesRef.current === 0;
-            const hasNewMessage = messages.length > prevMessagesRef.current;
-            const lastMessageIsMine = messages.length > 0 && messages[messages.length - 1]?.sender_id === userId;
+            const hasNewMessageAtBottom = currentLastMsgId !== prevLastMsgIdRef.current && prevLastMsgIdRef.current !== null;
+            const isOlderMessagesPrepended = currentFirstMsgId !== prevFirstMsgIdRef.current && prevFirstMsgIdRef.current !== null;
 
             // Set the unread divider position on first load of a conversation
             // (marks the boundary between previously-read and new unread messages)
@@ -430,18 +467,33 @@ export default function ChatPage() {
                 hasSetUnreadDividerRef.current = true;
             }
 
-            if (isFirstLoad || (hasNewMessage && (isNearBottom || lastMessageIsMine))) {
-                setTimeout(() => { container.scrollTop = container.scrollHeight; }, 100);
+            if (isOlderMessagesPrepended && !hasNewMessageAtBottom && !isFirstLoad) {
+                // We loaded older messages at the top! Restore the visual scroll position
+                const heightDiff = container.scrollHeight - prevScrollHeightRef.current;
+                container.scrollTop = prevScrollTopRef.current + heightDiff;
+            } else {
+                const isNearBottom = prevScrollHeightRef.current - prevScrollTopRef.current - container.clientHeight < 100;
+                const lastMessageIsMine = messages.length > 0 && messages[messages.length - 1]?.sender_id === userId;
+
+                if (isFirstLoad || (hasNewMessageAtBottom && (isNearBottom || lastMessageIsMine))) {
+                    setTimeout(() => { container.scrollTop = container.scrollHeight; }, 100);
+                }
             }
 
             // Auto mark-read when near bottom and new messages arrive
-            if (hasNewMessage && isNearBottom && activeConversationId) {
+            const isNearBottomNow = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+            if (hasNewMessageAtBottom && isNearBottomNow && activeConversationId) {
                 markLatestMessageRead(activeConversationId);
                 // Clear the divider once user has scrolled to bottom and read new messages
                 setFirstUnreadIndex(null);
             }
+
+            prevMessagesRef.current = messages.length;
+            prevLastMsgIdRef.current = currentLastMsgId;
+            prevFirstMsgIdRef.current = currentFirstMsgId;
+            prevScrollHeightRef.current = container.scrollHeight;
+            prevScrollTopRef.current = container.scrollTop;
         }
-        prevMessagesRef.current = messages.length;
     }, [messages, userId, activeConversationId, conversations, markLatestMessageRead]);
 
     // Close settings dropdown on click outside
@@ -523,7 +575,7 @@ export default function ChatPage() {
         setSelectedMentionIds([]);
     };
 
-    const handleChatCreated = (id: string) => {
+    const handleChatCreated = (id: string, groupName?: string, oppositeUserName?: string, oppositeUserImage?: string) => {
         setIsNewChatModalOpen(false);
         // Inject a stub if the new conversation isn't in the list yet
         const alreadyInList = useChatStore.getState().conversations.some(c => c.syskey === id);
@@ -533,9 +585,9 @@ export default function ChatPage() {
                     {
                         syskey: id,
                         name: id,
-                        opposite_user_name: '',
-                        group_name: '',
-                        image: null,
+                        opposite_user_name: oppositeUserName || '',
+                        group_name: groupName || '',
+                        image: oppositeUserImage || null,
                         sender_id: '',
                         content: '',
                         send_at: new Date().toISOString(),
@@ -659,7 +711,7 @@ export default function ChatPage() {
                     </div>
                 </div>
 
-                <div className={styles.convList}>
+                <div className={styles.convList} onScroll={handleConvListScroll}>
                     {error && <div className={styles.errorMessage}>{error}</div>}
                     {isLoading && conversations.length === 0 ? (
                         <div className={styles.emptyState}>{t('common.loading')}</div>
@@ -683,12 +735,17 @@ export default function ChatPage() {
                                     onClick={() => handleSelectConv(conv.syskey)}
                                 >
                                     <div className={styles.avatar}>
-                                        {(conv.image || conv.opposite_user_image) ? (
+                                        {conv.group_name ? (
+                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #4f46e5, #6366f1)', color: 'white' }}>
+                                                <Users size={20} />
+                                            </div>
+                                        ) : (conv.image || conv.opposite_user_image) ? (
                                             <img src={conv.image || conv.opposite_user_image} alt="" />
                                         ) : (
-                                            conv.group_name ? <Users size={20} /> : getInitials(displayName)
+                                            getInitials(displayName)
                                         )}
                                     </div>
+
                                     <div className={styles.convInfo}>
                                         <div className={styles.convHeader}>
                                             <span className={`${styles.convName} ${isUnread ? styles.unreadText : ''}`}>
@@ -925,12 +982,17 @@ export default function ChatPage() {
                                     <ChevronLeft size={24} />
                                 </button>
                                 <div className={styles.avatar}>
-                                    {activeConv.image ? (
+                                    {activeConv.group_name ? (
+                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #4f46e5, #6366f1)', color: 'white' }}>
+                                            <Users size={20} />
+                                        </div>
+                                    ) : activeConv.image ? (
                                         <img src={activeConv.image} alt="" />
                                     ) : (
-                                        activeConv.group_name ? <Users size={20} /> : getInitials(activeConvName)
+                                        getInitials(activeConvName)
                                     )}
                                 </div>
+
                                 <div className={styles.roomInfo}>
                                     <h3>{activeConvName}</h3>
                                     <p>{t('chat.online')}</p>
@@ -972,7 +1034,7 @@ export default function ChatPage() {
                                 </div>
                             </header>
 
-                            <div className={styles.messageList} ref={scrollRef}>
+                            <div className={styles.messageList} ref={scrollRef} onScroll={handleMsgListScroll}>
                                 {messages.map((msg, idx) => {
                                     const myId = String(userId || '').trim().toLowerCase();
                                     const senderId = String(msg.sender_id || msg.user_id || msg.senderId || '').trim().toLowerCase();
@@ -1218,6 +1280,18 @@ export default function ChatPage() {
                                         </button>
                                     </div>
                                 )}
+
+                                {/* ── Typing Indicator Banner ── */}
+                                {activeConversationId && typingStatus[activeConversationId]?.isTyping && (
+                                    <div className={styles.replyBanner} style={{ backgroundColor: 'transparent', borderLeft: 'none', padding: '0 12px 0px 12px', minHeight: '20px', marginBottom: '4px' }}>
+                                        <div className={styles.replyBannerText} style={{ opacity: 0.7 }}>
+                                            <span className={styles.replyBannerContent} style={{ fontSize: '12px', fontStyle: 'italic', fontWeight: 500 }}>
+                                                {typingStatus[activeConversationId].username} is typing...
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* ── Mention Suggestions ── */}
                                 {mentionQuery !== null && filteredMentionUsers.length > 0 && (
                                     <div className={styles.mentionSuggestions}>
@@ -1303,6 +1377,10 @@ export default function ChatPage() {
                                             const pos = e.target.selectionStart || 0;
                                             if (editingMsg) setEditText(val);
                                             else setInputText(val);
+
+                                            if (activeConversationId) {
+                                                sendTypingIndicator(activeConversationId, true);
+                                            }
 
                                             // Mention detection
                                             const textBeforeCursor = val.substring(0, pos);
