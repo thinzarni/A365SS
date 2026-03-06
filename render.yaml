@@ -18,7 +18,7 @@ services:
       - key: VITE_MAIN_URL
         value: https://a365.omnicloudapi.com/
       - key: VITE_CHAT_URL
-        value: https://iam.omnicloudapi.com/api/
+        value: /
       - key: VITE_WS_URL
         value: wss://takmzujdyc.execute-api.ap-southeast-1.amazonaws.com
     routes:
