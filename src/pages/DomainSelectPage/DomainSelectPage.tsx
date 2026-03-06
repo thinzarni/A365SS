@@ -65,7 +65,7 @@ export default function DomainSelectPage() {
                     domainName,
                 } as any);
 
-                navigate('/dashboard');
+                navigate('/');
             } else {
                 setError('Failed to switch domain.');
             }

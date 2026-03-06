@@ -138,7 +138,7 @@ export default function AppLayout() {
 
                 setShowDomainMenu(false);
                 // Reload to refresh all store data across the app for the new domain
-                window.location.href = '/dashboard';
+                window.location.href = '/';
             }
         } catch (err) {
             console.error('Failed to switch domain:', err);
