@@ -47,7 +47,8 @@ export default defineConfig({
           'Referer': 'https://a365.omnicloudapi.com/'
         }
       },
-    }
+    },
+    allowedHosts: true
   },
   // Expose the real WebSocket server URL to the browser.
   // This bypasses Vite's dev proxy (which conflicts with HMR WebSockets).
