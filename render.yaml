@@ -9,6 +9,18 @@ services:
         value: 20
       - key: VITE_APP_ENV
         value: prod
+      - key: VITE_BASE_URL
+        value: https://apx002.omnicloudapi.com/
+      - key: VITE_AUTH_URL
+        value: https://iam.omnicloudapi.com/api/auth/
+      - key: VITE_IAM_URL
+        value: https://iam.omnicloudapi.com/api/
+      - key: VITE_MAIN_URL
+        value: https://a365.omnicloudapi.com/
+      - key: VITE_CHAT_URL
+        value: https://iam.omnicloudapi.com/api/
+      - key: VITE_WS_URL
+        value: wss://takmzujdyc.execute-api.ap-southeast-1.amazonaws.com
     routes:
       - type: rewrite
         source: /chat-new/*
