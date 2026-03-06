@@ -99,3 +99,14 @@ export const CHAT_REMOVE_PARTICIPANT = 'chat-new/remove-participant';         //
 export const CHAT_CHANGE_NAME = 'chat-new/conversations/:id/name';
 export const CHAT_CONV_BY_NAME = 'chat/conversation-id';
 export const CHAT_SEARCH_USER = 'api/employees/search';
+
+// ── Posts & Comments (uses chatUrl) ──
+export const POST_CREATE = 'chat-new/create-post';
+export const POST_UPDATE = 'chat-new/update-post';
+export const POST_LIST = 'chat-new/get-posts';
+export const POST_REACT = 'chat-new/react-post';
+export const POST_DELETE = 'chat-new/delete-post';
+export const POST_REACTION_USERS = 'chat-new/get-reaction-users';
+export const COMMENT_CREATE = 'chat-new/create-comment';
+export const COMMENT_LIST = 'chat-new/get-comments';
+export const COMMENT_DELETE = 'chat-new/delete-comment';

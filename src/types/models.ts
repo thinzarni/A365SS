@@ -275,6 +275,7 @@ export interface UserProfile {
   domainName?: string;
   usersyskey?: string;
   role?: string;
+  paycompanysyskey?: string;
 }
 
 export interface ApiResponse<T = unknown> {

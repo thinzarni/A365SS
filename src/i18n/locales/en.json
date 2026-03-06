@@ -30,7 +30,8 @@
         "holidays": "Holidays",
         "profile": "Profile",
         "settings": "Settings",
-        "chat": "Chat"
+        "chat": "Chat",
+        "feed": "Feed"
     },
     "request": {
         "title": "Requests",

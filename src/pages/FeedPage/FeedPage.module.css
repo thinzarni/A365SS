@@ -1,0 +1,75 @@
+.feedWrapper {
+    background-color: #f0f2f5;
+    min-height: 100vh;
+    width: 100%;
+    overflow-y: auto;
+}
+
+.container {
+    max-width: 650px;
+    /* Tighter — more like actual Facebook mobile/tablet feed width */
+    margin: 0 auto;
+    padding: 12px 0 40px 0;
+    /* No side padding — cards go edge to edge */
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.pageTitle {
+    display: none;
+    /* Hide "Company Feed" title — it's redundant since it's in the sidebar */
+}
+
+.createPostBox {
+    background-color: #ffffff;
+    padding: 10px 16px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.createPostAvatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background-color: #e4e6eb;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.createPostInput {
+    flex: 1;
+    padding: 9px 12px;
+    border-radius: 20px;
+    border: none;
+    background-color: #f0f2f5;
+    font-size: 15px;
+    color: #65676b;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.createPostInput:hover {
+    background-color: #e4e6eb;
+}
+
+.createPostInput:focus {
+    outline: none;
+}
+
+.feedList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* Small gap between cards */
+}
+
+.loadingSpinner {
+    text-align: center;
+    padding: 40px;
+    color: #65676b;
+    font-size: 15px;
+}

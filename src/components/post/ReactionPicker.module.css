@@ -1,0 +1,125 @@
+/* Wrapper fills one flex slot in the action bar */
+.pickerWrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+}
+
+/* ── Floating emoji bubble ── */
+.bubble {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    /* align to the start of the button */
+    background: #ffffff;
+    border-radius: 50px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.06);
+    opacity: 0;
+    transform: scale(0.7) translateY(8px);
+    transform-origin: bottom left;
+    pointer-events: none;
+    transition: opacity 0.15s, transform 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    white-space: nowrap;
+    z-index: 200;
+}
+
+.bubble.visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: all;
+}
+
+/* Individual reaction emoji */
+.reactionBtn {
+    all: unset;
+    cursor: pointer;
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: transform 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+}
+
+.reactionEmoji {
+    font-size: 32px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.reactionBtn:hover {
+    transform: scale(1.55) translateY(-8px);
+    z-index: 2;
+}
+
+/* Tooltip that shows on hover */
+.tooltip {
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.78);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s;
+    letter-spacing: 0.2px;
+}
+
+.reactionBtn:hover .tooltip {
+    opacity: 1;
+}
+
+/* ── Trigger button (the "Like" button in the action bar) ── */
+.triggerBtn {
+    all: unset;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 6px;
+    padding: 8px 4px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #65676b;
+    transition: background 0.12s;
+    user-select: none;
+}
+
+.triggerBtn:hover {
+    background: #f0f2f5;
+}
+
+/* Active reaction state */
+.triggerBtn.active {
+    font-weight: 700;
+}
+
+/* Wrapper for the inactive gray ThumbsUp icon */
+.triggerIconWrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.55;
+}
+
+/* Emoji shown in trigger when reacted with non-Like type */
+.triggerEmoji {
+    font-size: 18px;
+    line-height: 1;
+}

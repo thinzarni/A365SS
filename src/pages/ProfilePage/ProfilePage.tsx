@@ -20,6 +20,7 @@ interface ProfileData {
     paylevel: string;
     profile?: string; // S3 Url or base64 equivalent
     paycompany?: string;
+    paycompanysyskey?: string;
     domains?: string[];
 }
 

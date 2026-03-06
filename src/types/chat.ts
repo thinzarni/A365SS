@@ -96,6 +96,7 @@ export interface User {
     department: string;
     domain?: string;
     orgStatus?: string;
+    user_domain?: string;
 }
 
 export interface SearchUserResponse {

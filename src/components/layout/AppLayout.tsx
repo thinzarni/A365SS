@@ -12,6 +12,7 @@ import {
     TreePalm,
     LogOut,
     Menu,
+    Radio,
     X,
     Globe,
     Users,
@@ -38,6 +39,7 @@ const navItems = [
     { path: '/leave-summary', icon: Palmtree, labelKey: 'nav.leaveSummary' },
     { path: '/holidays', icon: CalendarDays, labelKey: 'nav.holidays' },
     { path: '/chat', icon: MessageSquare, labelKey: 'nav.chat' },
+    { path: '/feed', icon: Radio, labelKey: 'nav.feed' },
     { path: '/team', icon: Users, labelKey: 'nav.team' },
 ];
 
@@ -51,6 +53,7 @@ export default function AppLayout() {
 
     const location = useLocation();
     const isChatPage = location.pathname.startsWith('/chat');
+    const isPostPage = location.pathname.startsWith('/feed');
 
     // Fetch Profile data for Avatar
     const { data: profile } = useQuery({
@@ -72,8 +75,13 @@ export default function AppLayout() {
     useEffect(() => {
         if (profile && user) {
             const realName = profile.k_eng_name || profile.username || profile.name || user.name;
-            const updatedProfileObj = { ...user, name: realName, photo: profile.profile };
-            if (user.name !== realName || user.photo !== profile.profile) {
+            const updatedProfileObj = {
+                ...user,
+                name: realName,
+                photo: profile.profile,
+                paycompanysyskey: profile.paycompanysyskey
+            };
+            if (user.name !== realName || user.photo !== profile.profile || user.paycompanysyskey !== profile.paycompanysyskey) {
                 setUser(updatedProfileObj as any);
             }
         }
@@ -183,6 +191,7 @@ export default function AppLayout() {
                             'nav.leaveSummary': ['leave summary', 'leave'],
                             'nav.holidays': ['holiday', 'holidays'],
                             'nav.chat': ['chat'],
+                            'nav.feed': ['feed', 'post', 'posts'],
                             'nav.team': ['team', 'my team'],
                         };
 
@@ -314,7 +323,7 @@ export default function AppLayout() {
                     </div>
                 </header>
 
-                <div className={`${styles.main__content} ${isChatPage ? styles['main__content--chat'] : ''}`}>
+                <div className={`${styles.main__content} ${isChatPage || isPostPage ? styles['main__content--chat'] : ''}`}>
                     <ScrollRestoration />
                     <Outlet />
                 </div>
