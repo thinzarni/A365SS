@@ -27,6 +27,28 @@ export default defineConfig({
       },
     }
   },
+  preview: {
+    proxy: {
+      '/chat-new': {
+        target: 'https://iam.omnicloudapi.com/api',
+        changeOrigin: true,
+        secure: false,
+        headers: {
+          'Origin': 'https://a365.omnicloudapi.com',
+          'Referer': 'https://a365.omnicloudapi.com/'
+        }
+      },
+      '^/chat/(listbyID|messages|attachment|conversation-id)': {
+        target: 'https://iam.omnicloudapi.com/api',
+        changeOrigin: true,
+        secure: false,
+        headers: {
+          'Origin': 'https://a365.omnicloudapi.com',
+          'Referer': 'https://a365.omnicloudapi.com/'
+        }
+      },
+    }
+  },
   // Expose the real WebSocket server URL to the browser.
   // This bypasses Vite's dev proxy (which conflicts with HMR WebSockets).
   define: {
@@ -36,6 +58,7 @@ export default defineConfig({
     ),
   },
   build: {
+    outDir: 'build',
     rollupOptions: {
       output: {
         manualChunks(id) {
