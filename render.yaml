@@ -11,5 +11,11 @@ services:
         value: prod
     routes:
       - type: rewrite
+        source: /chat-new/*
+        destination: https://iam.omnicloudapi.com/api/chat-new/*
+      - type: rewrite
+        source: /chat/*
+        destination: https://iam.omnicloudapi.com/api/chat/*
+      - type: rewrite
         source: /*
         destination: /index.html

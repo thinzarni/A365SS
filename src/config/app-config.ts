@@ -48,7 +48,7 @@ const configs: Record<string, AppConfig> = {
         authUrl: import.meta.env.VITE_AUTH_URL || 'https://iam.omnicloudapi.com/api/auth/',
         iamUrl: import.meta.env.VITE_IAM_URL || 'https://iam.omnicloudapi.com/api/',
         mainUrl: import.meta.env.VITE_MAIN_URL || 'https://a365.omnicloudapi.com/',
-        chatUrl: import.meta.env.VITE_CHAT_URL || 'https://iam.omnicloudapi.com/api/',
+        chatUrl: import.meta.env.VITE_CHAT_URL || '/',
         appName: 'A365 HR',
         appVersion: '1.0.0',
         environment: 'prod',
