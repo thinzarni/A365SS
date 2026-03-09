@@ -1,6 +1,6 @@
 services:
   - type: static
-    name: hr-requests-client
+    name: A365SS
     buildCommand: npm install && npm run build
     staticPublishPath: ./build
     envVars:
