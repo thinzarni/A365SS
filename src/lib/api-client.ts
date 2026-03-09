@@ -27,14 +27,21 @@ apiClient.interceptors.request.use(
 
         // Flutter injects userid & domain into every POST body
         if (config.method === 'post' && config.data) {
-            const body = typeof config.data === 'string'
-                ? JSON.parse(config.data)
-                : config.data;
+            if (config.data instanceof FormData) {
+                // Multipart upload — append userid/domain to the FormData directly.
+                // Do NOT set Content-Type; browser sets it automatically with the boundary.
+                if (userId && !config.data.has('userid')) config.data.append('userid', userId);
+                if (domain && !config.data.has('domain')) config.data.append('domain', domain);
+            } else {
+                const body = typeof config.data === 'string'
+                    ? JSON.parse(config.data)
+                    : config.data;
 
-            if (!body.userid && userId) body.userid = userId;
-            if (!body.domain && domain) body.domain = domain;
+                if (!body.userid && userId) body.userid = userId;
+                if (!body.domain && domain) body.domain = domain;
 
-            config.data = body;
+                config.data = body;
+            }
         }
 
         // For GET requests, inject userid & domain as query params

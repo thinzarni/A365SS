@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, NavLink, Outlet, useNavigate, ScrollRestoration } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -19,31 +19,86 @@ import {
     MessageSquare,
     ChevronDown,
     Check,
-    Loader2
+    Loader2,
+    LayoutList,
+    Clock,
+    Briefcase,
+    ShieldCheck,
+    UserCheck,
+    MapPin,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import { useChatStore } from '../../stores/chat-store';
+import { useMsal } from '@azure/msal-react';
 import authClient from '../../lib/auth-client';
 import mainClient from '../../lib/main-client';
+import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import styles from './AppLayout.module.css';
 
-const navItems = [
-    { path: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
-    { path: '/requests', icon: ClipboardList, labelKey: 'nav.myRequests' },
-    { path: '/approvals', icon: CheckSquare, labelKey: 'nav.approvals' },
-    { path: '/reservations', icon: Calendar, labelKey: 'nav.reservations' },
-    { path: '/leave', icon: TreePalm, labelKey: 'nav.leave' },
-    { path: '/claims', icon: Receipt, labelKey: 'nav.claims' },
-    { path: '/leave-summary', icon: Palmtree, labelKey: 'nav.leaveSummary' },
-    { path: '/holidays', icon: CalendarDays, labelKey: 'nav.holidays' },
-    { path: '/chat', icon: MessageSquare, labelKey: 'nav.chat' },
-    { path: '/team', icon: Users, labelKey: 'nav.team' },
+// ── Router → Lucide icon mapping — keyed by actual API router values ──
+// The label always comes from the API name field, so only the icon is needed here.
+// Any router not listed gets a generic LayoutList icon.
+const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+    // Dashboard
+    '/': LayoutDashboard,
+    '/dashboard': LayoutDashboard,
+    // Requests & approvals
+    '/request': ClipboardList,
+    '/requests': ClipboardList,
+    '/approval': CheckSquare,
+    '/approvals': CheckSquare,
+    '/attendanceapproval': ShieldCheck,
+    '/attendancerequest': UserCheck,
+    '/locationapproval': MapPin,
+    // Leave
+    '/leave': TreePalm,
+    '/leave-summary': Palmtree,
+    '/holiday': CalendarDays,
+    '/holidays': CalendarDays,
+    // Finance
+    '/claim': Receipt,
+    '/claims': Receipt,
+    '/overtime': Clock,
+    // Reservations
+    '/reservation': Calendar,
+    '/reservations': Calendar,
+    // People
+    '/team': Users,
+    '/hrview': Users,
+    // Comms
+    '/chat': MessageSquare,
+    // Admin
+    '/admin': Briefcase,
+    // Catch-all
+    '/visionai': LayoutList,
+    '/customai': LayoutList,
+    '/rulesandreg': LayoutList,
+    '/objectdetection': LayoutList,
+};
+
+// Fallback: shown when API hasn't loaded yet
+const DEFAULT_ROUTERS = [
+    '/request', '/approval', '/reservation', '/leave',
+    '/claim', '/holiday', '/chat', '/team',
 ];
+
+// Shape of one API menu item (datalist entry from hxm/integration/get/menuitems)
+type ApiMenuItem = {
+    syskey: string;
+    name: string;
+    namemm?: string;
+    icon: string;
+    router: string;
+    type?: number;
+    buttonright?: string;
+};
+
 
 export default function AppLayout() {
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
+    const { instance } = useMsal();
     const { user, domain, domains, token, userId, login, setUser, logout, menuList, setLanguage } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showDomainMenu, setShowDomainMenu] = useState(false);
@@ -68,6 +123,50 @@ export default function AppLayout() {
         enabled: !!user?.usersyskey
     });
 
+    // ── Fetch menu items from HXM API (same as neo_service.dart getMenuItems) ──
+    // Endpoint: GET hxm/integration/get/menuitems
+    // Response shape: { statuscode, datalist: [{syskey, name, icon, router, type}...], homemenulist: [...] }
+    const { data: menuItemsData } = useQuery({
+        queryKey: ['menu-items', userId, domain],
+        queryFn: async () => {
+            if (!token) return null;
+            try {
+                const res = await apiClient.get('hxm/integration/get/menuitems');
+                const data = res.data;
+                if (data?.statuscode === 200 || data?.statuscode === 300) {
+                    return {
+                        // datalist = sidebar menu; homemenulist = home screen cards
+                        datalist: (data.datalist ?? []) as ApiMenuItem[],
+                        homemenulist: (data.homemenulist ?? []) as ApiMenuItem[],
+                    };
+                }
+                return null;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 5 * 60 * 1000,
+        enabled: !!token && !!userId,
+    });
+
+    // Build ordered datalist items for the sidebar.
+    // Priority: live API datalist → Zustand menuList items → DEFAULT_ROUTERS as stubs
+    const sidebarItems: ApiMenuItem[] = React.useMemo(() => {
+        if (menuItemsData?.datalist && menuItemsData.datalist.length > 0) {
+            // All items from API, excluding dashboard (rendered separately)
+            return menuItemsData.datalist.filter(
+                item => item.router && item.router !== '/' && item.router !== '/dashboard'
+            );
+        }
+        if (menuList.length > 0) {
+            return menuList
+                .filter(m => m.router && m.router !== '/' && m.router !== '/dashboard')
+                .map(m => ({ syskey: m.id, name: m.label, icon: m.iconPath || '', router: m.router! }));
+        }
+        // Fallback: build stub items from DEFAULT_ROUTERS
+        return DEFAULT_ROUTERS.map(r => ({ syskey: r, name: r.replace('/', ''), icon: '', router: r }));
+    }, [menuItemsData, menuList]);
+
     // Sync Profile data to authStore so global tasks like Chat know the display name
     useEffect(() => {
         if (profile && user) {
@@ -90,7 +189,14 @@ export default function AppLayout() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        // 1. Flag intentional logout so LoginPage silent-SSO does NOT auto-sign-in again
+        sessionStorage.setItem('az_logout_intent', '1');
+        // 2. Clear all MSAL accounts from localStorage so Azure AD session is removed
+        try {
+            await instance.clearCache();
+        } catch { /* ignore if not signed in via Azure */ }
+        // 3. Clear A365 auth state and redirect
         logout();
         navigate('/login');
     };
@@ -169,38 +275,33 @@ export default function AppLayout() {
 
                 <nav className={styles.sidebar__nav}>
                     <span className={styles['sidebar__section-label']}>Main</span>
-                    {navItems.filter(item => {
-                        // If menuList is empty, show everything (fallback for when API doesn't provide it)
-                        if (!menuList || menuList.length === 0) return true;
 
-                        const menuKeys: Record<string, string[]> = {
-                            'nav.dashboard': ['dashboard'],
-                            'nav.myRequests': ['request', 'my request', 'requests'],
-                            'nav.approvals': ['approval', 'attendance approval', 'approvals'],
-                            'nav.reservations': ['reservation', 'reservations'],
-                            'nav.leave': ['leave', 'leave request'],
-                            'nav.claims': ['claim', 'claim request', 'claims'],
-                            'nav.leaveSummary': ['leave summary', 'leave'],
-                            'nav.holidays': ['holiday', 'holidays'],
-                            'nav.chat': ['chat'],
-                            'nav.team': ['team', 'my team'],
-                        };
+                    {/* ── Dashboard is always visible ── */}
+                    <NavLink
+                        to="/"
+                        end
+                        onClick={() => setSidebarOpen(false)}
+                        className={({ isActive }) =>
+                            `${styles.sidebar__link} ${isActive ? styles['sidebar__link--active'] : ''}`
+                        }
+                    >
+                        <div className={styles['sidebar__link-content']}>
+                            <LayoutDashboard size={20} className={styles['sidebar__link-icon']} />
+                            {t('nav.dashboard')}
+                        </div>
+                    </NavLink>
 
-                        const allowedLabels = menuList.map(m => m.label.toLowerCase());
-                        const requiredLabels = menuKeys[item.labelKey] || [];
-
-                        // Dashboard is usually always visible or handled separately
-                        if (item.labelKey === 'nav.dashboard') return true;
-
-                        return requiredLabels.some(label => allowedLabels.includes(label));
-                    }).map(({ path, icon: Icon, labelKey }) => {
-                        const isChat = labelKey === 'nav.chat';
-                        const unreadCount = useChatStore((state) => state.unreadCount);
+                    {/* ── All items from hxm/integration/get/menuitems datalist ── */}
+                    {sidebarItems.map((item) => {
+                        // Resolve icon: use ROUTER_ICON_MAP if known, else generic LayoutList
+                        const Icon = ROUTER_ICON_MAP[item.router] ?? LayoutList;
+                        const isChat = item.router === '/chat';
+                        const unreadCount = useChatStore.getState().unreadCount;
 
                         return (
                             <NavLink
-                                key={path}
-                                to={path}
+                                key={item.syskey || item.router}
+                                to={item.router}
                                 onClick={() => setSidebarOpen(false)}
                                 className={({ isActive }) =>
                                     `${styles.sidebar__link} ${isActive ? styles['sidebar__link--active'] : ''}`
@@ -208,7 +309,8 @@ export default function AppLayout() {
                             >
                                 <div className={styles['sidebar__link-content']}>
                                     <Icon size={20} className={styles['sidebar__link-icon']} />
-                                    {t(labelKey)}
+                                    {/* Use API name directly — no i18n key lookup needed */}
+                                    {item.name}
                                 </div>
                                 {isChat && unreadCount > 0 && (
                                     <span className={styles.sidebar__unreadBadge}>{unreadCount}</span>

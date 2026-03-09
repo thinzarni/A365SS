@@ -1,15 +1,15 @@
-import { useState, /* useEffect, */ type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mail, Lock, Hash, QrCode, /* Monitor, */ Eye, EyeOff, Globe } from 'lucide-react';
+import { Mail, Lock, Hash, QrCode, Monitor, Eye, EyeOff, Globe } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
 import { makeSignInPayload, APP_ID } from '../../lib/auth-token';
 import { toast } from 'react-hot-toast';
-// import { useMsal } from '@azure/msal-react';
-// import { InteractionStatus } from '@azure/msal-browser';
-// import { loginRequest } from '../../config/msal-config';
+import { useMsal } from '@azure/msal-react';
+import { InteractionStatus } from '@azure/msal-browser';
+import { loginRequest } from '../../config/msal-config';
 import styles from './LoginPage.module.css';
 
 type AuthMode = 'password' | 'otp';
@@ -19,8 +19,8 @@ type AuthMode = 'password' | 'otp';
 export default function LoginPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    // const { instance, inProgress } = useMsal();
-    const { login, setUser, setLanguage, language /* isAuthenticated */ } = useAuthStore();
+    const { instance, inProgress } = useMsal();
+    const { login, setUser, setLanguage, language, isAuthenticated } = useAuthStore();
 
     const [mode, setMode] = useState<AuthMode>('otp');
     const [email, setEmail] = useState('');
@@ -35,36 +35,60 @@ export default function LoginPage() {
     /* ══════════════════════════════════════════════════════════════
        Auto-login check (Silent SSO)
        ══════════════════════════════════════════════════════════════ */
-    /* 
     useEffect(() => {
         if (isAuthenticated) return;
 
         const checkSilentLogin = async () => {
+            // ── Block auto-sign-in after intentional logout ──
+            // AppLayout.handleLogout sets this flag before calling logout().
+            if (sessionStorage.getItem('az_logout_intent') === '1') {
+                sessionStorage.removeItem('az_logout_intent');
+                // Also clear any remaining MSAL accounts so the next check finds nothing
+                try { await instance.clearCache(); } catch { /* ignore */ }
+                return;
+            }
+
             const accounts = instance.getAllAccounts();
             if (accounts.length > 0) {
+                // ── Step 1: acquire token silently (may fail if no cached session) ──
+                let msalResult;
                 try {
-                    const result = await instance.acquireTokenSilent({
+                    msalResult = await instance.acquireTokenSilent({
                         ...loginRequest,
-                        account: accounts[0]
+                        account: accounts[0],
                     });
+                } catch {
+                    // No cached Azure AD session — silent login not possible, do nothing
+                    return;
+                }
 
-                    if (result && result.account) {
-                        setLoading(true);
-                        const res = await authClient.post('azure-ad/signin', {
-                            user_id: result.account.username,
+                // ── Step 2: exchange idToken with A365 backend ──
+                if (msalResult?.account) {
+                    setLoading(true);
+                    try {
+                        const res = await authClient.post('sso/azure-ad/signin', {
+                            user_id: msalResult.account.username,
                             appid: APP_ID,
-                        }, {
-                            headers: { Authorization: `Bearer ${result.idToken}` }
+                            token: msalResult.idToken,
                         });
 
                         if (res.data.status === 200 || res.status === 200) {
                             await completeLogin(res.data);
+                        } else {
+                            const serverMsg = res.data.message;
+                            toast.error(serverMsg === 'Invalid'
+                                ? 'User does not exist in A365. Please contact your administrator.'
+                                : serverMsg || 'Azure AD sign-in failed.');
                         }
+                    } catch (err: any) {
+                        // Axios throws on 4xx/5xx — extract message from response
+                        const serverMsg = err?.response?.data?.message;
+                        toast.error(serverMsg === 'Invalid'
+                            ? 'User does not exist in A365. Please contact your administrator.'
+                            : serverMsg || 'Azure AD sign-in failed.');
+                    } finally {
+                        setLoading(false);
                     }
-                } catch (e) {
-                    // Silent check failed, no auto-login
-                } finally {
-                    setLoading(false);
                 }
             }
         };
@@ -72,8 +96,8 @@ export default function LoginPage() {
         if (inProgress === InteractionStatus.None) {
             checkSilentLogin();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [instance, inProgress, isAuthenticated]);
-    */
 
     /* ══════════════════════════════════════════════════════════════
        Complete login flow — matches Flutter's signin_otp.dart:
@@ -179,7 +203,6 @@ export default function LoginPage() {
         }
     };
 
-    /* 
     const handleAzureLogin = async () => {
         // Prevent multiple simultaneous login attempts
         if (inProgress !== InteractionStatus.None) {
@@ -187,45 +210,21 @@ export default function LoginPage() {
             return;
         }
 
-        setLoading(true);
         setError('');
 
         try {
-            console.log('Initiating Azure Login Popup...');
-            const result = await instance.loginPopup(loginRequest);
-
-            if (result && result.account) {
-                console.log('Azure Auth Success, communicating with backend...');
-                const res = await authClient.post('azure-ad/signin', {
-                    user_id: result.account.username,
-                    appid: APP_ID,
-                }, {
-                    headers: {
-                        Authorization: `Bearer ${result.idToken}`,
-                    }
-                });
-
-                if (res.data.status === 200 || res.status === 200) {
-                    console.log('Backend sync successful, finalizing login...');
-                    await completeLogin(res.data);
-                } else {
-                    const msg = res.data.message || 'Azure login failed on server.';
-                    console.error('Backend Login Error:', msg);
-                    setError(msg);
-                }
-            }
+            // loginRedirect uses the already-registered window.location.origin
+            // and returns here after auth; the silent SSO useEffect picks up the account
+            await instance.loginRedirect({
+                ...loginRequest,
+                redirectUri: window.location.origin,
+            });
         } catch (err: any) {
-            console.error('Azure Popup Error:', err);
-            if (err.errorCode === 'popup_window_error') {
-                setError('Login popup was blocked or closed. Please try again.');
-            } else {
+            if (err.errorCode !== 'interaction_in_progress') {
                 setError(err.message || 'Azure login failed.');
             }
-        } finally {
-            setLoading(false);
         }
     };
-    */
 
     const handlePasswordLogin = async (e: FormEvent) => {
         e.preventDefault();
@@ -422,7 +421,7 @@ export default function LoginPage() {
                             {t('auth.qrSignIn')}
                         </Button>
 
-                        {/* <Button
+                        <Button
                             type="button"
                             variant="ghost"
                             className={styles.login__secondary_button}
@@ -431,7 +430,7 @@ export default function LoginPage() {
                         >
                             <Monitor size={18} className="mr-2" />
                             {t('auth.azureSignIn')}
-                        </Button> */}
+                        </Button>
                     </div>
                 </div>
             </div>
