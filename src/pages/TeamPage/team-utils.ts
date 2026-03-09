@@ -97,3 +97,55 @@ export function getAttendanceTypeLabel(type: number): { label: string; color: st
             return { label: 'Record', color: '#64748b', bg: '#f8fafc' };
     }
 }
+/**
+ * checkCurrentUserAccessToCheckUpperLevelMembers equivalent
+ * returns true if access granted, false otherwise.
+ */
+export async function checkTeamAccess({
+    targetUserId,
+    currentUserId,
+    configData,
+    hasHrAccess,
+    fetchTeamHierarchy,
+    onDenied,
+}: {
+    targetUserId: string;
+    currentUserId: string;
+    configData: any;
+    hasHrAccess: boolean;
+    fetchTeamHierarchy: (userId: string) => Promise<any[] | null>;
+    onDenied: (msg: string) => void;
+}): Promise<boolean> {
+    if (!targetUserId || targetUserId === currentUserId) return true;
+
+    // 1. System Config (teamMemberProfile == 0 means disabled)
+    // Matches Flutter: if (configProvider.config?.teamMemberProfile == 0) return false;
+    if (configData && configData.teamMemberProfile === 0) {
+        onDenied("Access denied by system configuration.");
+        return false;
+    }
+
+    // 2. HR Access
+    // Matches Flutter: if (dashProvider.hasHrAccess) return true;
+    if (hasHrAccess) return true;
+
+    // 3. Reporting Officer Check
+    // Matches Flutter: checks if current user is in target's senior list as "Reporting Officer"
+    try {
+        const seniors = await fetchTeamHierarchy(targetUserId);
+        if (!seniors) return false;
+
+        const isRO = seniors.some(s =>
+            String(s.userid || s.sender_id || '') === currentUserId &&
+            String(s.type || '').toLowerCase() === 'reporting officer'
+        );
+
+        if (isRO) return true;
+
+        // onDenied("You do not have permission to view this team hierarchy.");
+        return false;
+    } catch (err) {
+        onDenied("Failed to verify access permission.");
+        return false;
+    }
+}

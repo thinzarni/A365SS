@@ -7,9 +7,10 @@
    - Direct reports & supervisions (juniors)
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import {
     Users,
     ChevronRight,
@@ -27,9 +28,11 @@ import {
     AlertCircle,
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
+import apiClient from '../../lib/api-client';
 import { TEAM_LIST } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
 import type { TeamMember, Team, TeamPageModel } from '../../types/models';
+import { checkTeamAccess } from './team-utils';
 import styles from './TeamPage.module.css';
 import '../../styles/pages.css';
 
@@ -152,6 +155,42 @@ export default function TeamPage() {
         enabled: !!viewUserId,
     });
 
+    // ── System Config Query ──
+    const { data: configData } = useQuery({
+        queryKey: ['checkin-config'],
+        queryFn: async () => {
+            const res = await mainClient.post('api/checkin/config', {
+                userid: userId,
+                domain: useAuthStore.getState().domain || 'demouat',
+            });
+            return res.data?.data ?? null;
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // ── Menu Items Query (to check for HR access via /hrview) ──
+    const { data: menuData } = useQuery({
+        queryKey: ['menu-items'],
+        queryFn: async () => {
+            const res = await apiClient.get('hxm/integration/get/menuitems');
+            return res.data?.datalist || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const hasHrAccess = useMemo(() => {
+        return (menuData || []).some((item: any) => item.router === '/hrview');
+    }, [menuData]);
+
+    const fetchTeamHierarchy = useCallback(async (uid: string) => {
+        try {
+            const res = await mainClient.post(TEAM_LIST, { userid: uid });
+            return res.data?.data?.seniorEmployees || [];
+        } catch {
+            return null;
+        }
+    }, []);
+
     // Separate juniors by type
     const { directReports, supervisions } = useMemo(() => {
         if (!teamData) return { directReports: [], supervisions: [] };
@@ -165,8 +204,19 @@ export default function TeamPage() {
         return { directReports, supervisions };
     }, [teamData]);
 
-    const navigateToMember = useCallback((member: TeamMember) => {
+    const navigateToMember = useCallback(async (member: TeamMember) => {
         if (member.hasJunior) {
+            const canAccess = await checkTeamAccess({
+                targetUserId: member.userid,
+                currentUserId: userId || '',
+                configData,
+                hasHrAccess,
+                fetchTeamHierarchy,
+                onDenied: (msg) => toast.error(msg),
+            });
+
+            if (!canAccess) return;
+
             // Drill into their hierarchy
             setNavStack(prev => [...prev, viewUserId]);
             setViewUserId(member.userid);
@@ -176,7 +226,25 @@ export default function TeamPage() {
                 state: { member, teamId: teamData?.user?.teamId },
             });
         }
-    }, [viewUserId, navigate, teamData]);
+    }, [viewUserId, userId, configData, hasHrAccess, fetchTeamHierarchy, navigate, teamData]);
+
+    // Initial check if visiting another user via URL
+    useEffect(() => {
+        if (queryUserId && queryUserId !== userId && configData && menuData) {
+            checkTeamAccess({
+                targetUserId: queryUserId,
+                currentUserId: userId || '',
+                configData,
+                hasHrAccess,
+                fetchTeamHierarchy,
+                onDenied: (msg) => {
+                    toast.error(msg);
+                    setViewUserId(userId || '');
+                    setNavStack([]);
+                },
+            });
+        }
+    }, [queryUserId, userId, configData, menuData, hasHrAccess, fetchTeamHierarchy]);
 
     const navigateBack = useCallback(() => {
         const stack = [...navStack];

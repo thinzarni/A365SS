@@ -6,9 +6,10 @@
    - Members section (all other members)
    ═══════════════════════════════════════════════════════════ */
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+
 import {
     ArrowLeft,
     Hash,
@@ -25,9 +26,11 @@ import {
     Shield,
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
-import { TEAM_BY_ID } from '../../config/api-routes';
+import apiClient from '../../lib/api-client';
+import { TEAM_BY_ID, TEAM_LIST } from '../../config/api-routes';
+import { useAuthStore } from '../../stores/auth-store';
 import type { TeamMember } from '../../types/models';
-import { getStatusInfo, getInitials, mapRawMember } from './team-utils';
+import { getStatusInfo, getInitials, mapRawMember, checkTeamAccess } from './team-utils';
 import styles from './TeamDetailView.module.css';
 import '../../styles/pages.css';
 
@@ -64,6 +67,73 @@ export default function TeamDetailView() {
         enabled: !!teamSyskey,
     });
 
+    const { userId } = useAuthStore();
+
+    // ── System Config Query ──
+    const { data: configData } = useQuery({
+        queryKey: ['checkin-config'],
+        queryFn: async () => {
+            const res = await mainClient.post('api/checkin/config', {
+                userid: userId || '',
+                domain: useAuthStore.getState().domain || 'demouat',
+            });
+            return res.data?.data ?? null;
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // ── Menu Items Query ──
+    const { data: menuData } = useQuery({
+        queryKey: ['menu-items'],
+        queryFn: async () => {
+            const res = await apiClient.get('hxm/integration/get/menuitems');
+            return res.data?.datalist || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const hasHrAccess = useMemo(() => {
+        return (menuData || []).some((item: any) => item.router === '/hrview');
+    }, [menuData]);
+
+    const fetchTeamHierarchy = useCallback(async (uid: string) => {
+        try {
+            const res = await mainClient.post(TEAM_LIST, { userid: uid });
+            return res.data?.data?.seniorEmployees || [];
+        } catch {
+            return null;
+        }
+    }, []);
+
+    const handleMemberClick = useCallback(async (member: TeamMember, isMgmt = false) => {
+        if (member.hasJunior) {
+            const canAccess = await checkTeamAccess({
+                targetUserId: member.userid,
+                currentUserId: userId || '',
+                configData,
+                hasHrAccess,
+                fetchTeamHierarchy,
+                onDenied: () => { }, // silent — we fall back to profile below
+            });
+
+            if (canAccess) {
+                // Navigate to their full team hierarchy
+                navigate(`/team?userId=${member.userid}`);
+            } else if (!isMgmt) {
+                // Regular members: fall back to member profile/attendance view
+                navigate(`/team/member/${member.syskey}`, {
+                    state: { member, teamId: data?.teamId },
+                });
+            }
+            // Management members (isMgmt=true) with no access: do nothing
+        } else {
+            // Navigate to member detail
+            navigate(`/team/member/${member.syskey}`, {
+                state: { member, teamId: data?.teamId },
+            });
+        }
+    }, [userId, configData, hasHrAccess, fetchTeamHierarchy, navigate, data]);
+
     // Separate management (priority 1-6) from regular members
     const { management, regularMembers } = useMemo(() => {
         if (!data) return { management: [], regularMembers: [] };
@@ -73,18 +143,6 @@ export default function TeamDetailView() {
             regularMembers: data.members.filter(m => !mgmtPriorities.includes(m.priority)),
         };
     }, [data]);
-
-    const handleMemberClick = (member: TeamMember) => {
-        if (member.hasJunior) {
-            // Navigate to their team hierarchy
-            navigate(`/team?userId=${member.userid}`);
-        } else {
-            // Navigate to member detail
-            navigate(`/team/member/${member.syskey}`, {
-                state: { member, teamId: data?.teamId },
-            });
-        }
-    };
 
     return (
         <div className={styles.page}>
@@ -163,7 +221,7 @@ export default function TeamDetailView() {
                                     <ManagementCard
                                         key={member.syskey}
                                         member={member}
-                                        onClick={() => handleMemberClick(member)}
+                                        onClick={() => handleMemberClick(member, true)}
                                     />
                                 ))}
                             </div>
