@@ -66,7 +66,7 @@ export const useChatStore = create<ChatState>()(
             conversations: [],
             activeConversationId: null,
             messages: [],
-            isLoading: false,
+            isLoading: true,
             error: null,
             hasMoreConversations: true,
             hasMoreMessages: true,

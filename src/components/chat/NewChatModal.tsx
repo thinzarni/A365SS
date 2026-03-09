@@ -53,13 +53,14 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onC
 
     // Debounce search as user types
     useEffect(() => {
+        if (!isOpen) return;
         const timer = setTimeout(() => {
             if (type !== 'team') {
                 searchUsers(searchQuery);
             }
         }, 300);
         return () => clearTimeout(timer);
-    }, [searchQuery, searchUsers, type]);
+    }, [searchQuery, searchUsers, type, isOpen]);
 
     if (!isOpen) return null;
 
