@@ -1,12 +1,11 @@
 services:
-  - type: web
+  - type: static
     name: hr-requests-client
-    runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./build
     envVars:
       - key: NODE_VERSION
-        value: 20
+        value: "20"
       - key: VITE_APP_ENV
         value: prod
       - key: VITE_BASE_URL
