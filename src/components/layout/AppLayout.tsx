@@ -177,15 +177,17 @@ export default function AppLayout() {
         if (menuItemsData?.datalist && menuItemsData.datalist.length > 0) {
             // All items from API, excluding dashboard (rendered separately)
             items = [...menuItemsData.datalist.filter(
-                item => item.router && item.router !== '/' && item.router !== '/dashboard'
+                item => item.router && item.router !== '/' && item.router !== '/dashboard' && item.router !== '/team'
             )];
         } else if (menuList.length > 0) {
             items = menuList
-                .filter(m => m.router && m.router !== '/' && m.router !== '/dashboard')
+                .filter(m => m.router && m.router !== '/' && m.router !== '/dashboard' && m.router !== '/team')
                 .map(m => ({ syskey: m.id, name: m.label, icon: m.iconPath || '', router: m.router! }));
         } else {
             // Fallback: build stub items from DEFAULT_ROUTERS
-            items = DEFAULT_ROUTERS.map(r => ({ syskey: r, name: r.replace('/', ''), icon: '', router: r }));
+            items = DEFAULT_ROUTERS
+                .filter(r => r !== '/team')
+                .map(r => ({ syskey: r, name: r.replace('/', ''), icon: '', router: r }));
         }
 
         // Add extra Social tab if both chat and socialpost are true
@@ -327,9 +329,9 @@ export default function AppLayout() {
                     <span className={styles['sidebar__section-label']}>Main</span>
 
                     {/* ── Dashboard is always visible ── */}
+                    {/* ── Dashboard is now the first item again ── */}
                     <NavLink
-                        to="/"
-                        end
+                        to="/dashboard"
                         onClick={() => setSidebarOpen(false)}
                         className={({ isActive }) =>
                             `${styles.sidebar__link} ${isActive ? styles['sidebar__link--active'] : ''}`
@@ -338,6 +340,20 @@ export default function AppLayout() {
                         <div className={styles['sidebar__link-content']}>
                             <LayoutDashboard size={20} className={styles['sidebar__link-icon']} />
                             {t('nav.dashboard')}
+                        </div>
+                    </NavLink>
+
+                    {/* ── Team is below Dashboard ── */}
+                    <NavLink
+                        to="/team"
+                        onClick={() => setSidebarOpen(false)}
+                        className={({ isActive }) =>
+                            `${styles.sidebar__link} ${isActive ? styles['sidebar__link--active'] : ''}`
+                        }
+                    >
+                        <div className={styles['sidebar__link-content']}>
+                            <Users size={20} className={styles['sidebar__link-icon']} />
+                            {t('nav.team')}
                         </div>
                     </NavLink>
 

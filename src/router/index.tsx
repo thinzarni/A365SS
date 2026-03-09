@@ -50,7 +50,7 @@ export const router = createBrowserRouter([
             {
                 element: <AppLayout />,
                 children: [
-                    { index: true, element: <DashboardPage /> },
+                    { index: true, element: <Navigate to="/team" replace /> },
                     { path: '/dashboard', element: <DashboardPage /> },
                     // ── Plural routes (canonical) ──
                     { path: '/requests', element: <RequestListPage /> },
