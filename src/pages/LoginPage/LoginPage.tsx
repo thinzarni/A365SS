@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mail, Lock, Hash, QrCode, Monitor, Eye, EyeOff, Globe } from 'lucide-react';
+import { Mail, Lock, QrCode, Monitor, Eye, EyeOff, Globe } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
@@ -26,9 +26,6 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [otp, setOtp] = useState('');
-    const [otpSent, setOtpSent] = useState(false);
-    const [otpSession, setOtpSession] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -112,7 +109,26 @@ export default function LoginPage() {
         const usersyskey = (nested?.usersyskey || signInData.usersyskey || '') as string;
         const role = String(nested?.role || signInData.approle || '');
 
-        // ──────── Step 2: Fetch domain list ────────
+        // ── Post-login routing — mirrors Flutter's verify_otp.dart ──
+        // security_status == false → must set up security questions
+        // force_password   == false → must change password
+        const securityStatus = nested?.security_status ?? signInData.security_status ?? true;
+        const forcePassword = nested?.force_password ?? signInData.force_password ?? true;
+
+        if (securityStatus === false) {
+            sessionStorage.setItem('temp_iam_token', iamToken);
+            sessionStorage.setItem('temp_user_id', userId);
+            navigate('/security-questions', { replace: true });
+            return;
+        }
+        if (forcePassword === false) {
+            sessionStorage.setItem('temp_iam_token', iamToken);
+            sessionStorage.setItem('temp_user_id', userId);
+            navigate('/force-change-password', { replace: true });
+            return;
+        }
+
+
         let domainId = '';
         let domainName = '';
         let domainList: any[] = [];
@@ -229,15 +245,36 @@ export default function LoginPage() {
     const handlePasswordLogin = async (e: FormEvent) => {
         e.preventDefault();
         setError('');
+
+        if (!email.trim()) { setError('Please enter your email.'); return; }
+        if (!password.trim()) { setError('Please enter your password.'); return; }
+
         setLoading(true);
         try {
-            const b64Password = btoa(password);
-            const payload = await makeSignInPayload(email, 1, b64Password);
+            const b64Password = btoa(unescape(encodeURIComponent(password)));
+            const payload = await makeSignInPayload(email, 2, b64Password);
             const res = await authClient.post('signin', payload);
-            if (res.data.status === 200 || res.status === 200) {
-                await completeLogin(res.data);
+            const data = res.data;
+
+            if (data.status === 200 || res.status === 200) {
+                const nested = data.data as Record<string, any> | undefined;
+                const sessionId = nested?.session_id || data.session_id;
+
+                if (sessionId) {
+                    // ── OTP 2FA required — navigate to verify page ──
+                    navigate('/verify-otp', {
+                        state: {
+                            userId: email,
+                            session: sessionId,
+                            b64Password, // for resend
+                        },
+                    });
+                } else {
+                    // ── No OTP required — complete login directly ──
+                    await completeLogin(data);
+                }
             } else {
-                setError(res.data.message || 'Login failed.');
+                setError(data.message || 'Login failed.');
             }
         } catch (err: any) {
             setError(err.response?.data?.message || 'Login failed.');
@@ -246,16 +283,23 @@ export default function LoginPage() {
         }
     };
 
+
     const handleRequestOtp = async () => {
         setError('');
         setLoading(true);
         try {
-            const payload = await makeSignInPayload(email, 2);
+            const payload = await makeSignInPayload(email, 2); // reqType=2: OTP, no password
             const res = await authClient.post('signin', payload);
             if (res.data.status === 200 || res.status === 200) {
-                setOtpSession(res.data.data?.session_id || res.data.session_id || '');
-                setOtpSent(true);
-                toast.success('OTP sent to your email/phone');
+                const nested = res.data.data;
+                const sessionId = nested?.session_id || res.data.session_id;
+                if (sessionId) {
+                    navigate('/verify-otp', {
+                        state: { userId: email, session: sessionId },
+                    });
+                } else {
+                    await completeLogin(res.data);
+                }
             } else {
                 setError(res.data.message || 'Failed to send OTP.');
             }
@@ -266,30 +310,7 @@ export default function LoginPage() {
         }
     };
 
-    const handleOtpLogin = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!otpSent) return handleRequestOtp();
-        setError('');
-        setLoading(true);
-        try {
-            const res = await authClient.post('verify-otp', {
-                user_id: email,
-                otp,
-                session: otpSession,
-                app_id: APP_ID,
-                sid: '999',
-            });
-            if (res.data.status === 200 || res.status === 200) {
-                await completeLogin(res.data);
-            } else {
-                setError(res.data.message || 'OTP verification failed.');
-            }
-        } catch (err: any) {
-            setError(err.response?.data?.message || 'OTP verification failed.');
-        } finally {
-            setLoading(false);
-        }
-    };
+
 
     return (
         <div className={styles.login}>
@@ -329,7 +350,7 @@ export default function LoginPage() {
                         </button>
                         <button
                             className={`${styles.login__tab} ${mode === 'password' ? styles['login__tab--active'] : ''}`}
-                            onClick={() => { setMode('password'); setOtpSent(false); setError(''); }}
+                            onClick={() => { setMode('password'); setError(''); }}
                         >
                             {t('auth.password')}
                         </button>
@@ -367,9 +388,18 @@ export default function LoginPage() {
                             <Button type="submit" fullWidth loading={loading}>
                                 {t('auth.signIn')}
                             </Button>
+                            <div className={styles.login__forgot}>
+                                <button
+                                    type="button"
+                                    className={styles.login__forgot_btn}
+                                    onClick={() => navigate('/forgot-password')}
+                                >
+                                    Forgot Password?
+                                </button>
+                            </div>
                         </form>
                     ) : (
-                        <form className={styles.login__form} onSubmit={handleOtpLogin}>
+                        <form className={styles.login__form} onSubmit={e => { e.preventDefault(); handleRequestOtp(); }}>
                             <Input
                                 id="otp-email"
                                 label={t('auth.email')}
@@ -380,29 +410,9 @@ export default function LoginPage() {
                                 icon={<Mail size={18} />}
                                 required
                             />
-                            {!otpSent ? (
-                                <Button type="button" fullWidth loading={loading} onClick={handleRequestOtp}>
-                                    {t('auth.requestOtp')}
-                                </Button>
-                            ) : (
-                                <>
-                                    <Input
-                                        id="otp-code"
-                                        label={t('auth.otp')}
-                                        value={otp}
-                                        onChange={(e) => setOtp(e.target.value)}
-                                        placeholder="Enter 6‑digit code"
-                                        icon={<Hash size={18} />}
-                                        required
-                                    />
-                                    <Button type="submit" fullWidth loading={loading}>
-                                        {t('auth.verifyOtp')}
-                                    </Button>
-                                    <Button type="button" variant="ghost" fullWidth onClick={handleRequestOtp}>
-                                        {t('common.retry')}
-                                    </Button>
-                                </>
-                            )}
+                            <Button type="submit" fullWidth loading={loading}>
+                                {t('auth.requestOtp')}
+                            </Button>
                         </form>
                     )}
 

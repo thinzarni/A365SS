@@ -22,6 +22,11 @@ import DashboardPage from '../pages/DashboardPage/DashboardPage';
 import ChatPage from '../pages/ChatPage/ChatPage';
 import DomainSelectPage from '../pages/DomainSelectPage/DomainSelectPage';
 import ProfilePage from '../pages/ProfilePage/ProfilePage';
+import SecurityQuestionsPage from '../pages/SecurityQuestionsPage/SecurityQuestionsPage';
+import ForceChangePasswordPage from '../pages/ForceChangePasswordPage/ForceChangePasswordPage';
+import VerifyOtpPage from '../pages/VerifyOtpPage/VerifyOtpPage';
+import ForgotPasswordPage from '../pages/ForgotPasswordPage/ForgotPasswordPage';
+import ComingSoonPage from '../pages/ComingSoonPage/ComingSoonPage';
 
 export const router = createBrowserRouter([
     // ── Guest routes ──
@@ -30,6 +35,10 @@ export const router = createBrowserRouter([
         children: [
             { path: '/login', element: <LoginPage /> },
             { path: '/qr-login', element: <QRLoginPage /> },
+            { path: '/verify-otp', element: <VerifyOtpPage /> },
+            { path: '/forgot-password', element: <ForgotPasswordPage /> },
+            { path: '/security-questions', element: <SecurityQuestionsPage /> },
+            { path: '/force-change-password', element: <ForceChangePasswordPage /> },
         ],
     },
 
@@ -88,6 +97,9 @@ export const router = createBrowserRouter([
                     { path: '/team/member/:memberSyskey', element: <MemberDetailView /> },
                     { path: '/chat', element: <ChatPage /> },
                     { path: '/profile', element: <ProfilePage /> },
+
+                    // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──
+                    { path: '*', element: <ComingSoonPage /> },
                 ],
             },
         ],

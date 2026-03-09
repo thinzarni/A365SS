@@ -1,0 +1,185 @@
+.container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-neutral-50);
+    padding: var(--space-6);
+}
+
+.card {
+    background: var(--color-neutral-0);
+    border: 1px solid var(--color-neutral-100);
+    border-radius: var(--radius-2xl);
+    padding: var(--space-8);
+    width: 100%;
+    max-width: 420px;
+    box-shadow: var(--shadow-lg);
+}
+
+/* ── Header ── */
+.header {
+    text-align: center;
+    margin-bottom: var(--space-8);
+}
+
+.iconWrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-full);
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--color-primary-600);
+    margin-bottom: var(--space-4);
+}
+
+.title {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--color-neutral-900);
+    letter-spacing: -0.03em;
+    margin-bottom: var(--space-2);
+}
+
+.subtitle {
+    font-size: var(--text-sm);
+    color: var(--color-neutral-500);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-1);
+}
+
+.userId {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-neutral-700);
+}
+
+/* ── Form ── */
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+/* ── 6-digit PIN row ── */
+.pinRow {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: center;
+}
+
+.pinBox {
+    width: 48px;
+    height: 56px;
+    border: 2px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    background: var(--color-neutral-50);
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    text-align: center;
+    color: var(--color-neutral-900);
+    caret-color: var(--color-primary-500);
+    outline: none;
+    transition: all var(--transition-fast);
+}
+
+.pinBox:focus {
+    border-color: var(--color-primary-500);
+    background: var(--color-neutral-0);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.pinBoxFilled {
+    border-color: var(--color-primary-400);
+    background: var(--color-neutral-0);
+}
+
+/* ── Resend ── */
+.resendRow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+}
+
+.resendText {
+    font-size: var(--text-sm);
+    color: var(--color-neutral-500);
+}
+
+.resendBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: var(--color-primary-600);
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    padding: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.resendBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.resendBtn:hover:not(:disabled) {
+    opacity: 0.75;
+}
+
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--color-primary-200);
+    border-top-color: var(--color-primary-600);
+    border-radius: var(--radius-full);
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ── Back link ── */
+.backBtn {
+    background: none;
+    border: none;
+    color: var(--color-neutral-500);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    text-align: center;
+    padding: 0;
+    transition: color var(--transition-fast);
+}
+
+.backBtn:hover {
+    color: var(--color-neutral-700);
+}
+
+@media (max-width: 480px) {
+    .card {
+        padding: var(--space-5);
+    }
+
+    .title {
+        font-size: var(--text-xl);
+    }
+
+    .pinBox {
+        width: 40px;
+        height: 48px;
+        font-size: var(--text-lg);
+    }
+
+    .pinRow {
+        gap: var(--space-2);
+    }
+}
