@@ -62,19 +62,30 @@ apiClient.interceptors.response.use(
     async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-        // Token expired — attempt refresh
+        // Token expired — attempt silent refresh then retry
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
 
             try {
-                const { refreshToken } = useAuthStore.getState();
-                if (refreshToken) {
-                    await useAuthStore.getState().renewToken();
-                    const { token } = useAuthStore.getState();
-                    originalRequest.headers.Authorization = `Bearer ${token}`;
-                    return apiClient(originalRequest);
+                // Lazy-import to avoid circular dep at module init time
+                const { useAuthStore } = await import('../stores/auth-store');
+                const { refreshToken, renewToken, logout } = useAuthStore.getState();
+
+                if (!refreshToken) {
+                    logout();
+                    window.location.href = '/login';
+                    return Promise.reject(error);
                 }
+
+                await renewToken(); // updates token in store
+
+                const { token } = useAuthStore.getState();
+                if (originalRequest.headers) {
+                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                }
+                return apiClient(originalRequest);
             } catch {
+                const { useAuthStore } = await import('../stores/auth-store');
                 useAuthStore.getState().logout();
                 window.location.href = '/login';
             }
