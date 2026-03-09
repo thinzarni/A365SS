@@ -2,7 +2,7 @@ services:
   - type: static
     name: A365SS
     buildCommand: npm install && npm run build
-    staticPublishPath: ./build
+    staticPublishPath: ./dist
     envVars:
       - key: NODE_VERSION
         value: "20"
