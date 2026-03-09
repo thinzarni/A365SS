@@ -176,6 +176,7 @@ export default function NewRequestPage() {
 
     // ── Overtime-specific ──
     const [hour, setHour] = useState('');
+    const [otDays, setOtDays] = useState('0');
 
     // ── Cash Advance-specific ──
     const [amount, setAmount] = useState('');
@@ -308,6 +309,49 @@ export default function NewRequestPage() {
             setDuration(calcLeaveDuration(startDate, endDate, startPeriod, endPeriod));
         }
     }, [selectedType, startDate, endDate, startPeriod, endPeriod]);
+
+    // ── Central auto-sync: startDate → endDate (all types that use both date fields) ──
+    // Excludes: travel (departure/arrival), leave (user controls), general/purchase/other (single date)
+    const DATE_RANGE_TYPES = ['overtime', 'leave', 'wfh', 'cashadvance', 'claim', 'transportation',
+        'reservation', 'earlyout', 'late', 'offinlieu'];
+    useEffect(() => {
+        if (!DATE_RANGE_TYPES.includes(selectedType) || !startDate) return;
+        setEndDate(startDate);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [startDate, selectedType]);
+
+    // ── Central auto-sync: startTime → endTime +1 hr (all types that use both time fields) ──
+    // Excludes: travel (departure/arrival times), leave (AM/PM period), general/purchase/other (single time)
+    const TIME_RANGE_TYPES = ['overtime', 'wfh', 'cashadvance', 'claim',
+        'reservation', 'earlyout', 'late', 'offinlieu'];
+    useEffect(() => {
+        if (!TIME_RANGE_TYPES.includes(selectedType) || !startTime) return;
+        const [h, m] = startTime.split(':').map(Number);
+        const newH = (h + 1) % 24;
+        setEndTime(`${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [startTime, selectedType]);
+
+    // Auto-calculate OT hours from startTime → endTime
+    useEffect(() => {
+        if (selectedType !== 'overtime' || !startTime || !endTime) return;
+        const [sh, sm] = startTime.split(':').map(Number);
+        const [eh, em] = endTime.split(':').map(Number);
+        let diff = (eh * 60 + em) - (sh * 60 + sm);
+        if (diff < 0) diff += 24 * 60; // overnight span
+        const h = diff / 60;
+        setHour(h % 1 === 0 ? String(h) : h.toFixed(1));
+    }, [selectedType, startTime, endTime]);
+
+    // Auto-calculate OT days from startDate → endDate (inclusive)
+    useEffect(() => {
+        if (selectedType !== 'overtime' || !startDate) return;
+        const start = new Date(startDate);
+        const end = endDate ? new Date(endDate) : start;
+        const ms = end.getTime() - start.getTime();
+        const days = Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)) + 1);
+        setOtDays(String(days));
+    }, [selectedType, startDate, endDate]);
 
     // ── Submit mutation ──
     const submitMutation = useMutation({
@@ -530,7 +574,7 @@ export default function NewRequestPage() {
                 payload.enddate = toApiDate(endDate || startDate);
                 payload.starttime = toApi12hTime(startTime);
                 payload.endtime = toApi12hTime(endTime);
-                payload.otday = '';
+                payload.otday = otDays;   // auto-calc: endDate - startDate + 1 days
                 payload.date = '';
                 payload.selectday = '';
                 payload.hour = hour;
@@ -703,10 +747,15 @@ export default function NewRequestPage() {
                                         <Input id="arrivalDate" label="Arrival Date" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} required />
                                     </>
                                 ) : selectedType === 'overtime' ? (
-                                    // Overtime: start/end date + start/end time
+                                    // Overtime: start/end date | OT Day + OT Hours in one row | start/end time
                                     <>
                                         <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
                                         <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                                        {/* OT Day + OT Hours — same row */}
+                                        <div className={styles['new-request__full']} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+                                            <Input id="otDays" label="OT Day" type="number" value={otDays} readOnly placeholder="auto" />
+                                            <Input id="hour" label="OT Hours" type="number" value={hour} onChange={(e) => setHour(e.target.value)} placeholder="auto-calculated" min="0" step="0.5" readOnly={!!(startTime && endTime)} />
+                                        </div>
                                         <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
                                         <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                                     </>
@@ -747,6 +796,8 @@ export default function NewRequestPage() {
                                         <Input id="startTime" label="Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
                                     </>
                                 ) : (
+                                    // Generic: wfh, cashadvance, claim, reservation, earlyout, late, offinlieu
+                                    // Auto-sync handled centrally via useEffect above
                                     <>
                                         <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
                                         <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
