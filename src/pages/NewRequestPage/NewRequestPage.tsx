@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -25,9 +25,7 @@ import apiClient from '../../lib/api-client';
 import {
     REQUEST_TYPES,
     SAVE_REQUEST,
-    TRANSPORTATION_TYPES,
-    CARS_LIST,
-    DRIVERS_LIST,
+    PHOTO_UPLOAD,
     RESERVATION_TYPES,
     ROOM_TYPES,
     PRODUCT_LIST,
@@ -70,6 +68,7 @@ const REQUEST_TYPE_CONFIGS: RequestTypeConfig[] = [
     { key: 'transportation', label: 'Transportation', icon: Car, color: '#9333ea', bgColor: '#faf5ff' },
     { key: 'reservation', label: 'Reservation', icon: Calendar, color: '#0891b2', bgColor: '#ecfeff' },
     { key: 'travel', label: 'Travel', icon: Plane, color: '#ea580c', bgColor: '#fff7ed' },
+    { key: 'claim', label: 'Claim', icon: Banknote, color: '#dc2626', bgColor: '#fef2f2' },
     { key: 'cashadvance', label: 'Cash Advance', icon: Banknote, color: '#dc2626', bgColor: '#fef2f2' },
     { key: 'other', label: 'Other', icon: FileText, color: '#64748b', bgColor: '#f1f5f9' },
 ];
@@ -96,6 +95,7 @@ const TYPE_DESC_MAP: Record<string, string> = {
     transportation: 'Transportation',
     reservation: 'Reservation',
     travel: 'Travel',
+    claim: 'Claim',          // mirrors mobile: requestTypes.firstWhere(t => t.description == 'Claim')
     cashadvance: 'Cash Advance',
     other: 'General',
 };
@@ -107,8 +107,20 @@ const TYPE_DESC_MAP: Record<string, string> = {
 export default function NewRequestPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams] = useSearchParams();
-    const presetType = searchParams.get('type') || '';
+
+    // Derive preset type from URL path (most reliable) then fall back to ?type= query param.
+    // e.g. /transportation/new → 'transportation', /claim/new → 'claim'
+    const PATH_TO_TYPE: Record<string, string> = {
+        '/claim/new': 'claim',
+        '/overtime/new': 'overtime',
+        '/wfh/new': 'wfh',
+        '/transportation/new': 'transportation',
+        '/travel/new': 'travel',
+        '/cashadvance/new': 'cashadvance',
+    };
+    const presetType = PATH_TO_TYPE[location.pathname] || searchParams.get('type') || '';
 
     // ── Request type / subtype ──
     const [selectedType, setSelectedType] = useState(presetType);
@@ -127,16 +139,25 @@ export default function NewRequestPage() {
     const [endTime, setEndTime] = useState(nowTimeStr);
     const [remark, setRemark] = useState('');
 
-    // ── Transportation-specific ──
-    const [pickupPlace, setPickupPlace] = useState('');
-    const [dropoffPlace, setDropoffPlace] = useState('');
-    const [isGoing, setIsGoing] = useState(true);
-    const [isReturn, setIsReturn] = useState(false);
-    const [userLeaveTime, setUserLeaveTime] = useState(nowTimeStr);
-    const [arrivalTime, setArrivalTime] = useState(nowTimeStr);
-    const [returnTime, setReturnTime] = useState(nowTimeStr);
-    const [car, setCar] = useState('');
-    const [driver, setDriver] = useState('');
+    // ── Transportation-specific (mirrors mobile _buildTransTypeFields) ──
+    const [transGroupType, setTransGroupType] = useState<'group' | 'individual'>('group');
+    const [transToPlace, setTransToPlace] = useState('');
+    const [transTripType, setTransTripType] = useState('');        // syskey
+    const [transTripTypeDesc, setTransTripTypeDesc] = useState(''); // description (for conditional UI)
+    // One Way Trip fields
+    const [transOneWayStart, setTransOneWayStart] = useState('');
+    const [transOneWayEnd, setTransOneWayEnd] = useState('');
+    const [transOneWayStartTime, setTransOneWayStartTime] = useState(nowTimeStr);
+    const [transOneWayEndTime, setTransOneWayEndTime] = useState(nowTimeStr);
+    // Round Trip fields
+    const [transDepartureStart, setTransDepartureStart] = useState('');
+    const [transDepartureEnd, setTransDepartureEnd] = useState('');
+    const [transDepartureStartTime, setTransDepartureStartTime] = useState(nowTimeStr);
+    const [transDepartureEndTime, setTransDepartureEndTime] = useState(nowTimeStr);
+    const [transArrivalStart, setTransArrivalStart] = useState('');
+    const [transArrivalEnd, setTransArrivalEnd] = useState('');
+    const [transArrivalStartTime, setTransArrivalStartTime] = useState(nowTimeStr);
+    const [transArrivalEndTime, setTransArrivalEndTime] = useState(nowTimeStr);
 
     // ── Reservation-specific ──
     const [room, setRoom] = useState('');
@@ -154,7 +175,6 @@ export default function NewRequestPage() {
     const [arrivalDate, setArrivalDate] = useState(todayStr);
 
     // ── Overtime-specific ──
-    const [otDay, setOtDay] = useState(todayStr);
     const [hour, setHour] = useState('');
 
     // ── Cash Advance-specific ──
@@ -166,6 +186,7 @@ export default function NewRequestPage() {
 
     // ── Shared ──
     const [approvers, setApprovers] = useState<MemberItem[]>([]);
+    const [transMembers, setTransMembers] = useState<MemberItem[]>([]); // transportation group members (separate from approvers)
     const [accompanyPersons, setAccompanyPersons] = useState<MemberItem[]>([]);
     const [handovers, setHandovers] = useState<MemberItem[]>([]);
     const [files, setFiles] = useState<File[]>([]);
@@ -179,32 +200,12 @@ export default function NewRequestPage() {
         },
     });
 
-    const { data: transportTypes = [] } = useQuery<TypesModel[]>({
-        queryKey: ['transportTypes'],
-        queryFn: async () => {
-            const res = await apiClient.post(TRANSPORTATION_TYPES, {});
-            return res.data?.datalist || [];
-        },
-        enabled: selectedType === 'transportation',
-    });
-
-    const { data: carsList = [] } = useQuery<TypesModel[]>({
-        queryKey: ['carsList'],
-        queryFn: async () => {
-            const res = await apiClient.post(CARS_LIST, {});
-            return res.data?.datalist || [];
-        },
-        enabled: selectedType === 'transportation',
-    });
-
-    const { data: driversList = [] } = useQuery<TypesModel[]>({
-        queryKey: ['driversList'],
-        queryFn: async () => {
-            const res = await apiClient.post(DRIVERS_LIST, {});
-            return res.data?.datalist || [];
-        },
-        enabled: selectedType === 'transportation',
-    });
+    // Flutter: tripTypes is a hardcoded static list in request_provider.dart (line 50), NOT from an API
+    // List<TypesModel> tripTypes = [TypesModel(syskey: '0', description: 'One Way Trip'), TypesModel(syskey: '1', description: 'Round Trip')]
+    const transportTypes: TypesModel[] = [
+        { syskey: '0', description: 'One Way Trip' },
+        { syskey: '1', description: 'Round Trip' },
+    ];
 
     const { data: reservationTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['reservationTypes'],
@@ -240,25 +241,28 @@ export default function NewRequestPage() {
     const { data: productList = [] } = useQuery<TypesModel[]>({
         queryKey: ['productList'],
         queryFn: async () => {
-            const res = await apiClient.post(PRODUCT_LIST, {});
+            // Mobile: RequestApi.fetchList(getProductList) — GET
+            const res = await apiClient.get(PRODUCT_LIST);
             return res.data?.datalist || [];
         },
-        enabled: selectedType === 'travel',
+        enabled: selectedType === 'travel' || selectedType === 'overtime',
     });
 
     const { data: projectList = [] } = useQuery<TypesModel[]>({
         queryKey: ['projectList'],
         queryFn: async () => {
-            const res = await apiClient.post(PROJECT_LIST, {});
+            // Mobile: RequestApi.fetchList(getProjectList) — GET
+            const res = await apiClient.get(PROJECT_LIST);
             return res.data?.datalist || [];
         },
-        enabled: selectedType === 'travel',
+        enabled: selectedType === 'travel' || selectedType === 'overtime',
     });
 
     const { data: travelTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['modeOfTravel'],
         queryFn: async () => {
-            const res = await apiClient.post(TRAVEL_TYPE_LIST, {});
+            // Mobile: RequestApi.fetchList(getTravelTypeList) — GET
+            const res = await apiClient.get(TRAVEL_TYPE_LIST);
             return res.data?.datalist || [];
         },
         enabled: selectedType === 'travel',
@@ -267,7 +271,8 @@ export default function NewRequestPage() {
     const { data: vehicleUseList = [] } = useQuery<TypesModel[]>({
         queryKey: ['vehicleUseList'],
         queryFn: async () => {
-            const res = await apiClient.post(VEHICLE_USE_LIST, {});
+            // Mobile: RequestApi.fetchList(getusedVehicleList) — GET
+            const res = await apiClient.get(VEHICLE_USE_LIST);
             return res.data?.datalist || [];
         },
         enabled: selectedType === 'travel',
@@ -325,6 +330,48 @@ export default function NewRequestPage() {
             );
             const typeSyskey = matchedType?.syskey || selectedType;
 
+            /* ── Upload attachments first ──
+               Flutter (office_api.dart LeaveApi.uploadOne) sends JSON:
+               { base64String: <base64 content>, base64filename: <name> }
+               Server returns { fileName } which goes in payload.attachment */
+            let attachmentFileNames: string[] = [];
+            if (files.length > 0) {
+                // Helper: File → base64 string (strips data:...;base64, prefix)
+                const toBase64 = (file: File): Promise<string> =>
+                    new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            const result = reader.result as string;
+                            // Strip "data:<mime>;base64," prefix → raw base64
+                            resolve(result.split(',')[1] || result);
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+
+                const uploads = files.map(async (file) => {
+                    const base64String = await toBase64(file);
+                    return apiClient.post(PHOTO_UPLOAD, {
+                        base64String,
+                        base64filename: file.name,
+                    });
+                });
+                const results = await Promise.all(uploads);
+                console.log('[PHOTO_UPLOAD] results:', results.map(r => r.data));
+                attachmentFileNames = results
+                    .map((r) => {
+                        const d = r.data;
+                        // Handle various response shapes from the server
+                        return d?.fileName          // most likely key
+                            || d?.filename          // lowercase variant
+                            || d?.file_name         // snake_case variant
+                            || d?.name              // short key
+                            || d?.datalist?.[0]?.fileName
+                            || (typeof d === 'string' ? d : '');
+                    })
+                    .filter(Boolean);
+            }
+
             /* ── Helper: date yyyy-MM-dd → yyyyMMdd ── */
             const toApiDate = (d: string) => d ? d.replace(/-/g, '') : '';
 
@@ -341,10 +388,16 @@ export default function NewRequestPage() {
             const payload: Record<string, unknown> = {
                 requesttype: typeSyskey,
                 requesttypedesc: typeDesc,
-                requestsubtype: subType,
+                requestsubtype: subType,        // addIfEmpty — always sent
+                requestsubtypedesc: '',          // addIfEmpty — always sent
                 remark,
                 reason: remark || null,
                 description: remark || null,
+                travelpurpose: remark || null,
+                car: null,
+                driver: null,
+                comment: null,
+                currencytype: '',               // addIfEmpty
                 selectedApprovers: approvers.map((a) => ({
                     syskey: a.syskey,
                     name: a.name,
@@ -363,64 +416,40 @@ export default function NewRequestPage() {
                     timeinoffset: '',
                     timeoutoffset: '',
                 })),
+                selectedAcconpanyPersons: [],   // always sent (Flutter line 424-429)
                 selectedHandovers: [],
-                attachment: [],
+                attachment: attachmentFileNames,  // Flutter: data.attachment = _attachmentPaths.map((a) => a['fileName']!).toList()
+                ottype: 0,                      // always sent for non-overtime
             };
 
             /* ── Date / time formatting depends on request type ── */
             if (selectedType === 'reservation') {
-                // Reservation: startdate=yyyyMMdd, enddate='', times in 12h
                 payload.startdate = toApiDate(startDate);
                 payload.enddate = '';
                 payload.starttime = toApi12hTime(startTime);
                 payload.endtime = toApi12hTime(endTime);
-                payload.date = '';
-                payload.selectday = '';
-                payload.otday = '';
                 payload.maxpeople = Number(maxPeople) || 0;
                 payload.rooms = room;
-                // Find room description
                 const selRoom = roomTypes.find((r) => r.syskey === room);
                 payload.roomsdesc = selRoom?.description || '';
-                // Find reservation sub-type description
                 const selResType = reservationTypes.find((r) => r.syskey === subType);
                 payload.requestsubtypedesc = selResType?.description || '';
-                // Reservation auto-approved (status 2)
                 payload.requeststatus = 2;
-                // Meeting participants
-                if (accompanyPersons.length > 0) {
-                    payload.selectedMembers = accompanyPersons.map((p) => ({
-                        syskey: p.syskey,
-                        name: p.name,
-                        userid: '',
-                        profilestatus: 0,
-                        profile: '',
-                        eid: p.employeeid || '',
-                        signedURL: '',
-                        status: '4',
-                        pickupplace: '',
-                        dropoffplace: '',
-                        leaveDateRange: '',
-                        timeintime: '',
-                        timeouttime: '',
-                        attendancevalidation: true,
-                        timeinoffset: '',
-                        timeoutoffset: '',
-                    }));
-                }
+                payload.selectedAcconpanyPersons = accompanyPersons.map((p) => ({
+                    syskey: p.syskey, name: p.name, userid: '', profilestatus: 0,
+                    profile: '', eid: p.employeeid || '', signedURL: '', status: '4',
+                    pickupplace: '', dropoffplace: '', leaveDateRange: '',
+                    timeintime: '', timeouttime: '', attendancevalidation: true,
+                    timeinoffset: '', timeoutoffset: '',
+                }));
             } else if (selectedType === 'leave' || selectedType === 'wfh') {
                 payload.startdate = toApiDate(startDate);
                 payload.enddate = toApiDate(endDate || startDate);
-                payload.date = '';
-                payload.selectday = '';
-                payload.otday = '';
                 payload.requeststatus = 1;
                 if (selectedType === 'leave') {
-                    // Leave uses AM/PM for time, not full HH:mm
                     payload.starttime = startPeriod;
                     payload.endtime = endPeriod;
                     payload.duration = duration;
-                    // Set requestsubtype to the selected leave type (e.g. Casual Leave)
                     if (leaveType) {
                         const selectedLt = leaveTypeList.find((lt) => lt.syskey === leaveType);
                         if (selectedLt) {
@@ -437,22 +466,46 @@ export default function NewRequestPage() {
                     payload.locationname = locationName;
                 }
             } else if (selectedType === 'transportation') {
-                payload.selectday = toApiDate(startDate);
-                payload.startdate = '';
-                payload.enddate = '';
-                payload.date = '';
-                payload.otday = '';
-                payload.starttime = '';
-                payload.endtime = '';
-                payload.pickupplace = pickupPlace;
-                payload.dropoffplace = dropoffPlace;
-                payload.isgoing = isGoing;
-                payload.isreturn = isReturn;
+                // Mirrors Flutter RequestModel.toJson() transportation block (lines 434-451)
+                // Flutter uses syskey '0' = One Way Trip, '1' = Round Trip
+                const isOneWay = transTripType === '0';
+                if (startDate) payload.selectday = toApiDate(startDate); // Only send if not empty
+                payload.toplace = transToPlace;
+                payload.isgroup = transGroupType === 'group' ? 0 : 1;
+                payload.triptype = transTripType || '0';
                 payload.userleavetime = '';
-                payload.arrivaltime = isGoing ? toApi12hTime(arrivalTime) : '';
-                payload.returntime = isReturn ? toApi12hTime(returnTime) : '';
-                payload.car = car;
-                payload.driver = driver;
+                payload.isgoing = isOneWay;           // true for one-way, false for round-trip
+                payload.isreturn = !isOneWay;          // false for one-way, true for round-trip
+                payload.isgoback = false;
+                payload.arrivaltime = '';
+                payload.returntime = '';
+
+                if (isOneWay) {
+                    payload.gobackarrivaltime = toApi12hTime(transOneWayStartTime);
+                    payload.gobackreturntime = toApi12hTime(transOneWayEndTime);
+                    payload.arrivalstarttime = '';
+                    payload.arrivalendtime = '';
+                    payload.arrivalstartlocation = '';
+                    payload.arrivalendlocation = '';
+                    payload.pickupplace = transOneWayStart;
+                    payload.dropoffplace = transOneWayEnd;
+                } else {
+                    payload.gobackarrivaltime = toApi12hTime(transDepartureStartTime);
+                    payload.gobackreturntime = toApi12hTime(transDepartureEndTime);
+                    payload.arrivalstarttime = toApi12hTime(transArrivalStartTime);
+                    payload.arrivalendtime = toApi12hTime(transArrivalEndTime);
+                    payload.arrivalstartlocation = transArrivalStart;
+                    payload.arrivalendlocation = transArrivalEnd;
+                    payload.pickupplace = transDepartureStart;
+                    payload.dropoffplace = transDepartureEnd;
+                }
+                payload.selectedMembers = transGroupType === 'group'
+                    ? transMembers.map((m) => ({
+                        syskey: m.syskey, name: m.name, userid: '',
+                        profilestatus: 0, profile: '', eid: m.employeeid || '',
+                        signedURL: '', status: '4',
+                    }))
+                    : [];
                 payload.requeststatus = 1;
             } else if (selectedType === 'travel') {
                 payload.departuredate = toApiDate(departureDate);
@@ -471,9 +524,7 @@ export default function NewRequestPage() {
                 payload.estimatedbudget = Number(unformatAmount(String(estimatedBudget))) || 0;
                 payload.travelpurpose = remark || null;
                 payload.requeststatus = 1;
-                if (accompanyPersons.length > 0) {
-                    payload.selectedAcconpanyPersons = accompanyPersons.map((p) => ({ syskey: p.syskey, name: p.name }));
-                }
+                payload.selectedAcconpanyPersons = accompanyPersons.map((p) => ({ syskey: p.syskey, name: p.name }));
             } else if (selectedType === 'overtime') {
                 payload.startdate = toApiDate(startDate);
                 payload.enddate = toApiDate(endDate || startDate);
@@ -483,8 +534,10 @@ export default function NewRequestPage() {
                 payload.date = '';
                 payload.selectday = '';
                 payload.hour = hour;
+                payload.product = product;   // Flutter: formData['product'] = formData['productList'].syskey
+                payload.project = project;   // Flutter: formData['project'] = formData['projectList'].syskey
                 payload.requeststatus = 1;
-            } else if (selectedType === 'cashadvance') {
+            } else if (selectedType === 'cashadvance' || selectedType === 'claim') {
                 payload.date = toApiDate(startDate);
                 payload.startdate = '';
                 payload.enddate = '';
@@ -494,28 +547,39 @@ export default function NewRequestPage() {
                 payload.currencytype = currencyType;
                 payload.requeststatus = 1;
             } else {
-                // General / Other
+                // General / Employee Requisition / Purchase — Flutter: uses date + time only (no start/end date/time)
                 payload.date = toApiDate(startDate);
                 payload.startdate = '';
                 payload.enddate = '';
                 payload.selectday = '';
                 payload.otday = '';
-                payload.starttime = toApi12hTime(startTime);
-                payload.endtime = toApi12hTime(endTime);
+                payload.time = toApi12hTime(startTime);  // Flutter: formData['time'] = single time field
                 payload.requeststatus = 1;
             }
 
             const res = await apiClient.post(SAVE_REQUEST, payload);
+            // Flutter: Neocode.statusIsOk(statuscode) == (status === 300)
+            // Any statuscode other than 300 is an error — show message and stay on form
+            const sc = Number(res.data?.statuscode);
+            if (sc !== 300) {
+                throw new Error(res.data?.message || t('common.error'));
+            }
             return res.data;
         },
         onSuccess: () => {
             toast.success(t('request.submitSuccess'));
-            const SUCCESS_RETURN: Record<string, string> = { leave: '/leave', reservation: '/reservations' };
+            const SUCCESS_RETURN: Record<string, string> = {
+                leave: '/leave',
+                reservation: '/reservations',
+                claim: '/claim',
+            };
             navigate(SUCCESS_RETURN[selectedType] || '/requests');
         },
         onError: (err: unknown) => {
             console.error('Submit error:', err);
-            toast.error(t('common.error'));
+            const msg = err instanceof Error ? err.message : t('common.error');
+            toast.error(msg);
+            // Stay on the form — do NOT navigate
         },
     });
 
@@ -524,6 +588,28 @@ export default function NewRequestPage() {
         if (!selectedType) {
             toast.error('Please select a request type');
             return;
+        }
+        // Mirror Flutter requestform_page.dart lines 939-1015
+        if (selectedType === 'transportation') {
+            if (!transToPlace.trim()) {
+                toast.error('Destination place is required for Transportation');
+                return;
+            }
+            if (transGroupType === 'group' && transMembers.length === 0) {
+                toast.error('Member is required for Group transportation');
+                return;
+            }
+            const isOneWay = transTripType === '0'; // Flutter: syskey '0' = One Way, '1' = Round Trip
+            if (isOneWay) {
+                if (!transOneWayStart.trim()) { toast.error('Start location is required'); return; }
+                if (!transOneWayEnd.trim()) { toast.error('End location is required'); return; }
+            } else if (transTripTypeDesc) {
+                // Round trip
+                if (!transDepartureStart.trim()) { toast.error('Departure start location is required'); return; }
+                if (!transDepartureEnd.trim()) { toast.error('Departure end location is required'); return; }
+                if (!transArrivalStart.trim()) { toast.error('Arrival start location is required'); return; }
+                if (!transArrivalEnd.trim()) { toast.error('Arrival end location is required'); return; }
+            }
         }
         submitMutation.mutate();
     };
@@ -543,6 +629,7 @@ export default function NewRequestPage() {
         transportation: 'New Transportation Request',
         reservation: 'New Reservation',
         travel: 'New Travel Request',
+        claim: 'New Claim Request',
         cashadvance: 'New Cash Advance Request',
         other: 'New Request',
     };
@@ -616,9 +703,12 @@ export default function NewRequestPage() {
                                         <Input id="arrivalDate" label="Arrival Date" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} required />
                                     </>
                                 ) : selectedType === 'overtime' ? (
+                                    // Overtime: start/end date + start/end time
                                     <>
-                                        <Input id="otDay" label="OT Day" type="date" value={otDay} onChange={(e) => setOtDay(e.target.value)} required />
-                                        <Input id="hour" label="Hours" type="number" value={hour} onChange={(e) => setHour(e.target.value)} placeholder="e.g. 2" required />
+                                        <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                        <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                                        <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                                        <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                                     </>
                                 ) : selectedType === 'leave' ? (
                                     <>
@@ -650,6 +740,12 @@ export default function NewRequestPage() {
                                             />
                                         </div>
                                     </>
+                                ) : (selectedType === 'general' || selectedType === 'employeerequisition' || selectedType === 'purchase' || selectedType === 'other') ? (
+                                    // Flutter: General/Employee Requisition/Purchase use single date + time only
+                                    <>
+                                        <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                        <Input id="startTime" label="Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                                    </>
                                 ) : (
                                     <>
                                         <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
@@ -668,41 +764,96 @@ export default function NewRequestPage() {
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Transportation Details</h3>
                                 <div className={styles['new-request__grid']}>
-                                    {transportTypes.length > 0 && (
-                                        <Select
-                                            id="transportSubType"
-                                            label="Transport Type"
-                                            value={subType}
-                                            onChange={(e) => setSubType(e.target.value)}
-                                            options={transportTypes.map((t) => ({ value: t.syskey, label: t.description }))}
-                                            placeholder="Select…"
-                                        />
-                                    )}
-                                    <Input id="pickup" label="Pick-up Place" value={pickupPlace} onChange={(e) => setPickupPlace(e.target.value)} placeholder="Building / Location" />
-                                    <Input id="dropoff" label="Drop-off Place" value={dropoffPlace} onChange={(e) => setDropoffPlace(e.target.value)} placeholder="Destination" />
-                                    <Input id="leaveTime" label="Leave Time" type="time" value={userLeaveTime} onChange={(e) => setUserLeaveTime(e.target.value)} />
-                                    <Input id="arrivalTimeInput" label="Arrival Time" type="time" value={arrivalTime} onChange={(e) => setArrivalTime(e.target.value)} />
 
-                                    <div className={`${styles['new-request__full']} ${styles['new-request__grid']}`} style={{ gap: 'var(--space-4)' }}>
-                                        <label className={styles['new-request__checkbox-row']}>
-                                            <input type="checkbox" checked={isGoing} onChange={(e) => setIsGoing(e.target.checked)} /> Going
-                                        </label>
-                                        <label className={styles['new-request__checkbox-row']}>
-                                            <input type="checkbox" checked={isReturn} onChange={(e) => setIsReturn(e.target.checked)} /> Return trip
-                                        </label>
+                                    {/* Group / Individual radio — mirrors mobile _buildTransTypeFields Radio widgets */}
+                                    <div className={styles['new-request__full']}>
+                                        <label className={styles['new-request__label']}>Request For</label>
+                                        <div style={{ display: 'flex', gap: '24px', marginTop: '8px' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                                <input type="radio" name="transGroupType" value="group"
+                                                    checked={transGroupType === 'group'}
+                                                    onChange={() => setTransGroupType('group')} />
+                                                Group
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                                <input type="radio" name="transGroupType" value="individual"
+                                                    checked={transGroupType === 'individual'}
+                                                    onChange={() => setTransGroupType('individual')} />
+                                                Individual
+                                            </label>
+                                        </div>
                                     </div>
 
-                                    {isReturn && (
-                                        <Input id="returnTimeInput" label="Return Time" type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} />
+                                    {/* Destination place — mobile field: toplace */}
+                                    <Input className={styles['new-request__full']}
+                                        id="transToPlace"
+                                        label="Destination Place"
+                                        value={transToPlace}
+                                        onChange={(e) => setTransToPlace(e.target.value)}
+                                        placeholder="Enter destination…"
+                                    />
+
+                                    {/* Trip type from API — mirrors mobile 'traveltype' dropdown */}
+                                    {transportTypes.length > 0 && (
+                                        <Select
+                                            id="transTripType"
+                                            label="Travel Type"
+                                            value={transTripType}
+                                            onChange={(e) => {
+                                                const sel = transportTypes.find(t => t.syskey === e.target.value);
+                                                setTransTripType(e.target.value);
+                                                setTransTripTypeDesc(sel?.description || '');
+                                            }}
+                                            options={transportTypes.map((t) => ({ value: t.syskey, label: t.description }))}
+                                            placeholder="Select travel type…"
+                                        />
                                     )}
 
-                                    {carsList.length > 0 && (
-                                        <Select id="car" label="Car" value={car} onChange={(e) => setCar(e.target.value)} options={carsList.map((c) => ({ value: c.syskey, label: c.description }))} placeholder="Select car…" />
+                                    {/* One Way Trip fields — mirrors Flutter: _selectedTravelType.syskey == '0' */}
+                                    {transTripType === '0' && (
+                                        <>
+                                            <Input className={styles['new-request__full']} id="transOneWayStart" label="Start Location" value={transOneWayStart}
+                                                onChange={(e) => setTransOneWayStart(e.target.value)} placeholder="Start location…" />
+                                            <Input className={styles['new-request__full']} id="transOneWayEnd" label="End Location" value={transOneWayEnd}
+                                                onChange={(e) => setTransOneWayEnd(e.target.value)} placeholder="End location…" />
+                                            <Input id="transOneWayStartTime" label="Start Time" type="time" value={transOneWayStartTime}
+                                                onChange={(e) => setTransOneWayStartTime(e.target.value)} />
+                                            <Input id="transOneWayEndTime" label="End Time" type="time" value={transOneWayEndTime}
+                                                onChange={(e) => setTransOneWayEndTime(e.target.value)} />
+                                        </>
                                     )}
-                                    {driversList.length > 0 && (
-                                        <Select id="driver" label="Driver" value={driver} onChange={(e) => setDriver(e.target.value)} options={driversList.map((d) => ({ value: d.syskey, label: d.description }))} placeholder="Select driver…" />
+
+                                    {/* Round Trip fields — mirrors Flutter: _selectedTravelType.syskey == '1' */}
+                                    {transTripType && transTripType !== '0' && (
+                                        <>
+                                            <div className={styles['new-request__full']} style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: 'var(--text-sm)' }}>Departure</div>
+                                            <Input id="transDepartureStart" label="Start Location" value={transDepartureStart}
+                                                onChange={(e) => setTransDepartureStart(e.target.value)} placeholder="Departure start…" />
+                                            <Input id="transDepartureEnd" label="End Location" value={transDepartureEnd}
+                                                onChange={(e) => setTransDepartureEnd(e.target.value)} placeholder="Departure end…" />
+                                            <Input id="transDepartureStartTime" label="Start Time" type="time" value={transDepartureStartTime}
+                                                onChange={(e) => setTransDepartureStartTime(e.target.value)} />
+                                            <Input id="transDepartureEndTime" label="End Time" type="time" value={transDepartureEndTime}
+                                                onChange={(e) => setTransDepartureEndTime(e.target.value)} />
+                                            <div className={styles['new-request__full']} style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: 'var(--text-sm)' }}>Arrival</div>
+                                            <Input id="transArrivalStart" label="Start Location" value={transArrivalStart}
+                                                onChange={(e) => setTransArrivalStart(e.target.value)} placeholder="Arrival start…" />
+                                            <Input id="transArrivalEnd" label="End Location" value={transArrivalEnd}
+                                                onChange={(e) => setTransArrivalEnd(e.target.value)} placeholder="Arrival end…" />
+                                            <Input id="transArrivalStartTime" label="Start Time" type="time" value={transArrivalStartTime}
+                                                onChange={(e) => setTransArrivalStartTime(e.target.value)} />
+                                            <Input id="transArrivalEndTime" label="End Time" type="time" value={transArrivalEndTime}
+                                                onChange={(e) => setTransArrivalEndTime(e.target.value)} />
+                                        </>
                                     )}
                                 </div>
+
+                                {/* Group members — shown only when Group is selected (same as mobile) */}
+                                {transGroupType === 'group' && (
+                                    <div style={{ marginTop: 'var(--space-4)' }}>
+                                        <MemberPicker label="Group Members" members={transMembers} onChange={setTransMembers} />
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -765,6 +916,21 @@ export default function NewRequestPage() {
                                 </div>
                                 <div style={{ marginTop: 'var(--space-4)' }}>
                                     <MemberPicker label="Accompanying Persons" members={accompanyPersons} onChange={setAccompanyPersons} />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Overtime ── */}
+                        {selectedType === 'overtime' && (
+                            <div className={styles['new-request__section']}>
+                                <h3 className={styles['new-request__section-title']}>Overtime Details</h3>
+                                <div className={styles['new-request__grid']}>
+                                    {productList.length > 0 && (
+                                        <Select id="otProduct" label="Product" value={product} onChange={(e) => setProduct(e.target.value)} options={productList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select product…" />
+                                    )}
+                                    {projectList.length > 0 && (
+                                        <Select id="otProject" label="Project" value={project} onChange={(e) => setProject(e.target.value)} options={projectList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select project…" />
+                                    )}
                                 </div>
                             </div>
                         )}
