@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -32,6 +32,16 @@ function toApiDate(d: Date): string {
     return `${y}${m}${dd}`;
 }
 
+// Maps API router path → display config + filter keyword
+// Matching mobile's requestTypes.firstWhere(t.description == '<Type>') pattern
+const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: string; newPath: string }> = {
+    '/claim': { filter: 'claim', label: 'Claims', newLabel: 'New Claim', newPath: '/claim/new' },
+    '/overtime': { filter: 'overtime', label: 'Overtime', newLabel: 'New Overtime', newPath: '/overtime/new' },
+    '/wfh': { filter: 'work from home', label: 'Work From Home', newLabel: 'New WFH Request', newPath: '/wfh/new' },
+    '/transportation': { filter: 'transportation', label: 'Transportation', newLabel: 'New Transport', newPath: '/transportation/new' },
+    '/travel': { filter: 'travel', label: 'Travel', newLabel: 'New Travel', newPath: '/travel/new' },
+    '/cashadvance': { filter: 'cash advance', label: 'Cash Advance', newLabel: 'New Cash Advance', newPath: '/cashadvance/new' },
+};
 /* ── Type display helpers ── */
 const statusTabs = [
     { key: RequestStatus.All, label: 'status.all' },
@@ -70,10 +80,18 @@ function getTypeIcon(variant: string) {
 export default function RequestListPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.All);
+    const location = useLocation();
+
+    // Detect subtype view — path like /claim, /overtime etc filter the list to that type
+    // Mirrors mobile: /claim and /overtime open RequestPage(requestType: matched)
+    const pathTypeCfg = PATH_TYPE_MAP[location.pathname] ?? null;
+    const isSubtypeView = pathTypeCfg !== null;
+
+    // Flutter default: _initilApprovalStatus = RequestStatus.pending
+    const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
 
     const { data: requests = [], isLoading } = useQuery<RequestModel[]>({
-        queryKey: ['requests', activeStatus],
+        queryKey: ['requests', activeStatus, location.pathname],
         queryFn: async () => {
             const now = new Date();
             const fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -82,9 +100,17 @@ export default function RequestListPage() {
                 fromdate: toApiDate(fromDate),
                 todate: toApiDate(toDate),
                 type: '',
-                status: activeStatus,
+                status: Number(activeStatus),  // API expects a number, not string
             });
-            return res.data?.datalist || [];
+            const all: RequestModel[] = res.data?.datalist || [];
+            // Filter by subtype when on a type-specific path (same as mobile filtering by requestType)
+            if (pathTypeCfg) {
+                return all.filter(r => {
+                    const desc = ((r as any).requesttypedesc || (r as any).requesttype || '').toLowerCase();
+                    return desc.includes(pathTypeCfg.filter);
+                });
+            }
+            return all;
         },
     });
 
@@ -110,14 +136,16 @@ export default function RequestListPage() {
             <div className="page-header">
                 <div className="page-header__row">
                     <div>
-                        <h1 className="page-header__title">{t('request.title')}</h1>
+                        <h1 className="page-header__title">
+                            {isSubtypeView ? pathTypeCfg!.label : t('request.title')}
+                        </h1>
                         <p className="page-header__subtitle">
-                            {requests.length} {requests.length === 1 ? 'request' : 'requests'}
+                            {requests.length} {isSubtypeView ? pathTypeCfg!.filter : 'request'}{requests.length === 1 ? '' : 's'}
                         </p>
                     </div>
-                    <Button onClick={() => navigate('/requests/new')}>
+                    <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')}>
                         <Plus size={16} />
-                        {t('request.newRequest')}
+                        {isSubtypeView ? pathTypeCfg!.newLabel : t('request.newRequest')}
                     </Button>
                 </div>
             </div>
@@ -151,7 +179,9 @@ export default function RequestListPage() {
             {/* ── Requests table ── */}
             <div className={styles['requests-list-card']}>
                 <div className={styles['requests-list-card__header']}>
-                    <h3 className={styles['requests-list-card__title']}>All Requests</h3>
+                    <h3 className={styles['requests-list-card__title']}>
+                        {isSubtypeView ? `${pathTypeCfg!.label} Requests` : 'All Requests'}
+                    </h3>
                     {/* Filter tabs inside the card header */}
                     <div className={styles['requests-filter-tabs']}>
                         {statusTabs.map(({ key, label }) => (
