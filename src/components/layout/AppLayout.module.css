@@ -14,7 +14,7 @@
     top: 0;
     left: 0;
     bottom: 0;
-    z-index: var(--z-sticky);
+    z-index: var(--z-modal);
     transition: transform var(--transition-slow);
 }
 
@@ -37,6 +37,9 @@
 .sidebar__brand-text {
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
 }
 
 .sidebar__title {
@@ -44,12 +47,18 @@
     font-weight: var(--font-bold);
     color: white;
     letter-spacing: -0.025em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sidebar__subtitle {
     font-size: var(--text-xs);
     color: var(--color-neutral-400);
     margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sidebar__nav {
@@ -247,6 +256,28 @@
     background: rgba(239, 68, 68, 0.1);
     border-color: rgba(239, 68, 68, 0.2);
     color: #ef4444;
+}
+
+/* Compact close (X) button in brand header — not the full-width logout */
+.sidebar__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    margin-left: auto;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-md);
+    color: var(--color-neutral-400);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.sidebar__close:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: white;
 }
 
 /* ── Domain Switcher Menu ── */
@@ -447,7 +478,7 @@
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
-    z-index: calc(var(--z-sticky) - 1);
+    z-index: calc(var(--z-modal) - 1);
 }
 
 /* ═══════════ Responsive ═══════════ */
@@ -473,7 +504,7 @@
     }
 
     .main__content {
-        padding: var(--space-4);
+        padding: var(--space-3);
     }
 }
 

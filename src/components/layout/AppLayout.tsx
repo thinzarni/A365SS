@@ -75,6 +75,8 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/customai': LayoutList,
     '/rulesandreg': LayoutList,
     '/objectdetection': LayoutList,
+    // Social Post
+    '/socialpost': Globe,
 };
 
 // Fallback: shown when API hasn't loaded yet
@@ -149,23 +151,71 @@ export default function AppLayout() {
         enabled: !!token && !!userId,
     });
 
+    // ── Fetch Checkin Config for extras like Social tab ──
+    const { data: configData } = useQuery({
+        queryKey: ['checkin-config', userId, domain],
+        queryFn: async () => {
+            if (!token || !userId) return null;
+            try {
+                const res = await mainClient.post('api/checkin/config', {
+                    userid: userId,
+                    domain: domain || 'demouat',
+                });
+                return res.data?.data ?? null;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 5 * 60 * 1000,
+        enabled: !!token && !!userId,
+    });
+
     // Build ordered datalist items for the sidebar.
     // Priority: live API datalist → Zustand menuList items → DEFAULT_ROUTERS as stubs
     const sidebarItems: ApiMenuItem[] = React.useMemo(() => {
+        let items: ApiMenuItem[] = [];
         if (menuItemsData?.datalist && menuItemsData.datalist.length > 0) {
             // All items from API, excluding dashboard (rendered separately)
-            return menuItemsData.datalist.filter(
+            items = [...menuItemsData.datalist.filter(
                 item => item.router && item.router !== '/' && item.router !== '/dashboard'
-            );
-        }
-        if (menuList.length > 0) {
-            return menuList
+            )];
+        } else if (menuList.length > 0) {
+            items = menuList
                 .filter(m => m.router && m.router !== '/' && m.router !== '/dashboard')
                 .map(m => ({ syskey: m.id, name: m.label, icon: m.iconPath || '', router: m.router! }));
+        } else {
+            // Fallback: build stub items from DEFAULT_ROUTERS
+            items = DEFAULT_ROUTERS.map(r => ({ syskey: r, name: r.replace('/', ''), icon: '', router: r }));
         }
-        // Fallback: build stub items from DEFAULT_ROUTERS
-        return DEFAULT_ROUTERS.map(r => ({ syskey: r, name: r.replace('/', ''), icon: '', router: r }));
-    }, [menuItemsData, menuList]);
+
+        // Add extra Social tab if both chat and socialpost are true
+        if (configData?.chat && configData?.socialpost) {
+            if (!items.some(i => i.router === '/socialpost')) {
+                items.push({
+                    syskey: 'socialpost_extra',
+                    name: 'Social',
+                    namemm: 'လူမှုရေး',
+                    icon: '',
+                    router: '/socialpost',
+                });
+            }
+        }
+
+        // Add extra Chat tab if chat is true
+        if (configData?.chat) {
+            if (!items.some(i => i.router === '/chat')) {
+                items.push({
+                    syskey: 'chat_extra',
+                    name: 'Chat',
+                    namemm: 'စကားပြောရန်',
+                    icon: '',
+                    router: '/chat',
+                });
+            }
+        }
+
+        return items;
+    }, [menuItemsData, menuList, configData]);
 
     // Sync Profile data to authStore so global tasks like Chat know the display name
     useEffect(() => {
@@ -265,9 +315,9 @@ export default function AppLayout() {
                         <span className={styles.sidebar__subtitle}>Self-Service</span>
                     </div>
                     <button
-                        className={styles.sidebar__logout}
+                        className={styles.sidebar__close}
                         onClick={() => setSidebarOpen(false)}
-                        style={{ display: sidebarOpen ? 'flex' : 'none', marginLeft: 'auto' }}
+                        style={{ display: sidebarOpen ? 'flex' : 'none' }}
                     >
                         <X size={18} />
                     </button>
@@ -309,8 +359,8 @@ export default function AppLayout() {
                             >
                                 <div className={styles['sidebar__link-content']}>
                                     <Icon size={20} className={styles['sidebar__link-icon']} />
-                                    {/* Use API name directly — no i18n key lookup needed */}
-                                    {item.name}
+                                    {/* Show Myanmar name when language is 'my', fallback to English name */}
+                                    {i18n.language === 'my' && item.namemm ? item.namemm : item.name}
                                 </div>
                                 {isChat && unreadCount > 0 && (
                                     <span className={styles.sidebar__unreadBadge}>{unreadCount}</span>
