@@ -14,7 +14,9 @@
         "verifyOtp": "OTP အတည်ပြုရန်",
         "changePassword": "စကားဝှက်ပြောင်းရန်",
         "logout": "ထွက်ရန်",
-        "loginSubtitle": "HR ဝန်ဆောင်မှုပေါ်တယ်သို့ ဝင်ရောက်ပါ"
+        "loginSubtitle": "HR ဝန်ဆောင်မှုပေါ်တယ်သို့ ဝင်ရောက်ပါ",
+        "azureSignIn": "Azure AD",
+        "qrSignIn": "QR ကုဒ်ဖြင့် ဝင်ရောက်ရန်"
     },
     "nav": {
         "dashboard": "ဒက်ရှ်ဘုတ်",
