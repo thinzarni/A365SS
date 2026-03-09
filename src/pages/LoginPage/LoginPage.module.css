@@ -266,3 +266,25 @@
 .login__back_btn:hover {
     color: var(--color-primary-600) !important;
 }
+
+/* ── Forgot Password link ── */
+.login__forgot {
+    text-align: center;
+    margin-top: calc(-1 * var(--space-2));
+}
+
+.login__forgot_btn {
+    background: none;
+    border: none;
+    color: var(--color-primary-600);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    padding: 0;
+    transition: color var(--transition-fast);
+}
+
+.login__forgot_btn:hover {
+    color: var(--color-primary-800);
+    text-decoration: underline;
+}

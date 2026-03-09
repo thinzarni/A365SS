@@ -15,6 +15,10 @@
     font-weight: var(--font-bold);
     color: var(--color-neutral-900);
     letter-spacing: -0.03em;
+    /* Don't let title overflow on any screen */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .page-header__subtitle {
@@ -274,6 +278,26 @@
 }
 
 @media (max-width: 768px) {
+    .page-header__title {
+        font-size: var(--text-lg);
+        /* 18px — readable but compact on mobile */
+        letter-spacing: -0.02em;
+        white-space: normal;
+    }
+
+    .page-header__subtitle {
+        font-size: var(--text-xs);
+    }
+
+    .page-header__row {
+        gap: var(--space-3);
+    }
+
+    .status-tabs__btn {
+        padding: var(--space-2) var(--space-2);
+        font-size: var(--text-xs);
+    }
+
     .request-card {
         flex-direction: column;
         align-items: flex-start;
@@ -289,5 +313,10 @@
     .status-tabs {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .status-tabs::-webkit-scrollbar {
+        display: none;
     }
 }

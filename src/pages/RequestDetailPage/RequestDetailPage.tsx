@@ -17,7 +17,7 @@ import {
 import { Button } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
-import type { RequestDetailModel } from '../../types/models';
+import type { RequestDetailModel, Approver } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import { GET_REQUEST_DETAIL, DELETE_REQUEST } from '../../config/api-routes';
 import styles from './RequestDetailPage.module.css';
@@ -51,14 +51,35 @@ export default function RequestDetailPage() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
-    const { data: detail, isLoading } = useQuery<RequestDetailModel>({
+    // Mirrors mobile RequestDetail.fromJson — reads datalist + 4 separate person lists
+    const { data: detailData, isLoading } = useQuery<{
+        detail: RequestDetailModel;
+        approverList: Approver[];
+        memberList: Approver[];
+        accompanyPersonList: Approver[];
+        selectedHandovers: Approver[];
+    }>({
         queryKey: ['requestDetail', id],
         queryFn: async () => {
             const res = await apiClient.post(GET_REQUEST_DETAIL, { syskey: id });
-            return res.data?.datalist;
+            const parseList = (key: string): Approver[] =>
+                (res.data?.[key] as Approver[] | undefined) || [];
+            return {
+                detail: res.data?.datalist || {},
+                approverList: parseList('approverList'),
+                memberList: parseList('memberList'),
+                accompanyPersonList: parseList('accompanyPersonList'),
+                selectedHandovers: parseList('selectedHandovers'),
+            };
         },
         enabled: !!id,
     });
+
+    const detail = detailData?.detail;
+    const approverList = detailData?.approverList || [];
+    const memberList = detailData?.memberList || [];
+    const accompanyPersonList = detailData?.accompanyPersonList || [];
+    const selectedHandovers = detailData?.selectedHandovers || [];
 
     const deleteMutation = useMutation({
         mutationFn: async () => {
@@ -134,46 +155,72 @@ export default function RequestDetailPage() {
                 <div className={styles['request-detail__body']}>
                     {/* Core dates */}
                     <div className={styles['request-detail__section']}>
-                        <h4 className={styles['request-detail__section-title']}>Date & Time</h4>
+                        <h4 className={styles['request-detail__section-title']}>Date &amp; Time</h4>
                         <div className={styles['request-detail__grid']}>
-                            <Field label="Start Date" value={detail.startdate || detail.date} />
-                            <Field label="End Date" value={detail.enddate} />
-                            <Field label="Start Time" value={detail.starttime || detail.time} />
-                            <Field label="End Time" value={detail.endtime} />
-                            <Field label="Duration" value={detail.duration} />
-                            <Field label="Select Day" value={detail.selectday} />
+                            {(detail.startdate || detail.date) && <Field label="Start Date" value={detail.startdate || detail.date} />}
+                            {detail.enddate && <Field label="End Date" value={detail.enddate} />}
+                            {(detail.starttime || detail.time) && <Field label="Start Time" value={detail.starttime || detail.time} />}
+                            {detail.endtime && <Field label="End Time" value={detail.endtime} />}
+                            {detail.duration && <Field label="Duration" value={detail.duration} />}
+                            {detail.selectday && <Field label="Select Day" value={detail.selectday} />}
+                            {detail.days && <Field label="Days" value={String(detail.days)} />}
+                            {detail.hour && <Field label="Hours" value={detail.hour} />}
+                            {detail.otday && <Field label="OT Day" value={detail.otday} />}
                         </div>
                     </div>
 
-                    {/* Transportation fields */}
-                    {(detail.pickupplace || detail.dropoffplace) && (
+                    {/* Transportation — triggers on toplace, isgroup or legacy pickupplace */}
+                    {(detail.toplace || detail.isgroup !== undefined || detail.pickupplace || detail.requesttypedesc?.toLowerCase().includes('transport')) && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Transportation</h4>
                             <div className={styles['request-detail__grid']}>
-                                <Field label="Pick-up Place" value={detail.pickupplace} />
-                                <Field label="Drop-off Place" value={detail.dropoffplace} />
-                                <Field label="Leave Time" value={detail.userleavetime} />
-                                <Field label="Arrival Time" value={detail.arrivaltime} />
+                                {/* Group / Individual  */}
+                                <Field
+                                    label="Request For"
+                                    value={detail.isgroup === 0 ? 'Group' : detail.isgroup === 1 ? 'Individual' : undefined}
+                                />
+                                {detail.triptypedesc && <Field label="Trip Type" value={detail.triptypedesc} />}
+                                {detail.toplace && <Field label="Destination" value={detail.toplace} />}
+                                {/* Legacy fields */}
+                                {detail.pickupplace && <Field label="Pick-up Place" value={detail.pickupplace} />}
+                                {detail.dropoffplace && <Field label="Drop-off Place" value={detail.dropoffplace} />}
+                                {detail.isgoing && <Field label="Arrival Time" value={detail.arrivaltime} />}
                                 {detail.isreturn && <Field label="Return Time" value={detail.returntime} />}
-                                <Field label="Car" value={detail.car} />
-                                <Field label="Driver" value={detail.driver} />
                             </div>
+                            {/* Group members — shown when Group type */}
+                            {detail.isgroup === 0 && memberList.length > 0 && (
+                                <div style={{ marginTop: 'var(--space-3)' }}>
+                                    <span className={styles['request-detail__section-title']}>Group Members</span>
+                                    <div className={styles['request-detail__approver-list']}>
+                                        {memberList.map((m) => (
+                                            <span key={m.syskey} className={styles['request-detail__approver-chip']}>
+                                                <span className={styles['request-detail__approver-avatar']}>
+                                                    {m.name?.charAt(0).toUpperCase() || '?'}
+                                                </span>
+                                                {m.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* Travel fields */}
-                    {(detail.fromplace || detail.toplace) && (
+                    {(detail.fromplace || detail.toplace) && detail.requesttypedesc?.toLowerCase().includes('travel') && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Travel</h4>
                             <div className={styles['request-detail__grid']}>
-                                <Field label="From" value={detail.fromplace} />
-                                <Field label="To" value={detail.toplace} />
-                                <Field label="Departure Date" value={detail.departuredate} />
-                                <Field label="Arrival Date" value={detail.arrivaldate} />
-                                <Field label="Mode of Travel" value={detail.modeoftravel?.join(', ')} />
-                                <Field label="Product" value={detail.product} />
-                                <Field label="Project" value={detail.project} />
-                                <Field label="Estimated Budget" value={detail.estimatedbudget ? String(detail.estimatedbudget) : undefined} />
+                                {detail.fromplace && <Field label="From" value={detail.fromplace} />}
+                                {detail.toplace && <Field label="To" value={detail.toplace} />}
+                                {detail.departuredate && <Field label="Departure Date" value={detail.departuredate} />}
+                                {detail.arrivaldate && <Field label="Arrival Date" value={detail.arrivaldate} />}
+                                {detail.days && <Field label="Days" value={String(detail.days)} />}
+                                {detail.modeoftravel?.length > 0 && <Field label="Mode of Travel" value={detail.modeoftravel?.join(', ')} />}
+                                {detail.vehicleuse?.length > 0 && <Field label="Vehicle Use" value={detail.vehicleuse?.join(', ')} />}
+                                {detail.product && <Field label="Product" value={detail.product} />}
+                                {detail.project && <Field label="Project" value={detail.project} />}
+                                {detail.estimatedbudget > 0 && <Field label="Estimated Budget" value={String(detail.estimatedbudget)} />}
                             </div>
                         </div>
                     )}
@@ -201,12 +248,12 @@ export default function RequestDetailPage() {
                     )}
 
                     {/* Financial */}
-                    {(detail.amount > 0) && (
+                    {(detail.amount > 0 || detail.estimatedbudget > 0) && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Financial</h4>
                             <div className={styles['request-detail__grid']}>
-                                <Field label="Amount" value={String(detail.amount)} />
-                                <Field label="Currency" value={detail.currencytype} />
+                                {detail.amount > 0 && <Field label="Amount" value={String(detail.amount)} />}
+                                {detail.currencytype && <Field label="Currency" value={detail.currencytype} />}
                             </div>
                         </div>
                     )}
@@ -217,6 +264,25 @@ export default function RequestDetailPage() {
                             <h4 className={styles['request-detail__section-title']}>Location</h4>
                             <div className={styles['request-detail__grid']}>
                                 <Field label="Location" value={detail.locationname} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Attachments */}
+                    {detail.attachment && detail.attachment.length > 0 && (
+                        <div className={styles['request-detail__section']}>
+                            <h4 className={styles['request-detail__section-title']}>Attachments</h4>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                                {detail.attachment.map((att, i) => {
+                                    const url = typeof att === 'string' ? att : (att as any).signedURL || (att as any).url || '';
+                                    const name = typeof att === 'string' ? `File ${i + 1}` : (att as any).filename || `File ${i + 1}`;
+                                    return url ? (
+                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                                            style={{ fontSize: 'var(--text-sm)', color: 'var(--color-primary)', textDecoration: 'underline' }}>
+                                            {name}
+                                        </a>
+                                    ) : <span key={i} style={{ fontSize: 'var(--text-sm)', color: 'var(--color-neutral-500)' }}>{name}</span>;
+                                })}
                             </div>
                         </div>
                     )}
@@ -232,11 +298,11 @@ export default function RequestDetailPage() {
                     )}
 
                     {/* Approvers */}
-                    {detail.selectedApprovers && detail.selectedApprovers.length > 0 && (
+                    {approverList.length > 0 && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Approvers</h4>
                             <div className={styles['request-detail__approver-list']}>
-                                {detail.selectedApprovers.map((a) => (
+                                {approverList.map((a) => (
                                     <span key={a.syskey} className={styles['request-detail__approver-chip']}>
                                         <span className={styles['request-detail__approver-avatar']}>
                                             {a.name?.charAt(0).toUpperCase() || '?'}
@@ -249,11 +315,11 @@ export default function RequestDetailPage() {
                     )}
 
                     {/* Accompanying Persons */}
-                    {detail.selectedAcconpanyPersons && detail.selectedAcconpanyPersons.length > 0 && (
+                    {accompanyPersonList.length > 0 && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Accompanying Persons</h4>
                             <div className={styles['request-detail__approver-list']}>
-                                {detail.selectedAcconpanyPersons.map((p) => (
+                                {accompanyPersonList.map((p) => (
                                     <span key={p.syskey} className={styles['request-detail__approver-chip']}>
                                         <span className={styles['request-detail__approver-avatar']}>
                                             {p.name?.charAt(0).toUpperCase() || '?'}

@@ -217,3 +217,200 @@
         padding: var(--space-5);
     }
 }
+
+/* ── Settings Panel ── */
+.settingsPanel {
+    width: 100%;
+    margin-top: var(--space-6);
+    border-top: 1px solid var(--color-neutral-100);
+    padding-top: var(--space-5);
+    text-align: left;
+}
+
+.settingsPanelTitle {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-neutral-400);
+    margin-bottom: var(--space-3);
+    padding-left: var(--space-2);
+}
+
+.settingsItem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    background: none;
+    border: none;
+    color: var(--color-neutral-700);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    text-align: left;
+}
+
+.settingsItem:hover {
+    background: var(--color-neutral-100);
+    color: var(--color-primary-600);
+}
+
+.settingsItem svg {
+    color: var(--color-primary-500);
+    flex-shrink: 0;
+}
+
+/* ── Change Password Modal ── */
+.modalBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    padding: var(--space-4);
+    animation: fadeIn 0.15s ease-out;
+}
+
+.modalCard {
+    background: var(--color-neutral-0);
+    border-radius: var(--radius-2xl);
+    padding: 36px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: var(--shadow-xl);
+    animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: 32px;
+}
+
+.modalIconWrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--color-primary-600);
+    flex-shrink: 0;
+}
+
+.modalTitle {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--color-neutral-900);
+    flex: 1;
+}
+
+.modalClose {
+    background: none;
+    border: none;
+    color: var(--color-neutral-400);
+    cursor: pointer;
+    padding: var(--space-1);
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-md);
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.modalClose:hover {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-700);
+}
+
+.modalForm {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+.modalActions {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: flex-end;
+    margin-top: var(--space-2);
+}
+
+.mismatch {
+    font-size: var(--text-xs);
+    color: var(--color-danger-500);
+    margin: calc(-1 * var(--space-3)) 0 0;
+}
+
+/* ── Password Requirements Checklist ── */
+.requirementsCard {
+    background: var(--color-neutral-50);
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.2s;
+}
+
+.requirementsCard__met {
+    border-color: rgba(34, 197, 94, 0.4);
+    background: rgba(240, 253, 244, 0.6);
+}
+
+.requirementsTitle {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-neutral-500);
+    margin-bottom: 4px;
+}
+
+.requirementRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reqIcon__met {
+    color: var(--color-success-600);
+    flex-shrink: 0;
+}
+
+.reqIcon__unmet {
+    color: var(--color-neutral-300);
+    flex-shrink: 0;
+}
+
+.reqLabel__met {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--color-success-600);
+}
+
+.reqLabel__unmet {
+    font-size: var(--text-sm);
+    color: var(--color-neutral-500);
+}

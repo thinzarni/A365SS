@@ -1,15 +1,15 @@
-import { useState, /* useEffect, */ type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mail, Lock, Hash, QrCode, /* Monitor, */ Eye, EyeOff, Globe } from 'lucide-react';
+import { Mail, Lock, QrCode, Monitor, Eye, EyeOff, Globe } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
 import { makeSignInPayload, APP_ID } from '../../lib/auth-token';
 import { toast } from 'react-hot-toast';
-// import { useMsal } from '@azure/msal-react';
-// import { InteractionStatus } from '@azure/msal-browser';
-// import { loginRequest } from '../../config/msal-config';
+import { useMsal } from '@azure/msal-react';
+import { InteractionStatus } from '@azure/msal-browser';
+import { loginRequest } from '../../config/msal-config';
 import styles from './LoginPage.module.css';
 
 type AuthMode = 'password' | 'otp';
@@ -19,52 +19,73 @@ type AuthMode = 'password' | 'otp';
 export default function LoginPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    // const { instance, inProgress } = useMsal();
-    const { login, setUser, setLanguage, language /* isAuthenticated */ } = useAuthStore();
+    const { instance, inProgress } = useMsal();
+    const { login, setUser, setLanguage, language, isAuthenticated } = useAuthStore();
 
     const [mode, setMode] = useState<AuthMode>('otp');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [otp, setOtp] = useState('');
-    const [otpSent, setOtpSent] = useState(false);
-    const [otpSession, setOtpSession] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     /* ══════════════════════════════════════════════════════════════
        Auto-login check (Silent SSO)
        ══════════════════════════════════════════════════════════════ */
-    /* 
     useEffect(() => {
         if (isAuthenticated) return;
 
         const checkSilentLogin = async () => {
+            // ── Block auto-sign-in after intentional logout ──
+            // AppLayout.handleLogout sets this flag before calling logout().
+            if (sessionStorage.getItem('az_logout_intent') === '1') {
+                sessionStorage.removeItem('az_logout_intent');
+                // Also clear any remaining MSAL accounts so the next check finds nothing
+                try { await instance.clearCache(); } catch { /* ignore */ }
+                return;
+            }
+
             const accounts = instance.getAllAccounts();
             if (accounts.length > 0) {
+                // ── Step 1: acquire token silently (may fail if no cached session) ──
+                let msalResult;
                 try {
-                    const result = await instance.acquireTokenSilent({
+                    msalResult = await instance.acquireTokenSilent({
                         ...loginRequest,
-                        account: accounts[0]
+                        account: accounts[0],
                     });
+                } catch {
+                    // No cached Azure AD session — silent login not possible, do nothing
+                    return;
+                }
 
-                    if (result && result.account) {
-                        setLoading(true);
-                        const res = await authClient.post('azure-ad/signin', {
-                            user_id: result.account.username,
+                // ── Step 2: exchange idToken with A365 backend ──
+                if (msalResult?.account) {
+                    setLoading(true);
+                    try {
+                        const res = await authClient.post('sso/azure-ad/signin', {
+                            user_id: msalResult.account.username,
                             appid: APP_ID,
-                        }, {
-                            headers: { Authorization: `Bearer ${result.idToken}` }
+                            token: msalResult.idToken,
                         });
 
                         if (res.data.status === 200 || res.status === 200) {
                             await completeLogin(res.data);
+                        } else {
+                            const serverMsg = res.data.message;
+                            toast.error(serverMsg === 'Invalid'
+                                ? 'User does not exist in A365. Please contact your administrator.'
+                                : serverMsg || 'Azure AD sign-in failed.');
                         }
+                    } catch (err: any) {
+                        // Axios throws on 4xx/5xx — extract message from response
+                        const serverMsg = err?.response?.data?.message;
+                        toast.error(serverMsg === 'Invalid'
+                            ? 'User does not exist in A365. Please contact your administrator.'
+                            : serverMsg || 'Azure AD sign-in failed.');
+                    } finally {
+                        setLoading(false);
                     }
-                } catch (e) {
-                    // Silent check failed, no auto-login
-                } finally {
-                    setLoading(false);
                 }
             }
         };
@@ -72,8 +93,8 @@ export default function LoginPage() {
         if (inProgress === InteractionStatus.None) {
             checkSilentLogin();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [instance, inProgress, isAuthenticated]);
-    */
 
     /* ══════════════════════════════════════════════════════════════
        Complete login flow — matches Flutter's signin_otp.dart:
@@ -88,7 +109,26 @@ export default function LoginPage() {
         const usersyskey = (nested?.usersyskey || signInData.usersyskey || '') as string;
         const role = String(nested?.role || signInData.approle || '');
 
-        // ──────── Step 2: Fetch domain list ────────
+        // ── Post-login routing — mirrors Flutter's verify_otp.dart ──
+        // security_status == false → must set up security questions
+        // force_password   == false → must change password
+        const securityStatus = nested?.security_status ?? signInData.security_status ?? true;
+        const forcePassword = nested?.force_password ?? signInData.force_password ?? true;
+
+        if (securityStatus === false) {
+            sessionStorage.setItem('temp_iam_token', iamToken);
+            sessionStorage.setItem('temp_user_id', userId);
+            navigate('/security-questions', { replace: true });
+            return;
+        }
+        if (forcePassword === false) {
+            sessionStorage.setItem('temp_iam_token', iamToken);
+            sessionStorage.setItem('temp_user_id', userId);
+            navigate('/force-change-password', { replace: true });
+            return;
+        }
+
+
         let domainId = '';
         let domainName = '';
         let domainList: any[] = [];
@@ -179,7 +219,6 @@ export default function LoginPage() {
         }
     };
 
-    /* 
     const handleAzureLogin = async () => {
         // Prevent multiple simultaneous login attempts
         if (inProgress !== InteractionStatus.None) {
@@ -187,58 +226,55 @@ export default function LoginPage() {
             return;
         }
 
-        setLoading(true);
         setError('');
 
         try {
-            console.log('Initiating Azure Login Popup...');
-            const result = await instance.loginPopup(loginRequest);
-
-            if (result && result.account) {
-                console.log('Azure Auth Success, communicating with backend...');
-                const res = await authClient.post('azure-ad/signin', {
-                    user_id: result.account.username,
-                    appid: APP_ID,
-                }, {
-                    headers: {
-                        Authorization: `Bearer ${result.idToken}`,
-                    }
-                });
-
-                if (res.data.status === 200 || res.status === 200) {
-                    console.log('Backend sync successful, finalizing login...');
-                    await completeLogin(res.data);
-                } else {
-                    const msg = res.data.message || 'Azure login failed on server.';
-                    console.error('Backend Login Error:', msg);
-                    setError(msg);
-                }
-            }
+            // loginRedirect uses the already-registered window.location.origin
+            // and returns here after auth; the silent SSO useEffect picks up the account
+            await instance.loginRedirect({
+                ...loginRequest,
+                redirectUri: window.location.origin,
+            });
         } catch (err: any) {
-            console.error('Azure Popup Error:', err);
-            if (err.errorCode === 'popup_window_error') {
-                setError('Login popup was blocked or closed. Please try again.');
-            } else {
+            if (err.errorCode !== 'interaction_in_progress') {
                 setError(err.message || 'Azure login failed.');
             }
-        } finally {
-            setLoading(false);
         }
     };
-    */
 
     const handlePasswordLogin = async (e: FormEvent) => {
         e.preventDefault();
         setError('');
+
+        if (!email.trim()) { setError('Please enter your email.'); return; }
+        if (!password.trim()) { setError('Please enter your password.'); return; }
+
         setLoading(true);
         try {
-            const b64Password = btoa(password);
-            const payload = await makeSignInPayload(email, 1, b64Password);
+            const b64Password = btoa(unescape(encodeURIComponent(password)));
+            const payload = await makeSignInPayload(email, 2, b64Password);
             const res = await authClient.post('signin', payload);
-            if (res.data.status === 200 || res.status === 200) {
-                await completeLogin(res.data);
+            const data = res.data;
+
+            if (data.status === 200 || res.status === 200) {
+                const nested = data.data as Record<string, any> | undefined;
+                const sessionId = nested?.session_id || data.session_id;
+
+                if (sessionId) {
+                    // ── OTP 2FA required — navigate to verify page ──
+                    navigate('/verify-otp', {
+                        state: {
+                            userId: email,
+                            session: sessionId,
+                            b64Password, // for resend
+                        },
+                    });
+                } else {
+                    // ── No OTP required — complete login directly ──
+                    await completeLogin(data);
+                }
             } else {
-                setError(res.data.message || 'Login failed.');
+                setError(data.message || 'Login failed.');
             }
         } catch (err: any) {
             setError(err.response?.data?.message || 'Login failed.');
@@ -247,16 +283,23 @@ export default function LoginPage() {
         }
     };
 
+
     const handleRequestOtp = async () => {
         setError('');
         setLoading(true);
         try {
-            const payload = await makeSignInPayload(email, 2);
+            const payload = await makeSignInPayload(email, 2); // reqType=2: OTP, no password
             const res = await authClient.post('signin', payload);
             if (res.data.status === 200 || res.status === 200) {
-                setOtpSession(res.data.data?.session_id || res.data.session_id || '');
-                setOtpSent(true);
-                toast.success('OTP sent to your email/phone');
+                const nested = res.data.data;
+                const sessionId = nested?.session_id || res.data.session_id;
+                if (sessionId) {
+                    navigate('/verify-otp', {
+                        state: { userId: email, session: sessionId },
+                    });
+                } else {
+                    await completeLogin(res.data);
+                }
             } else {
                 setError(res.data.message || 'Failed to send OTP.');
             }
@@ -267,30 +310,7 @@ export default function LoginPage() {
         }
     };
 
-    const handleOtpLogin = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!otpSent) return handleRequestOtp();
-        setError('');
-        setLoading(true);
-        try {
-            const res = await authClient.post('verify-otp', {
-                user_id: email,
-                otp,
-                session: otpSession,
-                app_id: APP_ID,
-                sid: '999',
-            });
-            if (res.data.status === 200 || res.status === 200) {
-                await completeLogin(res.data);
-            } else {
-                setError(res.data.message || 'OTP verification failed.');
-            }
-        } catch (err: any) {
-            setError(err.response?.data?.message || 'OTP verification failed.');
-        } finally {
-            setLoading(false);
-        }
-    };
+
 
     return (
         <div className={styles.login}>
@@ -330,7 +350,7 @@ export default function LoginPage() {
                         </button>
                         <button
                             className={`${styles.login__tab} ${mode === 'password' ? styles['login__tab--active'] : ''}`}
-                            onClick={() => { setMode('password'); setOtpSent(false); setError(''); }}
+                            onClick={() => { setMode('password'); setError(''); }}
                         >
                             {t('auth.password')}
                         </button>
@@ -368,9 +388,18 @@ export default function LoginPage() {
                             <Button type="submit" fullWidth loading={loading}>
                                 {t('auth.signIn')}
                             </Button>
+                            <div className={styles.login__forgot}>
+                                <button
+                                    type="button"
+                                    className={styles.login__forgot_btn}
+                                    onClick={() => navigate('/forgot-password')}
+                                >
+                                    Forgot Password?
+                                </button>
+                            </div>
                         </form>
                     ) : (
-                        <form className={styles.login__form} onSubmit={handleOtpLogin}>
+                        <form className={styles.login__form} onSubmit={e => { e.preventDefault(); handleRequestOtp(); }}>
                             <Input
                                 id="otp-email"
                                 label={t('auth.email')}
@@ -381,29 +410,9 @@ export default function LoginPage() {
                                 icon={<Mail size={18} />}
                                 required
                             />
-                            {!otpSent ? (
-                                <Button type="button" fullWidth loading={loading} onClick={handleRequestOtp}>
-                                    {t('auth.requestOtp')}
-                                </Button>
-                            ) : (
-                                <>
-                                    <Input
-                                        id="otp-code"
-                                        label={t('auth.otp')}
-                                        value={otp}
-                                        onChange={(e) => setOtp(e.target.value)}
-                                        placeholder="Enter 6‑digit code"
-                                        icon={<Hash size={18} />}
-                                        required
-                                    />
-                                    <Button type="submit" fullWidth loading={loading}>
-                                        {t('auth.verifyOtp')}
-                                    </Button>
-                                    <Button type="button" variant="ghost" fullWidth onClick={handleRequestOtp}>
-                                        {t('common.retry')}
-                                    </Button>
-                                </>
-                            )}
+                            <Button type="submit" fullWidth loading={loading}>
+                                {t('auth.requestOtp')}
+                            </Button>
                         </form>
                     )}
 
@@ -422,7 +431,7 @@ export default function LoginPage() {
                             {t('auth.qrSignIn')}
                         </Button>
 
-                        {/* <Button
+                        <Button
                             type="button"
                             variant="ghost"
                             className={styles.login__secondary_button}
@@ -431,7 +440,7 @@ export default function LoginPage() {
                         >
                             <Monitor size={18} className="mr-2" />
                             {t('auth.azureSignIn')}
-                        </Button> */}
+                        </Button>
                     </div>
                 </div>
             </div>

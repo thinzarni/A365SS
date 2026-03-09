@@ -28,13 +28,13 @@ export async function makeSignInPayload(userId: string, reqType: number, passwor
 
     return {
         user_id: userId,
-        password,
         s_token: sToken,
         app_id: APP_ID,
-        sid: '999',
+        sid: password != "" ? '' : '999', // empty for password login, '999' for OTP
         uuid,
         date_time: dateTime,
         req_type: reqType,
+        password, // empty string when not used (OTP flow)
     };
 }
 

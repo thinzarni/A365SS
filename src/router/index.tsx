@@ -23,6 +23,11 @@ import ChatPage from '../pages/ChatPage/ChatPage';
 import DomainSelectPage from '../pages/DomainSelectPage/DomainSelectPage';
 import ProfilePage from '../pages/ProfilePage/ProfilePage';
 import FeedPage from '../pages/FeedPage/FeedPage';
+import SecurityQuestionsPage from '../pages/SecurityQuestionsPage/SecurityQuestionsPage';
+import ForceChangePasswordPage from '../pages/ForceChangePasswordPage/ForceChangePasswordPage';
+import VerifyOtpPage from '../pages/VerifyOtpPage/VerifyOtpPage';
+import ForgotPasswordPage from '../pages/ForgotPasswordPage/ForgotPasswordPage';
+import ComingSoonPage from '../pages/ComingSoonPage/ComingSoonPage';
 
 export const router = createBrowserRouter([
     // ── Guest routes ──
@@ -31,6 +36,10 @@ export const router = createBrowserRouter([
         children: [
             { path: '/login', element: <LoginPage /> },
             { path: '/qr-login', element: <QRLoginPage /> },
+            { path: '/verify-otp', element: <VerifyOtpPage /> },
+            { path: '/forgot-password', element: <ForgotPasswordPage /> },
+            { path: '/security-questions', element: <SecurityQuestionsPage /> },
+            { path: '/force-change-password', element: <ForceChangePasswordPage /> },
         ],
     },
 
@@ -42,26 +51,57 @@ export const router = createBrowserRouter([
             {
                 element: <AppLayout />,
                 children: [
-                    { index: true, element: <DashboardPage /> },
+                    { index: true, element: <Navigate to="/team" replace /> },
                     { path: '/dashboard', element: <DashboardPage /> },
+                    // ── Plural routes (canonical) ──
                     { path: '/requests', element: <RequestListPage /> },
                     { path: '/requests/new', element: <NewRequestPage /> },
                     { path: '/requests/:id', element: <RequestDetailPage /> },
                     { path: '/approvals', element: <ApprovalListPage /> },
                     { path: '/approvals/:id', element: <ApprovalDetailPage /> },
                     { path: '/reservations', element: <ReservationsPage /> },
-                    { path: '/leave', element: <LeavePage /> },
                     { path: '/claims', element: <ClaimsPage /> },
                     { path: '/claims/new', element: <NewClaimPage /> },
                     { path: '/claims/:id', element: <ClaimDetailPage /> },
                     { path: '/leave-summary', element: <LeaveSummaryPage /> },
                     { path: '/holidays', element: <HolidaysPage /> },
+                    // ── Singular aliases — API datalist returns these router values ──
+                    { path: '/request', element: <RequestListPage /> },
+                    { path: '/request/new', element: <NewRequestPage /> },
+                    { path: '/request/:id', element: <RequestDetailPage /> },
+                    { path: '/approval', element: <ApprovalListPage /> },
+                    { path: '/approval/:id', element: <ApprovalDetailPage /> },
+                    { path: '/reservation', element: <ReservationsPage /> },
+                    { path: '/holiday', element: <HolidaysPage /> },
+                    // ── Request subtypes — each filters RequestListPage to that type ──
+                    // Mirrors mobile: /claim, /overtime etc → RequestPage(requestType: matched)
+                    { path: '/claim', element: <RequestListPage /> },
+                    { path: '/claim/new', element: <NewRequestPage /> },
+                    { path: '/overtime', element: <RequestListPage /> },
+                    { path: '/overtime/new', element: <NewRequestPage /> },
+                    { path: '/wfh', element: <RequestListPage /> },
+                    { path: '/wfh/new', element: <NewRequestPage /> },
+                    { path: '/transportation', element: <RequestListPage /> },
+                    { path: '/transportation/new', element: <NewRequestPage /> },
+                    { path: '/travel', element: <RequestListPage /> },
+                    { path: '/travel/new', element: <NewRequestPage /> },
+                    { path: '/cashadvance', element: <RequestListPage /> },
+                    { path: '/cashadvance/new', element: <NewRequestPage /> },
+                    // ── Attendance subtypes — use existing approval pages ──
+                    { path: '/attendanceapproval', element: <ApprovalListPage /> },
+                    { path: '/attendancerequest', element: <RequestListPage /> },
+                    { path: '/locationapproval', element: <ApprovalListPage /> },
+                    // ── Other ──
+                    { path: '/leave', element: <LeavePage /> },
                     { path: '/team', element: <TeamPage /> },
                     { path: '/team/view/:teamSyskey', element: <TeamDetailView /> },
                     { path: '/team/member/:memberSyskey', element: <MemberDetailView /> },
                     { path: '/chat', element: <ChatPage /> },
                     { path: '/feed', element: <FeedPage /> },
                     { path: '/profile', element: <ProfilePage /> },
+
+                    // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──
+                    { path: '*', element: <ComingSoonPage /> },
                 ],
             },
         ],

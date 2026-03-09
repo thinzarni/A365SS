@@ -135,9 +135,10 @@ export interface RequestDetailModel {
   locationsyskey?: string;
   selectday: string;
   fromplace: string;
-  toplace: string;
-  pickupplace: string;
-  dropoffplace: string;
+  toplace: string;         // used by both Travel and Transportation (destination)
+  // Transportation (matches mobile payload fields)
+  pickupplace: string;    // legacy — kept for backwards compat
+  dropoffplace: string;   // legacy
   userleavetime: string;
   isgoing: boolean;
   arrivaltime: string;
@@ -146,8 +147,12 @@ export interface RequestDetailModel {
   isgoback: boolean;
   gobackarrivaltime: string;
   gobackreturntime: string;
+  isgroup: number;        // 0=group, 1=individual
+  triptype: string;       // syskey of trip type
+  triptypedesc: string;   // display name
   car: string;
   driver: string;
+  selectedMembers: Approver[];  // group members for transportation
   comment: string;
   amount: number;
   currencytype: string;
