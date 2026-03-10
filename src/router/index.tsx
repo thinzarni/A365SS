@@ -17,6 +17,7 @@ import LeavePage from '../pages/LeavePage/LeavePage';
 import TeamPage from '../pages/TeamPage/TeamPage';
 import TeamDetailView from '../pages/TeamPage/TeamDetailView';
 import MemberDetailView from '../pages/TeamPage/MemberDetailView';
+import HRViewPage from '../pages/HRViewPage/HRViewPage';
 import HolidaysPage from '../pages/HolidaysPage/HolidaysPage';
 import DashboardPage from '../pages/DashboardPage/DashboardPage';
 import ChatPage from '../pages/ChatPage/ChatPage';
@@ -50,7 +51,7 @@ export const router = createBrowserRouter([
             {
                 element: <AppLayout />,
                 children: [
-                    { index: true, element: <Navigate to="/team" replace /> },
+                    { index: true, element: <Navigate to="/dashboard" replace /> },
                     { path: '/dashboard', element: <DashboardPage /> },
                     // ── Plural routes (canonical) ──
                     { path: '/requests', element: <RequestListPage /> },
@@ -86,6 +87,8 @@ export const router = createBrowserRouter([
                     { path: '/travel/new', element: <NewRequestPage /> },
                     { path: '/cashadvance', element: <RequestListPage /> },
                     { path: '/cashadvance/new', element: <NewRequestPage /> },
+                    { path: '/offinlieu', element: <RequestListPage /> },
+                    { path: '/offinlieu/new', element: <NewRequestPage /> },
                     // ── Attendance subtypes — use existing approval pages ──
                     { path: '/attendanceapproval', element: <ApprovalListPage /> },
                     { path: '/attendancerequest', element: <RequestListPage /> },
@@ -95,6 +98,8 @@ export const router = createBrowserRouter([
                     { path: '/team', element: <TeamPage /> },
                     { path: '/team/view/:teamSyskey', element: <TeamDetailView /> },
                     { path: '/team/member/:memberSyskey', element: <MemberDetailView /> },
+                    { path: '/hrview', element: <HRViewPage /> },
+                    { path: '/employee', element: <HRViewPage /> },
                     { path: '/chat', element: <ChatPage /> },
                     { path: '/profile', element: <ProfilePage /> },
 

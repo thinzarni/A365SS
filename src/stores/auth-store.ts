@@ -13,9 +13,10 @@ interface AuthState {
     user: UserProfile | null;
     language: 'en' | 'my';
     isAuthenticated: boolean;
+    loginType: 'normal' | 'azure' | null;
 
     // Actions
-    login: (data: { token: string; refreshToken?: string; userId: string; domain?: string; domains?: any[]; menuList?: MenuListItem[] }) => void;
+    login: (data: { token: string; refreshToken?: string; userId: string; domain?: string; domains?: any[]; menuList?: MenuListItem[]; loginType?: 'normal' | 'azure' }) => void;
     setUser: (user: UserProfile) => void;
     setLanguage: (lang: 'en' | 'my') => void;
     switchDomain: (domainId: string, domainName: string) => Promise<void>;
@@ -35,6 +36,7 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             language: 'en',
             isAuthenticated: false,
+            loginType: null,
 
             login: (data) => {
                 set({
@@ -45,6 +47,7 @@ export const useAuthStore = create<AuthState>()(
                     domains: data.domains || [],
                     menuList: data.menuList || [],
                     isAuthenticated: true,
+                    loginType: data.loginType ?? null,
                 });
             },
 

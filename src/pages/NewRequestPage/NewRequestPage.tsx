@@ -33,6 +33,8 @@ import {
     TRAVEL_TYPE_LIST,
     VEHICLE_USE_LIST,
     LEAVE_TYPES,
+    CLAIM_TYPES,
+    CURRENCY_TYPES,
 } from '../../config/api-routes';
 import type { LeaveType } from '../../types/models';
 import { formatAmount, unformatAmount } from '../../lib/format-utils';
@@ -53,25 +55,7 @@ function nowTimeStr(): string {
    Request Type Definitions
    ══════════════════════════════════════════════════════════════ */
 
-interface RequestTypeConfig {
-    key: string;
-    label: string;
-    icon: React.FC<{ size?: number }>;
-    color: string;
-    bgColor: string;
-}
 
-const REQUEST_TYPE_CONFIGS: RequestTypeConfig[] = [
-    { key: 'leave', label: 'Leave', icon: Palmtree, color: '#16a34a', bgColor: '#f0fdf4' },
-    { key: 'overtime', label: 'Overtime', icon: Clock, color: '#d97706', bgColor: '#fef3c7' },
-    { key: 'wfh', label: 'Work from Home', icon: Home, color: '#2563eb', bgColor: '#eff6ff' },
-    { key: 'transportation', label: 'Transportation', icon: Car, color: '#9333ea', bgColor: '#faf5ff' },
-    { key: 'reservation', label: 'Reservation', icon: Calendar, color: '#0891b2', bgColor: '#ecfeff' },
-    { key: 'travel', label: 'Travel', icon: Plane, color: '#ea580c', bgColor: '#fff7ed' },
-    { key: 'claim', label: 'Claim', icon: Banknote, color: '#dc2626', bgColor: '#fef2f2' },
-    { key: 'cashadvance', label: 'Cash Advance', icon: Banknote, color: '#dc2626', bgColor: '#fef2f2' },
-    { key: 'other', label: 'Other', icon: FileText, color: '#64748b', bgColor: '#f1f5f9' },
-];
 
 /* ── Calculate leave duration from dates + AM/PM periods ── */
 function calcLeaveDuration(startDate: string, endDate: string, startPeriod: string, endPeriod: string): string {
@@ -87,17 +71,46 @@ function calcLeaveDuration(startDate: string, endDate: string, startPeriod: stri
     return dur > 0 ? String(dur) : '0.5';
 }
 
-/* ── Map UI key → API description for matching requestTypes ── */
-const TYPE_DESC_MAP: Record<string, string> = {
-    leave: 'Leave',
-    overtime: 'Overtime',
-    wfh: 'Work From Home',
-    transportation: 'Transportation',
-    reservation: 'Reservation',
-    travel: 'Travel',
-    claim: 'Claim',          // mirrors mobile: requestTypes.firstWhere(t => t.description == 'Claim')
-    cashadvance: 'Cash Advance',
-    other: 'General',
+/* ── Map API description → internal key for conditional form rendering ── */
+const DESC_TO_KEY: Record<string, string> = {
+    'leave': 'leave',
+    'overtime': 'overtime',
+    'work from home': 'wfh',
+    'transportation': 'transportation',
+    'reservation': 'reservation',
+    'travel': 'travel',
+    'claim': 'claim',
+    'cash advance': 'cashadvance',
+    'off in lieu': 'offinlieu',
+    'early out': 'earlyout',
+    'late': 'late',
+    'general': 'general',
+    'employee requisition': 'employeerequisition',
+    'purchase': 'purchase',
+    'attendance request': 'attendancerequest',
+};
+
+/* Helper: types that use the generic single-date + time form */
+const GENERIC_TYPES = new Set(['general', 'employeerequisition', 'purchase', 'attendancerequest', 'other']);
+
+/* ── Visual style per internal key ── */
+const TYPE_VISUAL: Record<string, { icon: React.FC<{ size?: number }>; color: string; bgColor: string }> = {
+    leave: { icon: Palmtree, color: '#16a34a', bgColor: '#f0fdf4' },
+    overtime: { icon: Clock, color: '#d97706', bgColor: '#fef3c7' },
+    wfh: { icon: Home, color: '#2563eb', bgColor: '#eff6ff' },
+    transportation: { icon: Car, color: '#9333ea', bgColor: '#faf5ff' },
+    reservation: { icon: Calendar, color: '#0891b2', bgColor: '#ecfeff' },
+    travel: { icon: Plane, color: '#ea580c', bgColor: '#fff7ed' },
+    claim: { icon: Banknote, color: '#dc2626', bgColor: '#fef2f2' },
+    cashadvance: { icon: Banknote, color: '#b45309', bgColor: '#fef9c3' },
+    offinlieu: { icon: Clock, color: '#0d9488', bgColor: '#f0fdfa' },
+    earlyout: { icon: Clock, color: '#7c3aed', bgColor: '#f5f3ff' },
+    late: { icon: Clock, color: '#be185d', bgColor: '#fdf2f8' },
+    general: { icon: FileText, color: '#64748b', bgColor: '#f1f5f9' },
+    employeerequisition: { icon: FileText, color: '#0369a1', bgColor: '#f0f9ff' },
+    purchase: { icon: FileText, color: '#b45309', bgColor: '#fffbeb' },
+    attendancerequest: { icon: FileText, color: '#7c3aed', bgColor: '#faf5ff' },
+    other: { icon: FileText, color: '#64748b', bgColor: '#f1f5f9' },
 };
 
 /* ══════════════════════════════════════════════════════════════
@@ -119,6 +132,7 @@ export default function NewRequestPage() {
         '/transportation/new': 'transportation',
         '/travel/new': 'travel',
         '/cashadvance/new': 'cashadvance',
+        '/offinlieu/new': 'offinlieu',
     };
     const presetType = PATH_TO_TYPE[location.pathname] || searchParams.get('type') || '';
 
@@ -164,8 +178,6 @@ export default function NewRequestPage() {
     const [maxPeople, setMaxPeople] = useState('');
 
     // ── Travel-specific ──
-    const [fromPlace, setFromPlace] = useState('');
-    const [toPlace, setToPlace] = useState('');
     const [modeOfTravel, setModeOfTravel] = useState('');
     const [vehicleUse, setVehicleUse] = useState('');
     const [product, setProduct] = useState('');
@@ -173,14 +185,22 @@ export default function NewRequestPage() {
     const [estimatedBudget, setEstimatedBudget] = useState('');
     const [departureDate, setDepartureDate] = useState(todayStr);
     const [arrivalDate, setArrivalDate] = useState(todayStr);
+    const [travelDepartureTime, setTravelDepartureTime] = useState(nowTimeStr);
+    const [travelReturnTime, setTravelReturnTime] = useState(nowTimeStr);
+    const [travelPurpose, setTravelPurpose] = useState('');
 
     // ── Overtime-specific ──
     const [hour, setHour] = useState('');
     const [otDays, setOtDays] = useState('0');
 
-    // ── Cash Advance-specific ──
+    // ── Cash Advance / Claim-specific ──
     const [amount, setAmount] = useState('');
     const [currencyType, setCurrencyType] = useState('');
+    // ── Claim-specific ──
+    const [claimType, setClaimType] = useState('');
+    const [claimTypeDesc, setClaimTypeDesc] = useState('');
+    const [claimFromPlace, setClaimFromPlace] = useState('');
+    const [claimToPlace, setClaimToPlace] = useState('');
 
     // ── Location (WFH) ──
     const [locationName, setLocationName] = useState('');
@@ -288,6 +308,28 @@ export default function NewRequestPage() {
         enabled: selectedType === 'leave',
     });
 
+    const { data: claimTypeList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['claimTypeList'],
+        queryFn: async () => {
+            const res = await apiClient.get(CLAIM_TYPES);
+            return res.data?.datalist || [];
+        },
+        enabled: selectedType === 'cashadvance' || selectedType === 'claim',
+    });
+
+    const { data: currencyList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['currencyTypeList'],
+        queryFn: async () => {
+            const res = await apiClient.get(CURRENCY_TYPES);
+            return res.data?.datalist || [];
+        },
+        enabled: selectedType === 'cashadvance' || selectedType === 'claim',
+    });
+
+    // Taxi-type claim types show fromPlace/toPlace
+    const isTaxiClaimType = ['taxi fare', 'ferry taxi', 'onsite taxi'].includes(claimTypeDesc.trim().toLowerCase());
+    const isBenefitBonusClaimType = ['benefit allowance', 'bonus allowance'].includes(claimTypeDesc.trim().toLowerCase());
+
     // Reset sub-fields when type changes; auto-default subType for ALL types
     useEffect(() => {
         setSubType('');
@@ -295,9 +337,8 @@ export default function NewRequestPage() {
         setStartPeriod('AM');
         setEndPeriod('AM');
         if (selectedType && requestTypes.length > 0) {
-            const typeDesc = TYPE_DESC_MAP[selectedType] || selectedType;
             const match = requestTypes.find(
-                (t) => t.description.trim().toLowerCase() === typeDesc.toLowerCase()
+                (t) => (DESC_TO_KEY[(t.description || '').trim().toLowerCase()] || 'other') === selectedType
             );
             if (match) setSubType(match.syskey);
         }
@@ -323,7 +364,7 @@ export default function NewRequestPage() {
     // ── Central auto-sync: startTime → endTime +1 hr (all types that use both time fields) ──
     // Excludes: travel (departure/arrival times), leave (AM/PM period), general/purchase/other (single time)
     const TIME_RANGE_TYPES = ['overtime', 'wfh', 'cashadvance', 'claim',
-        'reservation', 'earlyout', 'late', 'offinlieu'];
+        'reservation', 'earlyout', 'late', 'offinlieu', 'transportation'];
     useEffect(() => {
         if (!TIME_RANGE_TYPES.includes(selectedType) || !startTime) return;
         const [h, m] = startTime.split(':').map(Number);
@@ -331,6 +372,30 @@ export default function NewRequestPage() {
         setEndTime(`${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [startTime, selectedType]);
+
+    // ── Transportation-specific: auto-adjust each end-time +1 hr from its start-time ──
+    const addOneHour = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        return `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
+
+    useEffect(() => {
+        if (selectedType !== 'transportation' || !transOneWayStartTime) return;
+        setTransOneWayEndTime(addOneHour(transOneWayStartTime));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [transOneWayStartTime, selectedType]);
+
+    useEffect(() => {
+        if (selectedType !== 'transportation' || !transDepartureStartTime) return;
+        setTransDepartureEndTime(addOneHour(transDepartureStartTime));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [transDepartureStartTime, selectedType]);
+
+    useEffect(() => {
+        if (selectedType !== 'transportation' || !transArrivalStartTime) return;
+        setTransArrivalEndTime(addOneHour(transArrivalStartTime));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [transArrivalStartTime, selectedType]);
 
     // Auto-calculate OT hours from startTime → endTime
     useEffect(() => {
@@ -356,9 +421,7 @@ export default function NewRequestPage() {
     // ── Submit mutation ──
     const submitMutation = useMutation({
         mutationFn: async () => {
-            /* ── Resolve type description from shared map ── */
-            const typeDesc = TYPE_DESC_MAP[selectedType] || selectedType;
-
+            /* ── Resolve type description from API list (reverse of DESC_TO_KEY) ── */
             // Use cached requestTypes; if empty, fetch them now
             let types = requestTypes;
             if (!types.length) {
@@ -369,9 +432,11 @@ export default function NewRequestPage() {
                     types = [];
                 }
             }
+            // Find the API entry whose description maps to our selectedType key
             const matchedType = types.find(
-                (t: TypesModel) => t.description.trim().toLowerCase() === typeDesc.toLowerCase()
+                (t: TypesModel) => (DESC_TO_KEY[(t.description || '').trim().toLowerCase()] || 'other') === selectedType
             );
+            const typeDesc = matchedType?.description || selectedType;
             const typeSyskey = matchedType?.syskey || selectedType;
 
             /* ── Upload attachments first ──
@@ -435,13 +500,22 @@ export default function NewRequestPage() {
                 requestsubtype: subType,        // addIfEmpty — always sent
                 requestsubtypedesc: '',          // addIfEmpty — always sent
                 remark,
-                reason: remark || null,
-                description: remark || null,
-                travelpurpose: remark || null,
-                car: null,
-                driver: null,
-                comment: null,
+                reason: remark || "",
+                description: remark || "",
+                travelpurpose: '',              // addIfEmpty — overwritten for travel
+                car: "",
+                driver: "",
+                comment: "",
+                fromPlace: "",                  // overwritten for claim taxi / travel
+                toPlace: "",
+                amount: 0,                      // overwritten for claim / cash advance
                 currencytype: '',               // addIfEmpty
+                modeoftravel: [],
+                vehicleuse: [],
+                estimatedbudget: 0,
+                extendBudget: 0,
+                extendDate: "",
+                userleavetime: "",
                 selectedApprovers: approvers.map((a) => ({
                     syskey: a.syskey,
                     name: a.name,
@@ -460,10 +534,10 @@ export default function NewRequestPage() {
                     timeinoffset: '',
                     timeoutoffset: '',
                 })),
-                selectedAcconpanyPersons: [],   // always sent (Flutter line 424-429)
+                selectedAcconpanyPersons: [],   // always sent
                 selectedHandovers: [],
-                attachment: attachmentFileNames,  // Flutter: data.attachment = _attachmentPaths.map((a) => a['fileName']!).toList()
-                ottype: 0,                      // always sent for non-overtime
+                attachment: attachmentFileNames,
+                ottype: 0,
             };
 
             /* ── Date / time formatting depends on request type ── */
@@ -489,7 +563,7 @@ export default function NewRequestPage() {
             } else if (selectedType === 'leave' || selectedType === 'wfh') {
                 payload.startdate = toApiDate(startDate);
                 payload.enddate = toApiDate(endDate || startDate);
-                payload.requeststatus = 1;
+                payload.requeststatus = "1";
                 if (selectedType === 'leave') {
                     payload.starttime = startPeriod;
                     payload.endtime = endPeriod;
@@ -503,11 +577,12 @@ export default function NewRequestPage() {
                     }
                     payload.selectedHandovers = handovers.map((h) => ({ syskey: h.syskey, name: h.name }));
                 } else {
-                    payload.starttime = toApi12hTime(startTime);
-                    payload.endtime = toApi12hTime(endTime);
-                }
-                if (selectedType === 'wfh') {
+                    // WFH: no starttime/endtime in mobile payload
                     payload.locationname = locationName;
+                    payload.locationsyskey = '';   // GPS-based on mobile; empty for web
+                    payload.latitude = '';          // not captured on web
+                    payload.longitude = '';         // not captured on web
+                    payload.duration = 1.0;         // mobile always sends 1.0 for WFH
                 }
             } else if (selectedType === 'transportation') {
                 // Mirrors Flutter RequestModel.toJson() transportation block (lines 434-451)
@@ -550,24 +625,43 @@ export default function NewRequestPage() {
                         signedURL: '', status: '4',
                     }))
                     : [];
-                payload.requeststatus = 1;
+                payload.requeststatus = "1";
             } else if (selectedType === 'travel') {
                 payload.departuredate = toApiDate(departureDate);
                 payload.arrivaldate = toApiDate(arrivalDate);
+                payload.departuretime = toApi12hTime(travelDepartureTime);
+                payload.plannedreturn = toApi12hTime(travelReturnTime);
                 payload.startdate = '';
                 payload.enddate = '';
                 payload.date = '';
                 payload.selectday = '';
                 payload.otday = '';
-                payload.fromPlace = fromPlace;
-                payload.toPlace = toPlace;
+                payload.fromPlace = "";
+                payload.toPlace = "";
                 payload.modeoftravel = modeOfTravel ? [modeOfTravel] : [];
                 payload.vehicleuse = vehicleUse ? [vehicleUse] : [];
-                payload.product = product;
-                payload.project = project;
-                payload.estimatedbudget = Number(unformatAmount(String(estimatedBudget))) || 0;
-                payload.travelpurpose = remark || null;
-                payload.requeststatus = 1;
+                payload.product = product || "0";
+                payload.project = project || "0";
+                const budgetVal = Number(unformatAmount(String(estimatedBudget))) || 0;
+                payload.estimatedbudget = budgetVal;
+                payload.amount = budgetVal;
+                payload.travelpurpose = travelPurpose || remark || "";
+                payload.requeststatus = "1";
+                payload.extendBudget = 0;
+                payload.extendDate = "";
+                payload.userleavetime = "";
+
+                // Calculate days (arrivalDate - departureDate + 1)
+                if (departureDate && arrivalDate) {
+                    const d1 = new Date(departureDate);
+                    const d2 = new Date(arrivalDate);
+                    const diffTime = Math.abs(d2.getTime() - d1.getTime());
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                    payload.days = diffDays || 1;
+                } else {
+                    payload.days = 1;
+                }
+
                 payload.selectedAcconpanyPersons = accompanyPersons.map((p) => ({ syskey: p.syskey, name: p.name }));
             } else if (selectedType === 'overtime') {
                 payload.startdate = toApiDate(startDate);
@@ -580,16 +674,64 @@ export default function NewRequestPage() {
                 payload.hour = hour;
                 payload.product = product;   // Flutter: formData['product'] = formData['productList'].syskey
                 payload.project = project;   // Flutter: formData['project'] = formData['projectList'].syskey
-                payload.requeststatus = 1;
+                payload.requeststatus = "1";
             } else if (selectedType === 'cashadvance' || selectedType === 'claim') {
+                // Mirrors mobile ClaimModel.toJson() — matches the working mobile payload exactly
+                const numAmount = Number(unformatAmount(String(amount))) || 0;
+                const selClaimType = claimTypeList.find(ct => ct.syskey === claimType);
                 payload.date = toApiDate(startDate);
                 payload.startdate = '';
                 payload.enddate = '';
                 payload.selectday = '';
                 payload.otday = '';
-                payload.amount = Number(unformatAmount(String(amount))) || 0;
+                payload.remark = payload.remark || '';
+                payload.reason = '';
+                payload.description = '';
+                payload.travelpurpose = '';
+                payload.car = '';
+                payload.driver = '';
+                payload.comment = '';
+                // Claim type goes as requestsubtype (syskey) + requestsubtypedesc
+                payload.requestsubtype = claimType;
+                payload.requestsubtypedesc = selClaimType?.description || '';
+                payload.amount = numAmount;
+                payload.estimatedbudget = numAmount;  // mobile sends same value as amount
                 payload.currencytype = currencyType;
-                payload.requeststatus = 1;
+                payload.fromPlace = isTaxiClaimType ? claimFromPlace : '';
+                payload.toPlace = isTaxiClaimType ? claimToPlace : '';
+                payload.modeoftravel = [];
+                payload.vehicleuse = [];
+                payload.extendBudget = 0;
+                payload.extendDate = '';
+                payload.userleavetime = '';
+                payload.selectedHandovers = [];
+                payload.requeststatus = "1";
+            } else if (selectedType === 'offinlieu') {
+                // Off In Lieu: selectday + starttime + endtime — mirrors mobile lines 877-884
+                payload.selectday = toApiDate(startDate);
+                payload.startdate = '';
+                payload.enddate = '';
+                payload.date = '';
+                payload.otday = '';
+                payload.starttime = toApi12hTime(startTime);
+                payload.endtime = toApi12hTime(endTime);
+                payload.requeststatus = "1";
+            } else if (selectedType === 'late' || selectedType === 'earlyout') {
+                // Late / Early Out: mirrors mobile — date + starttime + endtime + duration string
+                const [sh, sm] = (startTime || '00:00').split(':').map(Number);
+                const [eh, em] = (endTime || '00:00').split(':').map(Number);
+                const diffMins = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+                const hrs = Math.floor(diffMins / 60);
+                const mins = diffMins % 60;
+                payload.date = toApiDate(startDate);
+                payload.startdate = '';
+                payload.enddate = '';
+                payload.selectday = '';
+                payload.otday = '';
+                payload.starttime = toApi12hTime(startTime);
+                payload.endtime = toApi12hTime(endTime);
+                payload.duration = `${hrs} hr ${mins} min`;
+                payload.requeststatus = "1";
             } else {
                 // General / Employee Requisition / Purchase — Flutter: uses date + time only (no start/end date/time)
                 payload.date = toApiDate(startDate);
@@ -598,7 +740,7 @@ export default function NewRequestPage() {
                 payload.selectday = '';
                 payload.otday = '';
                 payload.time = toApi12hTime(startTime);  // Flutter: formData['time'] = single time field
-                payload.requeststatus = 1;
+                payload.requeststatus = "1";
             }
 
             const res = await apiClient.post(SAVE_REQUEST, payload);
@@ -616,6 +758,12 @@ export default function NewRequestPage() {
                 leave: '/leave',
                 reservation: '/reservations',
                 claim: '/claim',
+                offinlieu: '/offinlieu',
+                overtime: '/overtime',
+                wfh: '/wfh',
+                travel: '/travel',
+                transportation: '/transportation',
+                cashadvance: '/cashadvance',
             };
             navigate(SUCCESS_RETURN[selectedType] || '/requests');
         },
@@ -655,6 +803,13 @@ export default function NewRequestPage() {
                 if (!transArrivalEnd.trim()) { toast.error('Arrival end location is required'); return; }
             }
         }
+        if (selectedType === 'offinlieu') {
+            // Mobile: validates shiftStart < shiftEnd
+            if (startTime && endTime && startTime >= endTime) {
+                toast.error('Start time must be before end time');
+                return;
+            }
+        }
         submitMutation.mutate();
     };
 
@@ -662,6 +817,13 @@ export default function NewRequestPage() {
     const RETURN_PAGE: Record<string, string> = {
         leave: '/leave',
         reservation: '/reservations',
+        wfh: '/wfh',
+        overtime: '/overtime',
+        travel: '/travel',
+        transportation: '/transportation',
+        claim: '/requests',
+        cashadvance: '/cashadvance',
+        offinlieu: '/offinlieu',
     };
     const returnPath = RETURN_PAGE[presetType] || '/requests';
 
@@ -700,113 +862,136 @@ export default function NewRequestPage() {
                     <div className={styles['new-request__section']}>
                         <h3 className={styles['new-request__section-title']}>Request Type</h3>
                         <div className={styles['new-request__type-grid']}>
-                            {REQUEST_TYPE_CONFIGS.map(({ key, label, icon: Icon, color, bgColor }) => (
-                                <div
-                                    key={key}
-                                    className={`${styles['new-request__type-card']} ${selectedType === key ? styles['new-request__type-card--active'] : ''}`}
-                                    onClick={() => setSelectedType(key)}
-                                >
+                            {requestTypes.length === 0 ? (
+                                <p style={{ color: 'var(--color-neutral-400)', fontSize: 'var(--text-sm)' }}>Loading…</p>
+                            ) : requestTypes.map((rt) => {
+                                const descLower = (rt.description || '').trim().toLowerCase();
+                                const key = DESC_TO_KEY[descLower] || 'other';
+                                const { icon: Icon, color, bgColor } = TYPE_VISUAL[key] || TYPE_VISUAL.other;
+                                return (
                                     <div
-                                        className={styles['new-request__type-card-icon']}
-                                        style={{ background: bgColor, color }}
+                                        key={rt.syskey}
+                                        className={`${styles['new-request__type-card']} ${selectedType === key ? styles['new-request__type-card--active'] : ''}`}
+                                        onClick={() => setSelectedType(key)}
                                     >
-                                        <Icon size={22} />
+                                        <div className={styles['new-request__type-card-icon']} style={{ background: bgColor, color }}>
+                                            <Icon size={22} />
+                                        </div>
+                                        <span className={styles['new-request__type-card-label']}>{rt.description}</span>
                                     </div>
-                                    <span className={styles['new-request__type-card-label']}>{label}</span>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}
 
                 {selectedType && (
                     <>
-                        {/* ═════ 2. Sub-type selector (if API has types, hidden for leave — auto-set) ═════ */}
-                        {requestTypes.length > 0 && selectedType !== 'leave' && (
+
+
+                        {/* ═════ 3. Date & Time (common — hidden for claim/cashadvance) ═════ */}
+                        {selectedType !== 'claim' && selectedType !== 'cashadvance' && (
                             <div className={styles['new-request__section']}>
+                                <h3 className={styles['new-request__section-title']}>Date & Time</h3>
                                 <div className={styles['new-request__grid']}>
-                                    <Select
-                                        id="subType"
-                                        label="Sub-type"
-                                        placeholder="Select sub-type…"
-                                        value={subType}
-                                        onChange={(e) => setSubType(e.target.value)}
-                                        options={requestTypes.map((t) => ({ value: t.syskey, label: t.description }))}
-                                    />
+                                    {selectedType === 'travel' ? (
+                                        <>
+                                            <Input id="departureDate" label="Departure Date" type="date" value={departureDate} onChange={(e) => setDepartureDate(e.target.value)} required />
+                                            <Input id="arrivalDate" label="Arrival Date" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} required />
+                                        </>
+                                    ) : selectedType === 'overtime' ? (
+                                        // Overtime: start/end date | OT Day + OT Hours in one row | start/end time
+                                        <>
+                                            <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                            <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                                            {/* OT Day + OT Hours — same row */}
+                                            <div className={styles['new-request__full']} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+                                                <Input id="otDays" label="OT Day" type="number" value={otDays} readOnly placeholder="auto" />
+                                                <Input id="hour" label="OT Hours" type="number" value={hour} onChange={(e) => setHour(e.target.value)} placeholder="auto-calculated" min="0" step="0.5" readOnly={!!(startTime && endTime)} />
+                                            </div>
+                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                                        </>
+                                    ) : selectedType === 'leave' ? (
+                                        <>
+                                            <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                            <Select
+                                                id="startPeriod"
+                                                label={t('request.startTime')}
+                                                value={startPeriod}
+                                                onChange={(e) => setStartPeriod(e.target.value)}
+                                                options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
+                                            />
+                                            <Input id="endDate" label={t('request.endDate')} type="date" value={endDate || startDate} onChange={(e) => setEndDate(e.target.value)} />
+                                            <Select
+                                                id="endPeriod"
+                                                label={t('request.endTime')}
+                                                value={endPeriod}
+                                                onChange={(e) => setEndPeriod(e.target.value)}
+                                                options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
+                                            />
+                                            <div className={styles['new-request__full']}>
+                                                <Input
+                                                    id="duration"
+                                                    label={t('request.duration')}
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={duration}
+                                                    onChange={(e) => setDuration(e.target.value)}
+                                                    placeholder="e.g. 1.5"
+                                                />
+                                            </div>
+                                        </>
+                                    ) : selectedType === 'offinlieu' ? (
+                                        // Off in Lieu: single date + start/end time (no duration) — mirrors mobile
+                                        <>
+                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                            <Input id="startTime" label="Start Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+                                            <Input id="endTime" label="End Time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+                                        </>
+                                    ) : GENERIC_TYPES.has(selectedType) ? (
+                                        // General/Employee Requisition/Purchase/Attendance — single date + time
+                                        <>
+                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                            <Input id="startTime" label="Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                                        </>
+                                    ) : (selectedType === 'claim' || selectedType === 'cashadvance') ? (
+                                        // Claim / Cash Advance: single date only — Flutter uses formData['date']
+                                        <>
+                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                        </>
+                                    ) : (selectedType === 'late' || selectedType === 'earlyout') ? (
+                                        // Late / Early Out: single date + startTime + endTime + auto-calculated duration
+                                        <>
+                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                            <Input id="startTime" label="Start Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+                                            <Input id="endTime" label="End Time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+                                            {startTime && endTime && (() => {
+                                                const [sh, sm] = startTime.split(':').map(Number);
+                                                const [eh, em] = endTime.split(':').map(Number);
+                                                const diff = (eh * 60 + em) - (sh * 60 + sm);
+                                                if (diff > 0) {
+                                                    const hrs = Math.floor(diff / 60);
+                                                    const mins = diff % 60;
+                                                    return <div className={styles['new-request__full']}>
+                                                        <Input id="duration" label="Duration" value={`${hrs} hr ${mins} min`} readOnly />
+                                                    </div>;
+                                                }
+                                                return null;
+                                            })()}
+                                        </>
+                                    ) : (
+                                        // Generic fallback: wfh, reservation, and other types not explicitly handled
+                                        <>
+                                            <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                            <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}
-
-                        {/* ═════ 3. Date & Time (common) ═════ */}
-                        <div className={styles['new-request__section']}>
-                            <h3 className={styles['new-request__section-title']}>Date & Time</h3>
-                            <div className={styles['new-request__grid']}>
-                                {selectedType === 'travel' ? (
-                                    <>
-                                        <Input id="departureDate" label="Departure Date" type="date" value={departureDate} onChange={(e) => setDepartureDate(e.target.value)} required />
-                                        <Input id="arrivalDate" label="Arrival Date" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} required />
-                                    </>
-                                ) : selectedType === 'overtime' ? (
-                                    // Overtime: start/end date | OT Day + OT Hours in one row | start/end time
-                                    <>
-                                        <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                        <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                                        {/* OT Day + OT Hours — same row */}
-                                        <div className={styles['new-request__full']} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-                                            <Input id="otDays" label="OT Day" type="number" value={otDays} readOnly placeholder="auto" />
-                                            <Input id="hour" label="OT Hours" type="number" value={hour} onChange={(e) => setHour(e.target.value)} placeholder="auto-calculated" min="0" step="0.5" readOnly={!!(startTime && endTime)} />
-                                        </div>
-                                        <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                                        <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                                    </>
-                                ) : selectedType === 'leave' ? (
-                                    <>
-                                        <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                        <Select
-                                            id="startPeriod"
-                                            label={t('request.startTime')}
-                                            value={startPeriod}
-                                            onChange={(e) => setStartPeriod(e.target.value)}
-                                            options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
-                                        />
-                                        <Input id="endDate" label={t('request.endDate')} type="date" value={endDate || startDate} onChange={(e) => setEndDate(e.target.value)} />
-                                        <Select
-                                            id="endPeriod"
-                                            label={t('request.endTime')}
-                                            value={endPeriod}
-                                            onChange={(e) => setEndPeriod(e.target.value)}
-                                            options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
-                                        />
-                                        <div className={styles['new-request__full']}>
-                                            <Input
-                                                id="duration"
-                                                label={t('request.duration')}
-                                                type="text"
-                                                inputMode="decimal"
-                                                value={duration}
-                                                onChange={(e) => setDuration(e.target.value)}
-                                                placeholder="e.g. 1.5"
-                                            />
-                                        </div>
-                                    </>
-                                ) : (selectedType === 'general' || selectedType === 'employeerequisition' || selectedType === 'purchase' || selectedType === 'other') ? (
-                                    // Flutter: General/Employee Requisition/Purchase use single date + time only
-                                    <>
-                                        <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                        <Input id="startTime" label="Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                                    </>
-                                ) : (
-                                    // Generic: wfh, cashadvance, claim, reservation, earlyout, late, offinlieu
-                                    // Auto-sync handled centrally via useEffect above
-                                    <>
-                                        <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                        <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                                        <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                                        <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                                    </>
-                                )}
-                            </div>
-                        </div>
 
                         {/* ═════ 4. Type-specific fields ═════ */}
 
@@ -949,8 +1134,8 @@ export default function NewRequestPage() {
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Travel Details</h3>
                                 <div className={styles['new-request__grid']}>
-                                    <Input id="fromPlace" label="From" value={fromPlace} onChange={(e) => setFromPlace(e.target.value)} placeholder="Origin" required />
-                                    <Input id="toPlace" label="To" value={toPlace} onChange={(e) => setToPlace(e.target.value)} placeholder="Destination" required />
+                                    <Input id="travelDepartureTime" label="Departure Time" type="time" value={travelDepartureTime} onChange={(e) => setTravelDepartureTime(e.target.value)} />
+                                    <Input id="travelReturnTime" label="Planned Return" type="time" value={travelReturnTime} onChange={(e) => setTravelReturnTime(e.target.value)} />
                                     {travelTypes.length > 0 && (
                                         <Select id="modeOfTravel" label="Mode of Travel" value={modeOfTravel} onChange={(e) => setModeOfTravel(e.target.value)} options={travelTypes.map((t) => ({ value: t.syskey, label: t.description }))} placeholder="Select…" />
                                     )}
@@ -964,6 +1149,16 @@ export default function NewRequestPage() {
                                         <Select id="project" label="Project" value={project} onChange={(e) => setProject(e.target.value)} options={projectList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select…" />
                                     )}
                                     <Input id="budget" label="Estimated Budget" type="text" inputMode="decimal" value={formatAmount(estimatedBudget)} onChange={(e) => setEstimatedBudget(unformatAmount(e.target.value))} placeholder="0" />
+                                    <div className={styles['new-request__full']}>
+                                        <Textarea
+                                            id="travelPurpose"
+                                            label="Travel Purpose"
+                                            value={travelPurpose}
+                                            onChange={(e) => setTravelPurpose(e.target.value)}
+                                            placeholder="Purpose of this travel…"
+                                            required
+                                        />
+                                    </div>
                                 </div>
                                 <div style={{ marginTop: 'var(--space-4)' }}>
                                     <MemberPicker label="Accompanying Persons" members={accompanyPersons} onChange={setAccompanyPersons} />
@@ -1015,14 +1210,84 @@ export default function NewRequestPage() {
                             </div>
                         )}
 
-                        {/* ── Cash Advance ── */}
-                        {selectedType === 'cashadvance' && (
+                        {/* ── Claim / Cash Advance ── */}
+                        {(selectedType === 'cashadvance' || selectedType === 'claim') && (
                             <div className={styles['new-request__section']}>
-                                <h3 className={styles['new-request__section-title']}>Cash Advance</h3>
+                                <h3 className={styles['new-request__section-title']}>Claim Details</h3>
+
+                                {/* Claim Type + Currency */}
                                 <div className={styles['new-request__grid']}>
-                                    <Input id="amount" label="Amount" type="text" inputMode="decimal" value={formatAmount(amount)} onChange={(e) => setAmount(unformatAmount(e.target.value))} placeholder="0" required />
-                                    <Input id="currency" label="Currency" value={currencyType} onChange={(e) => setCurrencyType(e.target.value)} placeholder="e.g. MMK, USD" />
+                                    {/* Claim Type — only for Claim type, not Cash Advance */}
+                                    {selectedType === 'claim' && (
+                                        <Select
+                                            id="claimType"
+                                            label="Claim Type"
+                                            value={claimType}
+                                            onChange={(e) => {
+                                                setClaimType(e.target.value);
+                                                const sel = claimTypeList.find(ct => ct.syskey === e.target.value);
+                                                setClaimTypeDesc(sel?.description || '');
+                                                setClaimFromPlace('');
+                                                setClaimToPlace('');
+                                            }}
+                                            required
+                                            placeholder="Select claim type"
+                                            options={claimTypeList.map((ct) => ({ value: ct.syskey, label: ct.description }))}
+                                        />
+                                    )}
+                                    <Select
+                                        id="claimCurrency"
+                                        label="Currency"
+                                        value={currencyType}
+                                        onChange={(e) => setCurrencyType(e.target.value)}
+                                        placeholder="Select currency"
+                                        options={currencyList.map((c) => ({ value: c.syskey, label: c.description }))}
+                                    />
                                 </div>
+
+                                {/* Date + Amount row */}
+                                <div className={styles['new-request__grid']} style={{ marginTop: 'var(--space-4)' }}>
+                                    <Input
+                                        id="claimDate"
+                                        label="Date"
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        required
+                                    />
+                                    <Input
+                                        id="amount"
+                                        label="Amount"
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={formatAmount(amount)}
+                                        onChange={(e) => setAmount(unformatAmount(e.target.value))}
+                                        placeholder="0"
+                                        required
+                                    />
+                                </div>
+
+                                {/* From / To Place — only for Taxi Fare, Ferry Taxi, Onsite Taxi */}
+                                {isTaxiClaimType && (
+                                    <div className={styles['new-request__grid']} style={{ marginTop: 'var(--space-4)' }}>
+                                        <Input
+                                            id="claimFromPlace"
+                                            label="From Place"
+                                            value={claimFromPlace}
+                                            onChange={(e) => setClaimFromPlace(e.target.value)}
+                                            placeholder="Origin"
+                                            required
+                                        />
+                                        <Input
+                                            id="claimToPlace"
+                                            label="To Place"
+                                            value={claimToPlace}
+                                            onChange={(e) => setClaimToPlace(e.target.value)}
+                                            placeholder="Destination"
+                                            required
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -1031,7 +1296,7 @@ export default function NewRequestPage() {
                             <h3 className={styles['new-request__section-title']}>Additional Info</h3>
                             <Textarea
                                 id="remark"
-                                label={t('request.remark')}
+                                label={isBenefitBonusClaimType ? 'Reason' : t('request.remark')}
                                 value={remark}
                                 onChange={(e) => setRemark(e.target.value)}
                                 placeholder="Any additional notes or comments…"

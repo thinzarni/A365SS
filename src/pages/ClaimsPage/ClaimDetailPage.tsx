@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -7,8 +9,11 @@ import { Button } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import type { ClaimModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
-import { CLAIM_DETAIL, DELETE_CLAIM } from '../../config/api-routes';
+import { CLAIM_DETAIL, DELETE_CLAIM, CURRENCY_TYPES } from '../../config/api-routes';
+import type { TypesModel } from '../../types/models';
+import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import styles from './ClaimsPage.module.css';
+
 
 function Field({ label, value }: { label: string; value: string | number | undefined | null }) {
     return (
@@ -36,6 +41,20 @@ export default function ClaimDetailPage() {
         enabled: !!id,
     });
 
+    const { data: currencyList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['currencyTypeList'],
+        queryFn: async () => {
+            const res = await apiClient.get(CURRENCY_TYPES);
+            return res.data?.datalist || [];
+        },
+    });
+
+    // Resolve syskey → human-readable currency name
+    const currencyName = currencyList.find(c => c.syskey === claim?.currencytype)?.description
+        || (claim as any)?.currencytypedesc
+        || claim?.currencytype
+        || 'MMK';
+
     const deleteMutation = useMutation({
         mutationFn: async () => {
             await apiClient.post(DELETE_CLAIM, { syskey: id });
@@ -48,11 +67,10 @@ export default function ClaimDetailPage() {
         onError: () => toast.error(t('common.error')),
     });
 
-    const handleDelete = () => {
-        if (window.confirm(t('request.confirmDelete'))) {
-            deleteMutation.mutate();
-        }
-    };
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+    const handleDelete = () => setShowDeleteModal(true);
+
 
     if (isLoading) {
         return (
@@ -111,7 +129,7 @@ export default function ClaimDetailPage() {
                     {/* Amount highlight */}
                     <div style={{ marginBottom: 'var(--space-5)', textAlign: 'center' }}>
                         <span className={styles['claim-detail__amount-highlight']}>
-                            {claim.currencytype || 'MMK'} {(claim.amount || 0).toLocaleString()}
+                            {currencyName} {(claim.amount || 0).toLocaleString()}
                         </span>
                     </div>
 
@@ -160,6 +178,16 @@ export default function ClaimDetailPage() {
                     </div>
                 )}
             </div>
+
+            <ConfirmModal
+                open={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={() => { deleteMutation.mutate(); setShowDeleteModal(false); }}
+                title="Delete Claim"
+                message="This will permanently delete this expense claim. This action cannot be undone."
+                confirmLabel="Delete Claim"
+                loading={deleteMutation.isPending}
+            />
         </div>
     );
 }

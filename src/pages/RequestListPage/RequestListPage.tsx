@@ -41,6 +41,7 @@ const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: s
     '/transportation': { filter: 'transportation', label: 'Transportation', newLabel: 'New Transport', newPath: '/transportation/new' },
     '/travel': { filter: 'travel', label: 'Travel', newLabel: 'New Travel', newPath: '/travel/new' },
     '/cashadvance': { filter: 'cash advance', label: 'Cash Advance', newLabel: 'New Cash Advance', newPath: '/cashadvance/new' },
+    '/offinlieu': { filter: 'off in lieu', label: 'Off in Lieu', newLabel: 'New Off in Lieu', newPath: '/offinlieu/new' },
 };
 /* ── Type display helpers ── */
 const statusTabs = [
@@ -94,7 +95,7 @@ export default function RequestListPage() {
         queryKey: ['requests', activeStatus, location.pathname],
         queryFn: async () => {
             const now = new Date();
-            const fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            const fromDate = new Date(now.getFullYear(), now.getMonth() - 2, 1); // 3 months back
             const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
             const res = await apiClient.post(GET_REQUEST_LIST, {
                 fromdate: toApiDate(fromDate),
@@ -247,13 +248,22 @@ export default function RequestListPage() {
                                                 </span>
                                             </td>
                                             <td>
-                                                {req.requestsubtypedesc
-                                                    ? req.requestsubtypedesc
-                                                    : req.duration != null && req.duration !== ''
-                                                        ? `${req.duration} day(s)`
-                                                        : req.amount
-                                                            ? `${Number(req.amount).toLocaleString()}`
-                                                            : '—'}
+                                                {(() => {
+                                                    const typeStr = typeDesc.toLowerCase();
+                                                    if (typeStr.includes('early out') || typeStr.includes('late')) {
+                                                        return typeDesc; // Just show 'Early Out' or 'Late'
+                                                    }
+                                                    if (req.requestsubtypedesc) {
+                                                        return req.requestsubtypedesc;
+                                                    }
+                                                    if (req.duration != null && req.duration !== '') {
+                                                        return `${req.duration} day(s)`;
+                                                    }
+                                                    if (req.amount) {
+                                                        return `${Number(req.amount).toLocaleString()}`;
+                                                    }
+                                                    return '—';
+                                                })()}
                                             </td>
                                             <td>
                                                 <StatusBadge status={String(req.requeststatus)} />

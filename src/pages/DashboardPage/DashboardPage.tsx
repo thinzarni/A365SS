@@ -24,6 +24,9 @@ import {
     Calendar,
     Users,
     MapPin,
+    X,
+    FileText,
+    ChevronRight,
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
@@ -163,6 +166,13 @@ export default function DashboardPage() {
     const { t, i18n } = useTranslation();
     const { user, userId, domain } = useAuthStore();
     const [now, setNow] = useState(new Date());
+    const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+
+    // Lock background scroll when modal is open
+    useEffect(() => {
+        document.body.style.overflow = selectedRecord ? 'hidden' : '';
+        return () => { document.body.style.overflow = ''; };
+    }, [selectedRecord]);
 
     // Live clock
     useEffect(() => {
@@ -389,7 +399,12 @@ export default function DashboardPage() {
                                 ? `${rec.starttime || ''} – ${rec.endtime || ''}`
                                 : rec.time;
                             return (
-                                <div key={idx} className={styles.recordCard}>
+                                <div
+                                    key={idx}
+                                    className={styles.recordCard}
+                                    onClick={() => setSelectedRecord(rec)}
+                                    style={{ cursor: 'pointer' }}
+                                >
                                     <div className={styles.recordLeft}>
                                         <div className={`${styles.recordIcon} ${styles[meta.dot]}`}>
                                             {rec.type === 601 ? <LogIn size={18} /> :
@@ -422,6 +437,7 @@ export default function DashboardPage() {
                                                 <span>{rec.location || rec.description || ''}</span>
                                             </div>
                                         )}
+                                        <ChevronRight size={14} style={{ color: '#94a3b8', marginLeft: 4 }} />
                                     </div>
                                 </div>
                             );
@@ -437,7 +453,6 @@ export default function DashboardPage() {
                 </div>
                 <div className={styles.actionsGrid}>
                     {quickActions.map(({ path, icon: Icon, label, bg, color }) => {
-                        // Map the hardcoded label to its translation key
                         const labelKeyMap: Record<string, string> = {
                             'Leave': 'nav.leave',
                             'Claims': 'nav.claims',
@@ -460,6 +475,197 @@ export default function DashboardPage() {
                     })}
                 </div>
             </section>
+
+            {/* ── Attendance Record Detail Modal ── */}
+            {selectedRecord && (() => {
+                const meta = getAttTypeName(selectedRecord.type);
+                const isRejected = selectedRecord.remoteapproval === 3 || selectedRecord.backdateapproval === 3;
+                const isPending = selectedRecord.remoteapproval === 1 || selectedRecord.backdateapproval === 1;
+                const statusLabel = isRejected ? 'Rejected' : isPending ? 'Pending' : 'Synced';
+                const statusColor = isRejected ? '#dc2626' : isPending ? '#d97706' : '#16a34a';
+                const statusBg = isRejected ? '#fee2e2' : isPending ? '#fef3c7' : '#dcfce7';
+                const displayTime = selectedRecord.type === 603
+                    ? `${selectedRecord.starttime || '--'} – ${selectedRecord.endtime || '--'}`
+                    : selectedRecord.time || '--:--';
+                const formattedDate = (() => {
+                    const d = selectedRecord.date;
+                    if (d?.length === 8) {
+                        const dt = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
+                        return dt.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                    }
+                    return d || '';
+                })();
+
+                return (
+                    <>
+                        {/* Backdrop */}
+                        <div
+                            onClick={() => setSelectedRecord(null)}
+                            style={{
+                                position: 'fixed', inset: 0,
+                                background: 'rgba(15,23,42,0.5)',
+                                zIndex: 200,
+                                backdropFilter: 'blur(4px)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                        >
+                            {/* Modal card — stop click bubbling to backdrop */}
+                            <div
+                                onClick={e => e.stopPropagation()}
+                                style={{
+                                    background: 'var(--color-surface, #fff)',
+                                    borderRadius: 20,
+                                    boxShadow: '0 24px 80px rgba(0,0,0,0.25)',
+                                    width: '92%',
+                                    maxWidth: 420,
+                                    overflow: 'hidden',
+                                    animation: 'modalIn 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                                }}
+                            >
+                                {/* Colored header banner */}
+                                <div style={{
+                                    background: `linear-gradient(135deg, ${meta.color}22, ${meta.color}44)`,
+                                    borderBottom: `3px solid ${meta.color}33`,
+                                    padding: '20px 20px 16px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                                        <div style={{
+                                            width: 52, height: 52, borderRadius: '50%',
+                                            background: meta.color + '22',
+                                            border: `2px solid ${meta.color}44`,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            color: meta.color,
+                                        }}>
+                                            {selectedRecord.type === 601 ? <LogIn size={24} /> :
+                                                selectedRecord.type === 602 ? <LogOut size={24} /> :
+                                                    selectedRecord.type === 603 ? <Activity size={24} /> :
+                                                        <Clock size={24} />}
+                                        </div>
+                                        <div>
+                                            <div style={{ fontWeight: 800, fontSize: 17, color: meta.color, letterSpacing: '-0.01em' }}>
+                                                {meta.label}
+                                            </div>
+                                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                                                Attendance Record
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setSelectedRecord(null)}
+                                        style={{
+                                            background: 'rgba(100,116,139,0.1)', border: 'none',
+                                            cursor: 'pointer', width: 32, height: 32,
+                                            borderRadius: '50%', display: 'flex',
+                                            alignItems: 'center', justifyContent: 'center',
+                                            color: '#64748b',
+                                        }}
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+
+                                {/* Detail rows */}
+                                <div style={{ padding: '18px 20px 8px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+                                    {/* Time */}
+                                    <DetailRow icon={<Clock size={15} />} label="Time" value={displayTime} />
+
+                                    {/* Date */}
+                                    {formattedDate && <DetailRow icon={<CalendarDays size={15} />} label="Date" value={formattedDate} />}
+
+                                    {/* Status badge */}
+                                    <div style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                                        <span style={{ color: '#94a3b8', flexShrink: 0, display: 'flex' }}><UserCheck size={15} /></span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+                                            <span style={{ fontSize: 13, color: '#475569', minWidth: 80 }}>Status</span>
+                                            <span style={{
+                                                padding: '3px 12px', borderRadius: 20,
+                                                fontSize: 12, fontWeight: 700,
+                                                background: statusBg, color: statusColor,
+                                            }}>
+                                                {statusLabel}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Location */}
+                                    {(selectedRecord.location) && (
+                                        <DetailRow icon={<MapPin size={15} />} label="Location" value={selectedRecord.location} />
+                                    )}
+
+                                    {/* Activity / CheckIn type */}
+                                    {(selectedRecord.activityType || selectedRecord.checkInType || selectedRecord.attType) && (
+                                        <DetailRow
+                                            icon={<FileText size={15} />}
+                                            label="Type"
+                                            value={selectedRecord.activityType || selectedRecord.checkInType || selectedRecord.attType || ''}
+                                        />
+                                    )}
+
+                                    {/* Description */}
+                                    {selectedRecord.description && (
+                                        <div style={{ padding: '12px 0 4px' }}>
+                                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+                                                <span style={{ color: '#94a3b8', display: 'flex' }}><FileText size={15} /></span>
+                                                <span style={{ fontSize: 13, color: '#475569', fontWeight: 500 }}>Description</span>
+                                            </div>
+                                            <div style={{
+                                                background: '#f8fafc',
+                                                border: '1px solid #e2e8f0',
+                                                borderRadius: 10,
+                                                padding: '10px 14px',
+                                                fontSize: 13,
+                                                color: '#334155',
+                                                lineHeight: 1.6,
+                                                whiteSpace: 'pre-wrap',
+                                            }}>
+                                                {selectedRecord.description}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Footer close button */}
+                                <div style={{ padding: '12px 20px 20px' }}>
+                                    <button
+                                        onClick={() => setSelectedRecord(null)}
+                                        style={{
+                                            width: '100%', padding: '11px',
+                                            background: meta.color, color: '#fff',
+                                            border: 'none', borderRadius: 12,
+                                            fontSize: 14, fontWeight: 700,
+                                            cursor: 'pointer', letterSpacing: '0.02em',
+                                        }}
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <style>{`
+                            @keyframes modalIn {
+                                from { opacity: 0; transform: scale(0.88); }
+                                to   { opacity: 1; transform: scale(1); }
+                            }
+                        `}</style>
+                    </>
+                );
+            })()}
+        </div>
+    );
+}
+
+/** Reusable detail row inside the modal */
+function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+    return (
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+            <span style={{ color: '#94a3b8', flexShrink: 0, display: 'flex' }}>{icon}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 13, color: '#475569', flexShrink: 0, minWidth: 80 }}>{label}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</span>
+            </div>
         </div>
     );
 }

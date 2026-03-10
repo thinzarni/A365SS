@@ -28,6 +28,8 @@ interface ChatState {
     hasMoreConversations: boolean;
     hasMoreMessages: boolean;
     searchResults: User[];
+    searchUsersPage: number;
+    searchUsersHasMore: boolean;
     userTeams: Team[];
     unreadCount: number;
     activeParticipants: any[];
@@ -41,7 +43,7 @@ interface ChatState {
     sendMessage: (content: string, contentType?: string, parentMessageId?: string, mentions?: string[]) => Promise<void>;
     markAsRead: (conversationId: string, messageId?: string) => Promise<void>;
     markLatestMessageRead: (conversationId: string) => Promise<void>;
-    searchUsers: (query: string) => Promise<void>;
+    searchUsers: (query: string, page?: number) => Promise<void>;
     fetchTeams: (userId: string) => Promise<void>;
     createChat: (payload: CreateChatPayload) => Promise<string | null>;
     getConversationByUniqueName: (name: string) => Promise<string | null>;
@@ -71,6 +73,8 @@ export const useChatStore = create<ChatState>()(
             hasMoreConversations: true,
             hasMoreMessages: true,
             searchResults: [],
+            searchUsersPage: 1,
+            searchUsersHasMore: true,
             userTeams: [],
             unreadCount: 0,
             activeParticipants: [],
@@ -638,12 +642,16 @@ export const useChatStore = create<ChatState>()(
                 }
             },
 
-            searchUsers: async (query) => {
+            searchUsers: async (query, page = 1) => {
                 if (query === null || query === undefined) {
-                    set({ searchResults: [] });
+                    set({ searchResults: [], searchUsersPage: 1, searchUsersHasMore: true });
                     return;
                 }
-                set({ isLoading: true });
+
+                if (page === 1) {
+                    // Only show global loading on first page, subsequent pages will have local spinners
+                    set({ isLoading: true, searchResults: [] });
+                }
                 try {
                     const authState = useAuthStore.getState();
                     // mainClient interceptor injects userid+domain automatically,
@@ -659,7 +667,7 @@ export const useChatStore = create<ChatState>()(
                         userid: userId,
                         domain: domain,
                         searchkey: query,
-                        currentpage: 1,
+                        currentpage: page,
                         pagesize: 50,
                         sortby: 'name',
                         sortorder: 'ASC',
@@ -689,7 +697,13 @@ export const useChatStore = create<ChatState>()(
                     }
 
                     console.log('[searchUsers] Parsed users count:', users.length);
-                    set({ searchResults: users, isLoading: false });
+
+                    set((state) => ({
+                        searchResults: page === 1 ? users : [...state.searchResults, ...users],
+                        searchUsersPage: page,
+                        searchUsersHasMore: users.length >= 50,
+                        isLoading: false
+                    }));
                 } catch (err) {
                     console.error('[searchUsers] Error:', err);
                     set({ isLoading: false });

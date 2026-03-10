@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -18,8 +20,10 @@ import { Button } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
 import type { RequestDetailModel, Approver } from '../../types/models';
+import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import apiClient from '../../lib/api-client';
-import { GET_REQUEST_DETAIL, DELETE_REQUEST } from '../../config/api-routes';
+import { GET_REQUEST_DETAIL, DELETE_REQUEST, CURRENCY_TYPES } from '../../config/api-routes';
+import type { TypesModel } from '../../types/models';
 import styles from './RequestDetailPage.module.css';
 
 function getTypeVisual(desc: string) {
@@ -75,6 +79,14 @@ export default function RequestDetailPage() {
         enabled: !!id,
     });
 
+    const { data: currencyList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['currencyTypeList'],
+        queryFn: async () => {
+            const res = await apiClient.get(CURRENCY_TYPES);
+            return res.data?.datalist || [];
+        },
+    });
+
     const detail = detailData?.detail;
     const approverList = detailData?.approverList || [];
     const memberList = detailData?.memberList || [];
@@ -92,6 +104,8 @@ export default function RequestDetailPage() {
         },
         onError: () => toast.error('Failed to delete request'),
     });
+
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
 
     if (isLoading) {
         return (
@@ -125,6 +139,12 @@ export default function RequestDetailPage() {
 
     const { Icon, bg, color } = getTypeVisual(detail.requesttypedesc);
     const isPending = String(detail.requeststatus) === RequestStatus.Pending;
+
+    // Resolve currency syskey → readable name
+    const currencyName = currencyList.find(c => c.syskey === detail.currencytype)?.description
+        || (detail as any).currencytypedesc
+        || detail.currencytype
+        || '';
 
     return (
         <div className={styles['request-detail']}>
@@ -206,15 +226,19 @@ export default function RequestDetailPage() {
                         </div>
                     )}
 
-                    {/* Travel fields */}
-                    {(detail.fromplace || detail.toplace) && detail.requesttypedesc?.toLowerCase().includes('travel') && (
+                    {detail.requesttypedesc?.toLowerCase().includes('travel') && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Travel</h4>
                             <div className={styles['request-detail__grid']}>
-                                {detail.fromplace && <Field label="From" value={detail.fromplace} />}
-                                {detail.toplace && <Field label="To" value={detail.toplace} />}
                                 {detail.departuredate && <Field label="Departure Date" value={detail.departuredate} />}
                                 {detail.arrivaldate && <Field label="Arrival Date" value={detail.arrivaldate} />}
+                                {detail.departuretime && <Field label="Departure Time" value={detail.departuretime} />}
+                                {detail.plannedreturn && <Field label="Planned Return" value={detail.plannedreturn} />}
+                                {detail.travelpurpose && (
+                                    <div className={styles['new-request__full']} style={{ gridColumn: '1 / -1', marginTop: 'var(--space-2)' }}>
+                                        <Field label="Travel Purpose" value={detail.travelpurpose} />
+                                    </div>
+                                )}
                                 {detail.days && <Field label="Days" value={String(detail.days)} />}
                                 {detail.modeoftravel?.length > 0 && <Field label="Mode of Travel" value={detail.modeoftravel?.join(', ')} />}
                                 {detail.vehicleuse?.length > 0 && <Field label="Vehicle Use" value={detail.vehicleuse?.join(', ')} />}
@@ -253,7 +277,7 @@ export default function RequestDetailPage() {
                             <h4 className={styles['request-detail__section-title']}>Financial</h4>
                             <div className={styles['request-detail__grid']}>
                                 {detail.amount > 0 && <Field label="Amount" value={String(detail.amount)} />}
-                                {detail.currencytype && <Field label="Currency" value={detail.currencytype} />}
+                                {currencyName && <Field label="Currency" value={currencyName} />}
                             </div>
                         </div>
                     )}
@@ -339,11 +363,7 @@ export default function RequestDetailPage() {
                             variant="danger"
                             size="sm"
                             loading={deleteMutation.isPending}
-                            onClick={() => {
-                                if (confirm('Are you sure you want to delete this request?')) {
-                                    deleteMutation.mutate();
-                                }
-                            }}
+                            onClick={() => setShowDeleteModal(true)}
                         >
                             <Trash2 size={14} />
                             Delete
@@ -351,6 +371,16 @@ export default function RequestDetailPage() {
                     </div>
                 )}
             </div>
+
+            <ConfirmModal
+                open={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={() => { deleteMutation.mutate(); setShowDeleteModal(false); }}
+                title="Delete Request"
+                message="This will permanently delete this request. This action cannot be undone."
+                confirmLabel="Delete Request"
+                loading={deleteMutation.isPending}
+            />
         </div>
     );
 }

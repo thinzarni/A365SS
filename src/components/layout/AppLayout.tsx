@@ -25,6 +25,7 @@ import {
     Briefcase,
     ShieldCheck,
     UserCheck,
+    KeyRound,
     MapPin,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
@@ -101,10 +102,11 @@ export default function AppLayout() {
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
     const { instance } = useMsal();
-    const { user, domain, domains, token, userId, login, setUser, logout, menuList, setLanguage } = useAuthStore();
+    const { user, domain, domains, token, userId, login, setUser, logout, menuList, setLanguage, loginType } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showDomainMenu, setShowDomainMenu] = useState(false);
     const [switchingDomainId, setSwitchingDomainId] = useState<string | null>(null);
+    const [pwdExpiry, setPwdExpiry] = useState<{ message: string; daysLeft: number; isExpired: boolean } | null>(null);
 
     const location = useLocation();
     const isChatPage = location.pathname.startsWith('/chat');
@@ -241,14 +243,60 @@ export default function AppLayout() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // ── Password expiry check (once per component mount, normal login only) ──
+    const pwdCheckRan = React.useRef(false);
+    useEffect(() => {
+        // Skip for Azure AD logins — they don't use IAM passwords
+        if (!userId || !domain || !token || loginType === 'azure') return;
+        if (pwdCheckRan.current) return;
+        pwdCheckRan.current = true;
+
+        const checkPasswordExpiry = async () => {
+            try {
+                const authUrl = (await import('../../config/app-config')).appConfig.authUrl;
+                const res = await fetch(`${authUrl}check/password-expried`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userid: userId, appid: APP_ID, domain }),
+                });
+                if (!res.ok) return;
+                const json = await res.json();
+                if (json?.status === 200 && json?.data?.status === true) {
+                    const expiredDateStr: string | undefined = json.data.expired_date;
+                    const message: string = json.data.message || 'Your password will expire soon.';
+                    if (expiredDateStr) {
+                        // Normalize both dates to local midnight to avoid UTC vs local offset
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const expiredDate = new Date(expiredDateStr);
+                        expiredDate.setHours(0, 0, 0, 0);
+                        const daysLeft = Math.round(
+                            (expiredDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+                        );
+                        const isExpired = daysLeft < 0;
+                        // Show modal if: already expired OR expiring within 5 days
+                        if (daysLeft <= 5) {
+                            setPwdExpiry({ message, daysLeft, isExpired });
+                        }
+                    }
+                }
+            } catch {
+                // silently ignore — non-critical check
+            }
+        };
+        checkPasswordExpiry();
+    }, [userId, domain, token]);
+
     const handleLogout = async () => {
         // 1. Flag intentional logout so LoginPage silent-SSO does NOT auto-sign-in again
         sessionStorage.setItem('az_logout_intent', '1');
-        // 2. Clear all MSAL accounts from localStorage so Azure AD session is removed
+        // 2. Clear Azure last-login flag so normal password login works on next visit
+        localStorage.removeItem('az_last_login');
+        // 3. Clear all MSAL accounts from localStorage so Azure AD session is removed
         try {
             await instance.clearCache();
         } catch { /* ignore if not signed in via Azure */ }
-        // 3. Clear A365 auth state and redirect
+        // 4. Clear A365 auth state and redirect
         logout();
         navigate('/login');
     };
@@ -487,6 +535,118 @@ export default function AppLayout() {
                     <Outlet />
                 </div>
             </main>
+
+            {/* ── Password Expiry Warning Modal ── */}
+            {pwdExpiry && (() => {
+                const { isExpired, message } = pwdExpiry;
+                const headerBg = isExpired
+                    ? 'linear-gradient(135deg,#fef2f2,#fecaca)'
+                    : 'linear-gradient(135deg,#fff7ed,#fde68a)';
+                const headerBorder = isExpired ? '#fca5a5' : '#fed7aa';
+                const iconBg = isExpired ? '#fef2f2' : '#fff7ed';
+                const iconBorder = isExpired ? '#fca5a5' : '#fed7aa';
+                const iconColor = isExpired ? '#dc2626' : '#f97316';
+                const titleColor = isExpired ? '#7f1d1d' : '#7c2d12';
+                const btnColor = isExpired ? '#dc2626' : '#f97316';
+
+                return (
+                    <div
+                        // Only allow backdrop-close when NOT fully expired
+                        onClick={() => !isExpired && setPwdExpiry(null)}
+                        style={{
+                            position: 'fixed', inset: 0,
+                            background: 'rgba(15,23,42,0.55)',
+                            backdropFilter: 'blur(4px)',
+                            zIndex: 9999,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                    >
+                        <div
+                            onClick={e => e.stopPropagation()}
+                            style={{
+                                background: '#fff',
+                                borderRadius: 20,
+                                boxShadow: '0 24px 80px rgba(0,0,0,0.22)',
+                                width: '92%', maxWidth: 380,
+                                overflow: 'hidden',
+                                animation: 'pwdModalIn 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                            }}
+                        >
+                            {/* Header */}
+                            <div style={{
+                                background: headerBg,
+                                borderBottom: `3px solid ${headerBorder}`,
+                                padding: '28px 24px 20px',
+                                textAlign: 'center',
+                            }}>
+                                <div style={{
+                                    width: 60, height: 60, borderRadius: '50%',
+                                    background: iconBg, border: `2px solid ${iconBorder}`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    margin: '0 auto 12px',
+                                }}>
+                                    <KeyRound size={28} style={{ color: iconColor }} />
+                                </div>
+                                <div style={{ fontWeight: 800, fontSize: 17, color: titleColor }}>
+                                    {isExpired ? 'Password Expired' : 'Password Expiring Soon'}
+                                </div>
+                                {/* <div style={{
+                                    marginTop: 6, display: 'inline-block',
+                                    background: badgeBg, color: badgeColor,
+                                    padding: '3px 12px', borderRadius: 20,
+                                    fontSize: 12, fontWeight: 700,
+                                }}>
+                                    {badgeText}
+                                </div> */}
+                            </div>
+
+                            {/* Body */}
+                            <div style={{ padding: '20px 24px 8px', textAlign: 'center' }}>
+                                <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.6, margin: 0 }}>
+                                    {isExpired
+                                        ? 'Your password has expired. Please change your password to continue using the app.'
+                                        : message}
+                                </p>
+                            </div>
+
+                            {/* Buttons */}
+                            <div style={{ display: 'flex', gap: 10, padding: '16px 24px 24px' }}>
+                                {/* Hide "Later" when expired — user must act */}
+                                {!isExpired && (
+                                    <button
+                                        onClick={() => setPwdExpiry(null)}
+                                        style={{
+                                            flex: 1, padding: '11px',
+                                            background: '#f1f5f9', color: '#475569',
+                                            border: '1px solid #e2e8f0', borderRadius: 12,
+                                            fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                                        }}
+                                    >
+                                        Later
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => { setPwdExpiry(null); navigate('/profile'); }}
+                                    style={{
+                                        flex: 1, padding: '11px',
+                                        background: btnColor, color: '#fff',
+                                        border: 'none', borderRadius: 12,
+                                        fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                                    }}
+                                >
+                                    Change Password
+                                </button>
+                            </div>
+                        </div>
+                        <style>{`
+                            @keyframes pwdModalIn {
+                                from { opacity: 0; transform: scale(0.88); }
+                                to   { opacity: 1; transform: scale(1); }
+                            }
+                        `}</style>
+                    </div>
+                );
+            })()}
         </div>
     );
 }
