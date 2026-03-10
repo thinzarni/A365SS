@@ -91,7 +91,6 @@ export default function RequestDetailPage() {
     const approverList = detailData?.approverList || [];
     const memberList = detailData?.memberList || [];
     const accompanyPersonList = detailData?.accompanyPersonList || [];
-    const selectedHandovers = detailData?.selectedHandovers || [];
 
     const deleteMutation = useMutation({
         mutationFn: async () => {

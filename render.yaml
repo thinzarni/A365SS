@@ -1,12 +1,11 @@
 services:
-  - type: web
-    name: hr-requests-client
-    runtime: static
+  - type: static
+    name: A365SS
     buildCommand: npm install && npm run build
-    staticPublishPath: ./build
+    staticPublishPath: ./dist
     envVars:
       - key: NODE_VERSION
-        value: 20
+        value: "20"
       - key: VITE_APP_ENV
         value: prod
       - key: VITE_BASE_URL
