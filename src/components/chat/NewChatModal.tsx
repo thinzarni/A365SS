@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Search, User as UserIcon, Building2, Check } from 'lucide-react';
 import { useChatStore } from '../../stores/chat-store';
 import { useAuthStore } from '../../stores/auth-store';
@@ -24,6 +24,8 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onC
     const { userId, domain } = useAuthStore();
     const {
         searchResults,
+        searchUsersPage,
+        searchUsersHasMore,
         userTeams,
         searchUsers,
         fetchTeams,
@@ -56,11 +58,24 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onC
         if (!isOpen) return;
         const timer = setTimeout(() => {
             if (type !== 'team') {
-                searchUsers(searchQuery);
+                searchUsers(searchQuery, 1);
             }
         }, 300);
         return () => clearTimeout(timer);
     }, [searchQuery, searchUsers, type, isOpen]);
+
+    // Infinite scroll observer
+    const observer = useRef<IntersectionObserver | null>(null);
+    const lastUserElementRef = useCallback((node: HTMLDivElement | null) => {
+        if (isLoading) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && searchUsersHasMore) {
+                searchUsers(searchQuery, searchUsersPage + 1);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [isLoading, searchUsersHasMore, searchUsersPage, searchQuery, searchUsers]);
 
     if (!isOpen) return null;
 
@@ -251,33 +266,42 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onC
                             )
                         ) : (
                             searchResults?.length > 0 ? (
-                                searchResults.map(user => (
-                                    <div
-                                        key={user.userid}
-                                        className={`${styles.listItem} ${selectedUsers.some(u => u.userid === user.userid) ? styles.selectedItem : ''}`}
-                                        onClick={() => toggleUserSelection(user)}
-                                    >
-                                        <div className={styles.avatar}>
-                                            {user.profile ? (
-                                                <img src={user.profile} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <UserIcon size={20} />
-                                            )}
+                                searchResults.map((user, index) => {
+                                    const isLast = index === searchResults.length - 1;
+                                    return (
+                                        <div
+                                            key={user.userid}
+                                            ref={isLast ? lastUserElementRef : null}
+                                            className={`${styles.listItem} ${selectedUsers.some(u => u.userid === user.userid) ? styles.selectedItem : ''}`}
+                                            onClick={() => toggleUserSelection(user)}
+                                        >
+                                            <div className={styles.avatar}>
+                                                {user.profile ? (
+                                                    <img src={user.profile} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <UserIcon size={20} />
+                                                )}
+                                            </div>
+                                            <div className={styles.itemInfo}>
+                                                <div className={styles.itemName}>{user.name}</div>
+                                                <div className={styles.itemMeta}>{user.department}</div>
+                                            </div>
+                                            {selectedUsers.some(u => u.userid === user.userid) && <Check size={18} color="#3b82f6" />}
                                         </div>
-                                        <div className={styles.itemInfo}>
-                                            <div className={styles.itemName}>{user.name}</div>
-                                            <div className={styles.itemMeta}>{user.department}</div>
-                                        </div>
-                                        {selectedUsers.some(u => u.userid === user.userid) && <Check size={18} color="#3b82f6" />}
-                                    </div>
-                                ))
+                                    );
+                                })
                             ) : (
                                 !isLoading && <div className={styles.emptyList}>
                                     {searchQuery ? 'No employees found' : 'No contacts available'}
                                 </div>
                             )
                         )}
-                        {isLoading && <div className={styles.loadingMsg}>Loading...</div>}
+                        {isLoading && searchUsersPage > 1 && (
+                            <div className={styles.loadingMsg}>Loading more...</div>
+                        )}
+                        {isLoading && searchUsersPage === 1 && (
+                            <div className={styles.loadingMsg}>Loading...</div>
+                        )}
                     </div>
                 </div>
 

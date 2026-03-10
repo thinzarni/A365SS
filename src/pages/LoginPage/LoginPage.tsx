@@ -27,6 +27,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [azureSsoLoading, setAzureSsoLoading] = useState(false);
     const [error, setError] = useState('');
 
     /* ══════════════════════════════════════════════════════════════
@@ -37,17 +38,17 @@ export default function LoginPage() {
 
         const checkSilentLogin = async () => {
             // ── Block auto-sign-in after intentional logout ──
-            // AppLayout.handleLogout sets this flag before calling logout().
             if (sessionStorage.getItem('az_logout_intent') === '1') {
                 sessionStorage.removeItem('az_logout_intent');
-                // Also clear any remaining MSAL accounts so the next check finds nothing
                 try { await instance.clearCache(); } catch { /* ignore */ }
                 return;
             }
 
+            // ── Only attempt silent SSO if user explicitly signed in with Azure before ──
+            if (localStorage.getItem('az_last_login') !== '1') return;
+
             const accounts = instance.getAllAccounts();
             if (accounts.length > 0) {
-                // ── Step 1: acquire token silently (may fail if no cached session) ──
                 let msalResult;
                 try {
                     msalResult = await instance.acquireTokenSilent({
@@ -55,13 +56,11 @@ export default function LoginPage() {
                         account: accounts[0],
                     });
                 } catch {
-                    // No cached Azure AD session — silent login not possible, do nothing
                     return;
                 }
 
-                // ── Step 2: exchange idToken with A365 backend ──
                 if (msalResult?.account) {
-                    setLoading(true);
+                    setAzureSsoLoading(true);
                     try {
                         const res = await authClient.post('sso/azure-ad/signin', {
                             user_id: msalResult.account.username,
@@ -70,7 +69,7 @@ export default function LoginPage() {
                         });
 
                         if (res.data.status === 200 || res.status === 200) {
-                            await completeLogin(res.data);
+                            await completeLogin(res.data, 'azure');
                         } else {
                             const serverMsg = res.data.message;
                             toast.error(serverMsg === 'Invalid'
@@ -78,13 +77,12 @@ export default function LoginPage() {
                                 : serverMsg || 'Azure AD sign-in failed.');
                         }
                     } catch (err: any) {
-                        // Axios throws on 4xx/5xx — extract message from response
                         const serverMsg = err?.response?.data?.message;
                         toast.error(serverMsg === 'Invalid'
                             ? 'User does not exist in A365. Please contact your administrator.'
                             : serverMsg || 'Azure AD sign-in failed.');
                     } finally {
-                        setLoading(false);
+                        setAzureSsoLoading(false);
                     }
                 }
             }
@@ -102,7 +100,7 @@ export default function LoginPage() {
        2. /domain → domain list → pick first
        3. /get-menu → final access_token + refresh_token for HXM
        ══════════════════════════════════════════════════════════════ */
-    const completeLogin = async (signInData: Record<string, any>) => {
+    const completeLogin = async (signInData: Record<string, any>, loginType: 'normal' | 'azure' = 'normal') => {
         const nested = signInData.data as Record<string, any> | undefined;
         const iamToken = (nested?.access_token || signInData.token || signInData.access_token) as string;
         const userId = (nested?.user_id || signInData.user_id || email) as string;
@@ -143,7 +141,14 @@ export default function LoginPage() {
                 domainId = String(domainList[0].id || domainList[0].domaincode || '');
                 domainName = String(domainList[0].name || domainList[0].domainname || '');
             }
-        } catch (err) {
+        } catch (err: any) {
+            // ── 402: Password must be changed before continuing ──
+            if (err?.response?.status === 402) {
+                sessionStorage.setItem('temp_iam_token', iamToken);
+                sessionStorage.setItem('temp_user_id', userId);
+                navigate('/force-change-password', { replace: true });
+                return;
+            }
             console.warn('Domain list fetch failed, proceeding with defaults', err);
         }
 
@@ -155,6 +160,7 @@ export default function LoginPage() {
             userId,
             domain: domainId,
             domains: domainList,
+            loginType,
         });
 
         setUser({
@@ -194,6 +200,7 @@ export default function LoginPage() {
                     domain: domainId,
                     domains: domainList,
                     menuList: fetchedMenuList,
+                    loginType,
                 });
 
                 setUser({
@@ -220,17 +227,16 @@ export default function LoginPage() {
     };
 
     const handleAzureLogin = async () => {
-        // Prevent multiple simultaneous login attempts
         if (inProgress !== InteractionStatus.None) {
             console.warn('MSAL Interaction already in progress:', inProgress);
             return;
         }
 
         setError('');
+        // Mark that user explicitly chose Azure — enables silent SSO on next load
+        localStorage.setItem('az_last_login', '1');
 
         try {
-            // loginRedirect uses the already-registered window.location.origin
-            // and returns here after auth; the silent SSO useEffect picks up the account
             await instance.loginRedirect({
                 ...loginRequest,
                 redirectUri: window.location.origin,
@@ -435,7 +441,7 @@ export default function LoginPage() {
                             type="button"
                             variant="ghost"
                             className={styles.login__secondary_button}
-                            loading={loading}
+                            loading={azureSsoLoading}
                             onClick={handleAzureLogin}
                         >
                             <Monitor size={18} className="mr-2" />

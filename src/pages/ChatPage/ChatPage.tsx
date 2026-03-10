@@ -66,6 +66,8 @@ export default function ChatPage() {
         changeGroupName,
         searchUsers,
         searchResults,
+        searchUsersPage,
+        searchUsersHasMore,
         sendAttachment,
         getConversationByUniqueName,
         createChat,
@@ -95,13 +97,25 @@ export default function ChatPage() {
     const [_, setConvPage] = useState(1);
     const [__, setMsgPage] = useState(1);
 
-    // ── Contact search debounce (mirrors Flutter's _searchUser) ──────
     const [contactChatLoading, setContactChatLoading] = useState(false);
     useEffect(() => {
         if (!showContacts) return;
-        const t = setTimeout(() => searchUsers(contactSearch), 350);
+        const t = setTimeout(() => searchUsers(contactSearch, 1), 350);
         return () => clearTimeout(t);
     }, [contactSearch, showContacts]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Infinite scroll observer for Contacts
+    const contactsObserver = useRef<IntersectionObserver | null>(null);
+    const lastContactElementRef = useCallback((node: HTMLDivElement | null) => {
+        if (isLoading) return;
+        if (contactsObserver.current) contactsObserver.current.disconnect();
+        contactsObserver.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && searchUsersHasMore) {
+                searchUsers(contactSearch, searchUsersPage + 1);
+            }
+        });
+        if (node) contactsObserver.current.observe(node);
+    }, [isLoading, searchUsersHasMore, searchUsersPage, contactSearch, searchUsers]);
 
     // ── Teams-style hover toolbar + dropdown ──────────────────────
     const [moreMenuMsgId, setMoreMenuMsgId] = useState<string | null>(null);
@@ -416,16 +430,21 @@ export default function ChatPage() {
     const prevScrollTopRef = useRef<number>(0);
 
     // ── Infinite Scroll Handlers ──
-    const handleConvListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-        if (scrollHeight - scrollTop - clientHeight < 50 && hasMoreConversations && !isLoading) {
-            setConvPage(p => {
-                const n = p + 1;
-                fetchConversations(n);
-                return n;
-            });
-        }
-    }, [fetchConversations, hasMoreConversations, isLoading]);
+    const convObserver = useRef<IntersectionObserver | null>(null);
+    const lastConvElementRef = useCallback((node: HTMLDivElement | null) => {
+        if (isLoading) return;
+        if (convObserver.current) convObserver.current.disconnect();
+        convObserver.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMoreConversations) {
+                setConvPage(p => {
+                    const n = p + 1;
+                    fetchConversations(n);
+                    return n;
+                });
+            }
+        });
+        if (node) convObserver.current.observe(node);
+    }, [isLoading, hasMoreConversations, fetchConversations]);
 
     const handleMsgListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight } = e.currentTarget;
@@ -711,12 +730,13 @@ export default function ChatPage() {
                     </div>
                 </div>
 
-                <div className={styles.convList} onScroll={handleConvListScroll}>
+                <div className={styles.convList}>
                     {error && <div className={styles.errorMessage}>{error}</div>}
                     {isLoading && conversations.length === 0 ? (
                         <div className={styles.emptyState}>{t('common.loading')}</div>
                     ) : (
-                        filteredConversations.map((conv) => {
+                        filteredConversations.map((conv, index) => {
+                            const isLast = index === filteredConversations.length - 1;
                             const isUnread = !conv.isRead || conv.count > 0;
                             const isMe = String(conv.sender_user_id || '').trim().toLowerCase() === String(userId || '').trim().toLowerCase();
                             const displayName = conv.group_name || conv.opposite_user_name || conv.name || 'Unknown';
@@ -731,6 +751,7 @@ export default function ChatPage() {
                             return (
                                 <div
                                     key={conv.syskey}
+                                    ref={isLast ? lastConvElementRef : null}
                                     className={`${styles.convItem} ${activeConversationId === conv.syskey ? styles.convItemActive : ''}`}
                                     onClick={() => handleSelectConv(conv.syskey)}
                                 >
@@ -763,9 +784,22 @@ export default function ChatPage() {
                                             </span>
                                         </div>
                                         <div className={styles.convSubHeader}>
-                                            <span className={styles.convLastMsg}>
-                                                {lastMsgPrefix}{conv.content || 'No messages yet'}
-                                            </span>
+                                            {typingStatus[conv.syskey]?.isTyping ? (
+                                                <span className={styles.typingIndicator}>
+                                                    <span className={styles.typingName}>
+                                                        {conv.group_name
+                                                            ? `${typingStatus[conv.syskey].username} is typing`
+                                                            : 'typing'}
+                                                    </span>
+                                                    <span className={styles.typingDots}>
+                                                        <span /><span /><span />
+                                                    </span>
+                                                </span>
+                                            ) : (
+                                                <span className={styles.convLastMsg}>
+                                                    {lastMsgPrefix}{conv.content || 'No messages yet'}
+                                                </span>
+                                            )}
                                             {conv.count > 0 ? (
                                                 <span className={styles.unreadBadge}>{conv.count}</span>
                                             ) : (
@@ -779,6 +813,9 @@ export default function ChatPage() {
                     )}
                     {filteredConversations.length === 0 && !isLoading && !error && (
                         <div className={styles.emptyState}>{t('chat.noConversations')}</div>
+                    )}
+                    {isLoading && filteredConversations.length > 0 && (
+                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '13px', color: '#64748b' }}>Loading more...</div>
                     )}
                 </div>
                 <button
@@ -832,135 +869,144 @@ export default function ChatPage() {
                                     {contactSearch ? 'No employees found' : 'No contacts available'}
                                 </div>
                             ) : (
-                                searchResults.map(user => (
-                                    <div key={user.userid} className={styles.contactRow}>
-                                        <div className={styles.contactAvatar}>
-                                            {user.profile ? (
-                                                <img src={user.profile} alt="" className={styles.contactAvatarImg} />
-                                            ) : (
-                                                getInitials(user.name)
-                                            )}
-                                        </div>
-                                        <div className={styles.contactInfo}>
-                                            <div className={styles.contactName}>{user.name}</div>
-                                            <div className={styles.contactMeta}>
-                                                {user.userid !== '-' && user.userid ? `${user.userid}${user.eid ? ` (${user.eid})` : ''}` : user.department}
+                                searchResults.map((user, index) => {
+                                    const isLast = index === searchResults.length - 1;
+                                    return (
+                                        <div
+                                            key={user.userid}
+                                            ref={isLast ? lastContactElementRef : null}
+                                            className={styles.contactRow}
+                                        >
+                                            <div className={styles.contactAvatar}>
+                                                {user.profile ? (
+                                                    <img src={user.profile} alt="" className={styles.contactAvatarImg} />
+                                                ) : (
+                                                    getInitials(user.name)
+                                                )}
+                                            </div>
+                                            <div className={styles.contactInfo}>
+                                                <div className={styles.contactName}>{user.name}</div>
+                                                <div className={styles.contactMeta}>
+                                                    {user.userid !== '-' && user.userid ? `${user.userid}${user.eid ? ` (${user.eid})` : ''}` : user.department}
+                                                </div>
+                                            </div>
+                                            <div className={styles.contactActions}>
+                                                {user.phone && (
+                                                    <a
+                                                        href={`tel:${user.phone}`}
+                                                        className={styles.contactActionBtn}
+                                                        title={`Call ${user.name}`}
+                                                    >
+                                                        <Phone size={18} />
+                                                    </a>
+                                                )}
+                                                {user.userid !== userId && (
+                                                    <button
+                                                        className={styles.contactActionBtn}
+                                                        title={`Message ${user.name}`}
+                                                        disabled={contactChatLoading}
+                                                        onClick={async () => {
+                                                            setContactChatLoading(true);
+                                                            try {
+                                                                const authState = useAuthStore.getState();
+                                                                const domain = authState.domain ?? '';
+                                                                const me = authState.userId ?? authState.user?.userid ?? '';
+
+                                                                // Mirror Flutter's MyHelpers.generateChatroomId exactly
+                                                                const ids = [me, user.userid].sort();
+                                                                const chatroomId = [
+                                                                    ids[0].replace(/\+/g, ''),
+                                                                    domain.replace(/\+/g, ''),
+                                                                    'a365',
+                                                                    ids[1].replace(/\+/g, ''),
+                                                                ].join('_');
+
+                                                                console.log('[ContactChat] chatroomId:', chatroomId, '| me:', me, '| target:', user.userid);
+
+                                                                // Step 1: Check if an existing conversation is already in the list
+                                                                // (match by chatroomId stored in the `name` field, or by opposite user)
+                                                                const currentConvs = useChatStore.getState().conversations;
+                                                                const existingByName = currentConvs.find(c =>
+                                                                    c.name === chatroomId ||
+                                                                    (c.opposite_user_name && c.opposite_user_name === user.name && !c.group_name)
+                                                                );
+
+                                                                let convSyskey: string | null = existingByName?.syskey ?? null;
+                                                                console.log('[ContactChat] existingByName syskey:', convSyskey);
+
+                                                                if (!convSyskey) {
+                                                                    // Step 2: Ask the server for the conversation_id by bookingkey
+                                                                    const serverConvId = await getConversationByUniqueName(chatroomId);
+                                                                    console.log('[ContactChat] serverConvId:', serverConvId);
+
+                                                                    if (serverConvId) {
+                                                                        // Check if the server's conversation_id matches a syskey in the list
+                                                                        const matchInList = currentConvs.find(c => c.syskey === serverConvId);
+                                                                        convSyskey = matchInList?.syskey ?? serverConvId;
+                                                                    }
+                                                                }
+
+                                                                if (!convSyskey) {
+                                                                    // Step 3: Create a brand-new conversation
+                                                                    convSyskey = await createChat({
+                                                                        name: chatroomId,
+                                                                        isGroup: 0,
+                                                                        type: 'normal',
+                                                                        userId: me,
+                                                                        role: 'member',
+                                                                        participants: [me, user.userid],
+                                                                        groupName: '',
+                                                                        appid: '004',
+                                                                        subAppid: domain,
+                                                                        actionType: 1,
+                                                                        adminkey: chatroomId,
+                                                                    });
+                                                                    console.log('[ContactChat] createChat result:', convSyskey);
+                                                                }
+
+                                                                if (convSyskey) {
+                                                                    // If this conversation isn't in the list yet, inject a stub so the
+                                                                    // chat room renders immediately without waiting for fetchConversations
+                                                                    const inList = useChatStore.getState().conversations.some(c => c.syskey === convSyskey);
+                                                                    if (!inList) {
+                                                                        useChatStore.setState(state => ({
+                                                                            conversations: [
+                                                                                {
+                                                                                    syskey: convSyskey!,
+                                                                                    name: chatroomId,
+                                                                                    opposite_user_name: user.name,
+                                                                                    group_name: '',
+                                                                                    image: user.profile ?? null,
+                                                                                    sender_id: me,
+                                                                                    send_at: new Date().toISOString(),
+                                                                                    count: 0,
+                                                                                    isRead: true,
+                                                                                } as any,
+                                                                                ...state.conversations,
+                                                                            ],
+                                                                        }));
+                                                                        console.log('[ContactChat] Stub injected:', convSyskey);
+                                                                    }
+                                                                    setShowContacts(false);
+                                                                    handleSelectConv(convSyskey);
+                                                                } else {
+                                                                    console.error('[ContactChat] Failed to get or create conversation');
+                                                                }
+                                                            } finally {
+                                                                setContactChatLoading(false);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <MessageSquare size={18} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
-                                        <div className={styles.contactActions}>
-                                            {user.phone && (
-                                                <a
-                                                    href={`tel:${user.phone}`}
-                                                    className={styles.contactActionBtn}
-                                                    title={`Call ${user.name}`}
-                                                >
-                                                    <Phone size={18} />
-                                                </a>
-                                            )}
-                                            {user.userid !== userId && (
-                                                <button
-                                                    className={styles.contactActionBtn}
-                                                    title={`Message ${user.name}`}
-                                                    disabled={contactChatLoading}
-                                                    onClick={async () => {
-                                                        setContactChatLoading(true);
-                                                        try {
-                                                            const authState = useAuthStore.getState();
-                                                            const domain = authState.domain ?? '';
-                                                            const me = authState.userId ?? authState.user?.userid ?? '';
-
-                                                            // Mirror Flutter's MyHelpers.generateChatroomId exactly
-                                                            const ids = [me, user.userid].sort();
-                                                            const chatroomId = [
-                                                                ids[0].replace(/\+/g, ''),
-                                                                domain.replace(/\+/g, ''),
-                                                                'a365',
-                                                                ids[1].replace(/\+/g, ''),
-                                                            ].join('_');
-
-                                                            console.log('[ContactChat] chatroomId:', chatroomId, '| me:', me, '| target:', user.userid);
-
-                                                            // Step 1: Check if an existing conversation is already in the list
-                                                            // (match by chatroomId stored in the `name` field, or by opposite user)
-                                                            const currentConvs = useChatStore.getState().conversations;
-                                                            const existingByName = currentConvs.find(c =>
-                                                                c.name === chatroomId ||
-                                                                (c.opposite_user_name && c.opposite_user_name === user.name && !c.group_name)
-                                                            );
-
-                                                            let convSyskey: string | null = existingByName?.syskey ?? null;
-                                                            console.log('[ContactChat] existingByName syskey:', convSyskey);
-
-                                                            if (!convSyskey) {
-                                                                // Step 2: Ask the server for the conversation_id by bookingkey
-                                                                const serverConvId = await getConversationByUniqueName(chatroomId);
-                                                                console.log('[ContactChat] serverConvId:', serverConvId);
-
-                                                                if (serverConvId) {
-                                                                    // Check if the server's conversation_id matches a syskey in the list
-                                                                    const matchInList = currentConvs.find(c => c.syskey === serverConvId);
-                                                                    convSyskey = matchInList?.syskey ?? serverConvId;
-                                                                }
-                                                            }
-
-                                                            if (!convSyskey) {
-                                                                // Step 3: Create a brand-new conversation
-                                                                convSyskey = await createChat({
-                                                                    name: chatroomId,
-                                                                    isGroup: 0,
-                                                                    type: 'normal',
-                                                                    userId: me,
-                                                                    role: 'member',
-                                                                    participants: [me, user.userid],
-                                                                    groupName: '',
-                                                                    appid: '004',
-                                                                    subAppid: domain,
-                                                                    actionType: 1,
-                                                                    adminkey: chatroomId,
-                                                                });
-                                                                console.log('[ContactChat] createChat result:', convSyskey);
-                                                            }
-
-                                                            if (convSyskey) {
-                                                                // If this conversation isn't in the list yet, inject a stub so the
-                                                                // chat room renders immediately without waiting for fetchConversations
-                                                                const inList = useChatStore.getState().conversations.some(c => c.syskey === convSyskey);
-                                                                if (!inList) {
-                                                                    useChatStore.setState(state => ({
-                                                                        conversations: [
-                                                                            {
-                                                                                syskey: convSyskey!,
-                                                                                name: chatroomId,
-                                                                                opposite_user_name: user.name,
-                                                                                group_name: '',
-                                                                                image: user.profile ?? null,
-                                                                                sender_id: me,
-                                                                                content: '',
-                                                                                send_at: new Date().toISOString(),
-                                                                                count: 0,
-                                                                                isRead: true,
-                                                                            } as any,
-                                                                            ...state.conversations,
-                                                                        ],
-                                                                    }));
-                                                                    console.log('[ContactChat] Stub injected:', convSyskey);
-                                                                }
-                                                                setShowContacts(false);
-                                                                handleSelectConv(convSyskey);
-                                                            } else {
-                                                                console.error('[ContactChat] Failed to get or create conversation');
-                                                            }
-                                                        } finally {
-                                                            setContactChatLoading(false);
-                                                        }
-                                                    }}
-                                                >
-                                                    <MessageSquare size={18} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))
+                                    );
+                                })
+                            )}
+                            {isLoading && searchUsersPage > 1 && (
+                                <div className={styles.contactsEmpty} style={{ padding: '10px', fontSize: '13px' }}>Loading more...</div>
                             )}
                         </div>
                     </div>

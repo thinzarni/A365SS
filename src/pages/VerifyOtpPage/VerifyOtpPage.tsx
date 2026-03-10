@@ -118,10 +118,22 @@ export default function VerifyOtpPage() {
         try {
             let domainId = '', domainName = '';
             let domainList: any[] = [];
-            const domRes = await authClient.post('domain',
-                { user_id: userId, app_id: APP_ID },
-                { headers: { Authorization: `Bearer ${iamToken}` } },
-            );
+            let domRes;
+            try {
+                domRes = await authClient.post('domain',
+                    { user_id: userId, app_id: APP_ID },
+                    { headers: { Authorization: `Bearer ${iamToken}` } },
+                );
+            } catch (domErr: any) {
+                // ── 402: Password must be changed before continuing ──
+                if (domErr?.response?.status === 402) {
+                    sessionStorage.setItem('temp_iam_token', iamToken);
+                    sessionStorage.setItem('temp_user_id', userId);
+                    navigate('/force-change-password', { replace: true });
+                    return;
+                }
+                throw domErr; // re-throw other errors
+            }
             const domData = domRes.data;
             domainList = domData?.data?.domain || domData?.datalist || domData?.data || [];
             if (Array.isArray(domainList) && domainList.length > 0) {

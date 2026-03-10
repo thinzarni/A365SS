@@ -49,6 +49,17 @@ a:hover {
     outline-offset: 2px;
 }
 
+/* Remove default focus outline from form elements to rely on custom borders */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible,
+button:focus {
+    outline: none !important;
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar {
     width: 6px;

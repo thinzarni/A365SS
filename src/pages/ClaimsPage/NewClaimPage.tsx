@@ -21,6 +21,7 @@ export default function NewClaimPage() {
     const navigate = useNavigate();
 
     const [claimType, setClaimType] = useState('');
+    const [claimTypeDesc, setClaimTypeDesc] = useState('');
     const [amount, setAmount] = useState('');
     const [currency, setCurrency] = useState('');
     const [fromPlace, setFromPlace] = useState('');
@@ -62,15 +63,15 @@ export default function NewClaimPage() {
 
             // addIfNotEmpty fields — only add if non-empty
             payload.requesttype = 'claim';
-            payload.requeststatus = 1;
+            payload.requeststatus = '1';
             if (claimType) payload.claimtype = claimType;
             if (currency) payload.currencytype = currency;
             if (apiDate) payload.date = apiDate;
 
             // addIfEmpty fields — always include (empty string or value)
             payload.remark = remark;
-            payload.fromPlace = fromPlace;
-            payload.toPlace = toPlace;
+            payload.fromPlace = isTaxiType ? fromPlace : '';
+            payload.toPlace = isTaxiType ? toPlace : '';
             payload.amount = numAmount;
 
             payload.attachment = [];
@@ -103,9 +104,15 @@ export default function NewClaimPage() {
         onError: () => toast.error(t('common.error')),
     });
 
+    // Whether the selected claim type requires from/to place fields
+    const isTaxiType = ['taxi fare', 'ferry taxi', 'onsite taxi'].includes(claimTypeDesc.trim().toLowerCase());
+    const isBenefitBonus = ['benefit allowance', 'bonus allowance'].includes(claimTypeDesc.trim().toLowerCase());
+
     const handleSubmit = () => {
         if (!claimType) { toast.error('Please select a claim type'); return; }
         if (!amount) { toast.error('Please enter an amount'); return; }
+        if (isTaxiType && !fromPlace) { toast.error('Please enter the From place'); return; }
+        if (isTaxiType && !toPlace) { toast.error('Please enter the To place'); return; }
         submitMutation.mutate();
     };
 
@@ -128,7 +135,14 @@ export default function NewClaimPage() {
                             id="claimType"
                             label={t('claim.claimType')}
                             value={claimType}
-                            onChange={(e) => setClaimType(e.target.value)}
+                            onChange={(e) => {
+                                setClaimType(e.target.value);
+                                const selected = claimTypes.find(ct => ct.syskey === e.target.value);
+                                setClaimTypeDesc(selected?.description || '');
+                                // Reset from/to when switching away from taxi types
+                                setFromPlace('');
+                                setToPlace('');
+                            }}
                             required
                             placeholder="Select claim type"
                             options={claimTypes.map((ct) => ({ value: ct.syskey, label: ct.description }))}
@@ -164,28 +178,32 @@ export default function NewClaimPage() {
                         />
                     </div>
 
-                    {/* Row 3: From / To */}
-                    <div className={styles['new-claim__grid']} style={{ marginTop: 'var(--space-4)' }}>
-                        <Input
-                            id="fromPlace"
-                            label={t('claim.from')}
-                            value={fromPlace}
-                            onChange={(e) => setFromPlace(e.target.value)}
-                            placeholder="Origin"
-                        />
-                        <Input
-                            id="toPlace"
-                            label={t('claim.to')}
-                            value={toPlace}
-                            onChange={(e) => setToPlace(e.target.value)}
-                            placeholder="Destination"
-                        />
-                    </div>
+                    {/* Row 3: From / To — only shown for Taxi Fare, Ferry Taxi, Onsite Taxi */}
+                    {isTaxiType && (
+                        <div className={styles['new-claim__grid']} style={{ marginTop: 'var(--space-4)' }}>
+                            <Input
+                                id="fromPlace"
+                                label={t('claim.from')}
+                                value={fromPlace}
+                                onChange={(e) => setFromPlace(e.target.value)}
+                                placeholder="Origin"
+                                required
+                            />
+                            <Input
+                                id="toPlace"
+                                label={t('claim.to')}
+                                value={toPlace}
+                                onChange={(e) => setToPlace(e.target.value)}
+                                placeholder="Destination"
+                                required
+                            />
+                        </div>
+                    )}
 
                     <div className={styles['new-claim__row']}>
                         <Textarea
                             id="remark"
-                            label={t('request.remark')}
+                            label={isBenefitBonus ? 'Reason' : t('request.remark')}
                             value={remark}
                             onChange={(e) => setRemark(e.target.value)}
                             placeholder="Add details about this expense..."

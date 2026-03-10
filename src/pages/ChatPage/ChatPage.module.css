@@ -2027,3 +2027,47 @@
     height: 1px;
     background: linear-gradient(90deg, transparent, #f59e0b80, transparent);
 }
+
+/* ── Typing Indicator (Chat List) ── */
+.typingIndicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.typingName {
+    font-size: 0.82rem;
+    color: #22c55e;
+    font-weight: 500;
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+}
+
+.typingDots {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.typingDots span {
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: typingBounce 1.2s infinite ease-in-out;
+}
+
+.typingDots span:nth-child(1) { animation-delay: 0s; }
+.typingDots span:nth-child(2) { animation-delay: 0.2s; }
+.typingDots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30%            { transform: translateY(-4px); opacity: 1; }
+}

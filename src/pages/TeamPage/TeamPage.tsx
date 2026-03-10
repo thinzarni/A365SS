@@ -250,10 +250,17 @@ export default function TeamPage() {
         const stack = [...navStack];
         const prev = stack.pop();
         if (prev) {
-            setNavStack(stack);
-            setViewUserId(prev);
+            // If the user arrived via URL (?userId=...), the initial stack was [userId]
+            // If we are popping back to that root and the view is already that queryUserId,
+            // we should just go back in browser history to return to HR View.
+            if (stack.length === 0 && queryUserId && viewUserId === queryUserId) {
+                navigate(-1);
+            } else {
+                setNavStack(stack);
+                setViewUserId(prev);
+            }
         }
-    }, [navStack]);
+    }, [navStack, queryUserId, viewUserId, navigate]);
 
     /* ═══════════════════════════ Render ═══════════════════════════ */
 

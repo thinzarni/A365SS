@@ -87,6 +87,7 @@ export interface RequestModel {
   arrivaldate: string;
   departuretime: string;
   plannedreturn: string;
+  travelpurpose: string;
   fromPlace: string;
   toPlace: string;
   fromplace: string;
@@ -165,6 +166,7 @@ export interface RequestDetailModel {
   arrivaldate: string;
   departuretime: string;
   plannedreturn: string;
+  travelpurpose: string;
   product: string;
   project: string;
   modeoftravel: string[];
