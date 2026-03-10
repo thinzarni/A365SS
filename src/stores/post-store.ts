@@ -116,12 +116,11 @@ export const usePostStore = create<PostState>()(
             createPost: async (payload) => {
                 set({ isCreating: true, error: null });
                 try {
-                    const { userId, domain, user } = useAuthStore.getState();
+                    const { userId, domain } = useAuthStore.getState();
 
                     const finalPayload = {
                         ...payload,
-                        user_id: userId,
-                        name: user?.name || userId,
+                        userid: userId,
                         domain: domain || 'demouat',
                         appid: '004',
                     };

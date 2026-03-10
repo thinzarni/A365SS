@@ -102,7 +102,7 @@ export const router = createBrowserRouter([
                     { path: '/hrview', element: <HRViewPage /> },
                     { path: '/employee', element: <HRViewPage /> },
                     { path: '/chat', element: <ChatPage /> },
-                    { path: '/feed', element: <FeedPage /> },
+                    { path: '/socialpost', element: <FeedPage /> },
                     { path: '/profile', element: <ProfilePage /> },
 
                     // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──

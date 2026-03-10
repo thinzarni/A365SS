@@ -199,8 +199,8 @@ export default function AppLayout() {
             if (!items.some(i => i.router === '/socialpost')) {
                 items.push({
                     syskey: 'socialpost_extra',
-                    name: 'Social',
-                    namemm: 'လူမှုရေး',
+                    name: 'Post',
+                    namemm: 'ပို့စ်များ',
                     icon: '',
                     router: '/socialpost',
                 });
@@ -227,13 +227,16 @@ export default function AppLayout() {
     useEffect(() => {
         if (profile && user) {
             const realName = profile.k_eng_name || profile.username || profile.name || user.name;
+            const isHrAccess = profile.hr_access === 1 || profile.hr_access === true || profile.hr_access === '1' || profile.hr_access === 'true';
+
             const updatedProfileObj = {
                 ...user,
                 name: realName,
                 photo: profile.profile,
-                paycompanysyskey: profile.paycompanysyskey
+                paycompanysyskey: profile.paycompanysyskey,
+                hr_access: isHrAccess
             };
-            if (user.name !== realName || user.photo !== profile.profile || user.paycompanysyskey !== profile.paycompanysyskey) {
+            if (user.name !== realName || user.photo !== profile.profile || user.paycompanysyskey !== profile.paycompanysyskey || user.hr_access !== isHrAccess) {
                 setUser(updatedProfileObj as any);
             }
         }

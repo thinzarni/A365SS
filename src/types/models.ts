@@ -283,6 +283,8 @@ export interface UserProfile {
   usersyskey?: string;
   role?: string;
   paycompanysyskey?: string;
+  organizationsyskey?: string;
+  hr_access?: boolean;
 }
 
 export interface ApiResponse<T = unknown> {

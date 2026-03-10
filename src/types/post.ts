@@ -73,18 +73,18 @@ export interface Post {
 }
 
 export interface CreatePostPayload {
-    user_id: string;
-    name: string;
+    userid: string;
     content: string;
-    post_type: string;
     domain: string;
-    group_ids?: string[];
-    user_ids?: string[];
+    content_type: string[];
+    user_domain: string;
     appid?: string;
-    images?: Array<{
-        name: string;
-        type: string;
-        size: string;
+    image?: Array<{
+        caption: string;
+        data: string; // base64
+    }>;
+    file?: Array<{
+        caption: string;
         data: string; // base64
     }>;
 }

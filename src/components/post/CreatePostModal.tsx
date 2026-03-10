@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { usePostStore } from '../../stores/post-store';
 import { useAuthStore } from '../../stores/auth-store';
+import { Building2 } from 'lucide-react';
 import styles from './CreatePostModal.module.css';
 
 interface CreatePostModalProps {
@@ -13,6 +14,8 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose }) => {
 
     const [text, setText] = useState('');
     const [imagePreviews, setImagePreviews] = useState<{ url: string; file: File }[]>([]);
+    const [isPersonal, setIsPersonal] = useState(true);
+    const [orgImgError, setOrgImgError] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,14 +52,18 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose }) => {
                 })
             )
         );
+        // If posting as personal, targetType is empty, user_domain is ''
+        // If posting as org, targetType might just be the org syskey or empty array (using mobile default for now: all=empty array)
+        const targetType = user?.paycompanysyskey != null ? [user.paycompanysyskey] : [];
+        const userDomain = isPersonal ? '' : (user?.domainName || '');
 
         const success = await createPost({
-            user_id: user?.userid || '',
-            name: user?.name || '',
+            userid: user?.userid || '',
             content: text.trim(),
-            post_type: 'general',
             domain: '',
-            images: imagePayloads,
+            content_type: targetType,
+            user_domain: userDomain,
+            image: imagePayloads,
         });
 
         if (success) {
@@ -79,12 +86,36 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose }) => {
                 {/* Author */}
                 <div className={styles.authorRow}>
                     <div className={styles.avatar}>
-                        {user?.photo
-                            ? <img src={user.photo} alt="avatar" />
-                            : initial
-                        }
+                        {isPersonal ? (
+                            user?.photo
+                                ? <img src={user.photo} alt="avatar" />
+                                : initial
+                        ) : (
+                            !orgImgError ? (
+                                <img
+                                    src={`https://iamassetsspace.mitcloud.com/domain/logomain/${user?.domainName || user?.domain || ''}.png`}
+                                    alt="org-avatar"
+                                    onError={() => setOrgImgError(true)}
+                                />
+                            ) : (
+                                <div className={styles.avatarOrg}>
+                                    <Building2 size={22} color="#fff" strokeWidth={1.8} />
+                                </div>
+                            )
+                        )}
                     </div>
-                    <span className={styles.authorName}>{user?.name || 'You'}</span>
+                    <div>
+                        <span className={styles.authorName}>
+                            {isPersonal ? (user?.name || 'You') : (user?.domainName || user?.domain || 'Organization')}
+                        </span>
+                        {/* Privacy / Post As Selector */}
+                        {user?.hr_access && (
+                            <div className={styles.privacyDropdown} onClick={() => setIsPersonal(!isPersonal)}>
+                                <span>{isPersonal ? 'Personal' : 'Organization'}</span>
+                                <span className={styles.dropdownIcon}>▼</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Textarea */}
