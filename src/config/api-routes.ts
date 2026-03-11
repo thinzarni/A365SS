@@ -20,6 +20,7 @@ export const DELETE_REQUEST = 'hxm/request/deleterequest';
 // ── Request Lookups ──
 export const TRANSPORTATION_TYPES = 'hxm/request/getTransportationType';
 export const CARS_LIST = 'hxm/request/getCarList';
+export const CAR_TYPES = 'hxm/cartype/list';
 export const DRIVERS_LIST = 'hxm/request/getDriverList';
 export const RESERVATION_TYPES = 'hxm/request/reservationtypelist';
 export const ROOM_TYPES = 'hxm/request/getRoomType';
@@ -30,6 +31,7 @@ export const TRAVEL_TYPE_LIST = 'hxm/request/getModeoftravelList';
 export const VEHICLE_USE_LIST = 'hxm/request/getVehicleuseList';
 export const SHIFT_TIME = 'hxm/request/getshifttime';
 export const GAP_TIME = 'hxm/request/requestgaptime';
+export const ATTENDANCE_SHIFT_DATA = 'api/checkin/shift';
 
 // ── Approvals ──
 export const APPROVAL_LIST = 'hxm/approval/approvallist';
@@ -56,6 +58,10 @@ export const CLAIM_TYPES = 'hxm/claim/claimtypelist';
 // ── Setup ──
 export const CURRENCY_TYPES = 'hxm/setup/getSetupList/currency';
 export const MEMBER_LIST = 'hxm/integration/memberlist';
+
+// ── Assets ──
+export const RULES_AND_REGULATIONS_LIST = 'hxm/rulesandregulations/getall';
+export const RULES_AND_REGULATIONS_DETAIL = 'hxm/rulesandregulations';
 export const PHOTO_UPLOAD = 'hxm/integration/photoupload';
 
 // ── Organization Structure ──

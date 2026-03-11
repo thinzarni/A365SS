@@ -148,6 +148,10 @@ export interface RequestDetailModel {
   isgoback: boolean;
   gobackarrivaltime: string;
   gobackreturntime: string;
+  arrivalstartlocation: string;
+  arrivalendlocation: string;
+  arrivalstarttime: string;
+  arrivalendtime: string;
   isgroup: number;        // 0=group, 1=individual
   triptype: string;       // syskey of trip type
   triptypedesc: string;   // display name
