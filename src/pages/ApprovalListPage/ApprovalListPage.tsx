@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +23,8 @@ import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
 import type { RequestModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
-import { APPROVAL_LIST } from '../../config/api-routes';
+import mainClient from '../../lib/main-client';
+import { APPROVAL_LIST, ATTENDANCE_SHIFT_DATA } from '../../config/api-routes';
 import styles from './ApprovalListPage.module.css';
 
 const statusTabs = [
@@ -88,8 +89,30 @@ export default function ApprovalListPage() {
     const [showFilter, setShowFilter] = useState(false);
     const [fromDate, setFromDate] = useState(defaultFromDate);
     const [toDate, setToDate] = useState(defaultToDate);
+    const [didInitDates, setDidInitDates] = useState(false);
 
-    const { data: approvals = [], isLoading } = useQuery<RequestModel[]>({
+    const { data: shiftData, isLoading: shiftLoading } = useQuery({
+        queryKey: ['shiftData'],
+        queryFn: async () => {
+            const res = await mainClient.post(ATTENDANCE_SHIFT_DATA, {});
+            return res.data?.data || null;
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    useEffect(() => {
+        if (!shiftLoading && !didInitDates) {
+            if (shiftData?.transitionFromDate) {
+                setFromDate(shiftData.transitionFromDate);
+            }
+            if (shiftData?.transitionToDate) {
+                setToDate(shiftData.transitionToDate);
+            }
+            setDidInitDates(true);
+        }
+    }, [shiftData, shiftLoading, didInitDates]);
+
+    const { data: approvals = [], isLoading: approvalsLoading } = useQuery<RequestModel[]>({
         queryKey: ['approvals', activeStatus, fromDate, toDate],
         queryFn: async () => {
             const body: Record<string, unknown> = {
@@ -101,9 +124,19 @@ export default function ApprovalListPage() {
             const res = await apiClient.post(APPROVAL_LIST, body);
             return res.data?.datalist || [];
         },
+        enabled: didInitDates,
+        staleTime: 0,
+        refetchOnMount: true,
     });
 
-    /* Count by status for tab badges */
+    const isLoading = shiftLoading || !didInitDates || approvalsLoading;
+
+    /* Filter out pending from 'All' specifically */
+    const filteredApprovals = activeStatus === RequestStatus.All
+        ? approvals.filter(req => String(req.requeststatus) !== '1')
+        : approvals;
+
+    /* Count by status for tab badges using unfiltered data */
     const pendingCount = approvals.filter((r) => String(r.requeststatus) === '1').length;
 
     return (
@@ -194,7 +227,7 @@ export default function ApprovalListPage() {
                         </div>
                     ))}
                 </div>
-            ) : approvals.length === 0 ? (
+            ) : filteredApprovals.length === 0 ? (
                 <div className={styles['approval-page__empty']}>
                     <div className={styles['approval-page__empty-icon']}>
                         <CheckSquare size={48} />
@@ -204,7 +237,7 @@ export default function ApprovalListPage() {
                 </div>
             ) : (
                 <div className={styles['approval-page__list']}>
-                    {approvals.map((req, i) => {
+                    {filteredApprovals.map((req, i) => {
                         const { Icon, bg, color } = getTypeVisual(req);
                         const reqName = req.name || req.eid || 'Employee';
                         const typeDesc = req.requesttypedesc || req.requesttype || '';
@@ -271,11 +304,11 @@ export default function ApprovalListPage() {
             )}
 
             {/* ── Summary Footer ── */}
-            {!isLoading && approvals.length > 0 && (
+            {!isLoading && filteredApprovals.length > 0 && (
                 <div className={styles['approval-page__footer']}>
                     <div className={styles['approval-page__footer-stat']}>
                         <Users size={14} />
-                        <span>{approvals.length} total</span>
+                        <span>{filteredApprovals.length} total</span>
                     </div>
                 </div>
             )}
