@@ -71,6 +71,8 @@ export const ORG_EXPORT_MAPPING = 'hxm/org/export-mapping';
 export const ORG_REPORT_HIERARCHY = 'hxm/org/report/hierarchy';
 export const ORG_REPORT_EMPLOYEES = 'hxm/org/report/employees';
 export const ORG_AUDIT_LOGS = 'hxm/org/audit-logs';
+export const ORG_TYPE_LIST = 'hxm/typeoforganizationchange/list';
+export const ORG_UNIT_LIST = 'hxm/unitsubjecttochange/list';
 
 // ── Team (uses mainUrl / a365.omnicloudapi.com) ──
 export const TEAM_LIST = 'api/teams';
