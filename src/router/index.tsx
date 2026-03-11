@@ -28,6 +28,8 @@ import ForceChangePasswordPage from '../pages/ForceChangePasswordPage/ForceChang
 import VerifyOtpPage from '../pages/VerifyOtpPage/VerifyOtpPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage/ForgotPasswordPage';
 import ComingSoonPage from '../pages/ComingSoonPage/ComingSoonPage';
+import RulesAndRegulationsPage from '../pages/RulesAndRegulationsPage/RulesAndRegulationsPage';
+import PdfListPage from '../pages/RulesAndRegulationsPage/PdfListPage';
 
 export const router = createBrowserRouter([
     // ── Guest routes ──
@@ -39,9 +41,11 @@ export const router = createBrowserRouter([
             { path: '/verify-otp', element: <VerifyOtpPage /> },
             { path: '/forgot-password', element: <ForgotPasswordPage /> },
             { path: '/security-questions', element: <SecurityQuestionsPage /> },
-            { path: '/force-change-password', element: <ForceChangePasswordPage /> },
         ],
     },
+
+    // ── Unguarded routes (accessible by both guests and authenticated users) ──
+    { path: '/force-change-password', element: <ForceChangePasswordPage /> },
 
     // ── Authenticated routes ──
     {
@@ -102,6 +106,8 @@ export const router = createBrowserRouter([
                     { path: '/employee', element: <HRViewPage /> },
                     { path: '/chat', element: <ChatPage /> },
                     { path: '/profile', element: <ProfilePage /> },
+                    { path: '/rulesandreg', element: <RulesAndRegulationsPage /> },
+                    { path: '/rulesandreg/:id', element: <PdfListPage /> },
 
                     // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──
                     { path: '*', element: <ComingSoonPage /> },

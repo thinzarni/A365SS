@@ -36,6 +36,7 @@ import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import styles from './AppLayout.module.css';
+import toast from 'react-hot-toast';
 
 // ── Router → Lucide icon mapping — keyed by actual API router values ──
 // The label always comes from the API name field, so only the icon is needed here.
@@ -261,23 +262,29 @@ export default function AppLayout() {
                 });
                 if (!res.ok) return;
                 const json = await res.json();
-                if (json?.status === 200 && json?.data?.status === true) {
-                    const expiredDateStr: string | undefined = json.data.expired_date;
-                    const message: string = json.data.message || 'Your password will expire soon.';
-                    if (expiredDateStr) {
-                        // Normalize both dates to local midnight to avoid UTC vs local offset
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const expiredDate = new Date(expiredDateStr);
-                        expiredDate.setHours(0, 0, 0, 0);
-                        const daysLeft = Math.round(
-                            (expiredDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-                        );
-                        const isExpired = daysLeft < 0;
-                        // Show modal if: already expired OR expiring within 5 days
-                        if (daysLeft <= 5) {
-                            setPwdExpiry({ message, daysLeft, isExpired });
+                if (json?.status === 200) {
+                    if (json.data?.status === true) {
+                        const expiredDateStr: string | undefined = json.data.expired_date;
+                        const message: string = json.data.message || 'Your password will expire soon.';
+                        if (expiredDateStr) {
+                            // Normalize both dates to local midnight to avoid UTC vs local offset
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const expiredDate = new Date(expiredDateStr);
+                            expiredDate.setHours(0, 0, 0, 0);
+                            const daysLeft = Math.round(
+                                (expiredDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+                            );
+                            const isExpired = daysLeft < 0;
+                            // Show modal if: already expired OR expiring within 5 days
+                            if (daysLeft <= 5) {
+                                setPwdExpiry({ message, daysLeft, isExpired });
+                            }
                         }
+                    } else if (json.data?.status === false) {
+                        const msg = json.data?.message || 'Your password has expired. Please change it to continue.';
+                        toast.error(msg);
+                        setTimeout(() => navigate('/force-change-password', { replace: true }), 1500);
                     }
                 }
             } catch {
