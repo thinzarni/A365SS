@@ -81,6 +81,39 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/socialpost': Globe,
 };
 
+// ── Router → i18n translation key mapping ──
+// Used to translate sidebar labels using our i18n files instead of relying on
+// namemm from the API (which is often empty for many menu items).
+const ROUTER_TO_I18N_KEY: Record<string, string> = {
+    '/': 'nav.dashboard',
+    '/dashboard': 'nav.dashboard',
+    '/request': 'nav.myRequests',
+    '/requests': 'nav.myRequests',
+    '/approval': 'nav.approvals',
+    '/approvals': 'nav.approvals',
+    '/attendanceapproval': 'nav.attendanceApproval',
+    '/attendancerequest': 'nav.attendanceRequest',
+    '/locationapproval': 'nav.locationApproval',
+    '/leave': 'nav.leave',
+    '/leave-summary': 'nav.leaveSummary',
+    '/holiday': 'nav.holidays',
+    '/holidays': 'nav.holidays',
+    '/claim': 'nav.claims',
+    '/claims': 'nav.claims',
+    '/overtime': 'nav.overtime',
+    '/reservation': 'nav.reservations',
+    '/reservations': 'nav.reservations',
+    '/team': 'nav.team',
+    '/hrview': 'nav.hrView',
+    '/chat': 'nav.chat',
+    '/admin': 'nav.admin',
+    '/socialpost': 'nav.socialPost',
+    '/visionai': 'nav.visionAi',
+    '/customai': 'nav.customAi',
+    '/rulesandreg': 'nav.rulesAndReg',
+    '/objectdetection': 'nav.objectDetection',
+};
+
 // Fallback: shown when API hasn't loaded yet
 const DEFAULT_ROUTERS = [
     '/request', '/approval', '/reservation', '/leave',
@@ -103,11 +136,18 @@ export default function AppLayout() {
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
     const { instance } = useMsal();
-    const { user, domain, domains, token, userId, login, setUser, logout, menuList, setLanguage, loginType } = useAuthStore();
+    const { user, domain, domains, token, userId, login, setUser, logout, menuList, setLanguage, language, loginType } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showDomainMenu, setShowDomainMenu] = useState(false);
     const [switchingDomainId, setSwitchingDomainId] = useState<string | null>(null);
     const [pwdExpiry, setPwdExpiry] = useState<{ message: string; daysLeft: number; isExpired: boolean } | null>(null);
+
+    // Sync persisted language preference into i18next on mount
+    useEffect(() => {
+        if (language && i18n.language !== language) {
+            i18n.changeLanguage(language);
+        }
+    }, []);
 
     const location = useLocation();
     const isChatPage = location.pathname.startsWith('/chat');
@@ -310,6 +350,7 @@ export default function AppLayout() {
 
     const toggleLanguage = () => {
         const nextLang = i18n.language === 'en' ? 'my' : 'en';
+        i18n.changeLanguage(nextLang);
         setLanguage(nextLang);
     };
 
@@ -418,6 +459,11 @@ export default function AppLayout() {
                         const Icon = ROUTER_ICON_MAP[item.router] ?? LayoutList;
                         const isChat = item.router === '/chat';
                         const unreadCount = useChatStore.getState().unreadCount;
+                        // Resolve label: i18n key → API namemm (my only) → API name
+                        const i18nKey = ROUTER_TO_I18N_KEY[item.router];
+                        const label = i18nKey
+                            ? t(i18nKey)
+                            : (i18n.language === 'my' && item.namemm ? item.namemm : item.name);
 
                         return (
                             <NavLink
@@ -430,8 +476,7 @@ export default function AppLayout() {
                             >
                                 <div className={styles['sidebar__link-content']}>
                                     <Icon size={20} className={styles['sidebar__link-icon']} />
-                                    {/* Show Myanmar name when language is 'my', fallback to English name */}
-                                    {i18n.language === 'my' && item.namemm ? item.namemm : item.name}
+                                    {label}
                                 </div>
                                 {isChat && unreadCount > 0 && (
                                     <span className={styles.sidebar__unreadBadge}>{unreadCount}</span>
