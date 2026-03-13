@@ -85,6 +85,16 @@ export default function ChatPage() {
     const [showContacts, setShowContacts] = useState(false);  // Flutter ContactPage equivalent
     const [contactSearch, setContactSearch] = useState('');
     const [showSettings, setShowSettings] = useState(false);
+
+    // ── Mobile responsive: single-panel view ──────────────────────
+    const [isMobileView, setIsMobileView] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+    useEffect(() => {
+        const mql = window.matchMedia('(max-width: 768px)');
+        const handler = (e: MediaQueryListEvent) => setIsMobileView(e.matches);
+        mql.addEventListener('change', handler);
+        return () => mql.removeEventListener('change', handler);
+    }, []);
+
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
@@ -649,6 +659,66 @@ export default function ChatPage() {
         });
     };
 
+    // ── Shared attendance record card (mirrors Flutter's _buildActivityRecordCard) ──
+    const SHARED_PREFIX = '\uD83D\uDD01 Shared from ';
+    const renderSharedAttendanceCard = (content: string, isMe: boolean) => {
+        if (!content || !content.startsWith(SHARED_PREFIX) || !content.includes('\n\n')) return null;
+        const firstNewline = content.indexOf('\n\n');
+        const header = content.substring(SHARED_PREFIX.length, firstNewline).trim();
+        const body = content.substring(firstNewline + 2).trim();
+        const lines = body.split('\n').filter(l => l.trim());
+
+        const isCheckIn = header.includes('Check-In') || header.includes('\uD83C\uDFE2');
+        const accent = isCheckIn ? '#34c759' : '#6366f1';
+
+        return (
+            <div style={{
+                border: `1px solid ${accent}55`,
+                borderRadius: 12,
+                overflow: 'hidden',
+                minWidth: 200,
+                maxWidth: 280,
+                background: '#f8fafc',
+            }}>
+                {/* Card header */}
+                <div style={{
+                    background: `${accent}18`,
+                    padding: '8px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    borderBottom: `1px solid ${accent}30`,
+                }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: accent, flex: 1 }}>{header}</span>
+                    <span style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        color: accent,
+                        background: `${accent}25`,
+                        borderRadius: 8,
+                        padding: '2px 7px',
+                    }}>Shared</span>
+                </div>
+                {/* Card body */}
+                <div style={{ padding: '8px 12px 10px' }}>
+                    {lines.map((line, i) => (
+                        line.startsWith('\u2500') ? (
+                            <hr key={i} style={{ border: 'none', borderTop: `1px solid ${accent}30`, margin: '4px 0' }} />
+                        ) : (
+                            <div key={i} style={{
+                                fontSize: 13,
+                                lineHeight: 1.5,
+                                color: '#1e293b',
+                                marginBottom: 3,
+                            }}>{line}</div>
+                        )
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+
     const getInitials = (name: string) => (name || '?').charAt(0).toUpperCase();
 
     // ── Read status icon (like Flutter) ─────────────────────────
@@ -689,7 +759,10 @@ export default function ChatPage() {
     return (
         <div className={styles.chatPage}>
             {/* ── Sidebar ── */}
-            <aside className={styles.sidebar}>
+            <aside
+                className={styles.sidebar}
+                style={isMobileView && activeConv ? { display: 'none' } : undefined}
+            >
                 <div className={styles.sidebarHeader}>
                     <div className={styles.headerTop}>
                         <h1 className={styles.title}>{t('chat.title')}</h1>
@@ -1015,14 +1088,16 @@ export default function ChatPage() {
             </aside >
 
             {/* ── Chat Room ── */}
-            <main className={`${styles.chatRoom} ${activeConversationId ? styles.chatRoomActive : ''}`}>
+            <main
+                className={`${styles.chatRoom} ${activeConv ? styles.chatRoomActive : ''}`}
+                style={isMobileView && !activeConv ? { display: 'none' } : undefined}
+            >
                 {
                     activeConv ? (
                         <>
                             <header className={styles.roomHeader}>
                                 <button
                                     className={styles.backBtn}
-                                    style={{ display: 'none' }}
                                     onClick={() => setActiveConversation(null)}
                                 >
                                     <ChevronLeft size={24} />
@@ -1228,7 +1303,9 @@ export default function ChatPage() {
                                                                         <span>{getAttachmentName(msg.files[0])}</span>
                                                                     </a>
                                                                 )}
-                                                                <div className={styles.messageContent}>{formatMessage(msg.content)}</div>
+                                                                <div className={styles.messageContent}>
+                                                                    {renderSharedAttendanceCard(msg.content, isMe) ?? formatMessage(msg.content)}
+                                                                </div>
                                                             </>
                                                         )}
 
