@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Mail, Calendar, Briefcase, Award, CreditCard, Clock, Activity, Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle } from 'lucide-react';
+import { Mail, Calendar, Briefcase, Award, CreditCard, Clock, Activity, Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle, Pencil } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import mainClient from '../../lib/main-client';
 import authClient from '../../lib/auth-client';
@@ -9,6 +9,7 @@ import { APP_ID } from '../../lib/auth-token';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
 import { Button, Input } from '../../components/ui';
 import { toast } from 'react-hot-toast';
+import { features } from '../../config/features';
 import styles from './ProfilePage.module.css';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -163,6 +164,16 @@ export default function ProfilePage() {
                     {/* ── Settings Panel ── */}
                     <div className={styles.settingsPanel}>
                         <p className={styles.settingsPanelTitle}>Settings</p>
+                        {features.editProfile && (
+                            <button
+                                id="edit-profile-btn"
+                                className={styles.settingsItem}
+                                onClick={() => toast('Edit profile coming soon', { icon: '✏️' })}
+                            >
+                                <Pencil size={16} />
+                                <span>Edit Profile</span>
+                            </button>
+                        )}
                         <button
                             id="change-password-btn"
                             className={styles.settingsItem}
