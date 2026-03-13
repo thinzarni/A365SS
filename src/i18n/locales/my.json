@@ -30,7 +30,20 @@
         "holidays": "ရုံးပိတ်ရက်များ",
         "profile": "ပရိုဖိုင်",
         "settings": "ဆက်တင်များ",
-        "chat": "ချက်တင်"
+        "chat": "ချက်တင်",
+        "overtime": "အချိန်ပို",
+        "hrView": "HR မြင်ကွင်း",
+        "admin": "စီမံခန့်ခွဲမှု",
+        "attendance": "တက်ရောက်မှု",
+        "attendanceApproval": "တက်ရောက်မှု ခွင့်ပြုချက်",
+        "attendanceRequest": "တက်ရောက်မှု တောင်းဆိုချက်",
+        "locationApproval": "တည်နေရာ ခွင့်ပြုချက်",
+        "socialPost": "လူမှုကွန်ရက်",
+        "rulesAndReg": "စည်းမျဉ်းစည်းကမ်းများ",
+        "visionAi": "Vision AI",
+        "customAi": "Kaizentic AI",
+        "objectDetection": "အရာဝတ္ထု ရှာဖွေခြင်း",
+        "employeeHandbook": "ဝန်ထမ်းလက်စွဲ"
     },
     "request": {
         "title": "တောင်းဆိုမှုများ",

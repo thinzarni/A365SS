@@ -30,7 +30,20 @@
         "holidays": "Holidays",
         "profile": "Profile",
         "settings": "Settings",
-        "chat": "Chat"
+        "chat": "Chat",
+        "overtime": "Overtime",
+        "hrView": "HR View",
+        "admin": "Admin",
+        "attendance": "Attendance",
+        "attendanceApproval": "Attendance Approval",
+        "attendanceRequest": "Attendance Request",
+        "locationApproval": "Location Approval",
+        "socialPost": "Social Post",
+        "rulesAndReg": "Rules & Regulations",
+        "visionAi": "Vision AI",
+        "customAi": "Kaizentic AI",
+        "objectDetection": "Object Detection",
+        "employeeHandbook": "Employee Handbook"
     },
     "request": {
         "title": "Requests",
