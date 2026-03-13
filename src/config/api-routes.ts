@@ -90,6 +90,8 @@ export const USER_PROFILE_BY_ID = 'api/teams/employees/profile';
 export const CALENDAR_VIEW = 'api/checkin/calendarView';
 export const HOLIDAYS = 'api/checkin/holidays';
 export const MONTHLY_SUMMARY = 'api/checkin/monthly-summary';
+export const ACTIVITY_TYPES = 'api/activity-type';
+export const SAVE_CHECKIN = 'api/checkin';
 // ── Chat (uses chatUrl) ──
 export const CHAT_CREATE = 'chat-new/create';
 export const CHAT_SEARCH = 'chat-new/search';
@@ -102,8 +104,24 @@ export const CHAT_DELETE_MSG = 'chat-new/delete-message';
 export const CHAT_EDIT_MSG = 'chat-new/edit-message';
 export const CHAT_ATTACHMENT = 'chat/attachment';
 export const CHAT_PARTICIPANTS = 'chat-new/conversations/:id/participants';  // GET — view all
-export const CHAT_ADD_PARTICIPANTS = 'chat-new/add-participants';             // POST
-export const CHAT_REMOVE_PARTICIPANT = 'chat-new/remove-participant';         // POST
+export const CHAT_ADD_PARTICIPANTS = 'chat-new/add/participants';             // POST
+export const CHAT_REMOVE_PARTICIPANT = 'chat-new/leave-group';                 // POST
 export const CHAT_CHANGE_NAME = 'chat-new/conversations/:id/name';
 export const CHAT_CONV_BY_NAME = 'chat/conversation-id';
 export const CHAT_SEARCH_USER = 'api/employees/search';
+
+// ── Notifications ──
+export const NOTIFICATION_LIST = 'api/notification/list';
+export const NOTIFICATION_READ = 'api/notification/read-status';
+
+// ── ESS Profile (UI-only placeholders — no backend yet) ──
+export const ESS_EMPLOYMENT_PROFILE = 'api/employees/employment-profile';
+export const ESS_PERSONAL_PROFILE = 'api/employees/personal-profile';
+export const ESS_EMERGENCY_CONTACTS = 'api/employees/emergency-contacts';
+export const ESS_WORK_EXPERIENCE = 'api/employees/work-experience';
+export const ESS_QUALIFICATION = 'api/employees/qualification';
+export const ESS_FAMILY_INFO = 'api/employees/family-info';
+export const ESS_CONTACT_INFO = 'api/employees/contact-info';
+export const ESS_ADDRESS_STATES = 'api/master/states';
+export const ESS_ADDRESS_DISTRICTS = 'api/master/districts';
+export const ESS_ADDRESS_TOWNSHIPS = 'api/master/townships';

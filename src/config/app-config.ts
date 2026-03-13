@@ -20,9 +20,10 @@ export interface AppConfig {
     environment: 'dev' | 'staging' | 'sit' | 'prod';
 }
 
-// IAM prd url => https://iam.omnicloudapi.com
-// IAM demo url => https://iamdemo.southeastasia.cloudapp.azure.com
+// IAM prd url => https://iamdemo.southeastasia.cloudapp.azure.com
+// IAM other url => https://iam.omnicloudapi.com
 const IAM_URL = import.meta.env.VITE_IAM_URL || 'https://iam.omnicloudapi.com';
+const PRD_IAM_URL = 'https://iamdemo.southeastasia.cloudapp.azure.com';
 
 const configs: Record<string, AppConfig> = {
     dev: {
@@ -50,11 +51,11 @@ const configs: Record<string, AppConfig> = {
     },
     prod: {
         baseUrl: import.meta.env.VITE_BASE_URL || 'https://apx002.omnicloudapi.com/',
-        authUrl: import.meta.env.VITE_AUTH_URL || IAM_URL + '/api/auth/',
-        iamUrl: import.meta.env.VITE_IAM_URL || IAM_URL,
+        authUrl: import.meta.env.VITE_AUTH_URL || PRD_IAM_URL + '/api/auth/',
+        iamUrl: import.meta.env.VITE_IAM_URL || PRD_IAM_URL,
         mainUrl: import.meta.env.VITE_MAIN_URL || 'https://a365.omnicloudapi.com/',
-        chatUrl: import.meta.env.VITE_CHAT_URL || IAM_URL + '/api/',
-        wsUrl: import.meta.env.VITE_WS_URL || 'wss://iamdemo.southeastasia.cloudapp.azure.com/api',
+        chatUrl: import.meta.env.VITE_CHAT_URL || PRD_IAM_URL + '/api/',
+        wsUrl: import.meta.env.VITE_WS_URL || PRD_IAM_URL + '/api',
         appName: 'A365 HR',
         appVersion: '1.0.0',
         environment: 'prod',
