@@ -39,7 +39,7 @@ export default function RulesAndRegulationsPage() {
             <div className="page-header">
                 <div className="page-header__row">
                     <div>
-                        <h1 className="page-header__title">Rules and Regulations</h1>
+                        <h1 className="page-header__title">Employee Handbook</h1>
                         <p className="page-header__subtitle">
                             Browse company policies and guidelines
                         </p>

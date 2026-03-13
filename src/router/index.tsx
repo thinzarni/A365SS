@@ -22,7 +22,6 @@ import HolidaysPage from '../pages/HolidaysPage/HolidaysPage';
 import DashboardPage from '../pages/DashboardPage/DashboardPage';
 import ChatPage from '../pages/ChatPage/ChatPage';
 import DomainSelectPage from '../pages/DomainSelectPage/DomainSelectPage';
-import ProfilePage from '../pages/ProfilePage/ProfilePage';
 import SecurityQuestionsPage from '../pages/SecurityQuestionsPage/SecurityQuestionsPage';
 import ForceChangePasswordPage from '../pages/ForceChangePasswordPage/ForceChangePasswordPage';
 import VerifyOtpPage from '../pages/VerifyOtpPage/VerifyOtpPage';
@@ -30,6 +29,16 @@ import ForgotPasswordPage from '../pages/ForgotPasswordPage/ForgotPasswordPage';
 import ComingSoonPage from '../pages/ComingSoonPage/ComingSoonPage';
 import RulesAndRegulationsPage from '../pages/RulesAndRegulationsPage/RulesAndRegulationsPage';
 import PdfListPage from '../pages/RulesAndRegulationsPage/PdfListPage';
+import NotificationPage from '../pages/NotificationPage/NotificationPage';
+import AttendancePage from '../pages/AttendancePage/AttendancePage';
+
+// ── Flavor-based profile page ──
+// prd  → 7-tab ESS profile (Employment, Personal, Emergency Contacts, Work Experience, etc.)
+// a365 → original simple profile view
+import ProfilePage from '../pages/ProfilePage/ProfilePage';
+import ProfilePagePrd from '../pages/ProfilePage/ProfilePagePrd';
+import { flavor } from '../config/features';
+const ActiveProfilePage = flavor === 'prd' ? ProfilePagePrd : ProfilePage;
 
 export const router = createBrowserRouter([
     // ── Guest routes ──
@@ -105,9 +114,11 @@ export const router = createBrowserRouter([
                     { path: '/hrview', element: <HRViewPage /> },
                     { path: '/employee', element: <HRViewPage /> },
                     { path: '/chat', element: <ChatPage /> },
-                    { path: '/profile', element: <ProfilePage /> },
+                    { path: '/profile', element: <ActiveProfilePage /> },
                     { path: '/rulesandreg', element: <RulesAndRegulationsPage /> },
                     { path: '/rulesandreg/:id', element: <PdfListPage /> },
+                    { path: '/notifications', element: <NotificationPage /> },
+                    { path: '/attendance', element: <AttendancePage /> },
 
                     // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──
                     { path: '*', element: <ComingSoonPage /> },

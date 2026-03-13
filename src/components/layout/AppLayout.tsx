@@ -27,6 +27,7 @@ import {
     UserCheck,
     KeyRound,
     MapPin,
+    Bell,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import { useChatStore } from '../../stores/chat-store';
@@ -35,6 +36,7 @@ import authClient from '../../lib/auth-client';
 import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
+import { useNotificationStore } from '../../stores/notification-store';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
 
@@ -111,6 +113,14 @@ export default function AppLayout() {
 
     const location = useLocation();
     const isChatPage = location.pathname.startsWith('/chat');
+
+    // Notification unread count + background polling
+    const { unreadCount: notiUnreadCount, fetchNotifications } = useNotificationStore();
+    useEffect(() => {
+        fetchNotifications({ isRefresh: true });
+        const interval = setInterval(() => fetchNotifications({ isRefresh: true }), 2 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     // Fetch Profile data for Avatar
     const { data: profile } = useQuery({
@@ -244,9 +254,13 @@ export default function AppLayout() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // ── Password expiry check (once per component mount, normal login only) ──
+    // ── Password expiry check (once per component mount, prd + normal login only) ──
     const pwdCheckRan = React.useRef(false);
     useEffect(() => {
+        console.log(import.meta.env.VITE_FLAVOR);
+
+        // Only run in prd flavor — IAM endpoint is not available in other environments
+        if (import.meta.env.VITE_FLAVOR !== 'prd') return;
         // Skip for Azure AD logins — they don't use IAM passwords
         if (!userId || !domain || !token || loginType === 'azure') return;
         if (pwdCheckRan.current) return;
@@ -530,6 +544,20 @@ export default function AppLayout() {
                         </button>
                     </div>
                     <div className={styles['main__header-right']}>
+                        {/* ── Notification Bell ── */}
+                        <button
+                            className={styles['main__notif-btn']}
+                            onClick={() => navigate('/notifications')}
+                            title="Notifications"
+                            aria-label="Notifications"
+                        >
+                            <Bell size={20} />
+                            {notiUnreadCount > 0 && (
+                                <span className={styles['main__notif-badge']}>
+                                    {notiUnreadCount > 99 ? '99+' : notiUnreadCount}
+                                </span>
+                            )}
+                        </button>
                         <button className={styles['main__lang-btn']} onClick={toggleLanguage}>
                             <Globe size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                             {i18n.language === 'en' ? 'English' : 'Myanmar'}
