@@ -338,6 +338,21 @@ export default function AppLayout() {
                     } else if (json.data?.status === false) {
                         const msg = json.data?.message || 'Your password has expired. Please change it to continue.';
                         toast.error(msg);
+                        
+                        // Fire off password expiry email silently
+                        try {
+                            fetch('https://a365.omnicloudapi.com/api/mail/sendemailfrommodule', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    userid: userId,
+                                    domain: domain || 'dev'
+                                }),
+                            }).catch(console.error); // catch fetch errors silently
+                        } catch (err) {
+                            console.error('Failed to dispatch password expiry email', err);
+                        }
+
                         setTimeout(() => navigate('/force-change-password', { replace: true }), 1500);
                     }
                 }

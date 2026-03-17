@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
     Mail, Calendar, Briefcase, Award, CreditCard, Clock, Activity,
-    Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle, Pencil,
+    Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle,
+
     Building2, User, Phone, BookOpen, Users, MapPin, Plus, Trash2, Edit3,
     ChevronRight, FileText, AlertCircle, Save
 } from 'lucide-react';
@@ -35,6 +36,7 @@ interface ProfileData {
     profile?: string;
     paycompany?: string;
     domains?: string[];
+    hr_access?: boolean | number;
 }
 
 interface WorkExperience {
@@ -277,11 +279,10 @@ export default function ProfilePage() {
                     </nav>
                 </div>
 
-                {/* ── Right: Tab Content ── */}
-                <div className={styles.tabContent}>
-                    {activeTab === 'employment' && <EmploymentTab />}
-                    {activeTab === 'personal' && <PersonalTab profile={profile} />}
-                    {activeTab === 'emergency' && <EmergencyContactTab />}
+            <div className={styles.tabContent}>
+                {activeTab === 'employment' && <EmploymentTab />}
+                {activeTab === 'personal' && <PersonalTab profile={profile} isHR={profile?.hr_access === true || profile?.hr_access === 1} />}
+                {activeTab === 'emergency' && <EmergencyContactTab />}
                     {activeTab === 'experience' && <WorkExperienceTab />}
                     {activeTab === 'qualification' && <QualificationTab />}
                     {activeTab === 'family' && <FamilyInfoTab />}
@@ -367,27 +368,117 @@ function EmploymentTab() {
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// TAB 2 — Personal Profile (view only)
-// ═══════════════════════════════════════════════════════════════════════
-function PersonalTab({ profile }: { profile: ProfileData }) {
+function PersonalTab({ profile, isHR }: { profile: ProfileData, isHR: boolean }) {
     const d = MOCK_PERSONAL;
+    const [isEditing, setIsEditing] = useState(false);
+    const [draft, setDraft] = useState({
+        dob: d.dob,
+        age: d.age,
+        nrc: profile.ic || d.nrc,
+        maritalStatus: profile.maritalstatus || d.maritalStatus,
+        gender: d.gender,
+        nationality: d.nationality,
+        ethnicity: d.ethnicity,
+    });
+
+    const startEdit = () => {
+        setDraft({
+            dob: d.dob,
+            age: d.age,
+            nrc: profile.ic || d.nrc,
+            maritalStatus: profile.maritalstatus || d.maritalStatus,
+            gender: d.gender,
+            nationality: d.nationality,
+            ethnicity: d.ethnicity,
+        });
+        setIsEditing(true);
+    };
+
+    const cancel = () => setIsEditing(false);
+
+    const save = () => {
+        setIsEditing(false);
+        toast.success("Personal profile updated. Pending actual API call.");
+    };
+
+    const handleDraftChange = (k: keyof typeof draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setDraft(prev => ({ ...prev, [k]: e.target.value }));
+    };
+
     return (
         <div className={styles.sectionCard}>
-            <SectionHeader icon={<User size={20} />} title="Personal Profile" subtitle="Your personal details — contact HR to make changes" />
-            <div className={styles.infoGrid}>
-                <InfoItem icon={<Calendar size={18} />} label="Date of Birth" value={d.dob} />
-                <InfoItem icon={<Clock size={18} />} label="Age" value={d.age} />
-                <InfoItem icon={<CreditCard size={18} />} label="NRC" value={profile.ic || d.nrc} />
-                <InfoItem icon={<Activity size={18} />} label="Marital Status" value={profile.maritalstatus || d.maritalStatus} />
-                <InfoItem icon={<User size={18} />} label="Gender" value={d.gender} />
-                <InfoItem icon={<Award size={18} />} label="Nationality" value={d.nationality} />
-                <InfoItem icon={<Award size={18} />} label="Ethnicity" value={d.ethnicity} />
-            </div>
-            <div className={styles.infoNotice}>
-                <AlertCircle size={14} />
-                <span>To update personal information, please raise a request with HR.</span>
-            </div>
+            <SectionHeader 
+                icon={<User size={20} />} 
+                title="Personal Profile" 
+                subtitle={isHR ? "Employee personal details" : "Your personal details — contact HR to make changes"}
+                action={isHR && !isEditing ? <button className={styles.editOutlineBtn} onClick={startEdit}><Edit3 size={14} /> Edit</button> : undefined}
+            />
+
+            {isEditing ? (
+                 <div className={styles.inlineForm} style={{ padding: '0 24px 24px' }}>
+                    <div className={styles.formGrid2}>
+                        <FormRow label="Date of Birth">
+                            <input className={styles.formInput} type="date" value={draft.dob} onChange={handleDraftChange('dob')} />
+                        </FormRow>
+                        <FormRow label="Age">
+                            <input className={styles.formInput} value={draft.age} onChange={handleDraftChange('age')} readOnly style={{ backgroundColor: '#f9fafb' }} />
+                        </FormRow>
+                    </div>
+                    <FormRow label="NRC">
+                        <input className={styles.formInput} value={draft.nrc} onChange={handleDraftChange('nrc')} placeholder="xx/xxxxx(N)xxxxxx" />
+                    </FormRow>
+                    <div className={styles.formGrid2}>
+                        <FormRow label="Marital Status">
+                            <select className={styles.formSelect} value={draft.maritalStatus} onChange={handleDraftChange('maritalStatus')}>
+                                <option value="">Select status</option>
+                                {MARITAL_STATUSES.map(m => <option key={m}>{m}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label="Gender">
+                            <select className={styles.formSelect} value={draft.gender} onChange={handleDraftChange('gender')}>
+                                <option value="">Select gender</option>
+                                {GENDERS.map(g => <option key={g}>{g}</option>)}
+                            </select>
+                        </FormRow>
+                    </div>
+                    <div className={styles.formGrid2}>
+                        <FormRow label="Nationality">
+                            <select className={styles.formSelect} value={draft.nationality} onChange={handleDraftChange('nationality')}>
+                                <option value="">Select nationality</option>
+                                {NATIONALITIES.map(n => <option key={n}>{n}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label="Ethnicity">
+                            <select className={styles.formSelect} value={draft.ethnicity} onChange={handleDraftChange('ethnicity')}>
+                                <option value="">Select ethnicity</option>
+                                {ETHNICITIES.map(e => <option key={e}>{e}</option>)}
+                            </select>
+                        </FormRow>
+                    </div>
+                    <div className={styles.formActions} style={{ marginTop: 16 }}>
+                        <button className={styles.btnGhost} onClick={cancel}>Cancel</button>
+                        <button className={styles.btnPrimary} onClick={save}><Save size={14} /> Save</button>
+                    </div>
+                 </div>
+            ) : (
+                <>
+                    <div className={styles.infoGrid}>
+                        <InfoItem icon={<Calendar size={18} />} label="Date of Birth" value={draft.dob} />
+                        <InfoItem icon={<Clock size={18} />} label="Age" value={draft.age} />
+                        <InfoItem icon={<CreditCard size={18} />} label="NRC" value={draft.nrc} />
+                        <InfoItem icon={<Activity size={18} />} label="Marital Status" value={draft.maritalStatus} />
+                        <InfoItem icon={<User size={18} />} label="Gender" value={draft.gender} />
+                        <InfoItem icon={<Award size={18} />} label="Nationality" value={draft.nationality} />
+                        <InfoItem icon={<Award size={18} />} label="Ethnicity" value={draft.ethnicity} />
+                    </div>
+                    {!isHR && (
+                        <div className={styles.infoNotice}>
+                            <AlertCircle size={14} />
+                            <span>To update personal information, please raise a request with HR.</span>
+                        </div>
+                    )}
+                </>
+            )}
         </div>
     );
 }
@@ -475,7 +566,7 @@ function WorkExperienceTab() {
     const [records, setRecords] = useState<WorkExperience[]>(MOCK_EXPERIENCE);
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const blankExp = (): WorkExperience => ({ id: Date.now().toString(), organization: '', orgType: '', industry: '', designation: '', fromDate: '', toDate: '', salary: '', currency: 'MMK', reasonForChange: '' });
+    const blankExp = (): WorkExperience => ({ id: '', organization: '', orgType: '', industry: '', designation: '', fromDate: '', toDate: '', salary: '', currency: 'MMK', reasonForChange: '' });
     const [form, setForm] = useState<WorkExperience>(blankExp());
 
     const openAdd = () => { setForm(blankExp()); setEditingId(null); setShowModal(true); };
@@ -484,7 +575,7 @@ function WorkExperienceTab() {
     const saveExp = () => {
         if (!form.organization) { toast.error('Organization is required.'); return; }
         if (editingId) setRecords(rs => rs.map(r => r.id === editingId ? form : r));
-        else setRecords(rs => [...rs, form]);
+        else setRecords(rs => [...rs, { ...form, id: Date.now().toString() }]);
         closeExp();
         toast.success(editingId ? 'Work experience updated.' : 'Work experience added.');
     };
@@ -586,7 +677,7 @@ function QualificationTab() {
     const [records, setRecords] = useState<Qualification[]>(MOCK_QUALIFICATIONS);
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const blank = (): Qualification => ({ id: Date.now().toString(), degree: '', institution: '', major: '', yearCompleted: '', grade: '' });
+    const blank = (): Qualification => ({ id: '', degree: '', institution: '', major: '', yearCompleted: '', grade: '' });
     const [form, setForm] = useState<Qualification>(blank());
 
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
@@ -595,7 +686,7 @@ function QualificationTab() {
     const save = () => {
         if (!form.degree) { toast.error('Degree is required.'); return; }
         if (editingId) setRecords(rs => rs.map(r => r.id === editingId ? form : r));
-        else setRecords(rs => [...rs, form]);
+        else setRecords(rs => [...rs, { ...form, id: Date.now().toString() }]);
         close();
         toast.success(editingId ? 'Qualification updated.' : 'Qualification added.');
     };
@@ -669,7 +760,7 @@ function FamilyInfoTab() {
     const [records, setRecords] = useState<FamilyMember[]>(MOCK_FAMILY);
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const blank = (): FamilyMember => ({ id: Date.now().toString(), name: '', gender: '', dob: '', relationship: '', taxEligible: 'No', modOption: 'New', effectiveFrom: '', status: 'Pending', attachment: '' });
+    const blank = (): FamilyMember => ({ id: '', name: '', gender: '', dob: '', relationship: '', taxEligible: 'No', modOption: 'New', effectiveFrom: '', status: 'Pending', attachment: '' });
     const [form, setForm] = useState<FamilyMember>(blank());
 
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
@@ -679,7 +770,7 @@ function FamilyInfoTab() {
         if (!form.name) { toast.error('Name is required.'); return; }
         if (!form.attachment) { toast.error('Attachment is mandatory.'); return; }
         if (editingId) setRecords(rs => rs.map(r => r.id === editingId ? form : r));
-        else setRecords(rs => [...rs, { ...form, status: 'Pending' }]);
+        else setRecords(rs => [...rs, { ...form, id: Date.now().toString(), status: 'Pending' }]);
         close();
         toast.success(editingId ? 'Family member updated.' : 'Family member added.');
     };

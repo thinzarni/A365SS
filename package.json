@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host --mode a365",
-    "dev:prd": "vite --host --mode prd",
-    "build": "tsc -b && vite build --mode a365",
-    "build:prd": "tsc -b && vite build --mode prd",
+    "dev": "vite --host --mode prd",
+    "dev:a365": "vite --host --mode a365",
+    "build": "tsc -b && vite build --mode prd",
+    "build:a365": "tsc -b && vite build --mode a365",
     "lint": "eslint .",
     "preview": "vite preview --host"
   },

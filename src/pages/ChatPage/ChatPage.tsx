@@ -661,7 +661,7 @@ export default function ChatPage() {
 
     // ── Shared attendance record card (mirrors Flutter's _buildActivityRecordCard) ──
     const SHARED_PREFIX = '\uD83D\uDD01 Shared from ';
-    const renderSharedAttendanceCard = (content: string, isMe: boolean) => {
+    const renderSharedAttendanceCard = (content: string, _isMe: boolean) => {
         if (!content || !content.startsWith(SHARED_PREFIX) || !content.includes('\n\n')) return null;
         const firstNewline = content.indexOf('\n\n');
         const header = content.substring(SHARED_PREFIX.length, firstNewline).trim();
