@@ -1,15 +1,16 @@
 import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Mail, Calendar, Briefcase, Award, CreditCard, Clock, Activity, Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle, Pencil } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import mainClient from '../../lib/main-client';
 import authClient from '../../lib/auth-client';
+import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
 import { Button, Input } from '../../components/ui';
 import { toast } from 'react-hot-toast';
-import { features } from '../../config/features';
 import styles from './ProfilePage.module.css';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -34,7 +35,22 @@ interface ProfileData {
 
 export default function ProfilePage() {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const { user, domain } = useAuthStore();
+    const { userId: urlUserId } = useParams();
+
+    const { data: menuData } = useQuery({
+        queryKey: ['menu-items'],
+        queryFn: async () => {
+            const res = await apiClient.get('hxm/integration/get/menuitems');
+            return res.data?.datalist || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const hasHrAccess = (menuData || []).some((m: any) => m.router === '/hrview' || m.router === '/employee');
+
+    const isOwnProfile = !urlUserId || urlUserId === user?.userid;
 
     // ── Change Password modal state ──
     const [showChangePwd, setShowChangePwd] = useState(false);
@@ -94,10 +110,13 @@ export default function ProfilePage() {
     };
 
     const { data: profile, isLoading, error } = useQuery<ProfileData | null>({
-        queryKey: ['employee-profile', user?.usersyskey],
+        queryKey: ['employee-profile', urlUserId || user?.usersyskey],
         queryFn: async () => {
             try {
-                const res = await mainClient.post('api/employees/profile');
+                const endpoint = urlUserId 
+                    ? `api/teams/employees/profile?userid=${encodeURIComponent(urlUserId)}`
+                    : 'api/employees/profile';
+                const res = await mainClient.post(endpoint);
                 return res.data?.data ?? res.data ?? null;
             } catch (err) {
                 console.error('Failed to fetch profile', err);
@@ -140,9 +159,25 @@ export default function ProfilePage() {
                 <div className={styles.avatarCard}>
                     <div className={styles.avatarCircle}>
                         {profile.profile ? (
-                            <img src={profile.profile} alt={profile.name} className={styles.avatarImage} />
+                            <img 
+                                src={profile.profile} 
+                                alt={profile.name} 
+                                className={styles.avatarImage} 
+                                onClick={() => {
+                                    if (hasHrAccess) navigate('/hrview');
+                                }}
+                                style={{ cursor: hasHrAccess ? 'pointer' : 'default' }}
+                            />
                         ) : (
-                            <span className={styles.avatarInitials}>{initials}</span>
+                            <span 
+                                className={styles.avatarInitials}
+                                onClick={() => {
+                                    if (hasHrAccess) navigate('/hrview');
+                                }}
+                                style={{ cursor: hasHrAccess ? 'pointer' : 'default' }}
+                            >
+                                {initials}
+                            </span>
                         )}
                     </div>
                     <h2 className={styles.userName}>{profile.name || '-'}</h2>
@@ -162,27 +197,31 @@ export default function ProfilePage() {
                     </div>
 
                     {/* ── Settings Panel ── */}
-                    <div className={styles.settingsPanel}>
-                        <p className={styles.settingsPanelTitle}>Settings</p>
-                        {features.editProfile && (
-                            <button
-                                id="edit-profile-btn"
-                                className={styles.settingsItem}
-                                onClick={() => toast('Edit profile coming soon', { icon: '✏️' })}
-                            >
-                                <Pencil size={16} />
-                                <span>Edit Profile</span>
-                            </button>
-                        )}
-                        <button
-                            id="change-password-btn"
-                            className={styles.settingsItem}
-                            onClick={() => setShowChangePwd(true)}
-                        >
-                            <KeyRound size={16} />
-                            <span>Change Password</span>
-                        </button>
-                    </div>
+                    {(isOwnProfile || hasHrAccess) && (
+                        <div className={styles.settingsPanel}>
+                            <p className={styles.settingsPanelTitle}>Settings</p>
+                            {(isOwnProfile || hasHrAccess) && (
+                                <button
+                                    id="edit-profile-btn"
+                                    className={styles.settingsItem}
+                                    onClick={() => toast('Edit profile coming soon', { icon: '✏️' })}
+                                >
+                                    <Pencil size={16} />
+                                    <span>Edit Profile</span>
+                                </button>
+                            )}
+                            {isOwnProfile && (
+                                <button
+                                    id="change-password-btn"
+                                    className={styles.settingsItem}
+                                    onClick={() => setShowChangePwd(true)}
+                                >
+                                    <KeyRound size={16} />
+                                    <span>Change Password</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Right Column: Info Grid ── */}

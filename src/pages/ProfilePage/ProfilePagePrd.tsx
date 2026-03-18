@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,6 +12,7 @@ import {
 import { useAuthStore } from '../../stores/auth-store';
 import mainClient from '../../lib/main-client';
 import authClient from '../../lib/auth-client';
+import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
 import { Button, Input } from '../../components/ui';
@@ -141,8 +143,21 @@ const MOCK_CONTACT = {
 export default function ProfilePage() {
     const { t } = useTranslation();
     const { user, domain } = useAuthStore();
+    const { userId: urlUserId } = useParams();
+
+    const { data: menuData } = useQuery({
+        queryKey: ['menu-items'],
+        queryFn: async () => {
+            const res = await apiClient.get('hxm/integration/get/menuitems');
+            return res.data?.datalist || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const hasHrAccess = (menuData || []).some((m: any) => m.router === '/hrview' || m.router === '/employee');
     const [activeTab, setActiveTab] = useState<TabId>('employment');
     const TABS = getTabs(t);
+    const isOwnProfile = !urlUserId || urlUserId === user?.userid;
 
     // Change password state
     const [showChangePwd, setShowChangePwd] = useState(false);
@@ -189,10 +204,13 @@ export default function ProfilePage() {
     };
 
     const { data: profile, isLoading, error } = useQuery<ProfileData | null>({
-        queryKey: ['employee-profile', user?.usersyskey],
+        queryKey: ['employee-profile', urlUserId || user?.usersyskey],
         queryFn: async () => {
             try {
-                const res = await mainClient.post('api/employees/profile');
+                const endpoint = urlUserId
+                    ? `api/teams/employees/profile?userid=${encodeURIComponent(urlUserId)}`
+                    : 'api/employees/profile';
+                const res = await mainClient.post(endpoint);
                 return res.data?.data ?? res.data ?? null;
             } catch (err) { console.error('Failed to fetch profile', err); return null; }
         },
@@ -252,12 +270,26 @@ export default function ProfilePage() {
                                 </div>
                             )}
                         </div>
-                        <div className={styles.settingsPanel}>
-                            <p className={styles.settingsPanelTitle}>{t('profile.settings')}</p>
-                            <button id="change-password-btn" className={styles.settingsItem} onClick={() => setShowChangePwd(true)}>
-                                <KeyRound size={16} /><span>{t('profile.changePassword')}</span>
-                            </button>
-                        </div>
+                        {(isOwnProfile || hasHrAccess) && (
+                            <div className={styles.settingsPanel}>
+                                <p className={styles.settingsPanelTitle}>{t('profile.settings')}</p>
+                                {(isOwnProfile || hasHrAccess) && (
+                                    <button
+                                        id="edit-profile-btn"
+                                        className={styles.settingsItem}
+                                        onClick={() => toast('Edit profile coming soon', { icon: '✏️' })}
+                                    >
+                                        <Edit3 size={16} />
+                                        <span>Edit Profile</span>
+                                    </button>
+                                )}
+                                {isOwnProfile && (
+                                    <button id="change-password-btn" className={styles.settingsItem} onClick={() => setShowChangePwd(true)}>
+                                        <KeyRound size={16} /><span>{t('profile.changePassword')}</span>
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Tab Navigation */}
@@ -280,10 +312,14 @@ export default function ProfilePage() {
                     </nav>
                 </div>
 
-            <div className={styles.tabContent}>
-                {activeTab === 'employment' && <EmploymentTab />}
-                {activeTab === 'personal' && <PersonalTab profile={profile} isHR={profile?.hr_access === true || profile?.hr_access === 1} />}
-                {activeTab === 'emergency' && <EmergencyContactTab />}
+                <div className={styles.tabContent}>
+                    {activeTab === 'employment' && <EmploymentTab />}
+                    {activeTab === 'personal' && (
+                        <PersonalTab
+                            profile={profile}
+                        />
+                    )}
+                    {activeTab === 'emergency' && <EmergencyContactTab />}
                     {activeTab === 'experience' && <WorkExperienceTab />}
                     {activeTab === 'qualification' && <QualificationTab />}
                     {activeTab === 'family' && <FamilyInfoTab />}
@@ -370,7 +406,7 @@ function EmploymentTab() {
     );
 }
 
-function PersonalTab({ profile, isHR }: { profile: ProfileData, isHR: boolean }) {
+function PersonalTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
     const d = MOCK_PERSONAL;
     const [isEditing, setIsEditing] = useState(false);
@@ -410,15 +446,14 @@ function PersonalTab({ profile, isHR }: { profile: ProfileData, isHR: boolean })
 
     return (
         <div className={styles.sectionCard}>
-            <SectionHeader 
-                icon={<User size={20} />} 
-                title={t('profile.tabs.personal')} 
-                subtitle={isHR ? t('profile.personal.hrSubtitle') : t('profile.personal.viewSubtitle')}
-                action={isHR && !isEditing ? <button className={styles.editOutlineBtn} onClick={startEdit}><Edit3 size={14} /> {t('profile.personal.editHint')}</button> : undefined}
+            <SectionHeader
+                icon={<User size={20} />}
+                title={t('profile.tabs.personal')}
+                subtitle={t('profile.personal.viewSubtitle')}
             />
 
             {isEditing ? (
-                 <div className={styles.inlineForm} style={{ padding: '0 24px 24px' }}>
+                <div className={styles.inlineForm} style={{ padding: '0 24px 24px' }}>
                     <div className={styles.formGrid2}>
                         <FormRow label={t('profile.personal.dob')}>
                             <input className={styles.formInput} type="date" value={draft.dob} onChange={handleDraftChange('dob')} />
@@ -462,7 +497,7 @@ function PersonalTab({ profile, isHR }: { profile: ProfileData, isHR: boolean })
                         <button className={styles.btnGhost} onClick={cancel}>{t('common.cancel')}</button>
                         <button className={styles.btnPrimary} onClick={save}><Save size={14} /> {t('request.save')}</button>
                     </div>
-                 </div>
+                </div>
             ) : (
                 <>
                     <div className={styles.infoGrid}>
@@ -474,12 +509,10 @@ function PersonalTab({ profile, isHR }: { profile: ProfileData, isHR: boolean })
                         <InfoItem icon={<Award size={18} />} label={t('profile.personal.nationality')} value={t(`profile.options.nationalities.${draft.nationality}` as any, draft.nationality)} />
                         <InfoItem icon={<Award size={18} />} label={t('profile.personal.ethnicity')} value={t(`profile.options.ethnicities.${draft.ethnicity}` as any, draft.ethnicity)} />
                     </div>
-                    {!isHR && (
-                        <div className={styles.infoNotice}>
-                            <AlertCircle size={14} />
-                            <span>{t('profile.personal.noticeHR')}</span>
-                        </div>
-                    )}
+                    <div className={styles.infoNotice}>
+                        <AlertCircle size={14} />
+                        <span>{t('profile.personal.noticeHR')}</span>
+                    </div>
                 </>
             )}
         </div>
