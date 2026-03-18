@@ -153,5 +153,204 @@
         "noRecords": "No attendance records for today",
         "quickActions": "Quick Actions",
         "synced": "Synced"
+    },
+    "profile": {
+        "title": "My Profile",
+        "loading": "Loading profile...",
+        "errorTitle": "Failed to load profile",
+        "errorSub": "There was an error communicating with the server.",
+        "settings": "Settings",
+        "changePassword": "Change Password",
+        "employeeLabel": "Employee",
+        "currentPassword": "Current Password",
+        "newPassword": "New Password",
+        "confirmNewPassword": "Confirm New Password",
+        "passwordRequirements": "Password requirements",
+        "mismatch": "Passwords do not match",
+        "reqCurrent": "Please enter your current password.",
+        "reqNew": "Please enter a new password.",
+        "successPwd": "Password changed successfully.",
+        "failedPwd": "Failed to change password.",
+        
+        "tabs": {
+            "employment": "Employment Profile",
+            "personal": "Personal Profile",
+            "emergency": "Emergency Contacts",
+            "experience": "Work Experience",
+            "qualification": "Qualification",
+            "family": "Family Information",
+            "contact": "Contact Information"
+        },
+        
+        "employment": {
+            "subtitle": "View your employment information",
+            "companyName": "Company Name",
+            "employeeId": "Employee ID",
+            "employmentType": "Employment Type",
+            "jobLevelTitle": "Job Level – Job Title",
+            "grade": "Grade",
+            "officeEmail": "Office Email",
+            "officeLocation": "Office Location",
+            "workLocation": "Work Location",
+            "department": "Department",
+            "doj": "Date of Joining",
+            "serviceYear": "Service Year",
+            "reportingManager": "Reporting Manager",
+            "jobDescription": "Job Description"
+        },
+        
+        "personal": {
+            "viewSubtitle": "Your personal details — contact HR to make changes",
+            "hrSubtitle": "Employee personal details",
+            "dob": "Date of Birth",
+            "age": "Age",
+            "nrc": "NRC",
+            "maritalStatus": "Marital Status",
+            "gender": "Gender",
+            "nationality": "Nationality",
+            "ethnicity": "Ethnicity",
+            "selectStatus": "Select status",
+            "selectGender": "Select gender",
+            "selectNationality": "Select nationality",
+            "selectEthnicity": "Select ethnicity",
+            "noticeHR": "To update personal information, please raise a request with HR.",
+            "editHint": "Edit",
+            "saveSuccess": "Personal profile updated."
+        },
+
+        "emergency": {
+            "subtitle": "Up to 2 emergency contacts",
+            "personLabel": "Person",
+            "name": "Name",
+            "fullName": "Full name",
+            "relationship": "Relationship",
+            "selectRelationship": "Select relationship",
+            "contactNumber": "Contact Number",
+            "address": "Address",
+            "fullAddress": "Full address",
+            "noContact": "No contact added. Click edit to add.",
+            "saveSuccess": "Emergency contact updated."
+        },
+
+        "experience": {
+            "subtitle": "Your previous employment history",
+            "addBtn": "Add Experience",
+            "noData": "No work experience added yet.",
+            "modalEdit": "Edit Work Experience",
+            "modalAdd": "Add Work Experience",
+            "org": "Organization",
+            "orgPlaceholder": "Company / Organization name",
+            "orgType": "Organization Type",
+            "selectType": "Select type",
+            "industry": "Industry",
+            "selectIndustry": "Select industry",
+            "designation": "Designation",
+            "rolePlaceholder": "Job title / Role",
+            "period": "Period",
+            "fromDate": "From Date",
+            "toDate": "To Date",
+            "present": "Present",
+            "salary": "Previous Monthly Salary",
+            "currency": "Currency",
+            "reason": "Reason for Change",
+            "reasonPlaceholder": "Reason for leaving / changing...",
+            "saveSuccessAdd": "Work experience added.",
+            "saveSuccessUpdate": "Work experience updated.",
+            "removeSuccess": "Record removed.",
+            "reqOrg": "Organization is required."
+        },
+
+        "qualification": {
+            "subtitle": "Educational background and certifications",
+            "addBtn": "Add Qualification",
+            "noData": "No qualifications added yet.",
+            "modalEdit": "Edit Qualification",
+            "modalAdd": "Add Qualification",
+            "degree": "Degree / Certificate",
+            "degreePlaceholder": "e.g. B.Sc. Computer Science, MBA",
+            "institution": "Institution",
+            "instPlaceholder": "University / College / School",
+            "major": "Major / Field of Study",
+            "majorPlaceholder": "e.g. Computer Science",
+            "year": "Year Completed",
+            "yearPlaceholder": "e.g. 2020",
+            "grade": "Grade / GPA",
+            "gradePlaceholder": "e.g. Distinction, 3.8 GPA",
+            "saveSuccessAdd": "Qualification added.",
+            "saveSuccessUpdate": "Qualification updated.",
+            "reqDegree": "Degree is required."
+        },
+
+        "family": {
+            "subtitle": "Family members used for tax deduction purposes",
+            "addBtn": "Add Member",
+            "noData": "No family members added yet.",
+            "modalEdit": "Edit Family Member",
+            "modalAdd": "Add Family Member",
+            "taxEligible": "Tax Eligible",
+            "yes": "Yes",
+            "no": "No",
+            "modOption": "Modification Option",
+            "effectiveFrom": "Effective From Date",
+            "status": "Status",
+            "attachment": "Attachment",
+            "attachLabel": "Upload Marriage / Birth Certificate",
+            "uploading": "Uploading...",
+            "saveSuccessAdd": "Family member added.",
+            "saveSuccessUpdate": "Family member updated.",
+            "reqName": "Name is required.",
+            "reqAttachment": "Attachment is mandatory."
+        },
+
+        "contact": {
+            "subtitle": "Your permanent and temporary addresses",
+            "permanentAddress": "Permanent Address",
+            "temporaryAddress": "Temporary Address",
+            "contactDetails": "Contact Details",
+            "state": "State / Region",
+            "selectState": "Select state/region",
+            "district": "District",
+            "township": "Township",
+            "town": "Town / Village Tract",
+            "primaryEmail": "Primary Email",
+            "secondaryEmail": "Secondary Email",
+            "primaryMobile": "Primary Mobile",
+            "sameAsPermanent": "Same as permanent address",
+            "saveSuccess": "Contact information updated."
+        },
+
+        "options": {
+            "relationships": {
+                "Father": "Father",
+                "Mother": "Mother",
+                "Spouse": "Spouse",
+                "Sibling": "Sibling",
+                "Son": "Son",
+                "Daughter": "Daughter",
+                "Relative": "Relative",
+                "Friend": "Friend",
+                "Other": "Other"
+            },
+            "genders": {
+                "Male": "Male",
+                "Female": "Female",
+                "Other": "Other"
+            },
+            "marital": {
+                "Single": "Single",
+                "Married": "Married",
+                "Divorced": "Divorced",
+                "Widowed": "Widowed"
+            },
+            "yesno": {
+                "Yes": "Yes",
+                "No": "No"
+            },
+            "status": {
+                "Pending": "Pending",
+                "Approved": "Approved",
+                "Rejected": "Rejected"
+            }
+        }
     }
 }
