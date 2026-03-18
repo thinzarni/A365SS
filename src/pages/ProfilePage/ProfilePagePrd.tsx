@@ -420,18 +420,6 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
         ethnicity: d.ethnicity,
     });
 
-    const startEdit = () => {
-        setDraft({
-            dob: d.dob,
-            age: d.age,
-            nrc: profile.ic || d.nrc,
-            maritalStatus: profile.maritalstatus || d.maritalStatus,
-            gender: d.gender,
-            nationality: d.nationality,
-            ethnicity: d.ethnicity,
-        });
-        setIsEditing(true);
-    };
 
     const cancel = () => setIsEditing(false);
 
