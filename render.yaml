@@ -30,10 +30,10 @@ services:
         source: /*
         destination: /index.html
 
-  # ── prd flavor (Production) ──
+  # ── a365 flavor on existing service ──
   - type: static
     name: A365SS
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && npm run build:a365
     staticPublishPath: ./dist
     envVars:
       - key: NODE_VERSION
