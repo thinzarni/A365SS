@@ -4,7 +4,7 @@
    Used for: Teams, Attendance, Check-in, etc.
    ═══════════════════════════════════════════════════════════ */
 
-import axios, { type InternalAxiosRequestConfig } from 'axios';
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { appConfig } from '../config/app-config';
 import { useAuthStore } from '../stores/auth-store';
 
@@ -44,6 +44,43 @@ mainClient.interceptors.request.use(
         return config;
     },
     (error) => Promise.reject(error)
+);
+
+// ── Response Interceptor — silent token refresh on 401 ──
+mainClient.interceptors.response.use(
+    (response) => response,
+    async (error: AxiosError) => {
+        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+
+            try {
+                const { useAuthStore } = await import('../stores/auth-store');
+                const { refreshToken, renewToken, logout } = useAuthStore.getState();
+
+                if (!refreshToken) {
+                    logout();
+                    window.location.href = '/login';
+                    return Promise.reject(error);
+                }
+
+                await renewToken(); // silently get new access token
+
+                const { token } = useAuthStore.getState();
+                if (originalRequest.headers) {
+                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                }
+                return mainClient(originalRequest); // retry original request
+            } catch {
+                const { useAuthStore } = await import('../stores/auth-store');
+                useAuthStore.getState().logout();
+                window.location.href = '/login';
+            }
+        }
+
+        return Promise.reject(error);
+    }
 );
 
 export default mainClient;

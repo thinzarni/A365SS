@@ -27,6 +27,7 @@ import {
     X,
     FileText,
     ChevronRight,
+    ImageIcon,
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
@@ -54,11 +55,14 @@ interface AttendanceRecord {
     status?: string;
     attType?: string;
     checkInType?: string;
+    checkintype?: string;
     activityType?: string;
+    activitytype?: string;
     remoteapproval?: number;
     backdateapproval?: number;
     starttime?: string;
     endtime?: string;
+    images?: { name: string; mimeType: string; content: string }[];
 }
 
 interface HomeData {
@@ -227,7 +231,7 @@ export default function DashboardPage() {
             ? homeData
             : (homeData as HomeData)?.attendanceList ?? [];
 
-        return list.filter(r => [601, 602, 603, 604].includes(r.type));
+        return list.filter(r => [601, 602, 603, 604].includes(Number(r.type)));
     }, [homeData]);
 
     const timeIn = useMemo(() => records.find(r => r.type === 601), [records]);
@@ -413,12 +417,21 @@ export default function DashboardPage() {
                                                         <Clock size={18} />}
                                         </div>
                                         <div className={styles.recordInfo}>
-                                            <div className={styles.recordTypeText}>{meta.label}</div>
+                                            <div className={styles.recordTypeText}>
+                                                {(rec.type === 603 || rec.type === 604)
+                                                    ? (rec.activityType || rec.activitytype || rec.checkInType || rec.checkintype || meta.label)
+                                                    : meta.label}
+                                            </div>
                                             <div className={styles.recordTimeText}>{displayTime || '--:--'}</div>
                                         </div>
                                     </div>
 
                                     <div className={styles.recordRight}>
+                                        {rec.images && rec.images.length > 0 && (
+                                            <div className={styles.imageCountBadge}>
+                                                <ImageIcon size={12} /> {rec.images.length}
+                                            </div>
+                                        )}
                                         <span className={`${styles.recordStatus} ${rec.remoteapproval === 3 || rec.backdateapproval === 3
                                             ? styles.failed
                                             : rec.remoteapproval === 1 || rec.backdateapproval === 1
@@ -621,6 +634,32 @@ export default function DashboardPage() {
                                                 whiteSpace: 'pre-wrap',
                                             }}>
                                                 {selectedRecord.description}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Images */}
+                                    {selectedRecord.images && selectedRecord.images.length > 0 && (
+                                        <div style={{ padding: '12px 0 4px' }}>
+                                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+                                                <span style={{ color: '#94a3b8', display: 'flex' }}><ImageIcon size={15} /></span>
+                                                <span style={{ fontSize: 13, color: '#475569', fontWeight: 500 }}>Photos ({selectedRecord.images.length})</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                                {selectedRecord.images.map((img, i) => (
+                                                    <a key={i} href={img.content} target="_blank" rel="noopener noreferrer">
+                                                        <img
+                                                            src={img.content}
+                                                            alt={img.name}
+                                                            style={{
+                                                                width: 80, height: 80, objectFit: 'cover',
+                                                                borderRadius: 10, border: '1px solid #e2e8f0',
+                                                                cursor: 'pointer',
+                                                            }}
+                                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                                        />
+                                                    </a>
+                                                ))}
                                             </div>
                                         </div>
                                     )}

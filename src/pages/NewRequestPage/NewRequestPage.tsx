@@ -13,6 +13,7 @@ import {
     Plane,
     Banknote,
     FileText,
+    Building2,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -35,9 +36,12 @@ import {
     LEAVE_TYPES,
     CLAIM_TYPES,
     CURRENCY_TYPES,
+    ORG_TYPE_LIST,
+    ORG_UNIT_LIST,
 } from '../../config/api-routes';
 import type { LeaveType } from '../../types/models';
 import { formatAmount, unformatAmount } from '../../lib/format-utils';
+import { useAuthStore } from '../../stores/auth-store';
 import styles from './NewRequestPage.module.css';
 
 /* ── Date/time default helpers ── */
@@ -88,6 +92,8 @@ const DESC_TO_KEY: Record<string, string> = {
     'employee requisition': 'employeerequisition',
     'purchase': 'purchase',
     'attendance request': 'attendancerequest',
+    'organization change request': 'orgchange',
+    'organization change': 'orgchange',
 };
 
 /* Helper: types that use the generic single-date + time form */
@@ -110,6 +116,7 @@ const TYPE_VISUAL: Record<string, { icon: React.FC<{ size?: number }>; color: st
     employeerequisition: { icon: FileText, color: '#0369a1', bgColor: '#f0f9ff' },
     purchase: { icon: FileText, color: '#b45309', bgColor: '#fffbeb' },
     attendancerequest: { icon: FileText, color: '#7c3aed', bgColor: '#faf5ff' },
+    orgchange: { icon: Building2, color: '#0ea5e9', bgColor: '#e0f2fe' },
     other: { icon: FileText, color: '#64748b', bgColor: '#f1f5f9' },
 };
 
@@ -133,6 +140,7 @@ export default function NewRequestPage() {
         '/travel/new': 'travel',
         '/cashadvance/new': 'cashadvance',
         '/offinlieu/new': 'offinlieu',
+        '/orgchange/new': 'orgchange',
     };
     const presetType = PATH_TO_TYPE[location.pathname] || searchParams.get('type') || '';
 
@@ -140,6 +148,21 @@ export default function NewRequestPage() {
     const [selectedType, setSelectedType] = useState(presetType);
     const [subType, setSubType] = useState('');
     const [leaveType, setLeaveType] = useState('');
+    const { user } = useAuthStore();
+
+    // ── Organization Change ──
+    const [orgUnitSubject, setOrgUnitSubject] = useState('Team');
+    const [orgChangeType, setOrgChangeType] = useState('Creation of a new Unit');
+    const [orgSummary] = useState('');
+    const [orgComment, setOrgComment] = useState('');
+    const [orgObjective, setOrgObjective] = useState('');
+    const [orgReassignment] = useState('');
+    const [orgEffectiveFix, setOrgEffectiveFix] = useState('Yes');
+    const [orgProposedDate, setOrgProposedDate] = useState('');
+    const [orgRelocation, setOrgRelocation] = useState('Yes');
+    const [orgRelocationHeadcounts, setOrgRelocationHeadcounts] = useState('1');
+    const [orgRelocationFrom, setOrgRelocationFrom] = useState('');
+    const [orgRelocationTo, setOrgRelocationTo] = useState('');
 
     // ── Leave-specific AM/PM & duration ──
     const [startPeriod, setStartPeriod] = useState('AM');
@@ -217,6 +240,25 @@ export default function NewRequestPage() {
         queryKey: ['requestTypes'],
         queryFn: async () => {
             const res = await apiClient.get(REQUEST_TYPES);
+            return res.data?.datalist || [];
+        },
+    });
+
+    // ── Organization Change Lookups ──
+    const { data: orgChangeTypes = [] } = useQuery<TypesModel[]>({
+        queryKey: ['orgChangeTypes'],
+        queryFn: async () => {
+            const payload = { currentpage: 1, pagesize: 100, searchObj: { order: 'code', orderType: 'asc' }, searchVal: '' };
+            const res = await apiClient.post(ORG_TYPE_LIST, payload);
+            return res.data?.datalist || [];
+        },
+    });
+
+    const { data: orgUnitSubjects = [] } = useQuery<TypesModel[]>({
+        queryKey: ['orgUnitSubjects'],
+        queryFn: async () => {
+            const payload = { currentpage: 1, pagesize: 100, searchObj: { order: 'code', orderType: 'asc' }, searchVal: '' };
+            const res = await apiClient.post(ORG_UNIT_LIST, payload);
             return res.data?.datalist || [];
         },
     });
@@ -626,6 +668,26 @@ export default function NewRequestPage() {
                     }))
                     : [];
                 payload.requeststatus = "1";
+            } else if (selectedType === 'orgchange') {
+                payload.requeststatus = "1"; // "Pending"
+                payload.startdate = toApiDate(startDate);
+                // Map the Organization Change specific fields
+                (payload as any).orgunitsubject = orgUnitSubject;
+                (payload as any).orgchangetype = orgChangeType;
+                (payload as any).orgsummary = orgSummary;
+                (payload as any).orgcomment = orgComment;
+                (payload as any).orgobjective = orgObjective;
+                (payload as any).orgreassignment = orgReassignment;
+                (payload as any).orgeffectivefix = orgEffectiveFix;
+                if (orgEffectiveFix === 'Yes') {
+                    (payload as any).orgproposeddate = orgProposedDate;
+                }
+                (payload as any).orgrelocation = orgRelocation;
+                if (orgRelocation === 'Yes') {
+                    (payload as any).orgrelocationheadcounts = orgRelocationHeadcounts;
+                    (payload as any).orgrelocationfrom = orgRelocationFrom;
+                    (payload as any).orgrelocationto = orgRelocationTo;
+                }
             } else if (selectedType === 'travel') {
                 payload.departuredate = toApiDate(departureDate);
                 payload.arrivaldate = toApiDate(arrivalDate);
@@ -889,8 +951,8 @@ export default function NewRequestPage() {
                     <>
 
 
-                        {/* ═════ 3. Date & Time (common — hidden for claim/cashadvance) ═════ */}
-                        {selectedType !== 'claim' && selectedType !== 'cashadvance' && (
+                        {/* ═════ 3. Date & Time (common — hidden for claim/cashadvance/orgchange) ═════ */}
+                        {selectedType !== 'claim' && selectedType !== 'cashadvance' && selectedType !== 'orgchange' && (
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Date & Time</h3>
                                 <div className={styles['new-request__grid']}>
@@ -1093,6 +1155,105 @@ export default function NewRequestPage() {
                             </div>
                         )}
 
+                        {/* ── Organization Change ── */}
+                        {selectedType === 'orgchange' && (
+                            <div className={styles['new-request__section']}>
+                                <h3 className={styles['new-request__section-title']}>Organization Change Details</h3>
+                                <div className={styles['new-request__grid']}>
+                                    {/* ROW 1 */}
+                                    <div className={styles['new-request__full']}>
+                                        <Select
+                                            id="orgUnitSubject"
+                                            label="Unit Subject to Change:*"
+                                            value={orgUnitSubject}
+                                            onChange={(e) => setOrgUnitSubject(e.target.value)}
+                                            options={orgUnitSubjects.map(item => ({
+                                                value: item.description,
+                                                label: item.description
+                                            }))}
+                                        />
+                                    </div>
+
+                                    {/* ROW 2 */}
+                                    <Select
+                                        id="orgChangeType"
+                                        label="Type of Organization Change*"
+                                        value={orgChangeType}
+                                        onChange={(e) => setOrgChangeType(e.target.value)}
+                                        options={orgChangeTypes.map(item => ({
+                                            value: item.description,
+                                            label: item.description
+                                        }))}
+                                    />
+                                    <Input id="initiatorDivision" label="Initiator's Division" value={user?.division || ''} readOnly />
+
+                                    {/* ROW 3 */}
+                                    <FileUpload label="Summary of Change**" files={files} onChange={setFiles} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
+                                    <Textarea id="orgComment" label="Comment for Summary Change**" value={orgComment} onChange={e => setOrgComment(e.target.value)} placeholder="Test" required />
+
+                                    {/* ROW 4 */}
+                                    <Textarea id="orgObjective" label="Objective of Change**" value={orgObjective} onChange={e => setOrgObjective(e.target.value)} placeholder="TEST" required />
+                                    <FileUpload label="Employee Reassignment**" files={files} onChange={setFiles} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
+
+                                    {/* ROW 5 */}
+                                    <div className={styles['new-request__full']} style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '8px', marginTop: '16px' }}>
+                                        <label className={styles['new-request__label']} style={{ marginBottom: '8px' }}>Effective Fix Date</label>
+                                        <div style={{ display: 'flex', gap: '24px', marginBottom: '16px' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                                <input type="radio" value="Yes" checked={orgEffectiveFix === 'Yes'} onChange={() => setOrgEffectiveFix('Yes')} /> Yes
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                                <input type="radio" value="No" checked={orgEffectiveFix === 'No'} onChange={() => setOrgEffectiveFix('No')} /> No
+                                            </label>
+                                        </div>
+                                        {orgEffectiveFix === 'Yes' && (
+                                            <div style={{ maxWidth: '50%' }}>
+                                                <Input id="orgProposedDate" label="Proposed Effective Date*" type="date" value={orgProposedDate} onChange={e => setOrgProposedDate(e.target.value)} required />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* ROW 6 */}
+                                    <div className={styles['new-request__full']} style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '8px' }}>
+                                        <label className={styles['new-request__label']} style={{ marginBottom: '8px' }}>Relocation Requirement</label>
+                                        <div style={{ display: 'flex', gap: '24px', marginBottom: '16px' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                                <input type="radio" value="Yes" checked={orgRelocation === 'Yes'} onChange={() => setOrgRelocation('Yes')} /> Yes
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                                <input type="radio" value="No" checked={orgRelocation === 'No'} onChange={() => setOrgRelocation('No')} /> No
+                                            </label>
+                                        </div>
+                                        {orgRelocation === 'Yes' && (
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                                                <Input id="orgRelocationHeadcounts" label="Headcounts to relocate*" type="number" value={orgRelocationHeadcounts} onChange={e => setOrgRelocationHeadcounts(e.target.value)} required />
+                                                <Input id="orgRelocationFrom" label="Relocation [From]:*" value={orgRelocationFrom} onChange={e => setOrgRelocationFrom(e.target.value)} required />
+                                                <Input id="orgRelocationTo" label="Relocation [To]:*" value={orgRelocationTo} onChange={e => setOrgRelocationTo(e.target.value)} required />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className={styles['new-request__full']} style={{ height: '32px' }} /> {/* Spacing */}
+
+                                    {/* ROW 7 */}
+                                    <Input id="orgApplicationDate" label="Application Date*" type="date" value={startDate} readOnly />
+                                    <Input id="orgDepartment" label="Initiator's Department" value={user?.department || ''} readOnly />
+
+                                    {/* ROW 8 */}
+                                    <Input id="orgApplicantName" label="Applicant Name" value={user?.name || ''} readOnly />
+                                    <Input id="orgEmployeeID" label="Employee ID" value={user?.userid || ''} readOnly />
+
+                                    {/* ROW 9 */}
+                                    <Input id="orgEmail" label="Email" value={user?.email || ''} readOnly />
+                                    <div /> {/* Empty */}
+
+                                    {/* ROW 10 */}
+                                    <Input id="orgContactNumber" label="Contact Number" value={(user as any)?.phone || ''} readOnly />
+                                    <Input id="orgReferenceNumber" label="Reference Number" placeholder="System Will Generate Automatically" readOnly />
+                                </div>
+                            </div>
+                        )}
+
                         {/* ── Reservation ── */}
                         {selectedType === 'reservation' && (
                             <div className={styles['new-request__section']}>
@@ -1291,39 +1452,43 @@ export default function NewRequestPage() {
                             </div>
                         )}
 
-                        {/* ═════ 5. Remarks ═════ */}
-                        <div className={styles['new-request__section']}>
-                            <h3 className={styles['new-request__section-title']}>Additional Info</h3>
-                            <Textarea
-                                id="remark"
-                                label={isBenefitBonusClaimType ? 'Reason' : t('request.remark')}
-                                value={remark}
-                                onChange={(e) => setRemark(e.target.value)}
-                                placeholder="Any additional notes or comments…"
-                            />
-                        </div>
+                        {selectedType !== 'orgchange' && (
+                            <>
+                                {/* ═════ 5. Remarks ═════ */}
+                                <div className={styles['new-request__section']}>
+                                    <h3 className={styles['new-request__section-title']}>Additional Info</h3>
+                                    <Textarea
+                                        id="remark"
+                                        label={isBenefitBonusClaimType ? 'Reason' : t('request.remark')}
+                                        value={remark}
+                                        onChange={(e) => setRemark(e.target.value)}
+                                        placeholder="Any additional notes or comments…"
+                                    />
+                                </div>
 
-                        {/* ═════ 6. Attachments (hidden for reservations) ═════ */}
-                        {selectedType !== 'reservation' && (
-                            <div className={styles['new-request__section']}>
-                                <FileUpload
-                                    label="Attachments"
-                                    files={files}
-                                    onChange={setFiles}
-                                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                                />
-                            </div>
+                                {/* ═════ 6. Attachments (hidden for reservations) ═════ */}
+                                {selectedType !== 'reservation' && (
+                                    <div className={styles['new-request__section']}>
+                                        <FileUpload
+                                            label="Attachments"
+                                            files={files}
+                                            onChange={setFiles}
+                                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                                        />
+                                    </div>
+                                )}
+
+                                {/* ═════ 7. Approvers ═════ */}
+                                <div className={styles['new-request__section']}>
+                                    <MemberPicker
+                                        label="Approvers"
+                                        members={approvers}
+                                        onChange={setApprovers}
+                                        required
+                                    />
+                                </div>
+                            </>
                         )}
-
-                        {/* ═════ 7. Approvers ═════ */}
-                        <div className={styles['new-request__section']}>
-                            <MemberPicker
-                                label="Approvers"
-                                members={approvers}
-                                onChange={setApprovers}
-                                required
-                            />
-                        </div>
 
                         {/* ── Leave-specific handover ── */}
                         {selectedType === 'leave' && (

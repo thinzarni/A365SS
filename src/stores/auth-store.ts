@@ -110,18 +110,22 @@ export const useAuthStore = create<AuthState>()(
             },
 
             renewToken: async () => {
-                const { refreshToken, userId } = get();
-                if (!refreshToken || !userId) throw new Error('No refresh token available');
+                const { token, refreshToken, userId } = get();
+                if (!refreshToken || !userId || !token) throw new Error('No refresh token available');
 
                 try {
-                    const res = await authClient.post('renew-token', {
+                    const res = await authClient.post('generate/renew-token', {
+                        user_id: userId,
+                        access_token: token,
                         refresh_token: refreshToken,
-                        userid: userId,
                     });
 
-                    if (res.data?.access_token) {
+                    // API returns data: { access_token: "..." } wrapped inside either res.data or res.data.data
+                    const newToken = res.data?.data?.access_token || res.data?.access_token;
+
+                    if (newToken) {
                         set({
-                            token: res.data.access_token,
+                            token: newToken,
                             refreshToken: res.data.refresh_token || refreshToken,
                         });
                     } else {

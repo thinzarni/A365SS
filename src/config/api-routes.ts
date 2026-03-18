@@ -20,6 +20,7 @@ export const DELETE_REQUEST = 'hxm/request/deleterequest';
 // ── Request Lookups ──
 export const TRANSPORTATION_TYPES = 'hxm/request/getTransportationType';
 export const CARS_LIST = 'hxm/request/getCarList';
+export const CAR_TYPES = 'hxm/cartype/list';
 export const DRIVERS_LIST = 'hxm/request/getDriverList';
 export const RESERVATION_TYPES = 'hxm/request/reservationtypelist';
 export const ROOM_TYPES = 'hxm/request/getRoomType';
@@ -30,6 +31,7 @@ export const TRAVEL_TYPE_LIST = 'hxm/request/getModeoftravelList';
 export const VEHICLE_USE_LIST = 'hxm/request/getVehicleuseList';
 export const SHIFT_TIME = 'hxm/request/getshifttime';
 export const GAP_TIME = 'hxm/request/requestgaptime';
+export const ATTENDANCE_SHIFT_DATA = 'api/checkin/shift';
 
 // ── Approvals ──
 export const APPROVAL_LIST = 'hxm/approval/approvallist';
@@ -56,6 +58,10 @@ export const CLAIM_TYPES = 'hxm/claim/claimtypelist';
 // ── Setup ──
 export const CURRENCY_TYPES = 'hxm/setup/getSetupList/currency';
 export const MEMBER_LIST = 'hxm/integration/memberlist';
+
+// ── Assets ──
+export const RULES_AND_REGULATIONS_LIST = 'hxm/rulesandregulations/getall';
+export const RULES_AND_REGULATIONS_DETAIL = 'hxm/rulesandregulations';
 export const PHOTO_UPLOAD = 'hxm/integration/photoupload';
 
 // ── Organization Structure ──
@@ -71,6 +77,8 @@ export const ORG_EXPORT_MAPPING = 'hxm/org/export-mapping';
 export const ORG_REPORT_HIERARCHY = 'hxm/org/report/hierarchy';
 export const ORG_REPORT_EMPLOYEES = 'hxm/org/report/employees';
 export const ORG_AUDIT_LOGS = 'hxm/org/audit-logs';
+export const ORG_TYPE_LIST = 'hxm/typeoforganizationchange/list';
+export const ORG_UNIT_LIST = 'hxm/unitsubjecttochange/list';
 
 // ── Team (uses mainUrl / a365.omnicloudapi.com) ──
 export const TEAM_LIST = 'api/teams';
@@ -82,6 +90,8 @@ export const USER_PROFILE_BY_ID = 'api/teams/employees/profile';
 export const CALENDAR_VIEW = 'api/checkin/calendarView';
 export const HOLIDAYS = 'api/checkin/holidays';
 export const MONTHLY_SUMMARY = 'api/checkin/monthly-summary';
+export const ACTIVITY_TYPES = 'api/activity-type';
+export const SAVE_CHECKIN = 'api/checkin';
 // ── Chat (uses chatUrl) ──
 export const CHAT_CREATE = 'chat-new/create';
 export const CHAT_SEARCH = 'chat-new/search';
@@ -94,8 +104,8 @@ export const CHAT_DELETE_MSG = 'chat-new/delete-message';
 export const CHAT_EDIT_MSG = 'chat-new/edit-message';
 export const CHAT_ATTACHMENT = 'chat/attachment';
 export const CHAT_PARTICIPANTS = 'chat-new/conversations/:id/participants';  // GET — view all
-export const CHAT_ADD_PARTICIPANTS = 'chat-new/add-participants';             // POST
-export const CHAT_REMOVE_PARTICIPANT = 'chat-new/remove-participant';         // POST
+export const CHAT_ADD_PARTICIPANTS = 'chat-new/add/participants';             // POST
+export const CHAT_REMOVE_PARTICIPANT = 'chat-new/leave-group';                 // POST
 export const CHAT_CHANGE_NAME = 'chat-new/conversations/:id/name';
 export const CHAT_CONV_BY_NAME = 'chat/conversation-id';
 export const CHAT_SEARCH_USER = 'api/employees/search';
@@ -110,3 +120,18 @@ export const POST_REACTION_USERS = 'chat-new/get-reaction-users';
 export const COMMENT_CREATE = 'chat-new/create-comment';
 export const COMMENT_LIST = 'chat-new/get-comments';
 export const COMMENT_DELETE = 'chat-new/delete-comment';
+// ── Notifications ──
+export const NOTIFICATION_LIST = 'api/notification/list';
+export const NOTIFICATION_READ = 'api/notification/read-status';
+
+// ── ESS Profile (UI-only placeholders — no backend yet) ──
+export const ESS_EMPLOYMENT_PROFILE = 'api/employees/employment-profile';
+export const ESS_PERSONAL_PROFILE = 'api/employees/personal-profile';
+export const ESS_EMERGENCY_CONTACTS = 'api/employees/emergency-contacts';
+export const ESS_WORK_EXPERIENCE = 'api/employees/work-experience';
+export const ESS_QUALIFICATION = 'api/employees/qualification';
+export const ESS_FAMILY_INFO = 'api/employees/family-info';
+export const ESS_CONTACT_INFO = 'api/employees/contact-info';
+export const ESS_ADDRESS_STATES = 'api/master/states';
+export const ESS_ADDRESS_DISTRICTS = 'api/master/districts';
+export const ESS_ADDRESS_TOWNSHIPS = 'api/master/townships';

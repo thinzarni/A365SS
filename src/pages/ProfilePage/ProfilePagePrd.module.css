@@ -262,7 +262,7 @@
 .sectionCard {
     background: var(--color-neutral-0);
     border-radius: var(--radius-xl);
-    padding: var(--space-7);
+    padding: var(--space-8);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .05), 0 2px 4px -2px rgba(0, 0, 0, .05);
     border: 1px solid var(--color-neutral-200);
 }
@@ -328,18 +328,18 @@
 .infoGrid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-4);
+    gap: var(--space-5);
 }
 
 .fullWidthItem {
-    margin-top: var(--space-4);
+    margin-top: var(--space-5);
 }
 
 .infoItem {
     display: flex;
     align-items: flex-start;
-    gap: var(--space-3);
-    padding: var(--space-4);
+    gap: var(--space-4);
+    padding: var(--space-5);
     border-radius: var(--radius-lg);
     background: var(--color-neutral-50);
     border: 1px solid var(--color-neutral-100);
@@ -412,7 +412,7 @@
 .contactPersonCard {
     border: 1px solid var(--color-neutral-200);
     border-radius: var(--radius-xl);
-    padding: var(--space-5);
+    padding: var(--space-6);
     background: var(--color-neutral-50);
 }
 

@@ -28,6 +28,7 @@ import {
     UserCheck,
     KeyRound,
     MapPin,
+    Bell,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import { useChatStore } from '../../stores/chat-store';
@@ -36,7 +37,9 @@ import authClient from '../../lib/auth-client';
 import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
+import { useNotificationStore } from '../../stores/notification-store';
 import styles from './AppLayout.module.css';
+import toast from 'react-hot-toast';
 
 // ── Router → Lucide icon mapping — keyed by actual API router values ──
 // The label always comes from the API name field, so only the icon is needed here.
@@ -81,6 +84,39 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/socialpost': Globe,
 };
 
+// ── Router → i18n translation key mapping ──
+// Used to translate sidebar labels using our i18n files instead of relying on
+// namemm from the API (which is often empty for many menu items).
+const ROUTER_TO_I18N_KEY: Record<string, string> = {
+    '/': 'nav.dashboard',
+    '/dashboard': 'nav.dashboard',
+    '/request': 'nav.myRequests',
+    '/requests': 'nav.myRequests',
+    '/approval': 'nav.approvals',
+    '/approvals': 'nav.approvals',
+    '/attendanceapproval': 'nav.attendanceApproval',
+    '/attendancerequest': 'nav.attendanceRequest',
+    '/locationapproval': 'nav.locationApproval',
+    '/leave': 'nav.leave',
+    '/leave-summary': 'nav.leaveSummary',
+    '/holiday': 'nav.holidays',
+    '/holidays': 'nav.holidays',
+    '/claim': 'nav.claims',
+    '/claims': 'nav.claims',
+    '/overtime': 'nav.overtime',
+    '/reservation': 'nav.reservations',
+    '/reservations': 'nav.reservations',
+    '/team': 'nav.team',
+    '/hrview': 'nav.hrView',
+    '/chat': 'nav.chat',
+    '/admin': 'nav.admin',
+    '/socialpost': 'nav.socialPost',
+    '/visionai': 'nav.visionAi',
+    '/customai': 'nav.customAi',
+    '/rulesandreg': 'nav.rulesAndReg',
+    '/objectdetection': 'nav.objectDetection',
+};
+
 // Fallback: shown when API hasn't loaded yet
 const DEFAULT_ROUTERS = [
     '/request', '/approval', '/reservation', '/leave',
@@ -103,15 +139,30 @@ export default function AppLayout() {
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
     const { instance } = useMsal();
-    const { user, domain, domains, token, userId, login, setUser, logout, menuList, setLanguage, loginType } = useAuthStore();
+    const { user, domain, domains, token, userId, login, setUser, logout, menuList, setLanguage, language, loginType } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showDomainMenu, setShowDomainMenu] = useState(false);
     const [switchingDomainId, setSwitchingDomainId] = useState<string | null>(null);
     const [pwdExpiry, setPwdExpiry] = useState<{ message: string; daysLeft: number; isExpired: boolean } | null>(null);
 
+    // Sync persisted language preference into i18next on mount
+    useEffect(() => {
+        if (language && i18n.language !== language) {
+            i18n.changeLanguage(language);
+        }
+    }, []);
+
     const location = useLocation();
     const isChatPage = location.pathname.startsWith('/chat');
     const isPostPage = location.pathname.startsWith('/feed');
+
+    // Notification unread count + background polling
+    const { unreadCount: notiUnreadCount, fetchNotifications } = useNotificationStore();
+    useEffect(() => {
+        fetchNotifications({ isRefresh: true });
+        const interval = setInterval(() => fetchNotifications({ isRefresh: true }), 2 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     // Fetch Profile data for Avatar
     const { data: profile } = useQuery({
@@ -253,9 +304,13 @@ export default function AppLayout() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // ── Password expiry check (once per component mount, normal login only) ──
+    // ── Password expiry check (once per component mount, prd + normal login only) ──
     const pwdCheckRan = React.useRef(false);
     useEffect(() => {
+        console.log(import.meta.env.VITE_FLAVOR);
+
+        // Only run in prd flavor — IAM endpoint is not available in other environments
+        if (import.meta.env.VITE_FLAVOR !== 'prd') return;
         // Skip for Azure AD logins — they don't use IAM passwords
         if (!userId || !domain || !token || loginType === 'azure') return;
         if (pwdCheckRan.current) return;
@@ -271,23 +326,44 @@ export default function AppLayout() {
                 });
                 if (!res.ok) return;
                 const json = await res.json();
-                if (json?.status === 200 && json?.data?.status === true) {
-                    const expiredDateStr: string | undefined = json.data.expired_date;
-                    const message: string = json.data.message || 'Your password will expire soon.';
-                    if (expiredDateStr) {
-                        // Normalize both dates to local midnight to avoid UTC vs local offset
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const expiredDate = new Date(expiredDateStr);
-                        expiredDate.setHours(0, 0, 0, 0);
-                        const daysLeft = Math.round(
-                            (expiredDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-                        );
-                        const isExpired = daysLeft < 0;
-                        // Show modal if: already expired OR expiring within 5 days
-                        if (daysLeft <= 5) {
-                            setPwdExpiry({ message, daysLeft, isExpired });
+                if (json?.status === 200) {
+                    if (json.data?.status === true) {
+                        const expiredDateStr: string | undefined = json.data.expired_date;
+                        const message: string = json.data.message || 'Your password will expire soon.';
+                        if (expiredDateStr) {
+                            // Normalize both dates to local midnight to avoid UTC vs local offset
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const expiredDate = new Date(expiredDateStr);
+                            expiredDate.setHours(0, 0, 0, 0);
+                            const daysLeft = Math.round(
+                                (expiredDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+                            );
+                            const isExpired = daysLeft < 0;
+                            // Show modal if: already expired OR expiring within 5 days
+                            if (daysLeft <= 5) {
+                                setPwdExpiry({ message, daysLeft, isExpired });
+                            }
                         }
+                    } else if (json.data?.status === false) {
+                        const msg = json.data?.message || 'Your password has expired. Please change it to continue.';
+                        toast.error(msg);
+                        
+                        // Fire off password expiry email silently
+                        try {
+                            fetch('https://a365.omnicloudapi.com/api/mail/sendemailfrommodule', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    userid: userId,
+                                    domain: domain || 'dev'
+                                }),
+                            }).catch(console.error); // catch fetch errors silently
+                        } catch (err) {
+                            console.error('Failed to dispatch password expiry email', err);
+                        }
+
+                        setTimeout(() => navigate('/force-change-password', { replace: true }), 1500);
                     }
                 }
             } catch {
@@ -313,6 +389,7 @@ export default function AppLayout() {
 
     const toggleLanguage = () => {
         const nextLang = i18n.language === 'en' ? 'my' : 'en';
+        i18n.changeLanguage(nextLang);
         setLanguage(nextLang);
     };
 
@@ -421,6 +498,11 @@ export default function AppLayout() {
                         const Icon = ROUTER_ICON_MAP[item.router] ?? LayoutList;
                         const isChat = item.router === '/chat';
                         const unreadCount = useChatStore.getState().unreadCount;
+                        // Resolve label: i18n key → API namemm (my only) → API name
+                        const i18nKey = ROUTER_TO_I18N_KEY[item.router];
+                        const label = i18nKey
+                            ? t(i18nKey)
+                            : (i18n.language === 'my' && item.namemm ? item.namemm : item.name);
 
                         return (
                             <NavLink
@@ -433,8 +515,7 @@ export default function AppLayout() {
                             >
                                 <div className={styles['sidebar__link-content']}>
                                     <Icon size={20} className={styles['sidebar__link-icon']} />
-                                    {/* Show Myanmar name when language is 'my', fallback to English name */}
-                                    {i18n.language === 'my' && item.namemm ? item.namemm : item.name}
+                                    {label}
                                 </div>
                                 {isChat && unreadCount > 0 && (
                                     <span className={styles.sidebar__unreadBadge}>{unreadCount}</span>
@@ -533,6 +614,20 @@ export default function AppLayout() {
                         </button>
                     </div>
                     <div className={styles['main__header-right']}>
+                        {/* ── Notification Bell ── */}
+                        <button
+                            className={styles['main__notif-btn']}
+                            onClick={() => navigate('/notifications')}
+                            title="Notifications"
+                            aria-label="Notifications"
+                        >
+                            <Bell size={20} />
+                            {notiUnreadCount > 0 && (
+                                <span className={styles['main__notif-badge']}>
+                                    {notiUnreadCount > 99 ? '99+' : notiUnreadCount}
+                                </span>
+                            )}
+                        </button>
                         <button className={styles['main__lang-btn']} onClick={toggleLanguage}>
                             <Globe size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                             {i18n.language === 'en' ? 'English' : 'Myanmar'}
