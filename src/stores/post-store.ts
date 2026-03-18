@@ -20,11 +20,13 @@ interface PostState {
     fetchPosts: (page?: number) => Promise<void>;
     createPost: (payload: CreatePostPayload) => Promise<boolean>;
     deletePost: (postId: string) => Promise<boolean>;
+    editPost: (payload: { messageid: string; content: string; image: any[]; file: any[] }) => Promise<boolean>;
     toggleReaction: (postId: string, actionType: number) => Promise<void>;
 
     // Comments
     fetchComments: (postId: string, page?: number) => Promise<void>;
-    createComment: (postId: string, content: string) => Promise<boolean>;
+    fetchReplies: (postId: string, commentId: string, page?: number) => Promise<void>;
+    createComment: (postId: string, content: string, parentCommentId?: string) => Promise<boolean>;
     deleteComment: (postId: string, commentId: string) => Promise<boolean>;
 }
 
@@ -58,7 +60,10 @@ export const usePostStore = create<PostState>()(
                     const rawData = response.data?.data || response.data;
                     console.log('Posts API Response Body:', rawData);
 
-                    const postsList = rawData?.posts_data || [];
+                    const postsList = (rawData?.posts_data || []).filter((item: any) => {
+                        const status = item.post_data?.status ?? item.post_data?.delete_flag;
+                        return status !== 4; // status 4 means deleted
+                    });
 
                     const mappedPosts: Post[] = postsList.map((item: any) => {
                         const userInfo = item.user_info || {};
@@ -150,16 +155,47 @@ export const usePostStore = create<PostState>()(
                     }));
 
                     await chatClient.post(routes.POST_DELETE, {
-                        syskey: postId,
-                        userid: userId,
-                        domain: domain || 'demouat',
-                        appid: '004'
+                        message_id: postId,
+                        user_id: userId,
+                        domain_id: domain || 'demouat',
+                        app_id: '004',
+                        type: 'post'
                     });
 
                     return true;
                 } catch (err) {
                     console.error('[deletePost] Failed:', err);
                     // Rollback could be handled here by refetching
+                    return false;
+                }
+            },
+
+            editPost: async (payload) => {
+                set({ error: null });
+                try {
+                    const { userId, domain } = useAuthStore.getState();
+
+                    const finalPayload = {
+                        userid: userId,
+                        domain: domain || 'demouat',
+                        appid: '004',
+                        messageid: payload.messageid,
+                        content: payload.content,
+                        images: payload.image || [],
+                        files: payload.file || []
+                    };
+
+                    const res = await chatClient.post(routes.POST_UPDATE, finalPayload);
+
+                    if (res.data) {
+                        // Refresh feed instantly to show updated post
+                        await get().fetchPosts(1);
+                        return true;
+                    }
+                    throw new Error("Failed to update post.");
+                } catch (err: any) {
+                    console.error('[editPost] Failed:', err);
+                    set({ error: err.message });
                     return false;
                 }
             },
@@ -205,11 +241,19 @@ export const usePostStore = create<PostState>()(
 
             fetchComments: async (postId, page = 1) => {
                 try {
+                    const { userId, domain } = useAuthStore.getState();
                     const res = await chatClient.post(`${routes.COMMENT_LIST}?curPage=${page}&pageSize=20`, {
-                        post_id: postId
+                        user_id: userId,
+                        app_id: '004',
+                        domain_id: domain || 'demouat',
+                        message_id: postId,
+                        type: 'post'
                     });
 
-                    const rawComments = res.data?.data_list || res.data || [];
+                    let rawComments = res.data?.data?.comments || res.data?.comments || res.data?.data_list || res.data?.data || res.data;
+                    if (!Array.isArray(rawComments)) {
+                        rawComments = [];
+                    }
 
                     set(state => ({
                         posts: state.posts.map(p =>
@@ -223,20 +267,73 @@ export const usePostStore = create<PostState>()(
                 }
             },
 
-            createComment: async (postId, content) => {
+            fetchReplies: async (postId, commentId, page = 1) => {
+                try {
+                    const { userId, domain } = useAuthStore.getState();
+                    const res = await chatClient.post(`${routes.COMMENT_LIST}?curPage=${page}&pageSize=20`, {
+                        user_id: userId,
+                        app_id: '004',
+                        domain_id: domain || 'demouat',
+                        message_id: '',
+                        comment_id: commentId,
+                        type: 'comment'
+                    });
+
+                    let rawReplies = res.data?.data?.comments || res.data?.comments || res.data?.data_list || res.data?.data || res.data;
+                    if (!Array.isArray(rawReplies)) {
+                        rawReplies = [];
+                    }
+
+                    // The backend API might not return the parent_comment_id property on replies.
+                    // We manually inject it exactly like the Flutter application does.
+                    rawReplies = rawReplies.map((r: any) => ({
+                        ...r,
+                        parent_comment_id: r.parent_comment_id || r.parentcommentid || commentId
+                    }));
+
+                    set(state => ({
+                        posts: state.posts.map(p =>
+                            p.syskey === postId
+                                ? { 
+                                    ...p, 
+                                    comments: [
+                                        ...(p.comments || []).filter(c => !rawReplies.find((r: any) => r.syskey === c.syskey)),
+                                        ...rawReplies
+                                    ]
+                                }
+                                : p
+                        )
+                    }));
+                } catch (err) {
+                    console.error('[fetchReplies] Failed:', err);
+                }
+            },
+
+            createComment: async (postId, content, parentCommentId) => {
                 try {
                     const { userId, domain } = useAuthStore.getState();
 
-                    await chatClient.post(routes.COMMENT_CREATE, {
-                        post_id: postId,
+                    const payload: any = {
                         userid: userId,
+                        appid: '004',
                         domain: domain || 'demouat',
+                        messageid: postId,
                         comment: content,
-                        appid: '004'
-                    });
+                        file_id: '',
+                        image: ''
+                    };
 
-                    // Refresh comments for this post
-                    await get().fetchComments(postId, 1);
+                    if (parentCommentId) {
+                        payload.parent_comment_id = parentCommentId;
+                    }
+
+                    await chatClient.post(routes.COMMENT_CREATE, payload);
+
+                    if (parentCommentId) {
+                        await get().fetchReplies(postId, parentCommentId, 1);
+                    } else {
+                        await get().fetchComments(postId, 1);
+                    }
                     return true;
                 } catch (err) {
                     console.error('[createComment] Failed:', err);
@@ -246,7 +343,7 @@ export const usePostStore = create<PostState>()(
 
             deleteComment: async (postId, commentId) => {
                 try {
-                    const { userId } = useAuthStore.getState();
+                    const { userId, domain } = useAuthStore.getState();
 
                     // Optimistic update
                     set(state => ({
@@ -258,10 +355,10 @@ export const usePostStore = create<PostState>()(
                     }));
 
                     await chatClient.post(routes.COMMENT_DELETE, {
-                        syskey: commentId,
-                        post_id: postId,
-                        userid: userId,
-                        appid: '004'
+                        user_id: userId,
+                        app_id: '004',
+                        domain_id: domain || 'demouat',
+                        comment_id: commentId
                     });
 
                     return true;

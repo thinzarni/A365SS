@@ -133,7 +133,7 @@ export default function ProfilePage() {
     return (
         <div className={styles.pageContainer}>
             <div className={styles.pageHeader}>
-                <h1 className={styles.pageTitle}>{t('profile', 'My Profile')}</h1>
+                <h1 className={styles.pageTitle}>{t('profile.title', 'My Profile')}</h1>
             </div>
 
             <div className={styles.profileWrapper}>

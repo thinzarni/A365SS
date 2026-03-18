@@ -1,9 +1,14 @@
-import React from 'react';
-import { ThumbsUp, Heart, Building2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ThumbsUp, Heart, Building2, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
 import type { Post } from '../../types/post';
 import { usePostStore } from '../../stores/post-store';
+import { useAuthStore } from '../../stores/auth-store';
 import ImageGrid from './ImageGrid';
 import ReactionPicker from './ReactionPicker';
+import EditPostModal from './EditPostModal';
+import CommentSection from './CommentSection';
+import ConfirmModal from '../ui/ConfirmModal/ConfirmModal';
+import Microlink from '@microlink/react';
 import styles from './PostCard.module.css';
 
 interface PostCardProps {
@@ -11,8 +16,14 @@ interface PostCardProps {
 }
 
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
-    const { toggleReaction } = usePostStore();
-    const [imgError, setImgError] = React.useState(false);
+    const { toggleReaction, deletePost } = usePostStore();
+    const { user } = useAuthStore();
+    const [imgError, setImgError] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [showComments, setShowComments] = useState(false);
 
     React.useEffect(() => {
         setImgError(false);
@@ -23,6 +34,19 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
     // Date
     const dateStr = new Date(post.created_date).toLocaleString();
+
+    // Check permissions
+    const isAuthor = user?.userid === post.user_id || user?.hr_access;
+
+    const handleDelete = async () => {
+        setIsDeleting(true);
+        try {
+            await deletePost(post.syskey);
+        } finally {
+            setIsDeleting(false);
+            setShowDeleteConfirm(false);
+        }
+    };
 
     // Author
     const isDomainPost = post.user_info?.user_domain && post.user_info.user_domain !== post.name;
@@ -36,6 +60,26 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     const content = post.content || '';
     const isLongContent = content.length > 150;
     const displayContent = isLongContent && !isExpanded ? `${content.slice(0, 150)}...` : content;
+
+    // URL Extraction for Links and Preview
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urls = content.match(urlRegex);
+    const previewUrl = urls ? urls[0] : null;
+
+    const renderTextWithLinks = (text: string) => {
+        if (!text) return null;
+        const parts = text.split(urlRegex);
+        return parts.map((part, i) => {
+            if (part.match(urlRegex)) {
+                return (
+                    <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: '#1877f2', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>
+                        {part}
+                    </a>
+                );
+            }
+            return <React.Fragment key={i}>{part}</React.Fragment>;
+        });
+    };
 
     return (
         <div className={styles.card}>
@@ -62,15 +106,46 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                         </div>
                     )}
                 </div>
-                <div className={styles.authorInfo}>
+                <div className={styles.authorInfo} style={{ flex: 1 }}>
                     <h3 className={styles.authorName}>{authorName}</h3>
                     <span className={styles.postDate}>{dateStr}</span>
                 </div>
+                
+                {isAuthor && (
+                    <div style={{ position: 'relative' }}>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', color: 'var(--color-neutral-600)' }}
+                        >
+                            <MoreHorizontal size={20} />
+                        </button>
+                        
+                        {showMenu && (
+                            <>
+                                <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setShowMenu(false)} />
+                                <div style={{ position: 'absolute', right: 0, top: '100%', background: 'white', border: '1px solid var(--color-neutral-200)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, minWidth: '150px', overflow: 'hidden' }}>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); setIsEditing(true); }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '12px 16px', border: 'none', background: 'white', cursor: 'pointer', textAlign: 'left', fontSize: '14px', borderBottom: '1px solid var(--color-neutral-100)' }}
+                                    >
+                                        <Edit2 size={16} /> Edit Post
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); setShowDeleteConfirm(true); }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '12px 16px', border: 'none', background: 'white', cursor: 'pointer', textAlign: 'left', fontSize: '14px', color: '#e53e3e' }}
+                                    >
+                                        <Trash2 size={16} /> Delete Post
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Content */}
             <div className={styles.content}>
-                {displayContent}
+                {renderTextWithLinks(displayContent)}
                 {isLongContent && (
                     <span
                         onClick={() => setIsExpanded(!isExpanded)}
@@ -80,6 +155,17 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     </span>
                 )}
             </div>
+
+            {/* Link Preview */}
+            {previewUrl && (!post.files || post.files.length === 0) && (
+                <div style={{ padding: '0 16px', marginBottom: '12px' }}>
+                    <Microlink 
+                        url={previewUrl} 
+                        size="normal"
+                        style={{ width: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--color-neutral-200)', fontFamily: 'var(--font-family, Inter, sans-serif)' }} 
+                    />
+                </div>
+            )}
 
             {/* Attachments */}
             {post.files && post.files.length > 0 && (
@@ -136,13 +222,35 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                 />
 
                 <button
-                    onClick={() => alert("Comments expanding coming in Phase 3")}
+                    onClick={() => setShowComments(!showComments)}
                     className={styles.interactionBtn}
                 >
                     <span className={styles.icon}>💬</span>
                     Comment
                 </button>
             </div>
+
+            {showComments && (
+                <CommentSection postId={post.syskey} />
+            )}
+
+            {isEditing && (
+                <EditPostModal 
+                    post={post}
+                    onClose={() => setIsEditing(false)}
+                />
+            )}
+
+            <ConfirmModal
+                open={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                onConfirm={handleDelete}
+                title="Delete Post"
+                message="Are you sure you want to delete this post? This action cannot be undone."
+                confirmLabel="Delete"
+                variant="danger"
+                loading={isDeleting}
+            />
         </div>
     );
 };

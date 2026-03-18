@@ -35,14 +35,20 @@ export interface PostAttachment {
 
 export interface Comment {
     syskey: string;
-    post_id: string;
-    userid: string;
+    message_id?: string;
+    parent_comment_id?: string;
+    userid?: string;
+    user_id?: string;
     comment: string;
-    username: string;
-    created_date: string;
-    n1?: number; // actionType or deleteFlag depending on context
-    t1?: string;
-    t2?: string;
+    username?: string;
+    user?: {
+        name: string;
+        userid: string;
+        image?: string;
+    };
+    createddate?: string;
+    modifieddate?: string;
+    total_child_comments?: number;
     profile?: string;
 }
 
