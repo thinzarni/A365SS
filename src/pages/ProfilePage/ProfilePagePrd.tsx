@@ -29,14 +29,44 @@ interface ProfileData {
     syskey: string;
     role: string;
     rank: string;
+    ranksyskey?: string;
     dob: string;
     ic: string;
+    nrcsr?: string | null;
+    nrcregion?: string | null;
+    nrctype?: string | null;
+    nrcno?: string | null;
+    gender?: string;
     maritalstatus: string;
+    spouseworking?: string;
     joineddate: string;
     effectivedate: string;
-    paylevel: string;
+    paylevel?: string | null;
     profile?: string;
     paycompany?: string;
+    paycompanysyskey?: string;
+    jobdescription?: string;
+    officeemail?: string;
+    department?: string;
+    departmentsyskey?: string;
+    employmenttype?: string;
+    employmenttypesyskey?: string;
+    officelocation?: string | null;
+    officelocationsyskey?: string | null;
+    worklocation?: string | null;
+    worklocationsyskey?: string | null;
+    roname?: string;
+    serviceyearstring?: string;
+    serviceyearnumeric?: string;
+    nationalitytype?: string;
+    nationalitytypesyskey?: string;
+    ethnicity?: string | null;
+    ethnicitysyskey?: string;
+    isnrcinput?: boolean;
+    attendancevalidation?: boolean;
+    generateqraccess?: number;
+    employeeaccess?: number;
+    profilestatus?: number;
     domains?: string[];
     hr_access?: boolean | number;
 }
@@ -106,19 +136,7 @@ const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed'];
 const STATES = ['Yangon', 'Mandalay', 'Naypyidaw', 'Sagaing', 'Bago', 'Magway', 'Ayeyarwady', 'Shan', 'Kachin', 'Kayah', 'Kayin', 'Chin', 'Mon', 'Rakhine', 'Tanintharyi'];
 const MOD_OPTIONS = ['New', 'Correct', 'Update'];
 
-// ── Mock placeholder data ──────────────────────────────────────────────
-const MOCK_EMPLOYMENT = {
-    companyName: 'MPT Myanmar', employeeId: 'EMP-0042', employmentType: 'Full-time',
-    jobLevel: 'L3', jobTitle: 'Senior Software Engineer', grade: 'G5',
-    officeEmail: 'employee@mpt.com.mm', jobDescription: 'Responsible for developing and maintaining enterprise HR systems.',
-    officeLocation: 'Head Office – Yangon', workLocation: 'Hybrid',
-    department: 'Information Technology', dateOfJoining: '2021-06-01',
-    serviceYear: '3 years 9 months', reportingManager: 'U Kyaw Zin Oo',
-};
-const MOCK_PERSONAL = {
-    dob: '1995-04-15', age: '30 years 11 months', nrc: '12/MAKAT(N)123456',
-    maritalStatus: 'Single', gender: 'Male', nationality: 'Myanmar', ethnicity: 'Bamar',
-};
+// ── Mock placeholder data (Emergency, Experience, Qualification, Family, Contact still use mock) ──
 const MOCK_EMERGENCY: EmergencyContact[] = [
     { name: 'Daw Kyi Kyi', relationship: 'Mother', contactNumber: '09-123-456-789', address: 'No.5, Strand Road, Yangon' },
     { name: '', relationship: '', contactNumber: '', address: '' },
@@ -161,6 +179,7 @@ export default function ProfilePage() {
 
     // Change password state
     const [showChangePwd, setShowChangePwd] = useState(false);
+    const [imgError, setImgError] = useState(false);
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -251,8 +270,13 @@ export default function ProfilePage() {
                     {/* Avatar */}
                     <div className={styles.avatarCard}>
                         <div className={styles.avatarCircle}>
-                            {profile.profile
-                                ? <img src={profile.profile} alt={profile.name} className={styles.avatarImage} />
+                            {profile.profile && !imgError
+                                ? <img
+                                    src={profile.profile}
+                                    alt={profile.name}
+                                    className={styles.avatarImage}
+                                    onError={() => setImgError(true)}
+                                />
                                 : <span className={styles.avatarInitials}>{initials}</span>
                             }
                         </div>
@@ -273,16 +297,6 @@ export default function ProfilePage() {
                         {(isOwnProfile || hasHrAccess) && (
                             <div className={styles.settingsPanel}>
                                 <p className={styles.settingsPanelTitle}>{t('profile.settings')}</p>
-                                {(isOwnProfile || hasHrAccess) && (
-                                    <button
-                                        id="edit-profile-btn"
-                                        className={styles.settingsItem}
-                                        onClick={() => toast('Edit profile coming soon', { icon: '✏️' })}
-                                    >
-                                        <Edit3 size={16} />
-                                        <span>Edit Profile</span>
-                                    </button>
-                                )}
                                 {isOwnProfile && (
                                     <button id="change-password-btn" className={styles.settingsItem} onClick={() => setShowChangePwd(true)}>
                                         <KeyRound size={16} /><span>{t('profile.changePassword')}</span>
@@ -313,7 +327,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div className={styles.tabContent}>
-                    {activeTab === 'employment' && <EmploymentTab />}
+                    {activeTab === 'employment' && <EmploymentTab profile={profile} />}
                     {activeTab === 'personal' && (
                         <PersonalTab
                             profile={profile}
@@ -372,25 +386,24 @@ export default function ProfilePage() {
 // ═══════════════════════════════════════════════════════════════════════
 // TAB 1 — Employment Profile (view only)
 // ═══════════════════════════════════════════════════════════════════════
-function EmploymentTab() {
+function EmploymentTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const d = MOCK_EMPLOYMENT;
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<Briefcase size={20} />} title={t('profile.tabs.employment')} subtitle={t('profile.employment.subtitle')} />
             <div className={styles.infoGrid}>
-                <InfoItem icon={<Building2 size={18} />} label={t('profile.employment.companyName')} value={d.companyName} />
-                <InfoItem icon={<CreditCard size={18} />} label={t('profile.employment.employeeId')} value={d.employeeId} />
-                <InfoItem icon={<Briefcase size={18} />} label={t('profile.employment.employmentType')} value={d.employmentType} />
-                <InfoItem icon={<Award size={18} />} label={t('profile.employment.jobLevelTitle')} value={`${d.jobLevel} – ${d.jobTitle}`} />
-                <InfoItem icon={<Award size={18} />} label={t('profile.employment.grade')} value={d.grade} />
-                <InfoItem icon={<Mail size={18} />} label={t('profile.employment.officeEmail')} value={d.officeEmail} />
-                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.officeLocation')} value={d.officeLocation} />
-                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.workLocation')} value={d.workLocation} />
-                <InfoItem icon={<Building2 size={18} />} label={t('profile.employment.department')} value={d.department} />
-                <InfoItem icon={<Calendar size={18} />} label={t('profile.employment.doj')} value={d.dateOfJoining} />
-                <InfoItem icon={<Clock size={18} />} label={t('profile.employment.serviceYear')} value={d.serviceYear} />
-                <InfoItem icon={<User size={18} />} label={t('profile.employment.reportingManager')} value={d.reportingManager} />
+                <InfoItem icon={<Building2 size={18} />} label={t('profile.employment.companyName')} value={profile.paycompany || '-'} />
+                <InfoItem icon={<CreditCard size={18} />} label={t('profile.employment.employeeId')} value={profile.eid || '-'} />
+                <InfoItem icon={<Briefcase size={18} />} label={t('profile.employment.employmentType')} value={profile.employmenttype || '-'} />
+                <InfoItem icon={<Award size={18} />} label={t('profile.employment.jobLevelTitle')} value={profile.rank || profile.role || '-'} />
+                <InfoItem icon={<Award size={18} />} label={t('profile.employment.grade')} value={profile.paylevel || '-'} />
+                <InfoItem icon={<Mail size={18} />} label={t('profile.employment.officeEmail')} value={profile.officeemail || '-'} />
+                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.officeLocation')} value={profile.officelocation || '-'} />
+                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.workLocation')} value={profile.worklocation || '-'} />
+                <InfoItem icon={<Building2 size={18} />} label={t('profile.employment.department')} value={profile.department || '-'} />
+                <InfoItem icon={<Calendar size={18} />} label={t('profile.employment.doj')} value={profile.joineddate || '-'} />
+                <InfoItem icon={<Clock size={18} />} label={t('profile.employment.serviceYear')} value={profile.serviceyearstring || '-'} />
+                <InfoItem icon={<User size={18} />} label={t('profile.employment.reportingManager')} value={profile.roname || '-'} />
             </div>
             {/* Job Description takes full width */}
             <div className={styles.fullWidthItem}>
@@ -398,7 +411,7 @@ function EmploymentTab() {
                     <div className={styles.infoIcon}><FileText size={18} /></div>
                     <div className={styles.infoContent}>
                         <div className={styles.infoLabel}>{t('profile.employment.jobDescription')}</div>
-                        <div className={styles.infoValue}>{d.jobDescription}</div>
+                        <div className={styles.infoValue}>{profile.jobdescription || '-'}</div>
                     </div>
                 </div>
             </div>
@@ -406,29 +419,42 @@ function EmploymentTab() {
     );
 }
 
+function calcAge(dob: string): string {
+    if (!dob) return '';
+    // Accepts dd/MM/yyyy or yyyy-MM-dd
+    const parts = dob.includes('/') ? dob.split('/').reverse() : dob.split('-');
+    const birth = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    if (isNaN(birth.getTime())) return '';
+    const now = new Date();
+    let years = now.getFullYear() - birth.getFullYear();
+    let months = now.getMonth() - birth.getMonth();
+    if (months < 0) { years -= 1; months += 12; }
+    if (years <= 0) return '';
+    return months > 0 ? `${years} years ${months} months` : `${years} years`;
+}
+
 function PersonalTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const d = MOCK_PERSONAL;
     const [isEditing, setIsEditing] = useState(false);
     const [draft, setDraft] = useState({
-        dob: d.dob,
-        age: d.age,
-        nrc: profile.ic || d.nrc,
-        maritalStatus: profile.maritalstatus || d.maritalStatus,
-        gender: d.gender,
-        nationality: d.nationality,
-        ethnicity: d.ethnicity,
+        dob: profile.dob || '',
+        age: calcAge(profile.dob),
+        nrc: profile.ic || '',
+        maritalStatus: profile.maritalstatus || '',
+        gender: profile.gender || '',
+        nationality: profile.nationalitytype || '',
+        ethnicity: profile.ethnicity || '',
     });
 
     const startEdit = () => {
         setDraft({
-            dob: d.dob,
-            age: d.age,
-            nrc: profile.ic || d.nrc,
-            maritalStatus: profile.maritalstatus || d.maritalStatus,
-            gender: d.gender,
-            nationality: d.nationality,
-            ethnicity: d.ethnicity,
+            dob: profile.dob || '',
+            age: calcAge(profile.dob),
+            nrc: profile.ic || '',
+            maritalStatus: profile.maritalstatus || '',
+            gender: profile.gender || '',
+            nationality: profile.nationalitytype || '',
+            ethnicity: profile.ethnicity || '',
         });
         setIsEditing(true);
     };
