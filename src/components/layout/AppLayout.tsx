@@ -339,10 +339,11 @@ export default function AppLayout() {
                     } else if (json.data?.status === false) {
                         const msg = json.data?.message || 'Your password has expired. Please change it to continue.';
                         toast.error(msg);
-                        
+
                         // Fire off password expiry email silently
                         try {
-                            fetch('https://a365.omnicloudapi.com/api/mail/sendemailfrommodule', {
+                            const mainUrl = (await import('../../config/app-config')).appConfig.mainUrl;
+                            fetch(`${mainUrl}api/mail/sendemailfrommodule`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
