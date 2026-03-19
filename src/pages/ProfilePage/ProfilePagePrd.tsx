@@ -446,18 +446,6 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
         ethnicity: profile.ethnicity || '',
     });
 
-    const startEdit = () => {
-        setDraft({
-            dob: profile.dob || '',
-            age: calcAge(profile.dob),
-            nrc: profile.ic || '',
-            maritalStatus: profile.maritalstatus || '',
-            gender: profile.gender || '',
-            nationality: profile.nationalitytype || '',
-            ethnicity: profile.ethnicity || '',
-        });
-        setIsEditing(true);
-    };
 
     const cancel = () => setIsEditing(false);
 
