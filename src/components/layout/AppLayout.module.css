@@ -200,10 +200,10 @@
 }
 
 .sidebar__avatar {
-    width: 32px;
+    width: 36px;
     height: 36px;
     border-radius: var(--radius-full);
-    background: linear-gradient(135deg, var(--color-primary-400), var(--color-primary-600));
+    background: #3b82f6;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -211,6 +211,7 @@
     font-size: var(--text-sm);
     color: white;
     flex-shrink: 0;
+    overflow: hidden;
 }
 
 .sidebar__user-info {

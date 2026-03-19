@@ -143,6 +143,7 @@ export default function AppLayout() {
     const [showDomainMenu, setShowDomainMenu] = useState(false);
     const [switchingDomainId, setSwitchingDomainId] = useState<string | null>(null);
     const [pwdExpiry, setPwdExpiry] = useState<{ message: string; daysLeft: number; isExpired: boolean } | null>(null);
+    const [sidebarImgError, setSidebarImgError] = useState(false);
 
     // Sync persisted language preference into i18next on mount
     useEffect(() => {
@@ -436,10 +437,16 @@ export default function AppLayout() {
             {/* ── Sidebar ── */}
             <aside className={`${styles.sidebar} ${sidebarOpen ? styles['sidebar--open'] : ''}`}>
                 <div className={styles.sidebar__brand}>
-                    <img src="/favicon.png" className={styles.sidebar__logo} alt="A365 Logo" />
-                    <div className={styles['sidebar__brand-text']}>
-                        <span className={styles.sidebar__title}>A365 HR</span>
-                        <span className={styles.sidebar__subtitle}>Self-Service</span>
+                    <div
+                        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, cursor: 'pointer', minWidth: 0 }}
+                        onClick={() => { setSidebarOpen(false); navigate('/dashboard'); }}
+                        title="Go to Dashboard"
+                    >
+                        <img src="/favicon.png" className={styles.sidebar__logo} alt="A365 Logo" />
+                        <div className={styles['sidebar__brand-text']}>
+                            <span className={styles.sidebar__title}>A365 HR</span>
+                            <span className={styles.sidebar__subtitle}>Self-Service</span>
+                        </div>
                     </div>
                     <button
                         className={styles.sidebar__close}
@@ -519,14 +526,27 @@ export default function AppLayout() {
                     <div className={styles.sidebar__user_meta}>
                         <div
                             className={styles.sidebar__avatar}
-                            style={{ cursor: 'pointer', backgroundImage: profile?.profile ? `url(${profile.profile})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: profile?.profile ? 'transparent' : '' }}
+                            style={{
+                                cursor: 'pointer',
+                                backgroundImage: profile?.profile && !sidebarImgError ? `url(${profile.profile})` : 'none',
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                            }}
                             onClick={() => {
                                 if (sidebarOpen) setSidebarOpen(false);
                                 navigate('/profile');
                             }}
                             title="View Profile"
                         >
-                            {!profile?.profile && userInitial}
+                            {(!profile?.profile || sidebarImgError) && userInitial}
+                            {profile?.profile && !sidebarImgError && (
+                                <img
+                                    src={profile.profile}
+                                    alt=""
+                                    style={{ display: 'none' }}
+                                    onError={() => setSidebarImgError(true)}
+                                />
+                            )}
                         </div>
 
                         <div className={styles['sidebar__user-info']}>
