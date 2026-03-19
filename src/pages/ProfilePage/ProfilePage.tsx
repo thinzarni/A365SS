@@ -113,7 +113,7 @@ export default function ProfilePage() {
         queryKey: ['employee-profile', urlUserId || user?.usersyskey],
         queryFn: async () => {
             try {
-                const endpoint = urlUserId 
+                const endpoint = urlUserId
                     ? `api/teams/employees/profile?userid=${encodeURIComponent(urlUserId)}`
                     : 'api/employees/profile';
                 const res = await mainClient.post(endpoint);
@@ -151,7 +151,7 @@ export default function ProfilePage() {
     return (
         <div className={styles.pageContainer}>
             <div className={styles.pageHeader}>
-                <h1 className={styles.pageTitle}>{t('profile', 'My Profile')}</h1>
+                <h1 className={styles.pageTitle}>{t('profile.title', 'My Profile')}</h1>
             </div>
 
             <div className={styles.profileWrapper}>
@@ -159,17 +159,17 @@ export default function ProfilePage() {
                 <div className={styles.avatarCard}>
                     <div className={styles.avatarCircle}>
                         {profile.profile ? (
-                            <img 
-                                src={profile.profile} 
-                                alt={profile.name} 
-                                className={styles.avatarImage} 
+                            <img
+                                src={profile.profile}
+                                alt={profile.name}
+                                className={styles.avatarImage}
                                 onClick={() => {
                                     if (hasHrAccess) navigate('/hrview');
                                 }}
                                 style={{ cursor: hasHrAccess ? 'pointer' : 'default' }}
                             />
                         ) : (
-                            <span 
+                            <span
                                 className={styles.avatarInitials}
                                 onClick={() => {
                                     if (hasHrAccess) navigate('/hrview');
