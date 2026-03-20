@@ -7,6 +7,7 @@ import { APP_ID } from '../../lib/auth-token';
 import { toast } from 'react-hot-toast';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
 import styles from './ForceChangePasswordPage.module.css';
+import { useAuthStore } from '../../stores/auth-store';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -15,6 +16,7 @@ export default function ForceChangePasswordPage() {
 
     const tempToken = sessionStorage.getItem('temp_iam_token') || '';
     const tempUserId = sessionStorage.getItem('temp_user_id') || '';
+    const { userId, logout } = useAuthStore();
 
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -41,7 +43,7 @@ export default function ForceChangePasswordPage() {
         setLoading(true);
         try {
             const res = await authClient.post('change-password', {
-                user_id: tempUserId,
+                user_id: tempUserId != "" ? tempUserId : userId,
                 old_password: '',
                 new_password: b64(newPassword),
                 confirm_password: b64(confirmPassword),
@@ -55,6 +57,11 @@ export default function ForceChangePasswordPage() {
                 toast.success('Password changed. Please log in again.');
                 sessionStorage.removeItem('temp_iam_token');
                 sessionStorage.removeItem('temp_user_id');
+                // Flag intentional logout for Azure AD / identity providers
+                sessionStorage.setItem('az_logout_intent', '1');
+                localStorage.removeItem('az_last_login');
+                // Clear zustand auth state completely
+                logout();
                 navigate('/login', { replace: true });
             } else {
                 toast.error(res.data?.message || 'Failed to change password.');

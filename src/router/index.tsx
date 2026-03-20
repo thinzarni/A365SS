@@ -117,6 +117,7 @@ export const router = createBrowserRouter([
                     { path: '/chat', element: <ChatPage /> },
                     { path: '/socialpost', element: <FeedPage /> },
                     { path: '/profile', element: <ActiveProfilePage /> },
+                    // { path: '/profile/:userId', element: <ActiveProfilePage /> },
                     { path: '/rulesandreg', element: <RulesAndRegulationsPage /> },
                     { path: '/rulesandreg/:id', element: <PdfListPage /> },
                     { path: '/notifications', element: <NotificationPage /> },

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,6 +12,7 @@ import {
 import { useAuthStore } from '../../stores/auth-store';
 import mainClient from '../../lib/main-client';
 import authClient from '../../lib/auth-client';
+import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
 import { Button, Input } from '../../components/ui';
@@ -27,14 +29,44 @@ interface ProfileData {
     syskey: string;
     role: string;
     rank: string;
+    ranksyskey?: string;
     dob: string;
     ic: string;
+    nrcsr?: string | null;
+    nrcregion?: string | null;
+    nrctype?: string | null;
+    nrcno?: string | null;
+    gender?: string;
     maritalstatus: string;
+    spouseworking?: string;
     joineddate: string;
     effectivedate: string;
-    paylevel: string;
+    paylevel?: string | null;
     profile?: string;
     paycompany?: string;
+    paycompanysyskey?: string;
+    jobdescription?: string;
+    officeemail?: string;
+    department?: string;
+    departmentsyskey?: string;
+    employmenttype?: string;
+    employmenttypesyskey?: string;
+    officelocation?: string | null;
+    officelocationsyskey?: string | null;
+    worklocation?: string | null;
+    worklocationsyskey?: string | null;
+    roname?: string;
+    serviceyearstring?: string;
+    serviceyearnumeric?: string;
+    nationalitytype?: string;
+    nationalitytypesyskey?: string;
+    ethnicity?: string | null;
+    ethnicitysyskey?: string;
+    isnrcinput?: boolean;
+    attendancevalidation?: boolean;
+    generateqraccess?: number;
+    employeeaccess?: number;
+    profilestatus?: number;
     domains?: string[];
     hr_access?: boolean | number;
 }
@@ -104,19 +136,7 @@ const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed'];
 const STATES = ['Yangon', 'Mandalay', 'Naypyidaw', 'Sagaing', 'Bago', 'Magway', 'Ayeyarwady', 'Shan', 'Kachin', 'Kayah', 'Kayin', 'Chin', 'Mon', 'Rakhine', 'Tanintharyi'];
 const MOD_OPTIONS = ['New', 'Correct', 'Update'];
 
-// ── Mock placeholder data ──────────────────────────────────────────────
-const MOCK_EMPLOYMENT = {
-    companyName: 'MPT Myanmar', employeeId: 'EMP-0042', employmentType: 'Full-time',
-    jobLevel: 'L3', jobTitle: 'Senior Software Engineer', grade: 'G5',
-    officeEmail: 'employee@mpt.com.mm', jobDescription: 'Responsible for developing and maintaining enterprise HR systems.',
-    officeLocation: 'Head Office – Yangon', workLocation: 'Hybrid',
-    department: 'Information Technology', dateOfJoining: '2021-06-01',
-    serviceYear: '3 years 9 months', reportingManager: 'U Kyaw Zin Oo',
-};
-const MOCK_PERSONAL = {
-    dob: '1995-04-15', age: '30 years 11 months', nrc: '12/MAKAT(N)123456',
-    maritalStatus: 'Single', gender: 'Male', nationality: 'Myanmar', ethnicity: 'Bamar',
-};
+// ── Mock placeholder data (Emergency, Experience, Qualification, Family, Contact still use mock) ──
 const MOCK_EMERGENCY: EmergencyContact[] = [
     { name: 'Daw Kyi Kyi', relationship: 'Mother', contactNumber: '09-123-456-789', address: 'No.5, Strand Road, Yangon' },
     { name: '', relationship: '', contactNumber: '', address: '' },
@@ -141,11 +161,25 @@ const MOCK_CONTACT = {
 export default function ProfilePage() {
     const { t } = useTranslation();
     const { user, domain } = useAuthStore();
+    const { userId: urlUserId } = useParams();
+
+    const { data: menuData } = useQuery({
+        queryKey: ['menu-items'],
+        queryFn: async () => {
+            const res = await apiClient.get('hxm/integration/get/menuitems');
+            return res.data?.datalist || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const hasHrAccess = (menuData || []).some((m: any) => m.router === '/hrview' || m.router === '/employee');
     const [activeTab, setActiveTab] = useState<TabId>('employment');
     const TABS = getTabs(t);
+    const isOwnProfile = !urlUserId || urlUserId === user?.userid;
 
     // Change password state
     const [showChangePwd, setShowChangePwd] = useState(false);
+    const [imgError, setImgError] = useState(false);
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -189,10 +223,13 @@ export default function ProfilePage() {
     };
 
     const { data: profile, isLoading, error } = useQuery<ProfileData | null>({
-        queryKey: ['employee-profile', user?.usersyskey],
+        queryKey: ['employee-profile', urlUserId || user?.usersyskey],
         queryFn: async () => {
             try {
-                const res = await mainClient.post('api/employees/profile');
+                const endpoint = urlUserId
+                    ? `api/teams/employees/profile?userid=${encodeURIComponent(urlUserId)}`
+                    : 'api/employees/profile';
+                const res = await mainClient.post(endpoint);
                 return res.data?.data ?? res.data ?? null;
             } catch (err) { console.error('Failed to fetch profile', err); return null; }
         },
@@ -233,8 +270,13 @@ export default function ProfilePage() {
                     {/* Avatar */}
                     <div className={styles.avatarCard}>
                         <div className={styles.avatarCircle}>
-                            {profile.profile
-                                ? <img src={profile.profile} alt={profile.name} className={styles.avatarImage} />
+                            {profile.profile && !imgError
+                                ? <img
+                                    src={profile.profile}
+                                    alt={profile.name}
+                                    className={styles.avatarImage}
+                                    onError={() => setImgError(true)}
+                                />
                                 : <span className={styles.avatarInitials}>{initials}</span>
                             }
                         </div>
@@ -252,12 +294,16 @@ export default function ProfilePage() {
                                 </div>
                             )}
                         </div>
-                        <div className={styles.settingsPanel}>
-                            <p className={styles.settingsPanelTitle}>{t('profile.settings')}</p>
-                            <button id="change-password-btn" className={styles.settingsItem} onClick={() => setShowChangePwd(true)}>
-                                <KeyRound size={16} /><span>{t('profile.changePassword')}</span>
-                            </button>
-                        </div>
+                        {(isOwnProfile || hasHrAccess) && (
+                            <div className={styles.settingsPanel}>
+                                <p className={styles.settingsPanelTitle}>{t('profile.settings')}</p>
+                                {isOwnProfile && (
+                                    <button id="change-password-btn" className={styles.settingsItem} onClick={() => setShowChangePwd(true)}>
+                                        <KeyRound size={16} /><span>{t('profile.changePassword')}</span>
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Tab Navigation */}
@@ -280,10 +326,14 @@ export default function ProfilePage() {
                     </nav>
                 </div>
 
-            <div className={styles.tabContent}>
-                {activeTab === 'employment' && <EmploymentTab />}
-                {activeTab === 'personal' && <PersonalTab profile={profile} isHR={profile?.hr_access === true || profile?.hr_access === 1} />}
-                {activeTab === 'emergency' && <EmergencyContactTab />}
+                <div className={styles.tabContent}>
+                    {activeTab === 'employment' && <EmploymentTab profile={profile} />}
+                    {activeTab === 'personal' && (
+                        <PersonalTab
+                            profile={profile}
+                        />
+                    )}
+                    {activeTab === 'emergency' && <EmergencyContactTab />}
                     {activeTab === 'experience' && <WorkExperienceTab />}
                     {activeTab === 'qualification' && <QualificationTab />}
                     {activeTab === 'family' && <FamilyInfoTab />}
@@ -336,25 +386,24 @@ export default function ProfilePage() {
 // ═══════════════════════════════════════════════════════════════════════
 // TAB 1 — Employment Profile (view only)
 // ═══════════════════════════════════════════════════════════════════════
-function EmploymentTab() {
+function EmploymentTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const d = MOCK_EMPLOYMENT;
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<Briefcase size={20} />} title={t('profile.tabs.employment')} subtitle={t('profile.employment.subtitle')} />
             <div className={styles.infoGrid}>
-                <InfoItem icon={<Building2 size={18} />} label={t('profile.employment.companyName')} value={d.companyName} />
-                <InfoItem icon={<CreditCard size={18} />} label={t('profile.employment.employeeId')} value={d.employeeId} />
-                <InfoItem icon={<Briefcase size={18} />} label={t('profile.employment.employmentType')} value={d.employmentType} />
-                <InfoItem icon={<Award size={18} />} label={t('profile.employment.jobLevelTitle')} value={`${d.jobLevel} – ${d.jobTitle}`} />
-                <InfoItem icon={<Award size={18} />} label={t('profile.employment.grade')} value={d.grade} />
-                <InfoItem icon={<Mail size={18} />} label={t('profile.employment.officeEmail')} value={d.officeEmail} />
-                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.officeLocation')} value={d.officeLocation} />
-                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.workLocation')} value={d.workLocation} />
-                <InfoItem icon={<Building2 size={18} />} label={t('profile.employment.department')} value={d.department} />
-                <InfoItem icon={<Calendar size={18} />} label={t('profile.employment.doj')} value={d.dateOfJoining} />
-                <InfoItem icon={<Clock size={18} />} label={t('profile.employment.serviceYear')} value={d.serviceYear} />
-                <InfoItem icon={<User size={18} />} label={t('profile.employment.reportingManager')} value={d.reportingManager} />
+                <InfoItem icon={<Building2 size={18} />} label={t('profile.employment.companyName')} value={profile.paycompany || '-'} />
+                <InfoItem icon={<CreditCard size={18} />} label={t('profile.employment.employeeId')} value={profile.eid || '-'} />
+                <InfoItem icon={<Briefcase size={18} />} label={t('profile.employment.employmentType')} value={profile.employmenttype || '-'} />
+                <InfoItem icon={<Award size={18} />} label={t('profile.employment.jobLevelTitle')} value={profile.rank || profile.role || '-'} />
+                <InfoItem icon={<Award size={18} />} label={t('profile.employment.grade')} value={profile.paylevel || '-'} />
+                <InfoItem icon={<Mail size={18} />} label={t('profile.employment.officeEmail')} value={profile.officeemail || '-'} />
+                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.officeLocation')} value={profile.officelocation || '-'} />
+                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.workLocation')} value={profile.worklocation || '-'} />
+                <InfoItem icon={<Building2 size={18} />} label={t('profile.employment.department')} value={profile.department || '-'} />
+                <InfoItem icon={<Calendar size={18} />} label={t('profile.employment.doj')} value={profile.joineddate || '-'} />
+                <InfoItem icon={<Clock size={18} />} label={t('profile.employment.serviceYear')} value={profile.serviceyearstring || '-'} />
+                <InfoItem icon={<User size={18} />} label={t('profile.employment.reportingManager')} value={profile.roname || '-'} />
             </div>
             {/* Job Description takes full width */}
             <div className={styles.fullWidthItem}>
@@ -362,7 +411,7 @@ function EmploymentTab() {
                     <div className={styles.infoIcon}><FileText size={18} /></div>
                     <div className={styles.infoContent}>
                         <div className={styles.infoLabel}>{t('profile.employment.jobDescription')}</div>
-                        <div className={styles.infoValue}>{d.jobDescription}</div>
+                        <div className={styles.infoValue}>{profile.jobdescription || '-'}</div>
                     </div>
                 </div>
             </div>
@@ -370,32 +419,33 @@ function EmploymentTab() {
     );
 }
 
-function PersonalTab({ profile, isHR }: { profile: ProfileData, isHR: boolean }) {
+function calcAge(dob: string): string {
+    if (!dob) return '';
+    // Accepts dd/MM/yyyy or yyyy-MM-dd
+    const parts = dob.includes('/') ? dob.split('/').reverse() : dob.split('-');
+    const birth = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    if (isNaN(birth.getTime())) return '';
+    const now = new Date();
+    let years = now.getFullYear() - birth.getFullYear();
+    let months = now.getMonth() - birth.getMonth();
+    if (months < 0) { years -= 1; months += 12; }
+    if (years <= 0) return '';
+    return months > 0 ? `${years} years ${months} months` : `${years} years`;
+}
+
+function PersonalTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const d = MOCK_PERSONAL;
     const [isEditing, setIsEditing] = useState(false);
     const [draft, setDraft] = useState({
-        dob: d.dob,
-        age: d.age,
-        nrc: profile.ic || d.nrc,
-        maritalStatus: profile.maritalstatus || d.maritalStatus,
-        gender: d.gender,
-        nationality: d.nationality,
-        ethnicity: d.ethnicity,
+        dob: profile.dob || '',
+        age: calcAge(profile.dob),
+        nrc: profile.ic || '',
+        maritalStatus: profile.maritalstatus || '',
+        gender: profile.gender || '',
+        nationality: profile.nationalitytype || '',
+        ethnicity: profile.ethnicity || '',
     });
 
-    const startEdit = () => {
-        setDraft({
-            dob: d.dob,
-            age: d.age,
-            nrc: profile.ic || d.nrc,
-            maritalStatus: profile.maritalstatus || d.maritalStatus,
-            gender: d.gender,
-            nationality: d.nationality,
-            ethnicity: d.ethnicity,
-        });
-        setIsEditing(true);
-    };
 
     const cancel = () => setIsEditing(false);
 
@@ -410,15 +460,14 @@ function PersonalTab({ profile, isHR }: { profile: ProfileData, isHR: boolean })
 
     return (
         <div className={styles.sectionCard}>
-            <SectionHeader 
-                icon={<User size={20} />} 
-                title={t('profile.tabs.personal')} 
-                subtitle={isHR ? t('profile.personal.hrSubtitle') : t('profile.personal.viewSubtitle')}
-                action={isHR && !isEditing ? <button className={styles.editOutlineBtn} onClick={startEdit}><Edit3 size={14} /> {t('profile.personal.editHint')}</button> : undefined}
+            <SectionHeader
+                icon={<User size={20} />}
+                title={t('profile.tabs.personal')}
+                subtitle={t('profile.personal.viewSubtitle')}
             />
 
             {isEditing ? (
-                 <div className={styles.inlineForm} style={{ padding: '0 24px 24px' }}>
+                <div className={styles.inlineForm} style={{ padding: '0 24px 24px' }}>
                     <div className={styles.formGrid2}>
                         <FormRow label={t('profile.personal.dob')}>
                             <input className={styles.formInput} type="date" value={draft.dob} onChange={handleDraftChange('dob')} />
@@ -462,7 +511,7 @@ function PersonalTab({ profile, isHR }: { profile: ProfileData, isHR: boolean })
                         <button className={styles.btnGhost} onClick={cancel}>{t('common.cancel')}</button>
                         <button className={styles.btnPrimary} onClick={save}><Save size={14} /> {t('request.save')}</button>
                     </div>
-                 </div>
+                </div>
             ) : (
                 <>
                     <div className={styles.infoGrid}>
@@ -474,12 +523,10 @@ function PersonalTab({ profile, isHR }: { profile: ProfileData, isHR: boolean })
                         <InfoItem icon={<Award size={18} />} label={t('profile.personal.nationality')} value={t(`profile.options.nationalities.${draft.nationality}` as any, draft.nationality)} />
                         <InfoItem icon={<Award size={18} />} label={t('profile.personal.ethnicity')} value={t(`profile.options.ethnicities.${draft.ethnicity}` as any, draft.ethnicity)} />
                     </div>
-                    {!isHR && (
-                        <div className={styles.infoNotice}>
-                            <AlertCircle size={14} />
-                            <span>{t('profile.personal.noticeHR')}</span>
-                        </div>
-                    )}
+                    <div className={styles.infoNotice}>
+                        <AlertCircle size={14} />
+                        <span>{t('profile.personal.noticeHR')}</span>
+                    </div>
                 </>
             )}
         </div>
