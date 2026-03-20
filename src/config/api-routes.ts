@@ -64,6 +64,12 @@ export const RULES_AND_REGULATIONS_LIST = 'hxm/rulesandregulations/getall';
 export const RULES_AND_REGULATIONS_DETAIL = 'hxm/rulesandregulations';
 export const PHOTO_UPLOAD = 'hxm/integration/photoupload';
 
+// ── Separation Authorize (uses base backend) ──
+export const SEPARATION_LEAVE_LIST = 'api/separation/leave-authorize/list';
+export const SEPARATION_LEAVE_STATUS = 'api/separation/leave-authorize/status';
+export const SEPARATION_ATTENDANCE_LIST = 'api/separation/attendance-authorize/list';
+export const SEPARATION_ATTENDANCE_STATUS = 'api/separation/attendance-authorize/status';
+
 // ── Organization Structure ──
 export const ORG_UNITS = 'hxm/org/units';
 export const ORG_HIERARCHY = 'hxm/org/hierarchy';

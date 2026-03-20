@@ -58,6 +58,8 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     // Leave
     '/leave': TreePalm,
     '/leave-summary': Palmtree,
+    '/separation-leave-authorize': UserCheck,
+    '/separation-attendance-authorize': UserCheck,
     '/holiday': CalendarDays,
     '/holidays': CalendarDays,
     // Finance
@@ -98,6 +100,8 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/locationapproval': 'nav.locationApproval',
     '/leave': 'nav.leave',
     '/leave-summary': 'nav.leaveSummary',
+    '/separation-leave-authorize': 'nav.separationLeaveAuthorize',
+    '/separation-attendance-authorize': 'nav.separationAttendanceAuthorize',
     '/holiday': 'nav.holidays',
     '/holidays': 'nav.holidays',
     '/claim': 'nav.claims',
@@ -267,6 +271,28 @@ export default function AppLayout() {
                     router: '/chat',
                 });
             }
+        }
+
+        // Add extra Separation Leave Authorize tab
+        if (!items.some(i => i.router === '/separation-leave-authorize')) {
+            items.push({
+                syskey: 'separation_leave_extra',
+                name: 'Separation Leave Authorize',
+                namemm: 'နှုတ်ထွက်ခွင့် ပြုချက်',
+                icon: '',
+                router: '/separation-leave-authorize',
+            });
+        }
+
+        // Add extra Separation Attendance Authorize tab
+        if (!items.some(i => i.router === '/separation-attendance-authorize')) {
+            items.push({
+                syskey: 'separation_attendance_extra',
+                name: 'Separation Attendance Authorize',
+                namemm: 'နှုတ်ထွက် အလုပ်တက်ရောက်မှု ပြုချက်',
+                icon: '',
+                router: '/separation-attendance-authorize',
+            });
         }
 
         return items;

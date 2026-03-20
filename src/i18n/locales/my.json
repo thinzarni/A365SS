@@ -43,6 +43,8 @@
         "visionAi": "Vision AI",
         "customAi": "Kaizentic AI",
         "objectDetection": "အရာဝတ္ထု ရှာဖွေခြင်း",
+        "separationLeaveAuthorize": "နှုတ်ထွက်ခွင့် ပြုချက်",
+        "separationAttendanceAuthorize": "နှုတ်ထွက် အလုပ်တက်ရောက်မှု ပြုချက်",
         "employeeHandbook": "ဝန်ထမ်းလက်စွဲ"
     },
     "request": {
