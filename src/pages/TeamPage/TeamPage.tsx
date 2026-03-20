@@ -35,6 +35,7 @@ import type { TeamMember, Team, TeamPageModel } from '../../types/models';
 import { checkTeamAccess } from './team-utils';
 import styles from './TeamPage.module.css';
 import '../../styles/pages.css';
+import { flavor } from '../../config/features';
 
 /* ── Helpers ── */
 
@@ -169,10 +170,11 @@ export default function TeamPage() {
     });
 
     // ── Menu Items Query (to check for HR access via /hrview) ──
+    const hxmPrefix = flavor === 'prd' ? 'hxm/api/' : 'hxm/';
     const { data: menuData } = useQuery({
         queryKey: ['menu-items'],
         queryFn: async () => {
-            const res = await apiClient.get('hxm/api/integration/get/menuitems');
+            const res = await apiClient.get(`${hxmPrefix}integration/get/menuitems`);
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,
