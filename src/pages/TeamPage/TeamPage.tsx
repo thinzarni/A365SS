@@ -172,7 +172,7 @@ export default function TeamPage() {
     const { data: menuData } = useQuery({
         queryKey: ['menu-items'],
         queryFn: async () => {
-            const res = await apiClient.get('hxm/integration/get/menuitems');
+            const res = await apiClient.get('hxm/api/integration/get/menuitems');
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,

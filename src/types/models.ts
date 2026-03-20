@@ -179,6 +179,9 @@ export interface RequestDetailModel {
   days: string;
   ottype: number;
   selectedAcconpanyPersons: Approver[];
+  remaining_balance?: string;
+  max_amount?: string;
+  confirmed_amount?: string;
 }
 
 export interface RequestDetail {
@@ -232,6 +235,8 @@ export interface TypesModel {
   description: string;
   code?: string;
   maxpeople?: number;
+  remaining_balance?: string;
+  max_amount?: string;
 }
 
 export interface LeaveType {

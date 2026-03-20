@@ -39,6 +39,7 @@ import { APP_ID } from '../../lib/auth-token';
 import { useNotificationStore } from '../../stores/notification-store';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
+import { flavor } from '../../config/features';
 
 // ── Router → Lucide icon mapping — keyed by actual API router values ──
 // The label always comes from the API name field, so only the icon is needed here.
@@ -186,7 +187,8 @@ export default function AppLayout() {
         queryFn: async () => {
             if (!token) return null;
             try {
-                const res = await apiClient.get('hxm/integration/get/menuitems');
+                const hxmPrefix = flavor === 'prd' ? 'hxm/api/' : 'hxm/';
+                const res = await apiClient.get(`${hxmPrefix}integration/get/menuitems`);
                 const data = res.data;
                 if (data?.statuscode === 200 || data?.statuscode === 300) {
                     return {
@@ -338,7 +340,7 @@ export default function AppLayout() {
                     } else if (json.data?.status === false) {
                         const msg = json.data?.message || 'Your password has expired. Please change it to continue.';
                         toast.error(msg);
-                        
+
                         // Fire off password expiry email silently
                         try {
                             fetch('https://a365.omnicloudapi.com/api/mail/sendemailfrommodule', {

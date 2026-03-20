@@ -9,7 +9,7 @@ import { Button } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import type { ClaimModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
-import { CLAIM_DETAIL, DELETE_CLAIM, CURRENCY_TYPES } from '../../config/api-routes';
+import { CLAIM_DETAIL, DELETE_CLAIM, CURRENCY_TYPES, CLAIM_TYPES } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import styles from './ClaimsPage.module.css';
@@ -48,6 +48,21 @@ export default function ClaimDetailPage() {
             return res.data?.datalist || [];
         },
     });
+
+    const { data: claimTypeList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['claimTypeList'],
+        queryFn: async () => {
+            const res = await apiClient.get(CLAIM_TYPES);
+            return res.data?.datalist || [];
+        },
+        enabled: !!claim,
+    });
+
+    // Derive remaining_balance from the matched claim type
+    const matchedClaimType = claimTypeList.find(
+        (ct) => ct.syskey === (claim as any)?.claimtypesyskey || ct.description === claim?.claimtype
+    );
+    const remainingBalance = matchedClaimType?.remaining_balance ?? null;
 
     // Resolve syskey → human-readable currency name
     const currencyName = currencyList.find(c => c.syskey === claim?.currencytype)?.description
@@ -136,6 +151,28 @@ export default function ClaimDetailPage() {
                     <div className={styles['claim-detail__grid']}>
                         <Field label="Date" value={claim.date} />
                         <Field label="Claim Type" value={claim.claimtype || claim.requesttype} />
+                        {/* Remaining Balance — shown when the claim type list returns the field */}
+                        {remainingBalance != null && (() => {
+                            const bal = parseFloat(remainingBalance);
+                            return (
+                                <div className={styles['claim-detail__field']}>
+                                    <span className={styles['claim-detail__field-label']}>Remaining Balance</span>
+                                    <span style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        padding: '3px 10px',
+                                        borderRadius: '9999px',
+                                        fontSize: 'var(--text-sm)',
+                                        fontWeight: 600,
+                                        background: bal > 0 ? '#f0fdf4' : '#fef2f2',
+                                        color: bal > 0 ? '#16a34a' : '#dc2626',
+                                        border: `1px solid ${bal > 0 ? '#bbf7d0' : '#fecaca'}`,
+                                    }}>
+                                        {bal.toLocaleString()}
+                                    </span>
+                                </div>
+                            );
+                        })()}
                         <Field label="From" value={claim.fromPlace} />
                         <Field label="To" value={claim.toPlace} />
                         <Field label="Approved By" value={claim.approvedby} />
