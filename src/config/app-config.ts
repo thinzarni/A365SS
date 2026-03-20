@@ -50,10 +50,10 @@ const configs: Record<string, AppConfig> = {
         environment: 'staging',
     },
     prod: {
-        baseUrl: import.meta.env.VITE_BASE_URL || 'https://apx002.omnicloudapi.com/',
+        baseUrl: import.meta.env.VITE_BASE_URL || 'https://mpt.mitcloud.com/',
         authUrl: import.meta.env.VITE_AUTH_URL || PRD_IAM_URL + '/api/auth/',
         iamUrl: import.meta.env.VITE_IAM_URL || PRD_IAM_URL,
-        mainUrl: import.meta.env.VITE_MAIN_URL || 'https://a365.omnicloudapi.com/',
+        mainUrl: import.meta.env.VITE_MAIN_URL || 'https://mpt.mitcloud.com/',
         chatUrl: import.meta.env.VITE_CHAT_URL || PRD_IAM_URL + '/api/',
         wsUrl: import.meta.env.VITE_WS_URL || PRD_IAM_URL + '/api',
         appName: 'A365 HR',

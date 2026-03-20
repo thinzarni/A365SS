@@ -91,6 +91,7 @@ export default function ApprovalDetailPage() {
     const queryClient = useQueryClient();
 
     const [comment, setComment] = useState('');
+    const [confirmedAmount, setConfirmedAmount] = useState('');
 
     // Data fetching setup
     const { data: detail, isLoading } = useQuery<ApprovalDetailModel>({
@@ -169,6 +170,7 @@ export default function ApprovalDetailPage() {
                 syskey: syskey,
                 status: statusCode,
                 comment,
+                confirmed_amount: confirmedAmount,
                 selectedApprovers: [],
             };
             const res = await apiClient.post(SAVE_APPROVAL, payload);
@@ -303,10 +305,10 @@ export default function ApprovalDetailPage() {
                         <h4 className={styles['approval-detail__section-title']}>Date & Time</h4>
                         <div className={styles['approval-detail__grid']}>
                             <Field label="Start Date" value={displayDate(d.startdate || d.date || d.selectday)} />
-                            <Field label="End Date" value={displayDate(d.enddate)} />
-                            <Field label="Start Time" value={String(d.starttime || d.time || '')} />
-                            <Field label="End Time" value={String(d.endtime || '')} />
-                            <Field label="Duration" value={String(d.duration || '')} />
+                            {!requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
+                            {!requestTypeString.includes('claim') && <Field label="Start Time" value={String(d.starttime || d.time || '')} />}
+                            {!requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
+                            {!requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
                         </div>
                     </div>
 
@@ -397,13 +399,19 @@ export default function ApprovalDetailPage() {
                     {(requestTypeString.includes('claim') || requestTypeString.includes('advance')) && (d.amount || d.currencytype) && (
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>Claim / Advance</h4>
-                            <div className={styles['approval-detail__grid']}>
+                            {/* Claim Type - full row */}
+                            <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr' }}>
                                 <Field label="Claim Type" value={String(resolvedSubtype || '')} />
-                                <Field label="Amount" value={d.amount ? String(d.amount) : undefined} />
+                            </div>
+                            {/* Amount | Currency */}
+                            <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr 1fr', marginTop: 12 }}>
+                                <Field label="Amount" value={d.amount != null ? Number(d.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : undefined} />
                                 <Field label="Currency" value={currencyName} />
-                                <Field label="From Place" value={String(d.fromplace || '')} />
-                                <Field label="To Place" value={String(d.toplace || '')} />
-                                <Field label="Travel Ref No" value={String(d.travelRefNo || '')} />
+                            </div>
+                            {/* Remaining Balance | Max Amount */}
+                            <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr 1fr', marginTop: 12 }}>
+                                <Field label="Remaining Balance" value={d.remaining_balance ? String(d.remaining_balance) : undefined} />
+                                <Field label="Max Amount" value={d.max_amount ? String(d.max_amount) : undefined} />
                             </div>
                         </div>
                     )}
@@ -553,8 +561,45 @@ export default function ApprovalDetailPage() {
                 {/* ── Action Bar ── */}
                 {showActionBar && (
                     <div className={styles['approval-detail__actions']}>
-                        {(isPending || isApproved) && (
+                        {(isPending || isApproved) && requestTypeString.includes('claim') && (
                             <div className={styles['approval-detail__comment-box']}>
+                                <div style={{ marginBottom: 12 }}>
+                                    <label
+                                        htmlFor="confirmedAmount"
+                                        style={{
+                                            display: 'block',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: 'var(--color-neutral-700)',
+                                            marginBottom: 6,
+                                        }}
+                                    >
+                                        Confirmed Amount
+                                    </label>
+                                    <input
+                                        id="confirmedAmount"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={confirmedAmount}
+                                        onChange={(e) => setConfirmedAmount(e.target.value)}
+                                        placeholder="Enter confirmed amount…"
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 12px',
+                                            fontSize: '14px',
+                                            border: '1.5px solid var(--color-neutral-200)',
+                                            borderRadius: 8,
+                                            outline: 'none',
+                                            color: 'var(--color-neutral-900)',
+                                            background: 'var(--color-neutral-0, #fff)',
+                                            boxSizing: 'border-box',
+                                            transition: 'border-color 0.2s',
+                                        }}
+                                        onFocus={(e) => (e.target.style.borderColor = 'var(--color-primary-500)')}
+                                        onBlur={(e) => (e.target.style.borderColor = 'var(--color-neutral-200)')}
+                                    />
+                                </div>
                                 <Textarea
                                     id="approvalComment"
                                     label={t('approval.comment')}
