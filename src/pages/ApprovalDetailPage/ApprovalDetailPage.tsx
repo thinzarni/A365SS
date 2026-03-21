@@ -396,25 +396,30 @@ export default function ApprovalDetailPage() {
                     )}
 
                     {/* Claim / Cash Advance fields */}
-                    {(requestTypeString.includes('claim') || requestTypeString.includes('advance')) && (d.amount || d.currencytype) && (
-                        <div className={styles['approval-detail__section']}>
-                            <h4 className={styles['approval-detail__section-title']}>Claim / Advance</h4>
-                            {/* Claim Type - full row */}
-                            <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr' }}>
-                                <Field label="Claim Type" value={String(resolvedSubtype || '')} />
+                    {(requestTypeString.includes('claim') || requestTypeString.includes('advance')) && (d.amount || d.currencytype) && (() => {
+                        const hasMaxAmount = d.max_amount && Number(d.max_amount) !== 0;
+                        return (
+                            <div className={styles['approval-detail__section']}>
+                                <h4 className={styles['approval-detail__section-title']}>Claim / Advance</h4>
+                                {/* Claim Type - full row */}
+                                <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr' }}>
+                                    <Field label="Claim Type" value={String(resolvedSubtype || '')} />
+                                </div>
+                                {/* Amount | Currency */}
+                                <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr 1fr', marginTop: 12 }}>
+                                    <Field label="Amount" value={d.amount != null ? Number(d.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : undefined} />
+                                    <Field label="Currency" value={currencyName} />
+                                </div>
+                                {/* Remaining Balance | Max Amount — only when max_amount is set */}
+                                {hasMaxAmount && (
+                                    <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr 1fr', marginTop: 12 }}>
+                                        <Field label="Remaining Balance" value={d.remaining_balance ? String(d.remaining_balance) : undefined} />
+                                        <Field label="Max Amount" value={String(d.max_amount)} />
+                                    </div>
+                                )}
                             </div>
-                            {/* Amount | Currency */}
-                            <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr 1fr', marginTop: 12 }}>
-                                <Field label="Amount" value={d.amount != null ? Number(d.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : undefined} />
-                                <Field label="Currency" value={currencyName} />
-                            </div>
-                            {/* Remaining Balance | Max Amount */}
-                            <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr 1fr', marginTop: 12 }}>
-                                <Field label="Remaining Balance" value={d.remaining_balance ? String(d.remaining_balance) : undefined} />
-                                <Field label="Max Amount" value={d.max_amount ? String(d.max_amount) : undefined} />
-                            </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {/* Reservation */}
                     {(d.rooms || d.roomsdesc) && (
@@ -561,7 +566,7 @@ export default function ApprovalDetailPage() {
                 {/* ── Action Bar ── */}
                 {showActionBar && (
                     <div className={styles['approval-detail__actions']}>
-                        {(isPending || isApproved) && requestTypeString.includes('claim') && (
+                        {(isPending || isApproved) && requestTypeString.includes('claim') && d.max_amount && Number(d.max_amount) !== 0 && (
                             <div className={styles['approval-detail__comment-box']}>
                                 <div style={{ marginBottom: 12 }}>
                                     <label
