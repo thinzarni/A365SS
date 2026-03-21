@@ -260,7 +260,7 @@ export default function RequestListPage() {
                                                         return `${req.duration} day(s)`;
                                                     }
                                                     if (req.amount) {
-                                                        return `${Number(req.amount).toLocaleString()}`;
+                                                        return `${Number(req.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
                                                     }
                                                     return '—';
                                                 })()}

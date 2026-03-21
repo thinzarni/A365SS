@@ -66,14 +66,17 @@ export default function RequestDetailPage() {
         queryKey: ['requestDetail', id],
         queryFn: async () => {
             const res = await apiClient.post(GET_REQUEST_DETAIL, { syskey: id });
-            const parseList = (key: string): Approver[] =>
-                (res.data?.[key] as Approver[] | undefined) || [];
+            const detailData = res.data?.datalist || {};
+            const parseList = (rootKey: string, detailKey: string): Approver[] =>
+                (res.data?.[rootKey] as Approver[] | undefined) ||
+                (detailData?.[detailKey] as Approver[] | undefined) || [];
+                
             return {
-                detail: res.data?.datalist || {},
-                approverList: parseList('approverList'),
-                memberList: parseList('memberList'),
-                accompanyPersonList: parseList('accompanyPersonList'),
-                selectedHandovers: parseList('selectedHandovers'),
+                detail: detailData,
+                approverList: parseList('approverList', 'selectedApprovers'),
+                memberList: parseList('memberList', 'selectedMembers'),
+                accompanyPersonList: parseList('accompanyPersonList', 'selectedAcconpanyPersons'),
+                selectedHandovers: parseList('selectedHandovers', 'selectedHandovers'),
             };
         },
         enabled: !!id,
@@ -271,11 +274,13 @@ export default function RequestDetailPage() {
                     )}
 
                     {/* Financial */}
-                    {(detail.amount > 0 || detail.estimatedbudget > 0) && (
+                    {(detail.amount > 0 || detail.estimatedbudget > 0 || detail.remaining_balance || detail.max_amount) && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Financial</h4>
                             <div className={styles['request-detail__grid']}>
-                                {detail.amount > 0 && <Field label="Amount" value={String(detail.amount)} />}
+                                {detail.remaining_balance && <Field label="Remaining Balance" value={detail.remaining_balance} />}
+                                {detail.max_amount && <Field label="Max Amount" value={detail.max_amount} />}
+                                {detail.amount > 0 && <Field label="Amount" value={Number(detail.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />}
                                 {currencyName && <Field label="Currency" value={currencyName} />}
                             </div>
                         </div>
@@ -310,29 +315,82 @@ export default function RequestDetailPage() {
                         </div>
                     )}
 
-                    {/* Remarks */}
-                    {(detail.remark || detail.comment) && (
+                    {/* Requester Remark */}
+                    {detail.remark && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Remarks</h4>
                             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-neutral-700)', lineHeight: 'var(--leading-relaxed)' }}>
-                                {detail.remark || detail.comment}
+                                {detail.remark}
                             </p>
                         </div>
                     )}
 
-                    {/* Approvers */}
+                    {/* Confirmed Amount */}
+                    {(String(detail.requeststatus) === RequestStatus.Approved || String(detail.requeststatus) === RequestStatus.Rejected) && detail.confirmed_amount && (
+                        <div className={styles['request-detail__section']}>
+                            <h4 className={styles['request-detail__section-title']}>Confirmed Amount</h4>
+                            <div className={styles['request-detail__grid']}>
+                                <Field label="Amount" value={detail.confirmed_amount} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Approved By */}
                     {approverList.length > 0 && (
                         <div className={styles['request-detail__section']}>
-                            <h4 className={styles['request-detail__section-title']}>Approvers</h4>
-                            <div className={styles['request-detail__approver-list']}>
-                                {approverList.map((a) => (
-                                    <span key={a.syskey} className={styles['request-detail__approver-chip']}>
-                                        <span className={styles['request-detail__approver-avatar']}>
+                            <h4 className={styles['request-detail__section-title']}>Approved By</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {approverList.map((a, idx) => (
+                                    <div
+                                        key={a.syskey}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 12,
+                                            padding: '10px 14px',
+                                            borderRadius: 10,
+                                            background: 'var(--color-neutral-50, #f8fafc)',
+                                            border: '1px solid var(--color-neutral-100, #f1f5f9)',
+                                        }}
+                                    >
+                                        <span style={{
+                                            minWidth: 28,
+                                            height: 28,
+                                            borderRadius: '50%',
+                                            background: 'var(--color-primary-100, #dbeafe)',
+                                            color: 'var(--color-primary-700, #1d4ed8)',
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0,
+                                        }}>
+                                            {idx + 1}
+                                        </span>
+                                        <span className={styles['request-detail__approver-avatar']} style={{ flexShrink: 0 }}>
                                             {a.name?.charAt(0).toUpperCase() || '?'}
                                         </span>
-                                        {a.name}
-                                    </span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-neutral-900)' }}>
+                                                {a.name}
+                                            </span>
+                                            <span style={{ fontSize: 12, color: 'var(--color-neutral-400)' }}>
+                                                Approver {idx + 1}
+                                            </span>
+                                        </div>
+                                    </div>
                                 ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Approver Comment */}
+                    {(String(detail.requeststatus) === RequestStatus.Approved || String(detail.requeststatus) === RequestStatus.Rejected) && detail.comment && (
+                        <div className={styles['request-detail__section']}>
+                            <h4 className={styles['request-detail__section-title']}>Approver Comment</h4>
+                            <div className={styles['request-detail__grid']}>
+                                <Field label="Comment" value={detail.comment} />
                             </div>
                         </div>
                     )}

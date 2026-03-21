@@ -22,6 +22,7 @@ export default function NewClaimPage() {
 
     const [claimType, setClaimType] = useState('');
     const [claimTypeDesc, setClaimTypeDesc] = useState('');
+    const [remainingBalance, setRemainingBalance] = useState('');
     const [amount, setAmount] = useState('');
     const [currency, setCurrency] = useState('');
     const [fromPlace, setFromPlace] = useState('');
@@ -64,7 +65,14 @@ export default function NewClaimPage() {
             // addIfNotEmpty fields — only add if non-empty
             payload.requesttype = 'claim';
             payload.requeststatus = '1';
-            if (claimType) payload.claimtype = claimType;
+            if (claimType) {
+                payload.claimtype = claimType;
+                const sel = claimTypes.find(ct => ct.syskey === claimType);
+                if (sel) {
+                    payload.remaining_balance = sel.remaining_balance || '';
+                    payload.max_amount = sel.max_amount || '';
+                }
+            }
             if (currency) payload.currencytype = currency;
             if (apiDate) payload.date = apiDate;
 
@@ -129,7 +137,7 @@ export default function NewClaimPage() {
                 </div>
 
                 <div className={styles['new-claim__body']}>
-                    {/* Row 1: Claim Type + Currency */}
+                    {/* Row 1: Claim Type | Remaining Balance */}
                     <div className={styles['new-claim__grid']}>
                         <Select
                             id="claimType"
@@ -139,7 +147,7 @@ export default function NewClaimPage() {
                                 setClaimType(e.target.value);
                                 const selected = claimTypes.find(ct => ct.syskey === e.target.value);
                                 setClaimTypeDesc(selected?.description || '');
-                                // Reset from/to when switching away from taxi types
+                                setRemainingBalance(selected?.remaining_balance ?? '');
                                 setFromPlace('');
                                 setToPlace('');
                             }}
@@ -147,17 +155,30 @@ export default function NewClaimPage() {
                             placeholder="Select claim type"
                             options={claimTypes.map((ct) => ({ value: ct.syskey, label: ct.description }))}
                         />
-                        <Select
-                            id="currency"
-                            label={t('claim.currency')}
-                            value={currency}
-                            onChange={(e) => setCurrency(e.target.value)}
-                            placeholder="Select currency"
-                            options={currencies.map((c) => ({ value: c.syskey, label: c.description }))}
+                        {/* Remaining Balance — beside Claim Type, auto-bound on selection */}
+                        <Input
+                            id="remainingBalance"
+                            label="Remaining Balance"
+                            value={remainingBalance
+                                ? parseFloat(remainingBalance).toLocaleString()
+                                : '—'}
+                            readOnly
+                            disabled
                         />
                     </div>
 
-                    {/* Row 2: Amount + Date */}
+                    {/* Row 2: Date */}
+                    <div style={{ marginTop: 'var(--space-4)' }}>
+                        <Input
+                            id="date"
+                            label={t('common.date')}
+                            type="date"
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                        />
+                    </div>
+
+                    {/* Row 3: Amount | Currency */}
                     <div className={styles['new-claim__grid']} style={{ marginTop: 'var(--space-4)' }}>
                         <Input
                             id="amount"
@@ -169,12 +190,13 @@ export default function NewClaimPage() {
                             required
                             placeholder="0"
                         />
-                        <Input
-                            id="date"
-                            label={t('common.date')}
-                            type="date"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
+                        <Select
+                            id="currency"
+                            label={t('claim.currency')}
+                            value={currency}
+                            onChange={(e) => setCurrency(e.target.value)}
+                            placeholder="Select currency"
+                            options={currencies.map((c) => ({ value: c.syskey, label: c.description }))}
                         />
                     </div>
 

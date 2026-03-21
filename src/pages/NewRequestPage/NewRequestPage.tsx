@@ -224,6 +224,7 @@ export default function NewRequestPage() {
     const [claimTypeDesc, setClaimTypeDesc] = useState('');
     const [claimFromPlace, setClaimFromPlace] = useState('');
     const [claimToPlace, setClaimToPlace] = useState('');
+    const [remainingBalance, setRemainingBalance] = useState('');
 
     // ── Location (WFH) ──
     const [locationName, setLocationName] = useState('');
@@ -756,6 +757,8 @@ export default function NewRequestPage() {
                 // Claim type goes as requestsubtype (syskey) + requestsubtypedesc
                 payload.requestsubtype = claimType;
                 payload.requestsubtypedesc = selClaimType?.description || '';
+                payload.remaining_balance = selClaimType?.remaining_balance || '';
+                payload.max_amount = selClaimType?.max_amount || '';
                 payload.amount = numAmount;
                 payload.estimatedbudget = numAmount;  // mobile sends same value as amount
                 payload.currencytype = currencyType;
@@ -1376,10 +1379,9 @@ export default function NewRequestPage() {
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Claim Details</h3>
 
-                                {/* Claim Type + Currency */}
-                                <div className={styles['new-request__grid']}>
-                                    {/* Claim Type — only for Claim type, not Cash Advance */}
-                                    {selectedType === 'claim' && (
+                                {/* Row 1: Claim Type | Remaining Balance */}
+                                {selectedType === 'claim' && (
+                                    <div className={styles['new-request__grid']} style={{ marginBottom: 'var(--space-4)' }}>
                                         <Select
                                             id="claimType"
                                             label="Claim Type"
@@ -1388,6 +1390,7 @@ export default function NewRequestPage() {
                                                 setClaimType(e.target.value);
                                                 const sel = claimTypeList.find(ct => ct.syskey === e.target.value);
                                                 setClaimTypeDesc(sel?.description || '');
+                                                setRemainingBalance(sel?.remaining_balance ?? '');
                                                 setClaimFromPlace('');
                                                 setClaimToPlace('');
                                             }}
@@ -1395,19 +1398,21 @@ export default function NewRequestPage() {
                                             placeholder="Select claim type"
                                             options={claimTypeList.map((ct) => ({ value: ct.syskey, label: ct.description }))}
                                         />
-                                    )}
-                                    <Select
-                                        id="claimCurrency"
-                                        label="Currency"
-                                        value={currencyType}
-                                        onChange={(e) => setCurrencyType(e.target.value)}
-                                        placeholder="Select currency"
-                                        options={currencyList.map((c) => ({ value: c.syskey, label: c.description }))}
-                                    />
-                                </div>
+                                        {/* Remaining Balance — beside Claim Type */}
+                                        <Input
+                                            id="remainingBalance"
+                                            label="Remaining Balance"
+                                            value={remainingBalance
+                                                ? parseFloat(remainingBalance).toLocaleString()
+                                                : '—'}
+                                            readOnly
+                                            disabled
+                                        />
+                                    </div>
+                                )}
 
-                                {/* Date + Amount row */}
-                                <div className={styles['new-request__grid']} style={{ marginTop: 'var(--space-4)' }}>
+                                {/* Row 2: Date */}
+                                <div style={{ marginBottom: 'var(--space-4)' }}>
                                     <Input
                                         id="claimDate"
                                         label="Date"
@@ -1416,6 +1421,10 @@ export default function NewRequestPage() {
                                         onChange={(e) => setStartDate(e.target.value)}
                                         required
                                     />
+                                </div>
+
+                                {/* Row 3: Amount | Currency */}
+                                <div className={styles['new-request__grid']}>
                                     <Input
                                         id="amount"
                                         label="Amount"
@@ -1425,6 +1434,14 @@ export default function NewRequestPage() {
                                         onChange={(e) => setAmount(unformatAmount(e.target.value))}
                                         placeholder="0"
                                         required
+                                    />
+                                    <Select
+                                        id="claimCurrency"
+                                        label="Currency"
+                                        value={currencyType}
+                                        onChange={(e) => setCurrencyType(e.target.value)}
+                                        placeholder="Select currency"
+                                        options={currencyList.map((c) => ({ value: c.syskey, label: c.description }))}
                                     />
                                 </div>
 

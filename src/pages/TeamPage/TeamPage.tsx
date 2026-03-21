@@ -36,6 +36,7 @@ import { checkTeamAccess } from './team-utils';
 import styles from './TeamPage.module.css';
 import '../../styles/pages.css';
 
+
 /* ── Helpers ── */
 
 function parseTeamResponse(data: Record<string, unknown>, userId: string): TeamPageModel {
