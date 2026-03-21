@@ -31,6 +31,8 @@ import RulesAndRegulationsPage from '../pages/RulesAndRegulationsPage/RulesAndRe
 import PdfListPage from '../pages/RulesAndRegulationsPage/PdfListPage';
 import NotificationPage from '../pages/NotificationPage/NotificationPage';
 import AttendancePage from '../pages/AttendancePage/AttendancePage';
+import SeparationLeaveAuthorizePage from '../pages/SeparationLeaveAuthorizePage/SeparationLeaveAuthorizePage';
+import SeparationAttendanceAuthorizePage from '../pages/SeparationAttendanceAuthorizePage/SeparationAttendanceAuthorizePage';
 
 // ── Flavor-based profile page ──
 // prd  → 7-tab ESS profile (Employment, Personal, Emergency Contacts, Work Experience, etc.)
@@ -120,6 +122,10 @@ export const router = createBrowserRouter([
                     { path: '/rulesandreg/:id', element: <PdfListPage /> },
                     { path: '/notifications', element: <NotificationPage /> },
                     { path: '/attendance', element: <AttendancePage /> },
+                    { path: '/separation-leave-authorize', element: <SeparationLeaveAuthorizePage /> },
+                    { path: '/separation-attendance-authorize', element: <SeparationAttendanceAuthorizePage /> },
+                    { path: '/separationLeaveAuthorize', element: <SeparationLeaveAuthorizePage /> },
+                    { path: '/separationAttendanceAuthorize', element: <SeparationAttendanceAuthorizePage /> },
 
                     // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──
                     { path: '*', element: <ComingSoonPage /> },

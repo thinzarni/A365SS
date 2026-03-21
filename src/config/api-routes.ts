@@ -72,6 +72,12 @@ export const RULES_AND_REGULATIONS_LIST = `${hxmPrefix}rulesandregulations/getal
 export const RULES_AND_REGULATIONS_DETAIL = `${hxmPrefix}rulesandregulations`;
 export const PHOTO_UPLOAD = `${hxmPrefix}integration/photoupload`;
 
+// ── Separation Authorize (uses base backend) ──
+export const SEPARATION_LEAVE_LIST = 'api/separation/leave-authorize/list';
+export const SEPARATION_LEAVE_STATUS = 'api/separation/leave-authorize/status';
+export const SEPARATION_ATTENDANCE_LIST = 'api/separation/attendance-authorize/list';
+export const SEPARATION_ATTENDANCE_STATUS = 'api/separation/attendance-authorize/status';
+
 // ── Organization Structure ──
 export const ORG_UNITS = `${hxmPrefix}org/units`;
 export const ORG_HIERARCHY = `${hxmPrefix}org/hierarchy`;
