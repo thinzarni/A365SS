@@ -445,7 +445,7 @@ export default function AppLayout() {
                         onClick={() => { setSidebarOpen(false); navigate('/dashboard'); }}
                         title="Go to Dashboard"
                     >
-                        <img src="/favicon.png" className={styles.sidebar__logo} alt="A365 Logo" />
+                        <img src="favicon.png" className={styles.sidebar__logo} alt="A365 Logo" />
                         <div className={styles['sidebar__brand-text']}>
                             <span className={styles.sidebar__title}>A365 HR</span>
                             <span className={styles.sidebar__subtitle}>Self-Service</span>
