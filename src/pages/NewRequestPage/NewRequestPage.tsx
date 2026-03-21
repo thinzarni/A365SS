@@ -1398,16 +1398,22 @@ export default function NewRequestPage() {
                                             placeholder="Select claim type"
                                             options={claimTypeList.map((ct) => ({ value: ct.syskey, label: ct.description }))}
                                         />
-                                        {/* Remaining Balance — beside Claim Type */}
-                                        <Input
-                                            id="remainingBalance"
-                                            label="Remaining Balance"
-                                            value={remainingBalance
-                                                ? parseFloat(remainingBalance).toLocaleString()
-                                                : '—'}
-                                            readOnly
-                                            disabled
-                                        />
+                                        {/* Remaining Balance — only shown when max_amount is set */}
+                                        {(() => {
+                                            const selCt = claimTypeList.find(ct => ct.syskey === claimType);
+                                            const hasMaxAmount = selCt?.max_amount && Number(selCt.max_amount) !== 0;
+                                            return hasMaxAmount ? (
+                                                <Input
+                                                    id="remainingBalance"
+                                                    label="Remaining Balance"
+                                                    value={remainingBalance
+                                                        ? parseFloat(remainingBalance).toLocaleString()
+                                                        : '—'}
+                                                    readOnly
+                                                    disabled
+                                                />
+                                            ) : null;
+                                        })()}
                                     </div>
                                 )}
 
