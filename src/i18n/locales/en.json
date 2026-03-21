@@ -171,7 +171,6 @@
         "reqNew": "Please enter a new password.",
         "successPwd": "Password changed successfully.",
         "failedPwd": "Failed to change password.",
-        
         "tabs": {
             "employment": "Employment Profile",
             "personal": "Personal Profile",
@@ -181,13 +180,12 @@
             "family": "Family Information",
             "contact": "Contact Information"
         },
-        
         "employment": {
             "subtitle": "View your employment information",
             "companyName": "Company Name",
             "employeeId": "Employee ID",
             "employmentType": "Employment Type",
-            "jobLevelTitle": "Job Level – Job Title",
+            "jobPosition": "Job Position",
             "grade": "Grade",
             "officeEmail": "Office Email",
             "officeLocation": "Office Location",
@@ -198,7 +196,6 @@
             "reportingManager": "Reporting Manager",
             "jobDescription": "Job Description"
         },
-        
         "personal": {
             "viewSubtitle": "Your personal details — contact HR to make changes",
             "hrSubtitle": "Employee personal details",
@@ -217,7 +214,6 @@
             "editHint": "Edit",
             "saveSuccess": "Personal profile updated."
         },
-
         "emergency": {
             "subtitle": "Up to 2 emergency contacts",
             "personLabel": "Person",
@@ -231,7 +227,6 @@
             "noContact": "No contact added. Click edit to add.",
             "saveSuccess": "Emergency contact updated."
         },
-
         "experience": {
             "subtitle": "Your previous employment history",
             "addBtn": "Add Experience",
@@ -259,7 +254,6 @@
             "removeSuccess": "Record removed.",
             "reqOrg": "Organization is required."
         },
-
         "qualification": {
             "subtitle": "Educational background and certifications",
             "addBtn": "Add Qualification",
@@ -280,7 +274,6 @@
             "saveSuccessUpdate": "Qualification updated.",
             "reqDegree": "Degree is required."
         },
-
         "family": {
             "subtitle": "Family members used for tax deduction purposes",
             "addBtn": "Add Member",
@@ -301,7 +294,6 @@
             "reqName": "Name is required.",
             "reqAttachment": "Attachment is mandatory."
         },
-
         "contact": {
             "subtitle": "Your permanent and temporary addresses",
             "permanentAddress": "Permanent Address",
@@ -318,7 +310,6 @@
             "sameAsPermanent": "Same as permanent address",
             "saveSuccess": "Contact information updated."
         },
-
         "options": {
             "relationships": {
                 "Father": "Father",

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
-import { TEAM_BY_ID, TEAM_LIST } from '../../config/api-routes';
+import { TEAM_BY_ID, TEAM_LIST, MENU_ITEMS } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
 import type { TeamMember } from '../../types/models';
 import { getStatusInfo, getInitials, mapRawMember, checkTeamAccess } from './team-utils';
@@ -86,7 +86,7 @@ export default function TeamDetailView() {
     const { data: menuData } = useQuery({
         queryKey: ['menu-items'],
         queryFn: async () => {
-            const res = await apiClient.get('hxm/integration/get/menuitems');
+            const res = await apiClient.get(MENU_ITEMS);
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,

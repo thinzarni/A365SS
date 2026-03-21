@@ -37,6 +37,7 @@ import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { useNotificationStore } from '../../stores/notification-store';
+import { MENU_ITEMS } from '../../config/api-routes';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
 
@@ -180,14 +181,14 @@ export default function AppLayout() {
     });
 
     // ── Fetch menu items from HXM API (same as neo_service.dart getMenuItems) ──
-    // Endpoint: GET hxm/integration/get/menuitems
+    // Endpoint: GET MENU_ITEMS
     // Response shape: { statuscode, datalist: [{syskey, name, icon, router, type}...], homemenulist: [...] }
     const { data: menuItemsData } = useQuery({
         queryKey: ['menu-items', userId, domain],
         queryFn: async () => {
             if (!token) return null;
             try {
-                const res = await apiClient.get('hxm/integration/get/menuitems');
+                const res = await apiClient.get(MENU_ITEMS);
                 const data = res.data;
                 if (data?.statuscode === 200 || data?.statuscode === 300) {
                     return {
@@ -489,8 +490,7 @@ export default function AppLayout() {
                             {t('nav.team')}
                         </div>
                     </NavLink>
-
-                    {/* ── All items from hxm/integration/get/menuitems datalist ── */}
+                    {/* ── All items from MENU_ITEMS datalist ── */}
                     {sidebarItems.map((item) => {
                         // Resolve icon: use ROUTER_ICON_MAP if known, else generic LayoutList
                         const Icon = ROUTER_ICON_MAP[item.router] ?? LayoutList;

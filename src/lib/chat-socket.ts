@@ -6,6 +6,7 @@
 
 import { appConfig } from '../config/app-config';
 import { useAuthStore } from '../stores/auth-store';
+import { APP_ID } from './auth-token';
 
 export type SocketMessageHandler = (data: Record<string, any>) => void;
 
@@ -53,7 +54,7 @@ class ChatSocketService {
         const explicitWs = appConfig.wsUrl || (import.meta as any).env?.VITE_WS_URL as string | undefined;
         if (explicitWs) {
             const base = explicitWs.replace(/\/$/, '');
-            return `${base}/v1?user=${encodeURIComponent(userId)}&app=004&domain=${encodeURIComponent(dom)}`;
+            return `${base}/v1?user=${encodeURIComponent(userId)}&app=${APP_ID}&domain=${encodeURIComponent(dom)}`;
         }
 
         // 2. Derive from chatUrl — only works when chatUrl is an absolute https:// URL
@@ -61,13 +62,13 @@ class ChatSocketService {
         if (base && !base.startsWith('/')) {
             // e.g. https://iam.omnicloudapi.com/api → wss://iam.omnicloudapi.com/api
             const wsBase = base.replace(/^https?/, 'wss');
-            return `${wsBase}/v1?user=${encodeURIComponent(userId)}&app=004&domain=${encodeURIComponent(dom)}`;
+            return `${wsBase}/v1?user=${encodeURIComponent(userId)}&app=${APP_ID}&domain=${encodeURIComponent(dom)}`;
         }
 
         // 3. chatUrl is relative ('/' — Vite proxy in dev): proxy /v1 via vite.config.ts ws:true
         //    Uses wss at the same host (vite dev server proxies /v1 to the real chat WS server)
         const wsBase = `wss://${window.location.host}`;
-        return `${wsBase}/v1?user=${encodeURIComponent(userId)}&app=004&domain=${encodeURIComponent(dom)}`;
+        return `${wsBase}/v1?user=${encodeURIComponent(userId)}&app=${APP_ID}&domain=${encodeURIComponent(dom)}`;
     }
 
     // ── Connect ──────────────────────────────────────────────────

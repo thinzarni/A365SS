@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,7 @@ import { APP_ID } from '../../lib/auth-token';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
 import { Button, Input } from '../../components/ui';
 import { toast } from 'react-hot-toast';
+import { MENU_ITEMS, GET_FAMILY, FAMILY_UPDATE, GET_EXPERIENCE, EXPERIENCE_UPDATE } from '../../config/api-routes';
 import styles from './ProfilePagePrd.module.css';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -141,14 +142,8 @@ const MOCK_EMERGENCY: EmergencyContact[] = [
     { name: 'Daw Kyi Kyi', relationship: 'Mother', contactNumber: '09-123-456-789', address: 'No.5, Strand Road, Yangon' },
     { name: '', relationship: '', contactNumber: '', address: '' },
 ];
-const MOCK_EXPERIENCE: WorkExperience[] = [
-    { id: '1', organization: 'Yoma Bank', orgType: 'Private', industry: 'Banking', designation: 'Junior Developer', fromDate: '2018-01', toDate: '2021-05', salary: '500000', currency: 'MMK', reasonForChange: 'Career growth' },
-];
 const MOCK_QUALIFICATIONS: Qualification[] = [
     { id: '1', degree: 'B.Sc. (Computer Science)', institution: 'University of Computer Studies, Yangon', major: 'Computer Science', yearCompleted: '2018', grade: 'Distinction' },
-];
-const MOCK_FAMILY: FamilyMember[] = [
-    { id: '1', name: 'Daw Aye Aye', gender: 'Female', dob: '1965-03-10', relationship: 'Mother', taxEligible: 'Yes', modOption: 'New', effectiveFrom: '2024-01-01', status: 'Approved' },
 ];
 const MOCK_CONTACT = {
     permanentState: 'Yangon', permanentDistrict: 'Bahan', permanentTownship: 'Bahan', permanentTown: 'Bahan',
@@ -166,7 +161,7 @@ export default function ProfilePage() {
     const { data: menuData } = useQuery({
         queryKey: ['menu-items'],
         queryFn: async () => {
-            const res = await apiClient.get('hxm/integration/get/menuitems');
+            const res = await apiClient.get(MENU_ITEMS);
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,
@@ -334,9 +329,9 @@ export default function ProfilePage() {
                         />
                     )}
                     {activeTab === 'emergency' && <EmergencyContactTab />}
-                    {activeTab === 'experience' && <WorkExperienceTab />}
+                    {activeTab === 'experience' && <WorkExperienceTab profile={profile} />}
                     {activeTab === 'qualification' && <QualificationTab />}
-                    {activeTab === 'family' && <FamilyInfoTab />}
+                    {activeTab === 'family' && <FamilyInfoTab profile={profile} />}
                     {activeTab === 'contact' && <ContactInfoTab />}
                 </div>
             </div>
@@ -395,7 +390,7 @@ function EmploymentTab({ profile }: { profile: ProfileData }) {
                 <InfoItem icon={<Building2 size={18} />} label={t('profile.employment.companyName')} value={profile.paycompany || '-'} />
                 <InfoItem icon={<CreditCard size={18} />} label={t('profile.employment.employeeId')} value={profile.eid || '-'} />
                 <InfoItem icon={<Briefcase size={18} />} label={t('profile.employment.employmentType')} value={profile.employmenttype || '-'} />
-                <InfoItem icon={<Award size={18} />} label={t('profile.employment.jobLevelTitle')} value={profile.rank || profile.role || '-'} />
+                <InfoItem icon={<Award size={18} />} label={t('profile.employment.jobPosition')} value={profile.rank || profile.role || '-'} />
                 <InfoItem icon={<Award size={18} />} label={t('profile.employment.grade')} value={profile.paylevel || '-'} />
                 <InfoItem icon={<Mail size={18} />} label={t('profile.employment.officeEmail')} value={profile.officeemail || '-'} />
                 <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.officeLocation')} value={profile.officelocation || '-'} />
@@ -613,24 +608,93 @@ function EmergencyContactTab() {
 // ═══════════════════════════════════════════════════════════════════════
 // TAB 4 — Work Experience (Create/Edit/View)
 // ═══════════════════════════════════════════════════════════════════════
-function WorkExperienceTab() {
+function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const [records, setRecords] = useState<WorkExperience[]>(MOCK_EXPERIENCE);
+    const [records, setRecords] = useState<WorkExperience[]>([]);
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+
+    const { data: fetchedData } = useQuery({
+        queryKey: ['experience', profile.userid, profile.eid],
+        queryFn: async () => {
+            const { domain } = useAuthStore.getState();
+            const res = await mainClient.post(GET_EXPERIENCE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid
+            });
+            const arr = res.data?.data || [];
+            return arr.map((item: any) => ({
+                id: item.syskey,
+                organization: item.organization,
+                orgType: item.organizationtype || '',
+                industry: item.industry || '',
+                designation: item.designation,
+                // API dates are DD/MM/YYYY. We need YYYY-MM for type="month" input
+                fromDate: item.fromdate ? `${item.fromdate.split('/')[2]}-${item.fromdate.split('/')[1]}` : '',
+                toDate: item.todate ? `${item.todate.split('/')[2]}-${item.todate.split('/')[1]}` : '',
+                salary: item.previousmonthlysalary || '',
+                currency: item.currency || 'MMK',
+                reasonForChange: item.reasonforchange || ''
+            })) as WorkExperience[];
+        },
+        enabled: !!profile.userid && !!profile.eid
+    });
+
+    useEffect(() => {
+        if (fetchedData) {
+            setRecords(fetchedData);
+        }
+    }, [fetchedData]);
+
     const blankExp = (): WorkExperience => ({ id: '', organization: '', orgType: '', industry: '', designation: '', fromDate: '', toDate: '', salary: '', currency: 'MMK', reasonForChange: '' });
     const [form, setForm] = useState<WorkExperience>(blankExp());
 
     const openAdd = () => { setForm(blankExp()); setEditingId(null); setShowModal(true); };
     const openEdit = (r: WorkExperience) => { setForm({ ...r }); setEditingId(r.id); setShowModal(true); };
     const closeExp = () => { setShowModal(false); setEditingId(null); };
-    const saveExp = () => {
+
+    const saveExp = async () => {
         if (!form.organization) { toast.error(t('profile.experience.reqOrg')); return; }
-        if (editingId) setRecords(rs => rs.map(r => r.id === editingId ? form : r));
-        else setRecords(rs => [...rs, { ...form, id: Date.now().toString() }]);
-        closeExp();
-        toast.success(editingId ? t('profile.experience.saveSuccessUpdate') : t('profile.experience.saveSuccessAdd'));
+
+        const isUpdate = !!editingId;
+        const newRecord = { ...form };
+        if (!isUpdate) {
+            newRecord.id = Date.now().toString();
+        }
+
+        const updatedRecords = isUpdate 
+            ? records.map(r => r.id === editingId ? newRecord : r)
+            : [...records, newRecord];
+
+        const { domain } = useAuthStore.getState();
+        const experiencelist = updatedRecords.map(r => ({
+            organization: r.organization,
+            organizationtype: r.orgType || null,
+            industry: r.industry || null,
+            designation: r.designation,
+            fromdate: r.fromDate ? r.fromDate.replace('-', '') + '01' : '',
+            todate: r.toDate ? r.toDate.replace('-', '') + '01' : '',
+            previousmonthlysalary: r.salary ? r.salary.toString() : '',
+            currency: r.currency || 'MMK',
+            reasonforchange: r.reasonForChange || ''
+        }));
+
+        try {
+            await mainClient.post(EXPERIENCE_UPDATE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid,
+                experiencelist
+            });
+            setRecords(updatedRecords);
+            closeExp();
+            toast.success(isUpdate ? t('profile.experience.saveSuccessUpdate') : t('profile.experience.saveSuccessAdd'));
+        } catch (err) {
+            toast.error('Failed to save experience information');
+        }
     };
+
     const removeExp = (id: string) => { setRecords(rs => rs.filter(r => r.id !== id)); toast.success(t('profile.experience.removeSuccess')); };
     const f = (k: keyof WorkExperience) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
@@ -809,24 +873,91 @@ function QualificationTab() {
 // ═══════════════════════════════════════════════════════════════════════
 // TAB 6 — Family Information for Tax Calculation (Create/Edit/View)
 // ═══════════════════════════════════════════════════════════════════════
-function FamilyInfoTab() {
+function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const [records, setRecords] = useState<FamilyMember[]>(MOCK_FAMILY);
+    const [records, setRecords] = useState<FamilyMember[]>([]);
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+
+    const { data: fetchedData } = useQuery({
+        queryKey: ['family', profile.userid, profile.eid],
+        queryFn: async () => {
+            const { domain } = useAuthStore.getState();
+            const res = await mainClient.post(GET_FAMILY, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid
+            });
+            const arr = res.data?.data || [];
+            return arr.map((item: any) => ({
+                id: item.syskey,
+                name: item.name,
+                gender: item.gender,
+                dob: item.dob,
+                relationship: item.relationship,
+                taxEligible: (item.taxexeligibility || item.taxeligibility) ? 'Yes' : 'No',
+                modOption: item.modificationoption || 'New',
+                effectiveFrom: item.effectivedate,
+                status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
+                attachment: item.signurl || item.attachment || ''
+            })) as FamilyMember[];
+        },
+        enabled: !!profile.userid && !!profile.eid
+    });
+
+    useEffect(() => {
+        if (fetchedData) {
+            setRecords(fetchedData);
+        }
+    }, [fetchedData]);
+
     const blank = (): FamilyMember => ({ id: '', name: '', gender: '', dob: '', relationship: '', taxEligible: 'No', modOption: 'New', effectiveFrom: '', status: 'Pending', attachment: '' });
     const [form, setForm] = useState<FamilyMember>(blank());
 
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
     const openEdit = (r: FamilyMember) => { setForm({ ...r }); setEditingId(r.id); setShowModal(true); };
     const close = () => { setShowModal(false); setEditingId(null); };
-    const save = () => {
+    const save = async () => {
         if (!form.name) { toast.error(t('profile.family.reqName')); return; }
-        if (!form.attachment) { toast.error(t('profile.family.reqAttachment')); return; }
-        if (editingId) setRecords(rs => rs.map(r => r.id === editingId ? form : r));
-        else setRecords(rs => [...rs, { ...form, id: Date.now().toString(), status: 'Pending' }]);
-        close();
-        toast.success(editingId ? t('profile.family.saveSuccessUpdate') : t('profile.family.saveSuccessAdd'));
+
+        const isUpdate = !!editingId;
+        const newRecord = { ...form };
+        if (!isUpdate) {
+            newRecord.id = Date.now().toString();
+            newRecord.status = 'Pending';
+        }
+
+        const updatedRecords = isUpdate
+            ? records.map(r => r.id === editingId ? newRecord : r)
+            : [...records, newRecord];
+
+        const { domain } = useAuthStore.getState();
+        const familylist = updatedRecords.map(r => ({
+            name: r.name,
+            gender: r.gender,
+            dob: r.dob ? r.dob.replace(/-/g, '') : '',
+            relationship: r.relationship,
+            taxexeligibility: r.taxEligible === 'Yes',
+            attachment: r.attachment || null,
+            modificationoption: r.modOption,
+            effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
+            familystatus: r.modOption === 'New' ? '1' : '0',
+            status: r.status === 'Approved' ? 'Active' : 0
+        }));
+
+        try {
+            await mainClient.post(FAMILY_UPDATE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid,
+                familylist
+            });
+            setRecords(updatedRecords);
+            close();
+            toast.success(isUpdate ? t('profile.family.saveSuccessUpdate') : t('profile.family.saveSuccessAdd'));
+        } catch (err) {
+            toast.error('Failed to save family information');
+        }
     };
     const remove = (id: string) => { setRecords(rs => rs.filter(r => r.id !== id)); toast.success(t('profile.experience.removeSuccess')); };
     const fv = (k: keyof FamilyMember) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(prev => ({ ...prev, [k]: e.target.value as any }));

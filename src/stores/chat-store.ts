@@ -8,6 +8,7 @@ import chatClient from '../lib/chat-client';
 import mainClient from '../lib/main-client';
 import * as routes from '../config/api-routes';
 import { useAuthStore } from './auth-store';
+import { APP_ID } from '../lib/auth-token';
 import { chatSocket } from '../lib/chat-socket';
 import {
     type Conversation,
@@ -508,7 +509,7 @@ export const useChatStore = create<ChatState>()(
                         teamname,
                         domain: domain || 'demouat',
                         reaction: reactionStatus,           // ← not "status"
-                        appid: '004',
+                        appid: APP_ID,
                         type: 'single',
                     });
                     await get().fetchMessages(conversationId);
@@ -524,7 +525,7 @@ export const useChatStore = create<ChatState>()(
                     const { token, domain } = useAuthStore.getState();
                     const res = await chatClient.get(url, {
                         headers: { Authorization: `Bearer ${token}` },
-                        params: { sub_appid: domain || 'demouat', appid: '004' },
+                        params: { sub_appid: domain || 'demouat', appid: APP_ID },
                     });
                     // Flutter enrichment: e['user']['user_id'], e['display_name'], e['role']
                     const rawList: any[] = Array.isArray(res.data)
@@ -563,7 +564,7 @@ export const useChatStore = create<ChatState>()(
                         conversation_id: conversationId,
                         userid: userId || '',           // who is adding
                         role,
-                        appid: '004',
+                        appid: APP_ID,
                         sub_appid: subAppid || domain || 'demouat',
                         participants: userIds,
                         shareAll,

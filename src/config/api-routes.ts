@@ -1,84 +1,89 @@
-/* ═══════════════════════════════════════════════════════════
-   API Routes — Extracted from Flutter api_routes.dart
-   ═══════════════════════════════════════════════════════════ */
+import { flavor } from './features';
+
+const hxmPrefix = flavor === 'prd' ? 'hxm/api/' : 'hxm/';
 
 // ── Auth ──
 export const RENEW_TOKEN = 'generate/renew-token';
 export const GENERATE_QR = 'generate/qr';
 export const QR_SUCCESS = 'qr-success';
-export const DOMAIN_LIST = 'hxm/payroll/domainlist';
+export const DOMAIN_LIST = `${hxmPrefix}payroll/domainlist`;
 export const USER_PROFILE = 'api/employees/profile';
 export const USER_PROFILE_UPDATE = 'api/employees/profile/update';
+export const GET_FAMILY = 'api/employees/getfamily';
+export const FAMILY_UPDATE = 'api/employees/family/update';
+export const GET_EXPERIENCE = 'api/employees/getexperience';
+export const EXPERIENCE_UPDATE = 'api/employees/experience/update';
 
 // ── Request Management ──
-export const REQUEST_TYPES = 'hxm/request/getrequesttypelist';
-export const SAVE_REQUEST = 'hxm/request/saverequest';
-export const GET_REQUEST_LIST = 'hxm/request/getrequestlist';
-export const GET_REQUEST_DETAIL = 'hxm/request/getrequestdetail';
-export const DELETE_REQUEST = 'hxm/request/deleterequest';
+export const REQUEST_TYPES = `${hxmPrefix}request/getrequesttypelist`;
+export const SAVE_REQUEST = `${hxmPrefix}request/saverequest`;
+export const GET_REQUEST_LIST = `${hxmPrefix}request/getrequestlist`;
+export const GET_REQUEST_DETAIL = `${hxmPrefix}request/getrequestdetail`;
+export const DELETE_REQUEST = `${hxmPrefix}request/deleterequest`;
 
 // ── Request Lookups ──
-export const TRANSPORTATION_TYPES = 'hxm/request/getTransportationType';
-export const CARS_LIST = 'hxm/request/getCarList';
-export const CAR_TYPES = 'hxm/cartype/list';
-export const DRIVERS_LIST = 'hxm/request/getDriverList';
-export const RESERVATION_TYPES = 'hxm/request/reservationtypelist';
-export const ROOM_TYPES = 'hxm/request/getRoomType';
-export const ROOM_REQUEST_LIST = 'hxm/request/getRoomRequestList';
-export const PRODUCT_LIST = 'hxm/request/getProductList';
-export const PROJECT_LIST = 'hxm/request/getProjectList';
-export const TRAVEL_TYPE_LIST = 'hxm/request/getModeoftravelList';
-export const VEHICLE_USE_LIST = 'hxm/request/getVehicleuseList';
-export const SHIFT_TIME = 'hxm/request/getshifttime';
-export const GAP_TIME = 'hxm/request/requestgaptime';
+export const TRANSPORTATION_TYPES = `${hxmPrefix}request/getTransportationType`;
+export const CARS_LIST = `${hxmPrefix}request/getCarList`;
+export const CAR_TYPES = `${hxmPrefix}cartype/list`;
+export const DRIVERS_LIST = `${hxmPrefix}request/getDriverList`;
+export const RESERVATION_TYPES = `${hxmPrefix}request/reservationtypelist`;
+export const ROOM_TYPES = `${hxmPrefix}request/getRoomType`;
+export const ROOM_REQUEST_LIST = `${hxmPrefix}request/getRoomRequestList`;
+export const PRODUCT_LIST = `${hxmPrefix}request/getProductList`;
+export const PROJECT_LIST = `${hxmPrefix}request/getProjectList`;
+export const TRAVEL_TYPE_LIST = `${hxmPrefix}request/getModeoftravelList`;
+export const VEHICLE_USE_LIST = `${hxmPrefix}request/getVehicleuseList`;
+export const SHIFT_TIME = `${hxmPrefix}request/getshifttime`;
+export const GAP_TIME = `${hxmPrefix}request/requestgaptime`;
 export const ATTENDANCE_SHIFT_DATA = 'api/checkin/shift';
 
 // ── Approvals ──
-export const APPROVAL_LIST = 'hxm/approval/approvallist';
-export const APPROVAL_DETAIL = 'hxm/approval/getapprovaldetail';
-export const SAVE_APPROVAL = 'hxm/approval/saveapproval';
+export const APPROVAL_LIST = `${hxmPrefix}approval/approvallist`;
+export const APPROVAL_DETAIL = `${hxmPrefix}approval/getapprovaldetail`;
+export const SAVE_APPROVAL = `${hxmPrefix}approval/saveapproval`;
 
 // ── Leave ──
-export const SAVE_LEAVE = 'hxm/leave/saveleave';
-export const LEAVE_LIST = 'hxm/leave/getleavelist';
-export const LEAVE_SUMMARY = 'hxm/leave/totalleavetaken';
-export const LEAVE_DETAIL = 'hxm/leave/getleavedetail';
-export const DELETE_LEAVE = 'hxm/leave/deleteleaverequest';
-export const LEAVE_TYPES = 'hxm/leave/empleavetypelist';
-export const LEAVE_TYPE_LIST = 'hxm/leave/leavetypelist';
-export const HANDOVER_PERSONS = 'hxm/leave/handoverpersonlist';
+export const SAVE_LEAVE = `${hxmPrefix}leave/saveleave`;
+export const LEAVE_LIST = `${hxmPrefix}leave/getleavelist`;
+export const LEAVE_SUMMARY = `${hxmPrefix}leave/totalleavetaken`;
+export const LEAVE_DETAIL = `${hxmPrefix}leave/getleavedetail`;
+export const DELETE_LEAVE = `${hxmPrefix}leave/deleteleaverequest`;
+export const LEAVE_TYPES = `${hxmPrefix}leave/empleavetypelist`;
+export const LEAVE_TYPE_LIST = `${hxmPrefix}leave/leavetypelist`;
+export const HANDOVER_PERSONS = `${hxmPrefix}leave/handoverpersonlist`;
 
 // ── Claims ──
-export const CLAIM_LIST = 'hxm/claim/getclaimlist';
-export const SAVE_CLAIM = 'hxm/claim/saveclaimlist';
-export const CLAIM_DETAIL = 'hxm/claim/getClaimDetail';
-export const DELETE_CLAIM = 'hxm/claim/deleteclaimrequest';
-export const CLAIM_TYPES = 'hxm/claim/claimtypelist';
+export const CLAIM_LIST = `${hxmPrefix}claim/getclaimlist`;
+export const SAVE_CLAIM = `${hxmPrefix}claim/saveclaimlist`;
+export const CLAIM_DETAIL = `${hxmPrefix}claim/getClaimDetail`;
+export const DELETE_CLAIM = `${hxmPrefix}claim/deleteclaimrequest`;
+export const CLAIM_TYPES = `${hxmPrefix}claim/claimtypelist`;
 
 // ── Setup ──
-export const CURRENCY_TYPES = 'hxm/setup/getSetupList/currency';
-export const MEMBER_LIST = 'hxm/integration/memberlist';
+export const CURRENCY_TYPES = `${hxmPrefix}setup/getSetupList/currency`;
+export const MEMBER_LIST = `${hxmPrefix}integration/memberlist`;
+export const MENU_ITEMS = `${hxmPrefix}integration/get/menuitems`;
 
 // ── Assets ──
-export const RULES_AND_REGULATIONS_LIST = 'hxm/rulesandregulations/getall';
-export const RULES_AND_REGULATIONS_DETAIL = 'hxm/rulesandregulations';
-export const PHOTO_UPLOAD = 'hxm/integration/photoupload';
+export const RULES_AND_REGULATIONS_LIST = `${hxmPrefix}rulesandregulations/getall`;
+export const RULES_AND_REGULATIONS_DETAIL = `${hxmPrefix}rulesandregulations`;
+export const PHOTO_UPLOAD = `${hxmPrefix}integration/photoupload`;
 
 // ── Organization Structure ──
-export const ORG_UNITS = 'hxm/org/units';
-export const ORG_HIERARCHY = 'hxm/org/hierarchy';
-export const ORG_UNIT_DETAIL = 'hxm/org/units/:syskey';
-export const ORG_SPLIT = 'hxm/org/split';
-export const ORG_MERGE = 'hxm/org/merge';
-export const ORG_DEPT_HEADS = 'hxm/org/dept-heads';
-export const ORG_EMPLOYEE_MAPPING = 'hxm/org/employee-mapping';
-export const ORG_IMPORT_MAPPING = 'hxm/org/import-mapping';
-export const ORG_EXPORT_MAPPING = 'hxm/org/export-mapping';
-export const ORG_REPORT_HIERARCHY = 'hxm/org/report/hierarchy';
-export const ORG_REPORT_EMPLOYEES = 'hxm/org/report/employees';
-export const ORG_AUDIT_LOGS = 'hxm/org/audit-logs';
-export const ORG_TYPE_LIST = 'hxm/typeoforganizationchange/list';
-export const ORG_UNIT_LIST = 'hxm/unitsubjecttochange/list';
+export const ORG_UNITS = `${hxmPrefix}org/units`;
+export const ORG_HIERARCHY = `${hxmPrefix}org/hierarchy`;
+export const ORG_UNIT_DETAIL = `${hxmPrefix}org/units/:syskey`;
+export const ORG_SPLIT = `${hxmPrefix}org/split`;
+export const ORG_MERGE = `${hxmPrefix}org/merge`;
+export const ORG_DEPT_HEADS = `${hxmPrefix}org/dept-heads`;
+export const ORG_EMPLOYEE_MAPPING = `${hxmPrefix}org/employee-mapping`;
+export const ORG_IMPORT_MAPPING = `${hxmPrefix}org/import-mapping`;
+export const ORG_EXPORT_MAPPING = `${hxmPrefix}org/export-mapping`;
+export const ORG_REPORT_HIERARCHY = `${hxmPrefix}org/report/hierarchy`;
+export const ORG_REPORT_EMPLOYEES = `${hxmPrefix}org/report/employees`;
+export const ORG_AUDIT_LOGS = `${hxmPrefix}org/audit-logs`;
+export const ORG_TYPE_LIST = `${hxmPrefix}typeoforganizationchange/list`;
+export const ORG_UNIT_LIST = `${hxmPrefix}unitsubjecttochange/list`;
 
 // ── Team (uses mainUrl / a365.omnicloudapi.com) ──
 export const TEAM_LIST = 'api/teams';
@@ -110,6 +115,16 @@ export const CHAT_CHANGE_NAME = 'chat-new/conversations/:id/name';
 export const CHAT_CONV_BY_NAME = 'chat/conversation-id';
 export const CHAT_SEARCH_USER = 'api/employees/search';
 
+// ── Posts & Comments (uses chatUrl) ──
+export const POST_CREATE = 'chat-new/create-post';
+export const POST_UPDATE = 'chat-new/update-post';
+export const POST_LIST = 'chat-new/get-posts';
+export const POST_REACT = 'chat-new/react-post';
+export const POST_DELETE = 'chat-new/delete-post';
+export const POST_REACTION_USERS = 'chat-new/get-reaction-users';
+export const COMMENT_CREATE = 'chat-new/create-comment';
+export const COMMENT_LIST = 'chat-new/get-comments';
+export const COMMENT_DELETE = 'chat-new/delete-comment';
 // ── Notifications ──
 export const NOTIFICATION_LIST = 'api/notification/list';
 export const NOTIFICATION_READ = 'api/notification/read-status';

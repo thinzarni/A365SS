@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Search, User as UserIcon, Building2, Check } from 'lucide-react';
 import { useChatStore } from '../../stores/chat-store';
 import { useAuthStore } from '../../stores/auth-store';
+import { APP_ID } from '../../lib/auth-token';
 import type { User, CreateChatPayload } from '../../types/chat';
 import type { Team } from '../../types/models';
 import styles from './NewChatModal.module.css';
@@ -107,7 +108,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onC
                 name: chatroomId,
                 type: 'normal',
                 role: '',
-                appid: '004',
+                appid: APP_ID,
                 subAppid: domain,
                 isGroup: 1, // API seems to expect 1 even for normal according to Flutter code sometimes, but let's check
                 actionType: 1,
@@ -122,14 +123,14 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onC
                 name: chatName,
                 type: 'normal',
                 role: '',
-                appid: '004',
+                appid: APP_ID,
                 subAppid: domain,
                 isGroup: 1,
                 actionType: 1,
                 adminkey: chatName
             };
         } else if (type === 'team' && selectedTeam) {
-            const chatName = `${selectedTeam.teamName}_${domain}_004`;
+            const chatName = `${selectedTeam.teamName}_${domain}_${APP_ID}`;
             const gName = `${selectedTeam.teamId} - ${selectedTeam.teamName}`;
 
             const existingId = await getConversationByUniqueName(chatName);
@@ -150,7 +151,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onC
                 name: chatName,
                 type: 'normal',
                 role: '',
-                appid: '004',
+                appid: APP_ID,
                 subAppid: domain,
                 isGroup: 1,
                 actionType: 1,

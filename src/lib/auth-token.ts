@@ -3,7 +3,9 @@
    s_token = sha512(uuid + app_id + datetime + req_type + secretKey)
    ═══════════════════════════════════════════════════════════ */
 
-const APP_ID = '004';
+import { appConfig } from '../config/app-config';
+
+const APP_ID = appConfig.appId;
 const SECRET_KEY = import.meta.env.VITE_SECRET_KEY || 'jRxaPLUjcm210BiPDey7kMM7';
 
 /**
