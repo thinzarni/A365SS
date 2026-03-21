@@ -60,6 +60,10 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     // Leave
     '/leave': TreePalm,
     '/leave-summary': Palmtree,
+    '/separation-leave-authorize': UserCheck,
+    '/separation-attendance-authorize': UserCheck,
+    '/separationLeaveAuthorize': UserCheck,
+    '/separationAttendanceAuthorize': UserCheck,
     '/holiday': CalendarDays,
     '/holidays': CalendarDays,
     // Finance
@@ -100,6 +104,10 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/locationapproval': 'nav.locationApproval',
     '/leave': 'nav.leave',
     '/leave-summary': 'nav.leaveSummary',
+    '/separation-leave-authorize': 'nav.separationLeaveAuthorize',
+    '/separation-attendance-authorize': 'nav.separationAttendanceAuthorize',
+    '/separationLeaveAuthorize': 'nav.separationLeaveAuthorize',
+    '/separationAttendanceAuthorize': 'nav.separationAttendanceAuthorize',
     '/holiday': 'nav.holidays',
     '/holidays': 'nav.holidays',
     '/claim': 'nav.claims',

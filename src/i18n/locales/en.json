@@ -43,6 +43,8 @@
         "visionAi": "Vision AI",
         "customAi": "Kaizentic AI",
         "objectDetection": "Object Detection",
+        "separationLeaveAuthorize": "Separation Leave Authorize",
+        "separationAttendanceAuthorize": "Separation Attendance Authorize",
         "employeeHandbook": "Employee Handbook"
     },
     "request": {
