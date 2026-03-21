@@ -33,7 +33,7 @@ import type { TeamMember } from '../../types/models';
 import { getStatusInfo, getInitials, mapRawMember, checkTeamAccess } from './team-utils';
 import styles from './TeamDetailView.module.css';
 import '../../styles/pages.css';
-import { flavor } from '../../config/features';
+
 
 /* ═══════════════════════════════════ Component ═══════════════════════════════════ */
 
@@ -84,12 +84,10 @@ export default function TeamDetailView() {
     });
 
     // ── Menu Items Query ──
-    const hxmPrefix = flavor === 'prd' ? 'hxm/api/' : 'hxm/';
-
     const { data: menuData } = useQuery({
         queryKey: ['menu-items'],
         queryFn: async () => {
-            const res = await apiClient.get(`${hxmPrefix}integration/get/menuitems`);
+            const res = await apiClient.get(MENU_ITEMS);
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,

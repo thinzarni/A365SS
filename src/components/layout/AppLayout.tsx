@@ -40,7 +40,7 @@ import { useNotificationStore } from '../../stores/notification-store';
 import { MENU_ITEMS } from '../../config/api-routes';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
-import { flavor } from '../../config/features';
+
 
 // ── Router → Lucide icon mapping — keyed by actual API router values ──
 // The label always comes from the API name field, so only the icon is needed here.
@@ -189,8 +189,7 @@ export default function AppLayout() {
         queryFn: async () => {
             if (!token) return null;
             try {
-                const hxmPrefix = flavor === 'prd' ? 'hxm/api/' : 'hxm/';
-                const res = await apiClient.get(`${hxmPrefix}integration/get/menuitems`);
+                const res = await apiClient.get(MENU_ITEMS);
                 const data = res.data;
                 if (data?.statuscode === 200 || data?.statuscode === 300) {
                     return {
