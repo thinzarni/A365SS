@@ -141,7 +141,7 @@ export default function SeparationLeaveAuthorizePage() {
     return (
         <div className={styles.container}>
             <div className={styles.pageHeader}>
-                <h1 className={styles.pageTitle}>Separation Requests</h1>
+                <h1 className={styles.pageTitle}>Separation Leave Authorize</h1>
                 <p className={styles.pageSubtitle}>{totalCount} requests</p>
             </div>
             <div className={styles.contentCard}>

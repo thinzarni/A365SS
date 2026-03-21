@@ -60,6 +60,8 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/leave-summary': Palmtree,
     '/separation-leave-authorize': UserCheck,
     '/separation-attendance-authorize': UserCheck,
+    '/separationLeaveAuthorize': UserCheck,
+    '/separationAttendanceAuthorize': UserCheck,
     '/holiday': CalendarDays,
     '/holidays': CalendarDays,
     // Finance
@@ -102,6 +104,8 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/leave-summary': 'nav.leaveSummary',
     '/separation-leave-authorize': 'nav.separationLeaveAuthorize',
     '/separation-attendance-authorize': 'nav.separationAttendanceAuthorize',
+    '/separationLeaveAuthorize': 'nav.separationLeaveAuthorize',
+    '/separationAttendanceAuthorize': 'nav.separationAttendanceAuthorize',
     '/holiday': 'nav.holidays',
     '/holidays': 'nav.holidays',
     '/claim': 'nav.claims',
@@ -273,28 +277,6 @@ export default function AppLayout() {
             }
         }
 
-        // Add extra Separation Leave Authorize tab
-        if (!items.some(i => i.router === '/separation-leave-authorize')) {
-            items.push({
-                syskey: 'separation_leave_extra',
-                name: 'Separation Leave Authorize',
-                namemm: 'နှုတ်ထွက်ခွင့် ပြုချက်',
-                icon: '',
-                router: '/separation-leave-authorize',
-            });
-        }
-
-        // Add extra Separation Attendance Authorize tab
-        if (!items.some(i => i.router === '/separation-attendance-authorize')) {
-            items.push({
-                syskey: 'separation_attendance_extra',
-                name: 'Separation Attendance Authorize',
-                namemm: 'နှုတ်ထွက် အလုပ်တက်ရောက်မှု ပြုချက်',
-                icon: '',
-                router: '/separation-attendance-authorize',
-            });
-        }
-
         return items;
     }, [menuItemsData, menuList, configData]);
 
@@ -364,7 +346,7 @@ export default function AppLayout() {
                     } else if (json.data?.status === false) {
                         const msg = json.data?.message || 'Your password has expired. Please change it to continue.';
                         toast.error(msg);
-                        
+
                         // Fire off password expiry email silently
                         try {
                             fetch('https://a365.omnicloudapi.com/api/mail/sendemailfrommodule', {

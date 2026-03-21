@@ -123,6 +123,8 @@ export const router = createBrowserRouter([
                     { path: '/attendance', element: <AttendancePage /> },
                     { path: '/separation-leave-authorize', element: <SeparationLeaveAuthorizePage /> },
                     { path: '/separation-attendance-authorize', element: <SeparationAttendanceAuthorizePage /> },
+                    { path: '/separationLeaveAuthorize', element: <SeparationLeaveAuthorizePage /> },
+                    { path: '/separationAttendanceAuthorize', element: <SeparationAttendanceAuthorizePage /> },
 
                     // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──
                     { path: '*', element: <ComingSoonPage /> },
