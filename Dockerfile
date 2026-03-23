@@ -21,8 +21,8 @@ RUN rm /etc/nginx/conf.d/default.conf
 # Copy our custom routing config
 COPY nginx.conf /etc/nginx/conf.d/
 
-# Copy the build output from the builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copy the build output from the builder stage into the /a365ss sub-folder
+COPY --from=builder /app/dist /usr/share/nginx/html/a365ss
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
