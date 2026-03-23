@@ -322,7 +322,7 @@ export default function LoginPage() {
         <div className={styles.login}>
             <div className={styles.login__hero}>
                 <div className={styles['login__hero-content']}>
-                    <img src="/favicon.png" className={styles['login__hero-logo']} alt="A365 Logo" />
+                    <img src={`favicon.png`} className={styles['login__hero-logo']} alt="A365 Logo" />
                     <h1 className={styles['login__hero-title']}>HR Self-Service Portal</h1>
                     <div className={styles.login__lang_wrapper}>
                         <button

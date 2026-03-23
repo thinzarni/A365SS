@@ -255,7 +255,7 @@ export default function AppLayout() {
         }
 
         // Add extra Social tab if both chat and socialpost are true
-        if (configData?.chat && configData?.socialpost) {
+        if (configData?.chat && configData?.socialpost && import.meta.env.VITE_FLAVOR !== 'prd') {
             if (!items.some(i => i.router === '/socialpost')) {
                 items.push({
                     syskey: 'socialpost_extra',
@@ -268,7 +268,7 @@ export default function AppLayout() {
         }
 
         // Add extra Chat tab if chat is true
-        if (configData?.chat) {
+        if (configData?.chat && import.meta.env.VITE_FLAVOR !== 'prd') {
             if (!items.some(i => i.router === '/chat')) {
                 items.push({
                     syskey: 'chat_extra',
