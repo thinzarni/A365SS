@@ -7,5 +7,5 @@ services:
       dockerfile: Dockerfile
     container_name: a365ss_react_app
     ports:
-      - "8084:80" # React app on 8084 — Angular nginx proxies /a365ss to here
+      - "8082:80" # React app on 8084 — Angular nginx proxies /a365ss to here
     restart: unless-stopped
