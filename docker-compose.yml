@@ -7,5 +7,5 @@ services:
       dockerfile: Dockerfile
     container_name: a365ss_react_app
     ports:
-      - "8084:80" # Maps port 8084 on the server to port 80 in the container
+      - "8082:80" # Maps port 8082 on the server to port 80 in the container
     restart: unless-stopped
