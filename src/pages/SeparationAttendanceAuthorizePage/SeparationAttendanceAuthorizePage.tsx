@@ -111,39 +111,64 @@ export default function SeparationAttendanceAuthorizePage() {
         setPage(1);
     };
 
-    const handleExport = () => {
-        if (paginatedRecords.length === 0) {
+    const handleExport = async () => {
+        if (totalCount === 0) {
             toast.error('No data to export');
             return;
         }
 
-        const exportData = paginatedRecords.map(rec => ({
-            'Employee ID': rec.employeeid,
-            'Employee Name': rec.employeename,
-            'Resign Date': formatDate(rec.resigndate),
-            'End Date': formatDate(rec.enddate),
-            'Position': rec.positionname || 'N/A',
-            'Office': rec.officename || 'N/A',
-            'Status': rec.attendanceauthorize === 2 ? 'Approved' : rec.attendanceauthorize === 3 ? 'Rejected' : 'Pending'
-        }));
+        const loadToast = toast.loading('Preparing export...');
+        try {
+            const res = await mainClient.post(SEPARATION_ATTENDANCE_LIST, {
+                searchval,
+                pagesize: 0,
+                currentpage: 1,
+                userid: userId,
+                domain,
+                status: activeTab
+            });
 
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Separation Attendance');
+            const allRecords: SeparationRecord[] = res.data?.datalist || [];
 
-        // Column widths
-        const wscols = [
-            { wch: 15 }, // ID
-            { wch: 25 }, // Name
-            { wch: 15 }, // Resign Date
-            { wch: 15 }, // End Date
-            { wch: 25 }, // Position
-            { wch: 20 }, // Office
-            { wch: 15 }  // Status
-        ];
-        worksheet['!cols'] = wscols;
+            if (allRecords.length === 0) {
+                toast.error('No records found for export');
+                return;
+            }
 
-        XLSX.writeFile(workbook, `Separation_Attendance_Authorize_${statusTabs.find(t => t.key === activeTab)?.label || 'All'}.xlsx`);
+            const exportData = allRecords.map(rec => ({
+                'Employee ID': rec.employeeid,
+                'Employee Name': rec.employeename,
+                'Resign Date': formatDate(rec.resigndate),
+                'End Date': formatDate(rec.enddate),
+                'Position': rec.positionname || 'N/A',
+                'Office': rec.officename || 'N/A',
+                'Status': rec.attendanceauthorize === 2 ? 'Approved' : rec.attendanceauthorize === 3 ? 'Rejected' : 'Pending'
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Separation Attendance');
+
+            // Column widths
+            const wscols = [
+                { wch: 15 }, // ID
+                { wch: 25 }, // Name
+                { wch: 15 }, // Resign Date
+                { wch: 15 }, // End Date
+                { wch: 25 }, // Position
+                { wch: 20 }, // Office
+                { wch: 15 }  // Status
+            ];
+            worksheet['!cols'] = wscols;
+
+            XLSX.writeFile(workbook, `Separation_Attendance_Authorize_${statusTabs.find(t => t.key === activeTab)?.label || 'All'}.xlsx`);
+            toast.success('Export completed');
+        } catch (error) {
+            console.error('Export failed:', error);
+            toast.error('Failed to export data');
+        } finally {
+            toast.dismiss(loadToast);
+        }
     };
 
     return (
