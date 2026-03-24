@@ -136,4 +136,4 @@ export const router = createBrowserRouter([
 
     // ── Fallback ──
     { path: '*', element: <Navigate to="/" replace /> },
-], { basename: '/a365ss' });
+], { basename: import.meta.env.BASE_URL });

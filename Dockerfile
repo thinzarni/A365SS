@@ -10,7 +10,7 @@ RUN npm install
 COPY . .
 # You can append environment variables here if needed, like:
 # RUN VITE_FLAVOR=prd npm run build
-RUN npm run build 
+RUN npm run build:docker
 
 # Stage 2: Serve the application with Nginx
 FROM nginx:alpine
