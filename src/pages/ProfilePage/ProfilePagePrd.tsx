@@ -162,9 +162,7 @@ const MOCK_EMERGENCY: EmergencyContact[] = [
     { name: 'Daw Kyi Kyi', relationship: 'Mother', contactNumber: '09-123-456-789', address: 'No.5, Strand Road, Yangon' },
     { name: '', relationship: '', contactNumber: '', address: '' },
 ];
-const MOCK_QUALIFICATIONS: Qualification[] = [
-    { id: '1', degree: 'B.Sc. (Computer Science)', institution: 'University of Computer Studies, Yangon', major: 'Computer Science', yearCompleted: '2018', grade: 'Distinction' },
-];
+
 const MOCK_CONTACT = {
     permanentState: 'Yangon', permanentDistrict: 'Bahan', permanentTownship: 'Bahan', permanentTown: 'Bahan',
     temporaryState: '', temporaryDistrict: '', temporaryTownship: '', temporaryTown: '',
@@ -591,7 +589,7 @@ function EmergencyContactTab() {
                                 <FormRow label={t('profile.emergency.relationship')}>
                                     <select className={styles.formSelect} value={draft.relationship} onChange={e => setDraft({ ...draft, relationship: e.target.value })}>
                                         <option value="">{t('profile.emergency.selectRelationship')}</option>
-                                        {relationships.map(r => <option key={r} value={r}>{t(`profile.options.relationships.${r}` as any, r)}</option>)}
+                                        {relationships.map((r: string) => <option key={r} value={r}>{String(t(`profile.options.relationships.${r}` as any, r))}</option>)}
                                     </select>
                                 </FormRow>
                                 <FormRow label={t('profile.emergency.contactNumber')}>
@@ -821,7 +819,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         const [y, m, d] = dateStr.split('-');
         return `${d}/${m}/${y}`;
     };
-    
+
     const parseDateFromApi = (dateStr: string) => {
         if (!dateStr) return '';
         const [d, m, y] = dateStr.split('/');
@@ -875,7 +873,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             newRecord.id = Date.now().toString(); // Temporary ID, real syskey provided by backend
         }
 
-        const updatedRecords = isUpdate 
+        const updatedRecords = isUpdate
             ? records.map(r => r.id === editingId ? newRecord : r)
             : [...records, newRecord];
 
@@ -974,7 +972,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                     <FormRow label={t('profile.qualification.institution', 'Institution / Education Name')}>
                         <input className={styles.formInput} value={form.educationname} onChange={f('educationname')} placeholder={t('profile.qualification.instPlaceholder', 'Institution name')} />
                     </FormRow>
-                    
+
                     <div className={styles.formGrid2}>
                         <FormRow label="From Date">
                             <input className={styles.formInput} type="date" value={form.fromdate} onChange={f('fromdate')} />
@@ -1146,7 +1144,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                         <FormRow label={t('profile.emergency.relationship')}>
                             <select className={styles.formSelect} value={form.relationship} onChange={fv('relationship')}>
                                 <option value="">{t('profile.emergency.selectRelationship')}</option>
-                                {relationships.map(r => <option key={r} value={r}>{t(`profile.options.relationships.${r}` as any, r)}</option>)}
+                                {relationships.map((r: string) => <option key={r} value={r}>{String(t(`profile.options.relationships.${r}` as any, r))}</option>)}
                             </select>
                         </FormRow>
                         <FormRow label={t('profile.family.taxEligible')}>
