@@ -17,7 +17,7 @@ import { APP_ID } from '../../lib/auth-token';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
 import { Button, Input } from '../../components/ui';
 import { toast } from 'react-hot-toast';
-import { MENU_ITEMS, GET_FAMILY, FAMILY_UPDATE, GET_EXPERIENCE, EXPERIENCE_UPDATE } from '../../config/api-routes';
+import { MENU_ITEMS, GET_FAMILY, FAMILY_UPDATE, GET_EXPERIENCE, EXPERIENCE_UPDATE, GET_SETUP_LIST, GET_QUALIFICATION, QUALIFICATION_UPDATE } from '../../config/api-routes';
 import styles from './ProfilePagePrd.module.css';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -87,11 +87,14 @@ interface WorkExperience {
 
 interface Qualification {
     id: string;
-    degree: string;
-    institution: string;
-    major: string;
-    yearCompleted: string;
-    grade: string;
+    type: string;
+    qualificationtype: string;
+    description: string;
+    educationname: string;
+    fromdate: string;
+    todate: string;
+    isheight: string;
+    status: string;
 }
 
 interface FamilyMember {
@@ -126,7 +129,24 @@ const getTabs = (t: any) => [
 ] as const;
 type TabId = ReturnType<typeof getTabs>[number]['id'];
 
-const RELATIONSHIPS = ['Father', 'Mother', 'Spouse', 'Sibling', 'Son', 'Daughter', 'Relative', 'Friend', 'Other'];
+function useRelationships(isOpen: boolean) {
+    const { domain, userId } = useAuthStore();
+    const { data: relationships = [] } = useQuery({
+        queryKey: ['relationships', userId, domain],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_SETUP_LIST, {
+                userid: userId,
+                domain: domain || 'demouat',
+                tblname: 'relativetype'
+            });
+            const list = res.data?.datalist || [];
+            return list.map((item: any) => item.code || item.description);
+        },
+        enabled: !!userId && isOpen,
+        staleTime: 5 * 60 * 1000,
+    });
+    return relationships;
+}
 const NATIONALITIES = ['Myanmar', 'Chinese', 'Indian', 'Thai', 'Japanese', 'Korean', 'American', 'Other'];
 const ETHNICITIES = ['Bamar', 'Shan', 'Karen', 'Rakhine', 'Mon', 'Karenni', 'Chin', 'Kachin', 'Other'];
 const ORG_TYPES = ['Government', 'Private', 'NGO', 'INGO', 'Other'];
@@ -330,7 +350,7 @@ export default function ProfilePage() {
                     )}
                     {activeTab === 'emergency' && <EmergencyContactTab />}
                     {activeTab === 'experience' && <WorkExperienceTab profile={profile} />}
-                    {activeTab === 'qualification' && <QualificationTab />}
+                    {activeTab === 'qualification' && <QualificationTab profile={profile} />}
                     {activeTab === 'family' && <FamilyInfoTab profile={profile} />}
                     {activeTab === 'contact' && <ContactInfoTab />}
                 </div>
@@ -535,6 +555,7 @@ function EmergencyContactTab() {
     const { t } = useTranslation();
     const [contacts, setContacts] = useState<EmergencyContact[]>(MOCK_EMERGENCY);
     const [editing, setEditing] = useState<number | null>(null);
+    const relationships = useRelationships(editing !== null);
     const [draft, setDraft] = useState<EmergencyContact>({ name: '', relationship: '', contactNumber: '', address: '' });
 
     const startEdit = (idx: number) => { setEditing(idx); setDraft({ ...contacts[idx] }); };
@@ -570,7 +591,7 @@ function EmergencyContactTab() {
                                 <FormRow label={t('profile.emergency.relationship')}>
                                     <select className={styles.formSelect} value={draft.relationship} onChange={e => setDraft({ ...draft, relationship: e.target.value })}>
                                         <option value="">{t('profile.emergency.selectRelationship')}</option>
-                                        {RELATIONSHIPS.map(r => <option key={r} value={r}>{t(`profile.options.relationships.${r}` as any, r)}</option>)}
+                                        {relationships.map(r => <option key={r} value={r}>{t(`profile.options.relationships.${r}` as any, r)}</option>)}
                                     </select>
                                 </FormRow>
                                 <FormRow label={t('profile.emergency.contactNumber')}>
@@ -663,7 +684,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             newRecord.id = Date.now().toString();
         }
 
-        const updatedRecords = isUpdate 
+        const updatedRecords = isUpdate
             ? records.map(r => r.id === editingId ? newRecord : r)
             : [...records, newRecord];
 
@@ -789,26 +810,105 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 // ═══════════════════════════════════════════════════════════════════════
 // TAB 5 — Qualification (Create/Edit/View)
 // ═══════════════════════════════════════════════════════════════════════
-function QualificationTab() {
+function QualificationTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const [records, setRecords] = useState<Qualification[]>(MOCK_QUALIFICATIONS);
+    const [records, setRecords] = useState<Qualification[]>([]);
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const blank = (): Qualification => ({ id: '', degree: '', institution: '', major: '', yearCompleted: '', grade: '' });
+
+    const formatDateForApi = (dateStr: string) => {
+        if (!dateStr) return '';
+        const [y, m, d] = dateStr.split('-');
+        return `${d}/${m}/${y}`;
+    };
+    
+    const parseDateFromApi = (dateStr: string) => {
+        if (!dateStr) return '';
+        const [d, m, y] = dateStr.split('/');
+        return `${y}-${m}-${d}`;
+    };
+
+    const { data: fetchedData } = useQuery({
+        queryKey: ['qualification', profile.userid, profile.eid],
+        queryFn: async () => {
+            const { domain } = useAuthStore.getState();
+            const res = await mainClient.post(GET_QUALIFICATION, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid
+            });
+            const arr = res.data?.data || [];
+            return arr.map((item: any) => ({
+                id: item.syskey,
+                type: item.type || 'Education',
+                qualificationtype: item.qualificationtype || 'Education',
+                description: item.description || '',
+                educationname: item.educationname || '',
+                fromdate: parseDateFromApi(item.fromdate),
+                todate: parseDateFromApi(item.todate),
+                isheight: item.isheight?.toString() === 'true' ? 'true' : 'false',
+                status: item.status?.toString() || '0'
+            })) as Qualification[];
+        },
+        enabled: !!profile.userid && !!profile.eid
+    });
+
+    useEffect(() => {
+        if (fetchedData) {
+            setRecords(fetchedData);
+        }
+    }, [fetchedData]);
+
+    const blank = (): Qualification => ({ id: '', type: 'Education', qualificationtype: 'Education', description: '', educationname: '', fromdate: '', todate: '', isheight: 'false', status: '0' });
     const [form, setForm] = useState<Qualification>(blank());
 
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
     const openEdit = (r: Qualification) => { setForm({ ...r }); setEditingId(r.id); setShowModal(true); };
     const close = () => { setShowModal(false); setEditingId(null); };
-    const save = () => {
-        if (!form.degree) { toast.error(t('profile.qualification.reqDegree')); return; }
-        if (editingId) setRecords(rs => rs.map(r => r.id === editingId ? form : r));
-        else setRecords(rs => [...rs, { ...form, id: Date.now().toString() }]);
-        close();
-        toast.success(editingId ? t('profile.qualification.saveSuccessUpdate') : t('profile.qualification.saveSuccessAdd'));
+
+    const save = async () => {
+        if (!form.description) { toast.error(t('profile.qualification.reqDegree', 'Description is required')); return; }
+
+        const isUpdate = !!editingId;
+        const newRecord = { ...form };
+        if (!isUpdate) {
+            newRecord.id = Date.now().toString(); // Temporary ID, real syskey provided by backend
+        }
+
+        const updatedRecords = isUpdate 
+            ? records.map(r => r.id === editingId ? newRecord : r)
+            : [...records, newRecord];
+
+        const { domain } = useAuthStore.getState();
+        const qualificationlist = updatedRecords.map(r => ({
+            syskey: r.id.length < 20 ? '' : r.id, // Only send real syskeys
+            type: r.type,
+            qualificationtype: r.qualificationtype,
+            description: r.description,
+            educationname: r.educationname,
+            fromdate: formatDateForApi(r.fromdate),
+            todate: formatDateForApi(r.todate),
+            isheight: r.isheight,
+            status: r.id.length < 20 ? "0" : r.status
+        }));
+
+        try {
+            await mainClient.post(QUALIFICATION_UPDATE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid,
+                qualificationlist
+            });
+            setRecords(updatedRecords);
+            close();
+            toast.success(isUpdate ? t('profile.qualification.saveSuccessUpdate') : t('profile.qualification.saveSuccessAdd'));
+        } catch (err) {
+            toast.error('Failed to save qualification information');
+        }
     };
+
     const remove = (id: string) => { setRecords(rs => rs.filter(r => r.id !== id)); toast.success(t('profile.experience.removeSuccess')); };
-    const f = (k: keyof Qualification) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [k]: e.target.value }));
+    const f = (k: keyof Qualification) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
     return (
         <div className={styles.sectionCard}>
@@ -821,16 +921,25 @@ function QualificationTab() {
                     <div className={styles.tableWrapper}>
                         <table className={styles.table}>
                             <thead>
-                                <tr><th>{t('profile.qualification.degree')}</th><th>{t('profile.qualification.institution')}</th><th>{t('profile.qualification.major')}</th><th>{t('profile.qualification.year')}</th><th>{t('profile.qualification.grade')}</th><th></th></tr>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                    <th>Institution</th>
+                                    <th>Period</th>
+                                    <th>Highest?</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
                             </thead>
                             <tbody>
                                 {records.map(r => (
                                     <tr key={r.id}>
-                                        <td><strong>{r.degree}</strong></td>
-                                        <td>{r.institution}</td>
-                                        <td>{r.major}</td>
-                                        <td>{r.yearCompleted}</td>
-                                        <td>{r.grade}</td>
+                                        <td>{r.type}</td>
+                                        <td><strong>{r.description}</strong></td>
+                                        <td>{r.educationname}</td>
+                                        <td className={styles.noWrap}>{formatDateForApi(r.fromdate)} → {formatDateForApi(r.todate) || t('profile.experience.present')}</td>
+                                        <td>{r.isheight === 'true' ? 'Yes' : 'No'}</td>
+                                        <td><StatusBadge status={r.status === '0' ? 'Pending' : 'Active'} /></td>
                                         <td>
                                             <div className={styles.rowActions}>
                                                 <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
@@ -847,23 +956,41 @@ function QualificationTab() {
 
             {showModal && (
                 <FormModal title={editingId ? t('profile.qualification.modalEdit') : t('profile.qualification.modalAdd')} onClose={close} onSave={save}>
-                    <FormRow label={t('profile.qualification.degree')}>
-                        <input className={styles.formInput} value={form.degree} onChange={f('degree')} placeholder={t('profile.qualification.degreePlaceholder')} />
-                    </FormRow>
-                    <FormRow label={t('profile.qualification.institution')}>
-                        <input className={styles.formInput} value={form.institution} onChange={f('institution')} placeholder={t('profile.qualification.instPlaceholder')} />
-                    </FormRow>
                     <div className={styles.formGrid2}>
-                        <FormRow label={t('profile.qualification.major')}>
-                            <input className={styles.formInput} value={form.major} onChange={f('major')} placeholder={t('profile.qualification.majorPlaceholder')} />
+                        <FormRow label="Type">
+                            <select className={styles.formSelect} value={form.type} onChange={f('type')}>
+                                <option value="Education">Education</option>
+                                <option value="Certificate">Certificate</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </FormRow>
-                        <FormRow label={t('profile.qualification.year')}>
-                            <input className={styles.formInput} type="number" value={form.yearCompleted} onChange={f('yearCompleted')} placeholder={t('profile.qualification.yearPlaceholder')} min="1950" max="2100" />
+                        <FormRow label="Qualification Type">
+                            <input className={styles.formInput} value={form.qualificationtype} onChange={f('qualificationtype')} placeholder="Education, Certificate..." />
                         </FormRow>
                     </div>
-                    <FormRow label="Grade / GPA">
-                        <input className={styles.formInput} value={form.grade} onChange={f('grade')} placeholder="e.g. Distinction, 3.8 GPA" />
+                    <FormRow label={t('profile.qualification.degree', 'Description / Degree')}>
+                        <input className={styles.formInput} value={form.description} onChange={f('description')} placeholder={t('profile.qualification.degreePlaceholder', 'e.g. Computer Science')} />
                     </FormRow>
+                    <FormRow label={t('profile.qualification.institution', 'Institution / Education Name')}>
+                        <input className={styles.formInput} value={form.educationname} onChange={f('educationname')} placeholder={t('profile.qualification.instPlaceholder', 'Institution name')} />
+                    </FormRow>
+                    
+                    <div className={styles.formGrid2}>
+                        <FormRow label="From Date">
+                            <input className={styles.formInput} type="date" value={form.fromdate} onChange={f('fromdate')} />
+                        </FormRow>
+                        <FormRow label="To Date">
+                            <input className={styles.formInput} type="date" value={form.todate} onChange={f('todate')} />
+                        </FormRow>
+                    </div>
+                    <div className={styles.formGrid2}>
+                        <FormRow label="Highest Qualification?">
+                            <select className={styles.formSelect} value={form.isheight} onChange={f('isheight')}>
+                                <option value="false">No</option>
+                                <option value="true">Yes</option>
+                            </select>
+                        </FormRow>
+                    </div>
                 </FormModal>
             )}
         </div>
@@ -877,6 +1004,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
     const [records, setRecords] = useState<FamilyMember[]>([]);
     const [showModal, setShowModal] = useState(false);
+    const relationships = useRelationships(showModal);
     const [editingId, setEditingId] = useState<string | null>(null);
 
     const { data: fetchedData } = useQuery({
@@ -1018,7 +1146,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                         <FormRow label={t('profile.emergency.relationship')}>
                             <select className={styles.formSelect} value={form.relationship} onChange={fv('relationship')}>
                                 <option value="">{t('profile.emergency.selectRelationship')}</option>
-                                {RELATIONSHIPS.map(r => <option key={r} value={r}>{t(`profile.options.relationships.${r}` as any, r)}</option>)}
+                                {relationships.map(r => <option key={r} value={r}>{t(`profile.options.relationships.${r}` as any, r)}</option>)}
                             </select>
                         </FormRow>
                         <FormRow label={t('profile.family.taxEligible')}>

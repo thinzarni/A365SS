@@ -16,6 +16,8 @@ export const GET_FAMILY = 'api/employees/getfamily';
 export const FAMILY_UPDATE = 'api/employees/family/update';
 export const GET_EXPERIENCE = 'api/employees/getexperience';
 export const EXPERIENCE_UPDATE = 'api/employees/experience/update';
+export const GET_QUALIFICATION = 'api/employees/getqualification';
+export const QUALIFICATION_UPDATE = 'api/employees/qualification/update';
 
 // ── Request Management ──
 export const REQUEST_TYPES = `${hxmPrefix}request/getrequesttypelist`;
@@ -64,6 +66,7 @@ export const CLAIM_TYPES = `${hxmPrefix}claim/claimtypelist`;
 
 // ── Setup ──
 export const CURRENCY_TYPES = `${hxmPrefix}setup/getSetupList/currency`;
+export const GET_SETUP_LIST = 'api/setup/getsetuplist';
 export const MEMBER_LIST = `${hxmPrefix}integration/memberlist`;
 export const MENU_ITEMS = `${hxmPrefix}integration/get/menuitems`;
 
