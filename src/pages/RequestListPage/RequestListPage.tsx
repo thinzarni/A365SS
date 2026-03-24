@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -13,24 +13,32 @@ import {
     Plane,
     Banknote,
     FileText,
+    Filter,
 } from 'lucide-react';
-import { Button } from '../../components/ui';
+import { Button, Input, Select } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
-import type { RequestModel } from '../../types/models';
+import type { RequestModel, TypesModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
-import { GET_REQUEST_LIST } from '../../config/api-routes';
+import mainClient from '../../lib/main-client';
+import { GET_REQUEST_LIST, REQUEST_TYPES, ATTENDANCE_SHIFT_DATA } from '../../config/api-routes';
 import { displayDate } from '../../lib/date-utils';
 import styles from './RequestListPage.module.css';
 import '../../styles/pages.css';
 
-/* helper: yyyyMMdd */
-function toApiDate(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${y}${m}${dd}`;
+/** Convert Date → "yyyy-mm-dd" */
+function dateToInput(d: Date): string {
+    return d.toISOString().split('T')[0];
 }
+
+/** Convert "yyyymmdd" → "yyyy-mm-dd" */
+function toInputDate(yyyymmdd: string): string {
+    if (!yyyymmdd || yyyymmdd.length < 8) return '';
+    return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
+}
+
+const DEFAULT_FROM_DATE = new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1);
+const DEFAULT_TO_DATE = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
 
 // Maps API router path → display config + filter keyword
 // Matching mobile's requestTypes.firstWhere(t.description == '<Type>') pattern
@@ -84,24 +92,65 @@ export default function RequestListPage() {
     const location = useLocation();
 
     // Detect subtype view — path like /claim, /overtime etc filter the list to that type
-    // Mirrors mobile: /claim and /overtime open RequestPage(requestType: matched)
     const pathTypeCfg = PATH_TYPE_MAP[location.pathname] ?? null;
     const isSubtypeView = pathTypeCfg !== null;
 
-    // Flutter default: _initilApprovalStatus = RequestStatus.pending
     const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
+    const [fromDate, setFromDate] = useState<string>(dateToInput(DEFAULT_FROM_DATE));
+    const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
+    const [requestType, setRequestType] = useState<string>('');
+    const [didInitDates, setDidInitDates] = useState(false);
+    const [filterOpen, setFilterOpen] = useState(false);
 
-    const { data: requests = [], isLoading } = useQuery<RequestModel[]>({
-        queryKey: ['requests', activeStatus, location.pathname],
+    // Fetch shift data for transition dates
+    const { data: shiftData, isLoading: shiftLoading } = useQuery({
+        queryKey: ['shiftData'],
         queryFn: async () => {
-            const now = new Date();
-            const fromDate = new Date(now.getFullYear(), now.getMonth() - 2, 1); // 3 months back
-            const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            const res = await mainClient.post(ATTENDANCE_SHIFT_DATA, {});
+            return res.data?.data || null;
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    useEffect(() => {
+        if (!shiftLoading && !didInitDates) {
+            if (shiftData?.transitionFromDate) {
+                setFromDate(toInputDate(shiftData.transitionFromDate));
+            }
+            if (shiftData?.transitionToDate) {
+                setToDate(toInputDate(shiftData.transitionToDate));
+            }
+            setDidInitDates(true);
+        }
+    }, [shiftData, shiftLoading, didInitDates]);
+
+    // Fetch request types for the dropdown
+    const { data: requestTypes = [] } = useQuery<TypesModel[]>({
+        queryKey: ['requestTypes'],
+        queryFn: async () => {
+            const res = await apiClient.get(REQUEST_TYPES);
+            return res.data?.datalist || [];
+        },
+    });
+
+    const typeOptions = useMemo(() => {
+        return [
+            { value: '', label: 'All Types' },
+            ...requestTypes.map(t => ({
+                value: t.syskey,
+                label: t.description
+            }))
+        ];
+    }, [requestTypes]);
+
+    const { data: requests = [], isLoading: requestsLoading } = useQuery<RequestModel[]>({
+        queryKey: ['requests', activeStatus, fromDate, toDate, requestType, location.pathname],
+        queryFn: async () => {
             const res = await apiClient.post(GET_REQUEST_LIST, {
-                fromdate: toApiDate(fromDate),
-                todate: toApiDate(toDate),
-                type: '',
-                status: Number(activeStatus),  // API expects a number, not string
+                fromdate: fromDate.replace(/-/g, ''), // Send yyyymmdd to API
+                todate: toDate.replace(/-/g, ''),
+                type: isSubtypeView ? '' : requestType, // Backend filters by type syskey
+                status: Number(activeStatus),
             });
             const all: RequestModel[] = res.data?.datalist || [];
             // Filter by subtype when on a type-specific path (same as mobile filtering by requestType)
@@ -113,21 +162,42 @@ export default function RequestListPage() {
             }
             return all;
         },
+        enabled: didInitDates,
     });
 
-    /* ── Quick stats (always from unfiltered "All" data) ── */
+    const isLoading = shiftLoading || !didInitDates || requestsLoading;
+
+    // Summary stats — same date/type filter as the list, but always all statuses
+    const { data: summaryData = [] } = useQuery<RequestModel[]>({
+        queryKey: ['summaryRequests', fromDate, toDate, requestType, location.pathname],
+        queryFn: async () => {
+            const res = await apiClient.post(GET_REQUEST_LIST, {
+                fromdate: fromDate.replace(/-/g, ''),
+                todate: toDate.replace(/-/g, ''),
+                type: isSubtypeView ? '' : requestType,
+                status: 0, // All statuses
+            });
+            const all: RequestModel[] = res.data?.datalist || [];
+            if (pathTypeCfg) {
+                return all.filter(r => {
+                    const desc = ((r as any).requesttypedesc || (r as any).requesttype || '').toLowerCase();
+                    return desc.includes(pathTypeCfg.filter);
+                });
+            }
+            return all;
+        },
+        enabled: didInitDates,
+        staleTime: 30 * 1000,
+    });
+
+    /* ── Quick stats (using summaryData for fixed counts) ── */
     const stats = useMemo(() => {
-        let pending = 0;
-        let approved = 0;
-        let rejected = 0;
-        for (const r of requests as any[]) {
-            const st = String(r.requeststatus);
-            if (st === '1') pending++;
-            if (st === '2') approved++;
-            if (st === '3') rejected++;
-        }
-        return { total: requests.length, pending, approved, rejected };
-    }, [requests]);
+        const total = summaryData.length;
+        const pending = summaryData.filter(r => String(r.requeststatus) === '1').length;
+        const approved = summaryData.filter(r => String(r.requeststatus) === '2').length;
+        const rejected = summaryData.filter(r => String(r.requeststatus) === '3').length;
+        return { total, pending, approved, rejected };
+    }, [summaryData]);
 
     /* ═══════════════════════════ Render ═══════════════════════ */
 
@@ -177,23 +247,73 @@ export default function RequestListPage() {
                 </div>
             </div>
 
+            {/* ── Filters (collapsible) ── */}
+            {!isSubtypeView && filterOpen && (
+                <div className={styles['filters-row']}>
+                    <div className={styles['filter-group']}>
+                        <label className={styles['filter-label']}>Date Range</label>
+                        <div className={styles['filter-inputs']}>
+                            <Input
+                                type="date"
+                                value={fromDate}
+                                onChange={(e) => setFromDate(e.target.value)}
+                                className={styles['filter-date']}
+                            />
+                            <span className={styles['filter-separator']}>→</span>
+                            <Input
+                                type="date"
+                                value={toDate}
+                                onChange={(e) => setToDate(e.target.value)}
+                                className={styles['filter-date']}
+                            />
+                        </div>
+                    </div>
+                    <div className={styles['filter-group']}>
+                        <label className={styles['filter-label']}>Request Type</label>
+                        <Select
+                            options={typeOptions}
+                            value={requestType}
+                            onChange={(e) => setRequestType(e.target.value)}
+                            className={styles['filter-select']}
+                            placeholder="All Types"
+                        />
+                    </div>
+                </div>
+            )}
+
             {/* ── Requests table ── */}
             <div className={styles['requests-list-card']}>
                 <div className={styles['requests-list-card__header']}>
                     <h3 className={styles['requests-list-card__title']}>
                         {isSubtypeView ? `${pathTypeCfg!.label} Requests` : 'All Requests'}
                     </h3>
-                    {/* Filter tabs inside the card header */}
-                    <div className={styles['requests-filter-tabs']}>
-                        {statusTabs.map(({ key, label }) => (
+                    <div className={styles['requests-list-card__actions']}>
+                        {/* Filter toggle button */}
+                        {!isSubtypeView && (
                             <button
-                                key={key}
-                                className={`${styles['requests-filter-tabs__btn']} ${activeStatus === key ? styles['requests-filter-tabs__btn--active'] : ''}`}
-                                onClick={() => setActiveStatus(key)}
+                                className={`${styles['filter-toggle-btn']} ${filterOpen ? styles['filter-toggle-btn--active'] : ''}`}
+                                onClick={() => setFilterOpen(o => !o)}
+                                title="Toggle filters"
                             >
-                                {t(label)}
+                                <Filter size={14} />
+                                Filter
+                                {(requestType !== '') && (
+                                    <span className={styles['filter-toggle-btn__dot']} />
+                                )}
                             </button>
-                        ))}
+                        )}
+                        {/* Status tabs */}
+                        <div className={styles['requests-filter-tabs']}>
+                            {statusTabs.map(({ key, label }) => (
+                                <button
+                                    key={key}
+                                    className={`${styles['requests-filter-tabs__btn']} ${activeStatus === key ? styles['requests-filter-tabs__btn--active'] : ''}`}
+                                    onClick={() => setActiveStatus(key)}
+                                >
+                                    {t(label)}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 

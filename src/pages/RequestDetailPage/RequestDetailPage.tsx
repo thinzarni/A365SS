@@ -274,15 +274,15 @@ export default function RequestDetailPage() {
                     )}
 
                     {/* Financial */}
-                    {(detail.amount > 0 || detail.estimatedbudget > 0 || detail.remaining_balance || detail.max_amount) && (() => {
-                        const hasMaxAmount = detail.max_amount && Number(detail.max_amount) !== 0;
+                    {((detail.amount || 0) > 0 || (detail.estimatedbudget || 0) > 0 || detail.remaining_balance !== undefined || detail.max_amount !== undefined) && (() => {
+                        const hasMaxAmount = detail.max_amount !== undefined && Number(detail.max_amount) !== 0;
                         return (
                             <div className={styles['request-detail__section']}>
                                 <h4 className={styles['request-detail__section-title']}>Financial</h4>
                                 <div className={styles['request-detail__grid']}>
-                                    {hasMaxAmount && detail.remaining_balance && <Field label="Remaining Balance" value={detail.remaining_balance} />}
-                                    {hasMaxAmount && <Field label="Max Amount" value={detail.max_amount} />}
-                                    {detail.amount > 0 && <Field label="Amount" value={Number(detail.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />}
+                                    {hasMaxAmount && detail.remaining_balance !== undefined && <Field label="Remaining Balance" value={Number(detail.remaining_balance).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />}
+                                    {hasMaxAmount && <Field label="Max Amount" value={Number(detail.max_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />}
+                                    {(detail.amount || 0) > 0 && <Field label="Amount" value={Number(detail.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />}
                                     {currencyName && <Field label="Currency" value={currencyName} />}
                                 </div>
                             </div>
@@ -330,12 +330,12 @@ export default function RequestDetailPage() {
 
                     {/* Confirmed Amount — only shown when max_amount is set */}
                     {(String(detail.requeststatus) === RequestStatus.Approved || String(detail.requeststatus) === RequestStatus.Rejected)
-                        && detail.confirmed_amount
-                        && detail.max_amount && Number(detail.max_amount) !== 0 && (
+                        && detail.confirmed_amount !== undefined
+                        && detail.max_amount !== undefined && Number(detail.max_amount) !== 0 && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Confirmed Amount</h4>
                             <div className={styles['request-detail__grid']}>
-                                <Field label="Amount" value={detail.confirmed_amount} />
+                                <Field label="Amount" value={Number(detail.confirmed_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />
                             </div>
                         </div>
                     )}
@@ -393,7 +393,7 @@ export default function RequestDetailPage() {
                     {/* Approver Comment — only shown when max_amount is set */}
                     {(String(detail.requeststatus) === RequestStatus.Approved || String(detail.requeststatus) === RequestStatus.Rejected)
                         && detail.comment
-                        && detail.max_amount && Number(detail.max_amount) !== 0 && (
+                        && detail.max_amount !== undefined && Number(detail.max_amount) !== 0 && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Approver Comment</h4>
                             <div className={styles['request-detail__grid']}>

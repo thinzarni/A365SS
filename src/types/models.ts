@@ -106,6 +106,9 @@ export interface RequestModel {
   attachment: string[];
   createddate: string;
   createdtime: string;
+  remaining_balance?: number;
+  max_amount?: number;
+  confirmed_amount?: number;
 }
 
 export interface RequestDetailModel {
@@ -179,9 +182,9 @@ export interface RequestDetailModel {
   days: string;
   ottype: number;
   selectedAcconpanyPersons: Approver[];
-  remaining_balance?: string;
-  max_amount?: string;
-  confirmed_amount?: string;
+  remaining_balance?: number;
+  max_amount?: number;
+  confirmed_amount?: number;
 }
 
 export interface RequestDetail {
@@ -235,8 +238,8 @@ export interface TypesModel {
   description: string;
   code?: string;
   maxpeople?: number;
-  remaining_balance?: string;
-  max_amount?: string;
+  remaining_balance?: number;
+  max_amount?: number;
 }
 
 export interface LeaveType {

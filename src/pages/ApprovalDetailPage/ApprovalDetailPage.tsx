@@ -412,9 +412,9 @@ export default function ApprovalDetailPage() {
                                 </div>
                                 {/* Remaining Balance | Max Amount — only when max_amount is set */}
                                 {hasMaxAmount && (
-                                    <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr 1fr', marginTop: 12 }}>
-                                        <Field label="Remaining Balance" value={d.remaining_balance ? String(d.remaining_balance) : undefined} />
-                                        <Field label="Max Amount" value={String(d.max_amount)} />
+                                    <div className={styles['approval-detail__grid'] ?? ''} style={{ gridTemplateColumns: '1fr 1fr', marginTop: 12 }}>
+                                        <Field label="Remaining Balance" value={d.remaining_balance !== undefined ? Number(d.remaining_balance).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : undefined} />
+                                        <Field label="Max Amount" value={d.max_amount !== undefined ? Number(d.max_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : undefined} />
                                     </div>
                                 )}
                             </div>
@@ -566,7 +566,7 @@ export default function ApprovalDetailPage() {
                 {/* ── Action Bar ── */}
                 {showActionBar && (
                     <div className={styles['approval-detail__actions']}>
-                        {(isPending || isApproved) && requestTypeString.includes('claim') && d.max_amount && Number(d.max_amount) !== 0 && (
+                        {(isPending || isApproved) && requestTypeString.includes('claim') && d.max_amount !== undefined && Number(d.max_amount) !== 0 && (
                             <div className={styles['approval-detail__comment-box']}>
                                 <div style={{ marginBottom: 12 }}>
                                     <label
