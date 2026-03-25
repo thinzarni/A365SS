@@ -39,6 +39,7 @@ import SeparationAttendanceAuthorizePage from '../pages/SeparationAttendanceAuth
 // a365 → original simple profile view
 import ProfilePage from '../pages/ProfilePage/ProfilePage';
 import ProfilePagePrd from '../pages/ProfilePage/ProfilePagePrd';
+import NewAttendanceRequestPage from '../pages/AttendanceRequestPage/NewAttendanceRequestPage';
 import { flavor } from '../config/features';
 const ActiveProfilePage = flavor === 'prd' ? ProfilePagePrd : ProfilePage;
 
@@ -106,7 +107,9 @@ export const router = createBrowserRouter([
                     { path: '/offinlieu/new', element: <NewRequestPage /> },
                     // ── Attendance subtypes — use existing approval pages ──
                     { path: '/attendanceapproval', element: <ApprovalListPage /> },
+                    { path: '/attendanceapproval/:id/:type', element: <ApprovalDetailPage /> },
                     { path: '/attendancerequest', element: <RequestListPage /> },
+                    { path: '/attendancerequest/new', element: <NewAttendanceRequestPage /> },
                     { path: '/locationapproval', element: <ApprovalListPage /> },
                     // ── Other ──
                     { path: '/leave', element: <LeavePage /> },

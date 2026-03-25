@@ -129,7 +129,7 @@ export default function ApprovalListPage() {
                 const res = await mainClient.post(GET_ATTENDANCE_APPROVAL_LIST, {
                     fromdate: fromDate,
                     todate: toDate,
-                    type: attType, 
+                    type: attType,
                     status: '', // Fetch all for steady summary counts
                 });
                 const list = res.data?.data || res.data?.datalist || (Array.isArray(res.data) ? res.data : []);
@@ -200,9 +200,9 @@ export default function ApprovalListPage() {
             {/* ── Page Header ── */}
             <div className={styles['approval-page__header']}>
                 <div className={styles['approval-page__header-left']}>
-                    <div className={styles['approval-page__icon-wrapper']}>
+                    {/* <div className={styles['approval-page__icon-wrapper']}>
                         <ShieldCheck size={24} />
-                    </div>
+                    </div> */}
                     <div>
                         <h1 className={styles['approval-page__title']}>{t('approval.title')}</h1>
                         <p className={styles['approval-page__subtitle']}>
