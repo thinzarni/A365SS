@@ -42,6 +42,13 @@ export const SHIFT_TIME = `${hxmPrefix}request/getshifttime`;
 export const GAP_TIME = `${hxmPrefix}request/requestgaptime`;
 export const ATTENDANCE_SHIFT_DATA = 'api/checkin/shift';
 
+// ── Attendance Overrides (Mobile) ──
+export const SAVE_ATTENDANCE_REQ = 'api/attendancerequest/saveattendancerequest';
+export const GET_ATTENDANCE_REQ_LIST = 'api/attendancerequest/getAttendanceRequestList';
+export const GET_ATTENDANCE_REQ_DETAIL = 'api/attendancerequest/getAttendanceRequestDetail';
+export const GET_ATTENDANCE_APPROVAL_LIST = 'api/checkin/getapproval';
+export const SAVE_ATTENDANCE_APPROVAL = 'api/checkin/saveapproval';
+
 // ── Approvals ──
 export const APPROVAL_LIST = `${hxmPrefix}approval/approvallist`;
 export const APPROVAL_DETAIL = `${hxmPrefix}approval/getapprovaldetail`;

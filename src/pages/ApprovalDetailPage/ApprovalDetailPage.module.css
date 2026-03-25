@@ -145,6 +145,37 @@
     font-style: italic;
 }
 
+/* ── Reason Type Radio ── */
+.approval-detail__reason-group {
+    display: flex;
+    gap: var(--space-4);
+    margin-top: var(--space-1);
+    background: var(--color-neutral-50);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-neutral-100);
+    width: fit-content;
+}
+
+.approval-detail__reason-option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    color: var(--color-neutral-600);
+    font-weight: var(--font-medium);
+}
+
+.approval-detail__reason-option input {
+    cursor: pointer;
+    accent-color: var(--color-primary-600);
+}
+
+.approval-detail__reason-option--active {
+    color: var(--color-primary-700);
+}
+
 /* ── Remarks ── */
 .approval-detail__remark {
     font-size: var(--text-sm);

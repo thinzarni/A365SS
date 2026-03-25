@@ -19,7 +19,8 @@ import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
 import type { RequestModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
-import { GET_REQUEST_LIST } from '../../config/api-routes';
+import mainClient from '../../lib/main-client';
+import { GET_REQUEST_LIST, GET_ATTENDANCE_REQ_LIST } from '../../config/api-routes';
 import { displayDate } from '../../lib/date-utils';
 import styles from './RequestListPage.module.css';
 import '../../styles/pages.css';
@@ -42,7 +43,14 @@ const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: s
     '/travel': { filter: 'travel', label: 'Travel', newLabel: 'New Travel', newPath: '/travel/new' },
     '/cashadvance': { filter: 'cash advance', label: 'Cash Advance', newLabel: 'New Cash Advance', newPath: '/cashadvance/new' },
     '/offinlieu': { filter: 'off in lieu', label: 'Off in Lieu', newLabel: 'New Off in Lieu', newPath: '/offinlieu/new' },
+    '/attendancerequest': { filter: 'attendance', label: 'Attendance Request', newLabel: 'New Attendance Request', newPath: '/attendancerequest/new' },
 };
+/* ── Attendance sub-type filter ── */
+const attendanceTypes = [
+    { key: '1', label: 'Remote Time in' },
+    { key: '2', label: 'Backdate Time in' },
+];
+
 /* ── Type display helpers ── */
 const statusTabs = [
     { key: RequestStatus.All, label: 'status.all' },
@@ -90,13 +98,40 @@ export default function RequestListPage() {
 
     // Flutter default: _initilApprovalStatus = RequestStatus.pending
     const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
+    const [attType, setAttType] = useState('1');
+    const isAttendancePage = location.pathname === '/attendancerequest';
 
-    const { data: requests = [], isLoading } = useQuery<RequestModel[]>({
-        queryKey: ['requests', activeStatus, location.pathname],
+    const { data: allRequests = [], isLoading } = useQuery<RequestModel[]>({
+        queryKey: ['requests', location.pathname, attType],
         queryFn: async () => {
             const now = new Date();
             const fromDate = new Date(now.getFullYear(), now.getMonth() - 2, 1); // 3 months back
             const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+            if (isAttendancePage) {
+                const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
+                    fromdate: toApiDate(fromDate),
+                    todate: toApiDate(toDate),
+                    status: '', // Fetch all for steady summary counts
+                    type: attType,
+                });
+                const list = res.data?.data || res.data?.datalist || [];
+                // Map AttendanceRequestModel to RequestModel for the table
+                return list.map((item: any) => ({
+                    syskey: item.syskey,
+                    eid: item.employee_id,
+                    name: item.employee_name,
+                    refno: item.syskey,
+                    date: item.date,
+                    startdate: item.date,
+                    requesttype: item.atttype || item.type,
+                    requesttypedesc: (attType === '1' || item.atttype === '1') ? 'Remote Time in' : (attType === '2' || item.atttype === '2') ? 'Backdate Time in' : (item.type === '601' ? 'Time In' : item.type === '602' ? 'Time Out' : 'Attendance'),
+                    requeststatus: String(item.status ?? '1'),
+                    requestsubtypedesc: `${item.intime || ''}${item.intime && item.outtime ? ' - ' : ''}${item.outtime || ''}`,
+                    remark: item.description,
+                }));
+            }
+
             const res = await apiClient.post(GET_REQUEST_LIST, {
                 fromdate: toApiDate(fromDate),
                 todate: toApiDate(toDate),
@@ -115,19 +150,26 @@ export default function RequestListPage() {
         },
     });
 
-    /* ── Quick stats (always from unfiltered "All" data) ── */
+    const displayRequests = useMemo(() => {
+        if (!isAttendancePage) return allRequests;
+        if (activeStatus === RequestStatus.All) return allRequests;
+        return allRequests.filter(r => r.requeststatus === String(activeStatus));
+    }, [allRequests, activeStatus, isAttendancePage]);
+
+    /* ── Quick stats (always from full category-specific data) ── */
     const stats = useMemo(() => {
         let pending = 0;
         let approved = 0;
         let rejected = 0;
-        for (const r of requests as any[]) {
+        const sourceData = isAttendancePage ? allRequests : allRequests; // Adjust if needed
+        for (const r of sourceData as any[]) {
             const st = String(r.requeststatus);
             if (st === '1') pending++;
             if (st === '2') approved++;
             if (st === '3') rejected++;
         }
-        return { total: requests.length, pending, approved, rejected };
-    }, [requests]);
+        return { total: allRequests.length, pending, approved, rejected };
+    }, [allRequests, isAttendancePage]);
 
     /* ═══════════════════════════ Render ═══════════════════════ */
 
@@ -141,7 +183,7 @@ export default function RequestListPage() {
                             {isSubtypeView ? pathTypeCfg!.label : t('request.title')}
                         </h1>
                         <p className="page-header__subtitle">
-                            {requests.length} {isSubtypeView ? pathTypeCfg!.filter : 'request'}{requests.length === 1 ? '' : 's'}
+                            {displayRequests.length} {isSubtypeView ? pathTypeCfg!.filter : 'request'}{displayRequests.length === 1 ? '' : 's'}
                         </p>
                     </div>
                     <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')}>
@@ -184,16 +226,31 @@ export default function RequestListPage() {
                         {isSubtypeView ? `${pathTypeCfg!.label} Requests` : 'All Requests'}
                     </h3>
                     {/* Filter tabs inside the card header */}
-                    <div className={styles['requests-filter-tabs']}>
-                        {statusTabs.map(({ key, label }) => (
-                            <button
-                                key={key}
-                                className={`${styles['requests-filter-tabs__btn']} ${activeStatus === key ? styles['requests-filter-tabs__btn--active'] : ''}`}
-                                onClick={() => setActiveStatus(key)}
-                            >
-                                {t(label)}
-                            </button>
-                        ))}
+                    <div className={styles['requests-header-actions']}>
+                        {isAttendancePage && (
+                            <div className={styles['requests-att-types']}>
+                                {attendanceTypes.map((t) => (
+                                    <button
+                                        key={t.key}
+                                        className={`${styles['requests-att-type-btn']} ${attType === t.key ? styles['requests-att-type-btn--active'] : ''}`}
+                                        onClick={() => setAttType(t.key)}
+                                    >
+                                        {t.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <div className={styles['requests-filter-tabs']}>
+                            {statusTabs.map(({ key, label }) => (
+                                <button
+                                    key={key}
+                                    className={`${styles['requests-filter-tabs__btn']} ${activeStatus === key ? styles['requests-filter-tabs__btn--active'] : ''}`}
+                                    onClick={() => setActiveStatus(key)}
+                                >
+                                    {t(label)}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
@@ -201,7 +258,7 @@ export default function RequestListPage() {
                     <div className="empty-state" style={{ padding: '2rem' }}>
                         <p className="empty-state__desc">{t('common.loading')}</p>
                     </div>
-                ) : requests.length === 0 ? (
+                ) : displayRequests.length === 0 ? (
                     <div className="empty-state" style={{ padding: '2rem' }}>
                         <ClipboardList size={48} className="empty-state__icon" />
                         <h3 className="empty-state__title">{t('request.noRequests')}</h3>
@@ -228,7 +285,7 @@ export default function RequestListPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {(requests as any[]).map((req, i) => {
+                                {(displayRequests as any[]).map((req, i) => {
                                     const typeDesc = req.requesttypedesc || req.requesttype || '';
                                     const variant = getTypeVariant(typeDesc);
                                     const Icon = getTypeIcon(variant);

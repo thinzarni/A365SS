@@ -167,6 +167,48 @@
     font-weight: var(--font-semibold);
 }
 
+.approval-page__tabs-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+    flex-wrap: wrap;
+}
+
+.approval-page__att-types {
+    display: flex;
+    gap: var(--space-2);
+    background: var(--color-neutral-50);
+    padding: 4px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-neutral-100);
+}
+
+.approval-page__att-type-btn {
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    border: none;
+    background: transparent;
+    color: var(--color-neutral-500);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.approval-page__att-type-btn:hover {
+    color: var(--color-neutral-700);
+}
+
+.approval-page__att-type-btn--active {
+    background: var(--color-primary-500);
+    color: white;
+    font-weight: var(--font-semibold);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+
 /* ── Card List ── */
 .approval-page__list {
     display: flex;

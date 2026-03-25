@@ -23,7 +23,20 @@ import { Textarea } from '../../components/ui/Input/Input';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import type { ApprovalDetailModel, TypesModel, Approver } from '../../types/models';
 import apiClient from '../../lib/api-client';
-import { APPROVAL_DETAIL, SAVE_APPROVAL, CURRENCY_TYPES, CAR_TYPES, CARS_LIST, DRIVERS_LIST, CLAIM_TYPES, TRANSPORTATION_TYPES } from '../../config/api-routes';
+import {
+    APPROVAL_DETAIL,
+    SAVE_APPROVAL,
+    CURRENCY_TYPES,
+    CAR_TYPES,
+    CARS_LIST,
+    DRIVERS_LIST,
+    CLAIM_TYPES,
+    TRANSPORTATION_TYPES,
+    GET_ATTENDANCE_APPROVAL_LIST,
+    SAVE_ATTENDANCE_APPROVAL,
+} from '../../config/api-routes';
+import mainClient from '../../lib/main-client';
+import { useLocation } from 'react-router-dom';
 import styles from './ApprovalDetailPage.module.css';
 
 /** Convert "yyyymmdd" → "dd/mm/yyyy" for display */
@@ -85,18 +98,49 @@ function Field({ label, value }: { label: string; value: string | number | undef
 /* ══════════════════════════════════════════════════════════════ */
 
 export default function ApprovalDetailPage() {
-    const { id: syskey } = useParams<{ id: string }>();
+    const { id: syskey, type: urlType } = useParams();
     const { t } = useTranslation();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
     const [comment, setComment] = useState('');
     const [confirmedAmount, setConfirmedAmount] = useState('');
+    const [reasonType, setReasonType] = useState<number>(1);
+    const location = useLocation();
+    const isAttendance = location.pathname.startsWith('/attendanceapproval');
 
     // Data fetching setup
     const { data: detail, isLoading } = useQuery<ApprovalDetailModel>({
-        queryKey: ['approval-detail', syskey],
+        queryKey: ['approval-detail', syskey, isAttendance],
         queryFn: async () => {
+            if (isAttendance) {
+                // For attendance, we might need to fetch the list or use a specialized detail API if available.
+                // Mobile uses getapproval with syskey filter.
+                const res = await mainClient.post(GET_ATTENDANCE_APPROVAL_LIST, { syskey });
+                const list = res.data?.data || res.data?.datalist || (Array.isArray(res.data) ? res.data : []);
+                const item = list.find((it: any) => String(it.syskey) === syskey) || list[0];
+                if (!item) throw new Error('Attendance approval not found');
+
+                if (item.reasonType) setReasonType(Number(item.reasonType));
+
+                // Map AttendanceApprovalModel to a structure compatible with the detail page
+                return {
+                    statuscode: 300,
+                    datalist: {
+                        ...item,
+                        employee_id: item.employee_id,
+                        name: item.name,
+                        requesttype: urlType || item.atttype || item.type, // Prioritize type from URL
+                        requesttypedesc: (urlType === '1' || item.atttype === '1') ? 'Remote Time in' : (urlType === '2' || item.atttype === '2') ? 'Backdate Time in' : (item.type === '601' ? 'Time In' : item.type === '602' ? 'Time Out' : 'Attendance'),
+                        requeststatus: item.status ?? '1',
+                        reasonType: item.reasonType || 1,
+                        date: item.date,
+                        starttime: item.time,
+                        remark: item.description,
+                        location: item.location,
+                    }
+                } as any;
+            }
             const res = await apiClient.post(APPROVAL_DETAIL, { syskey });
             const payloadData = res.data;
             if (payloadData?.statuscode === 300) return payloadData;
@@ -166,6 +210,22 @@ export default function ApprovalDetailPage() {
     const actionMutation = useMutation({
         mutationFn: async (status: 'approve' | 'reject') => {
             const statusCode = status === 'approve' ? '2' : '3';
+
+            if (isAttendance) {
+                const payload = {
+                    syskey: syskey,
+                    type: d.requesttype,
+                    status: statusCode,
+                    date: d.date,
+                    reasonType: d.reasonType || 1,
+                };
+                const res = await mainClient.post(SAVE_ATTENDANCE_APPROVAL, payload);
+                if (res.data?.status !== 201 && res.data?.statuscode !== 200 && res.data?.message_code !== "203") {
+                    throw new Error(res.data?.message || t('common.error'));
+                }
+                return res.data;
+            }
+
             const payload = {
                 syskey: syskey,
                 status: statusCode,
@@ -184,7 +244,7 @@ export default function ApprovalDetailPage() {
             toast.success(messages[status]);
             queryClient.invalidateQueries({ queryKey: ['approvals'], exact: false });
             queryClient.invalidateQueries({ queryKey: ['approval-detail', syskey] });
-            navigate('/approvals');
+            navigate(isAttendance ? '/attendanceapproval' : '/approvals');
         },
         onError: () => toast.error(t('common.error')),
     });
@@ -255,7 +315,7 @@ export default function ApprovalDetailPage() {
 
     return (
         <div className={styles['approval-detail']}>
-            <button className={styles['approval-detail__back']} onClick={() => navigate('/approvals')}>
+            <button className={styles['approval-detail__back']} onClick={() => navigate(isAttendance ? '/attendanceapproval' : '/approvals')}>
                 <ArrowLeft size={16} />
                 {t('common.back')}
             </button>
@@ -441,6 +501,45 @@ export default function ApprovalDetailPage() {
                                 <Field label="Hours" value={String(d.hour || '')} />
                                 <Field label="Product" value={String(d.product || '')} />
                                 <Field label="Project" value={String(d.project || '')} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Attendance Details */}
+                    {isAttendance && (
+                        <div className={styles['approval-detail__section']}>
+                            <h4 className={styles['approval-detail__section-title']}>Attendance Details</h4>
+                            <div className={styles['approval-detail__grid']}>
+                                <Field label="Location" value={String(d.location || '')} />
+                                <div className={styles['approval-detail__field']}>
+                                    <span className={styles['approval-detail__field-label']}>Reason Type</span>
+                                    <div className={styles['approval-detail__reason-group']}>
+                                        <label className={`${styles['approval-detail__reason-option']} ${reasonType === 1 ? styles['approval-detail__reason-option--active'] : ''}`}>
+                                            <input
+                                                type="radio"
+                                                name="reasonType"
+                                                value="1"
+                                                checked={reasonType === 1}
+                                                onChange={() => setReasonType(1)}
+                                                disabled={!isPending}
+                                            />
+                                            NON
+                                        </label>
+                                        <label className={`${styles['approval-detail__reason-option']} ${reasonType === 2 ? styles['approval-detail__reason-option--active'] : ''}`}>
+                                            <input
+                                                type="radio"
+                                                name="reasonType"
+                                                value="2"
+                                                checked={reasonType === 2}
+                                                onChange={() => setReasonType(2)}
+                                                disabled={!isPending}
+                                            />
+                                            Forgotten
+                                        </label>
+                                    </div>
+                                </div>
+                                {d.latitude && d.latitude !== '0.0' && <Field label="Latitude" value={String(d.latitude)} />}
+                                {d.longitude && d.longitude !== '0.0' && <Field label="Longitude" value={String(d.longitude)} />}
                             </div>
                         </div>
                     )}

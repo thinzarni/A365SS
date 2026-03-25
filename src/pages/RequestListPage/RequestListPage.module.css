@@ -91,6 +91,47 @@
     font-weight: var(--font-semibold);
 }
 
+/* ── Header actions (Attendance + Status filters) ── */
+.requests-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.requests-att-types {
+    display: flex;
+    gap: var(--space-1);
+    background: var(--color-neutral-50);
+    padding: 3px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-neutral-100);
+}
+
+.requests-att-type-btn {
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    color: var(--color-neutral-500);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.requests-att-type-btn:hover {
+    color: var(--color-neutral-700);
+}
+
+.requests-att-type-btn--active {
+    background: var(--color-primary-600);
+    color: white;
+    font-weight: var(--font-semibold);
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
 /* ── Table ── */
 .requests-table {
     width: 100%;
