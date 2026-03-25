@@ -1390,7 +1390,7 @@ export default function NewRequestPage() {
                                                 setClaimType(e.target.value);
                                                 const sel = claimTypeList.find(ct => ct.syskey === e.target.value);
                                                 setClaimTypeDesc(sel?.description || '');
-                                                setRemainingBalance(sel?.remaining_balance ?? '');
+                                                setRemainingBalance(sel?.remaining_balance != null ? String(sel.remaining_balance) : '');
                                                 setClaimFromPlace('');
                                                 setClaimToPlace('');
                                             }}

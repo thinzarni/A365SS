@@ -153,7 +153,7 @@ export default function ClaimDetailPage() {
                         <Field label="Claim Type" value={claim.claimtype || claim.requesttype} />
                         {/* Remaining Balance — shown when the claim type list returns the field */}
                         {remainingBalance != null && (() => {
-                            const bal = parseFloat(remainingBalance);
+                            const bal = parseFloat(String(remainingBalance));
                             return (
                                 <div className={styles['claim-detail__field']}>
                                     <span className={styles['claim-detail__field-label']}>Remaining Balance</span>

@@ -15,7 +15,6 @@ import {
     Plane,
     Banknote,
     FileText,
-    ShieldCheck,
     Users,
     Briefcase,
 } from 'lucide-react';
