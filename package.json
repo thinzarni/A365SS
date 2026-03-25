@@ -8,8 +8,6 @@
     "dev:a365": "vite --host --mode a365",
     "build": "tsc -b && vite build --mode prd",
     "build:a365": "tsc -b && vite build --mode a365",
-    "build:docker": "tsc -b && vite build --mode prd --base=/a365ss/",
-    "build:docker:a365": "tsc -b && vite build --mode a365 --base=/a365ss/",
     "lint": "eslint .",
     "preview": "vite preview --host"
   },

@@ -10,7 +10,7 @@ RUN npm install
 COPY . .
 # You can append environment variables here if needed, like:
 # RUN VITE_FLAVOR=prd npm run build
-RUN npm run build:docker
+RUN npm run build
 
 # Stage 2: Serve the application with Nginx
 FROM nginx:alpine
@@ -21,8 +21,8 @@ RUN rm /etc/nginx/conf.d/default.conf
 # Copy our custom routing config
 COPY nginx.conf /etc/nginx/conf.d/
 
-# Copy the build output from the builder stage into the /a365ss sub-folder
-COPY --from=builder /app/dist /usr/share/nginx/html/a365ss
+# Copy the build output from the builder stage into the html folder
+COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
