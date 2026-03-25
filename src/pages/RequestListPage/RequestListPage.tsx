@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -13,28 +13,39 @@ import {
     Plane,
     Banknote,
     FileText,
+    Filter,
 } from 'lucide-react';
-import { Button } from '../../components/ui';
+import { Button, Input, Select } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
-import type { RequestModel } from '../../types/models';
+import type { RequestModel, TypesModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
-import { GET_REQUEST_LIST, GET_ATTENDANCE_REQ_LIST } from '../../config/api-routes';
+import { 
+    GET_REQUEST_LIST, 
+    GET_ATTENDANCE_REQ_LIST, 
+    REQUEST_TYPES, 
+    ATTENDANCE_SHIFT_DATA 
+} from '../../config/api-routes';
 import { displayDate } from '../../lib/date-utils';
 import styles from './RequestListPage.module.css';
 import '../../styles/pages.css';
 
-/* helper: yyyyMMdd */
-function toApiDate(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${y}${m}${dd}`;
+/** Convert Date → "yyyy-mm-dd" */
+function dateToInput(d: Date): string {
+    return d.toISOString().split('T')[0];
 }
 
+/** Convert "yyyymmdd" → "yyyy-mm-dd" */
+function toInputDate(yyyymmdd: string): string {
+    if (!yyyymmdd || yyyymmdd.length < 8) return '';
+    return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
+}
+
+const DEFAULT_FROM_DATE = new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1);
+const DEFAULT_TO_DATE = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+
 // Maps API router path → display config + filter keyword
-// Matching mobile's requestTypes.firstWhere(t.description == '<Type>') pattern
 const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: string; newPath: string }> = {
     '/claim': { filter: 'claim', label: 'Claims', newLabel: 'New Claim', newPath: '/claim/new' },
     '/overtime': { filter: 'overtime', label: 'Overtime', newLabel: 'New Overtime', newPath: '/overtime/new' },
@@ -45,6 +56,7 @@ const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: s
     '/offinlieu': { filter: 'off in lieu', label: 'Off in Lieu', newLabel: 'New Off in Lieu', newPath: '/offinlieu/new' },
     '/attendancerequest': { filter: 'attendance', label: 'Attendance Request', newLabel: 'New Attendance Request', newPath: '/attendancerequest/new' },
 };
+
 /* ── Attendance sub-type filter ── */
 const attendanceTypes = [
     { key: '1', label: 'Remote Time in' },
@@ -84,39 +96,76 @@ function getTypeIcon(variant: string) {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════ */
-
 export default function RequestListPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Detect subtype view — path like /claim, /overtime etc filter the list to that type
-    // Mirrors mobile: /claim and /overtime open RequestPage(requestType: matched)
+    // Detect subtype view
     const pathTypeCfg = PATH_TYPE_MAP[location.pathname] ?? null;
     const isSubtypeView = pathTypeCfg !== null;
-
-    // Flutter default: _initilApprovalStatus = RequestStatus.pending
-    const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
-    const [attType, setAttType] = useState('1');
     const isAttendancePage = location.pathname === '/attendancerequest';
 
-    const { data: allRequests = [], isLoading } = useQuery<RequestModel[]>({
-        queryKey: ['requests', location.pathname, attType],
-        queryFn: async () => {
-            const now = new Date();
-            const fromDate = new Date(now.getFullYear(), now.getMonth() - 2, 1); // 3 months back
-            const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
+    const [fromDate, setFromDate] = useState<string>(dateToInput(DEFAULT_FROM_DATE));
+    const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
+    const [requestType, setRequestType] = useState<string>('');
+    const [attType, setAttType] = useState('1');
+    const [didInitDates, setDidInitDates] = useState(false);
+    const [filterOpen, setFilterOpen] = useState(false);
 
+    // Fetch shift data for transition dates
+    const { data: shiftData, isLoading: shiftLoading } = useQuery({
+        queryKey: ['shiftData'],
+        queryFn: async () => {
+            const res = await mainClient.post(ATTENDANCE_SHIFT_DATA, {});
+            return res.data?.data || null;
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    useEffect(() => {
+        if (!shiftLoading && !didInitDates) {
+            if (shiftData?.transitionFromDate) {
+                setFromDate(toInputDate(shiftData.transitionFromDate));
+            }
+            if (shiftData?.transitionToDate) {
+                setToDate(toInputDate(shiftData.transitionToDate));
+            }
+            setDidInitDates(true);
+        }
+    }, [shiftData, shiftLoading, didInitDates]);
+
+    // Fetch request types for the dropdown
+    const { data: requestTypes = [] } = useQuery<TypesModel[]>({
+        queryKey: ['requestTypes'],
+        queryFn: async () => {
+            const res = await apiClient.get(REQUEST_TYPES);
+            return res.data?.datalist || [];
+        },
+    });
+
+    const typeOptions = useMemo(() => {
+        return [
+            { value: '', label: 'All Types' },
+            ...requestTypes.map(t => ({
+                value: t.syskey,
+                label: t.description
+            }))
+        ];
+    }, [requestTypes]);
+
+    const { data: allRequests = [], isLoading: requestsLoading } = useQuery<RequestModel[]>({
+        queryKey: ['requests', fromDate, toDate, requestType, attType, location.pathname, activeStatus],
+        queryFn: async () => {
             if (isAttendancePage) {
                 const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
-                    fromdate: toApiDate(fromDate),
-                    todate: toApiDate(toDate),
-                    status: '', // Fetch all for steady summary counts
+                    fromdate: fromDate.replace(/-/g, ''),
+                    todate: toDate.replace(/-/g, ''),
+                    status: '', // Fetch all for steady summary counts (as per previous strategy)
                     type: attType,
                 });
                 const list = res.data?.data || res.data?.datalist || [];
-                // Map AttendanceRequestModel to RequestModel for the table
                 return list.map((item: any) => ({
                     syskey: item.syskey,
                     eid: item.employee_id,
@@ -133,13 +182,12 @@ export default function RequestListPage() {
             }
 
             const res = await apiClient.post(GET_REQUEST_LIST, {
-                fromdate: toApiDate(fromDate),
-                todate: toApiDate(toDate),
-                type: '',
-                status: Number(activeStatus),  // API expects a number, not string
+                fromdate: fromDate.replace(/-/g, ''),
+                todate: toDate.replace(/-/g, ''),
+                type: isSubtypeView ? '' : requestType,
+                status: activeStatus === RequestStatus.All ? 0 : Number(activeStatus),
             });
             const all: RequestModel[] = res.data?.datalist || [];
-            // Filter by subtype when on a type-specific path (same as mobile filtering by requestType)
             if (pathTypeCfg) {
                 return all.filter(r => {
                     const desc = ((r as any).requesttypedesc || (r as any).requesttype || '').toLowerCase();
@@ -148,30 +196,55 @@ export default function RequestListPage() {
             }
             return all;
         },
+        enabled: didInitDates,
     });
 
     const displayRequests = useMemo(() => {
-        if (!isAttendancePage) return allRequests;
-        if (activeStatus === RequestStatus.All) return allRequests;
-        return allRequests.filter(r => r.requeststatus === String(activeStatus));
+        // Attendance Page filters locally because it fetches all statuses to maintain steady summary counts
+        if (isAttendancePage) {
+            if (activeStatus === RequestStatus.All) return allRequests;
+            return allRequests.filter(r => r.requeststatus === String(activeStatus));
+        }
+        // General request list is already filtered by API
+        return allRequests;
     }, [allRequests, activeStatus, isAttendancePage]);
 
-    /* ── Quick stats (always from full category-specific data) ── */
-    const stats = useMemo(() => {
-        let pending = 0;
-        let approved = 0;
-        let rejected = 0;
-        const sourceData = isAttendancePage ? allRequests : allRequests; // Adjust if needed
-        for (const r of sourceData as any[]) {
-            const st = String(r.requeststatus);
-            if (st === '1') pending++;
-            if (st === '2') approved++;
-            if (st === '3') rejected++;
-        }
-        return { total: allRequests.length, pending, approved, rejected };
-    }, [allRequests, isAttendancePage]);
+    const isLoading = shiftLoading || !didInitDates || requestsLoading;
 
-    /* ═══════════════════════════ Render ═══════════════════════ */
+    // Summary stats
+    const { data: generalSummaryData = [] } = useQuery<RequestModel[]>({
+        queryKey: ['summaryRequests', fromDate, toDate, requestType, location.pathname],
+        queryFn: async () => {
+            if (isAttendancePage) return [];
+            const res = await apiClient.post(GET_REQUEST_LIST, {
+                fromdate: fromDate.replace(/-/g, ''),
+                todate: toDate.replace(/-/g, ''),
+                type: isSubtypeView ? '' : requestType,
+                status: 0, // All statuses
+            });
+            const all: RequestModel[] = res.data?.datalist || [];
+            if (pathTypeCfg) {
+                return all.filter(r => {
+                    const desc = ((r as any).requesttypedesc || (r as any).requesttype || '').toLowerCase();
+                    return desc.includes(pathTypeCfg.filter);
+                });
+            }
+            return all;
+        },
+        enabled: didInitDates && !isAttendancePage,
+        staleTime: 30 * 1000,
+    });
+
+    const stats = useMemo(() => {
+        const sourceData = isAttendancePage ? allRequests : generalSummaryData;
+        const total = sourceData.length;
+        const pending = sourceData.filter(r => String(r.requeststatus) === '1').length;
+        const approved = sourceData.filter(r => String(r.requeststatus) === '2').length;
+        const rejected = sourceData.filter(r => String(r.requeststatus) === '3').length;
+        return { total, pending, approved, rejected };
+    }, [allRequests, generalSummaryData, isAttendancePage]);
+
+    /* ── Render ── */
 
     return (
         <div className={styles['requests-page']}>
@@ -219,14 +292,49 @@ export default function RequestListPage() {
                 </div>
             </div>
 
+            {/* ── Filters (collapsible) ── */}
+            {(!isSubtypeView || isAttendancePage) && filterOpen && (
+                <div className={styles['filters-row']}>
+                    <div className={styles['filter-group']}>
+                        <label className={styles['filter-label']}>Date Range</label>
+                        <div className={styles['filter-inputs']}>
+                            <Input
+                                type="date"
+                                value={fromDate}
+                                onChange={(e) => setFromDate(e.target.value)}
+                                className={styles['filter-date']}
+                            />
+                            <span className={styles['filter-separator']}>→</span>
+                            <Input
+                                type="date"
+                                value={toDate}
+                                onChange={(e) => setToDate(e.target.value)}
+                                className={styles['filter-date']}
+                            />
+                        </div>
+                    </div>
+                    {!isAttendancePage && (
+                        <div className={styles['filter-group']}>
+                            <label className={styles['filter-label']}>Request Type</label>
+                            <Select
+                                options={typeOptions}
+                                value={requestType}
+                                onChange={(e) => setRequestType(e.target.value)}
+                                className={styles['filter-select']}
+                                placeholder="All Types"
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* ── Requests table ── */}
             <div className={styles['requests-list-card']}>
                 <div className={styles['requests-list-card__header']}>
                     <h3 className={styles['requests-list-card__title']}>
                         {isSubtypeView ? `${pathTypeCfg!.label} Requests` : 'All Requests'}
                     </h3>
-                    {/* Filter tabs inside the card header */}
-                    <div className={styles['requests-header-actions']}>
+                    <div className={styles['requests-list-card__actions']}>
                         {isAttendancePage && (
                             <div className={styles['requests-att-types']}>
                                 {attendanceTypes.map((t) => (
@@ -239,6 +347,19 @@ export default function RequestListPage() {
                                     </button>
                                 ))}
                             </div>
+                        )}
+                        {(!isSubtypeView || isAttendancePage) && (
+                            <button
+                                className={`${styles['filter-toggle-btn']} ${filterOpen ? styles['filter-toggle-btn--active'] : ''}`}
+                                onClick={() => setFilterOpen(o => !o)}
+                                title="Toggle filters"
+                            >
+                                <Filter size={14} />
+                                Filter
+                                {(requestType !== '') && (
+                                    <span className={styles['filter-toggle-btn__dot']} />
+                                )}
+                            </button>
                         )}
                         <div className={styles['requests-filter-tabs']}>
                             {statusTabs.map(({ key, label }) => (
