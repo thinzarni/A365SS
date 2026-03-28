@@ -15,9 +15,9 @@ import authClient from '../../lib/auth-client';
 import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, ConfirmModal } from '../../components/ui';
 import { toast } from 'react-hot-toast';
-import { MENU_ITEMS, GET_FAMILY, FAMILY_UPDATE, GET_EXPERIENCE, EXPERIENCE_UPDATE, GET_SETUP_LIST, GET_QUALIFICATION, QUALIFICATION_UPDATE } from '../../config/api-routes';
+import { MENU_ITEMS, FAMILY_UPDATE, FAMILY_COMPARE, EXPERIENCE_UPDATE, EXPERIENCE_COMPARE, EMERGENCY_UPDATE, EMERGENCY_COMPARE, GET_SETUP_LIST, GET_EDUCATION_NAME, QUALIFICATION_COMPARE, QUALIFICATION_UPDATE } from '../../config/api-routes';
 import styles from './ProfilePagePrd.module.css';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -78,11 +78,13 @@ interface WorkExperience {
     orgType: string;
     industry: string;
     designation: string;
-    fromDate: string;
-    toDate: string;
+    fromdate: string;
+    todate: string;
     salary: string;
     currency: string;
     reasonForChange: string;
+    status?: string;
+    modOption?: string;
 }
 
 interface Qualification {
@@ -91,6 +93,9 @@ interface Qualification {
     qualificationtype: string;
     description: string;
     educationname: string;
+    university: string;
+    year: string;
+    country: string;
     fromdate: string;
     todate: string;
     isheight: string;
@@ -111,10 +116,13 @@ interface FamilyMember {
 }
 
 interface EmergencyContact {
+    id?: string;
     name: string;
     relationship: string;
     contactNumber: string;
     address: string;
+    status?: string;
+    modOption?: string;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -157,11 +165,7 @@ const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed'];
 const STATES = ['Yangon', 'Mandalay', 'Naypyidaw', 'Sagaing', 'Bago', 'Magway', 'Ayeyarwady', 'Shan', 'Kachin', 'Kayah', 'Kayin', 'Chin', 'Mon', 'Rakhine', 'Tanintharyi'];
 const MOD_OPTIONS = ['New', 'Correct', 'Update'];
 
-// ── Mock placeholder data (Emergency, Experience, Qualification, Family, Contact still use mock) ──
-const MOCK_EMERGENCY: EmergencyContact[] = [
-    { name: 'Daw Kyi Kyi', relationship: 'Mother', contactNumber: '09-123-456-789', address: 'No.5, Strand Road, Yangon' },
-    { name: '', relationship: '', contactNumber: '', address: '' },
-];
+// ── Mock placeholder data (Qualification, Contact still use mock) ──
 
 const MOCK_CONTACT = {
     permanentState: 'Yangon', permanentDistrict: 'Bahan', permanentTownship: 'Bahan', permanentTown: 'Bahan',
@@ -346,7 +350,7 @@ export default function ProfilePage() {
                             profile={profile}
                         />
                     )}
-                    {activeTab === 'emergency' && <EmergencyContactTab />}
+                    {activeTab === 'emergency' && <EmergencyContactTab profile={profile} />}
                     {activeTab === 'experience' && <WorkExperienceTab profile={profile} />}
                     {activeTab === 'qualification' && <QualificationTab profile={profile} />}
                     {activeTab === 'family' && <FamilyInfoTab profile={profile} />}
@@ -549,113 +553,37 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
 // ═══════════════════════════════════════════════════════════════════════
 // TAB 3 — Emergency Contact Details (Create/Edit/View)
 // ═══════════════════════════════════════════════════════════════════════
-function EmergencyContactTab() {
+function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const [contacts, setContacts] = useState<EmergencyContact[]>(MOCK_EMERGENCY);
-    const [editing, setEditing] = useState<number | null>(null);
-    const relationships = useRelationships(editing !== null);
-    const [draft, setDraft] = useState<EmergencyContact>({ name: '', relationship: '', contactNumber: '', address: '' });
-
-    const startEdit = (idx: number) => { setEditing(idx); setDraft({ ...contacts[idx] }); };
-    const cancel = () => setEditing(null);
-    const save = (idx: number) => {
-        const updated = [...contacts];
-        updated[idx] = draft;
-        setContacts(updated);
-        setEditing(null);
-        toast.success(t('profile.emergency.saveSuccess'));
-    };
-
-    return (
-        <div className={styles.sectionCard}>
-            <SectionHeader icon={<Phone size={20} />} title={t('profile.tabs.emergency')} subtitle={t('profile.emergency.subtitle')} />
-            <div className={styles.contactsGrid}>
-                {contacts.map((c, idx) => (
-                    <div key={idx} className={styles.contactPersonCard}>
-                        <div className={styles.contactPersonHeader}>
-                            <span className={styles.contactPersonLabel}>{t('profile.emergency.personLabel')} {idx + 1}</span>
-                            {editing !== idx && (
-                                <button className={styles.iconBtn} onClick={() => startEdit(idx)} title={t('profile.personal.editHint')}>
-                                    <Edit3 size={15} />
-                                </button>
-                            )}
-                        </div>
-
-                        {editing === idx ? (
-                            <div className={styles.inlineForm}>
-                                <FormRow label={t('profile.emergency.name')}>
-                                    <input className={styles.formInput} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder={t('profile.emergency.fullName')} />
-                                </FormRow>
-                                <FormRow label={t('profile.emergency.relationship')}>
-                                    <select className={styles.formSelect} value={draft.relationship} onChange={e => setDraft({ ...draft, relationship: e.target.value })}>
-                                        <option value="">{t('profile.emergency.selectRelationship')}</option>
-                                        {relationships.map((r: string) => <option key={r} value={r}>{String(t(`profile.options.relationships.${r}` as any, r))}</option>)}
-                                    </select>
-                                </FormRow>
-                                <FormRow label={t('profile.emergency.contactNumber')}>
-                                    <input className={styles.formInput} value={draft.contactNumber} onChange={e => setDraft({ ...draft, contactNumber: e.target.value })} placeholder="09-xxx-xxx-xxx" />
-                                </FormRow>
-                                <FormRow label={t('profile.emergency.address')}>
-                                    <textarea className={styles.formTextarea} value={draft.address} onChange={e => setDraft({ ...draft, address: e.target.value })} placeholder={t('profile.emergency.fullAddress')} rows={2} />
-                                </FormRow>
-                                <div className={styles.formActions}>
-                                    <button className={styles.btnGhost} onClick={cancel}>{t('common.cancel')}</button>
-                                    <button className={styles.btnPrimary} onClick={() => save(idx)}><Save size={14} /> {t('request.save')}</button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className={styles.contactFields}>
-                                {c.name ? (
-                                    <>
-                                        <ContactField label={t('profile.emergency.name')} value={c.name} />
-                                        <ContactField label={t('profile.emergency.relationship')} value={t(`profile.options.relationships.${c.relationship}` as any, c.relationship)} />
-                                        <ContactField label={t('profile.emergency.contactNumber')} value={c.contactNumber} />
-                                        <ContactField label={t('profile.emergency.address')} value={c.address} />
-                                    </>
-                                ) : (
-                                    <p className={styles.emptySlot}>{t('profile.emergency.noContact')}</p>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// TAB 4 — Work Experience (Create/Edit/View)
-// ═══════════════════════════════════════════════════════════════════════
-function WorkExperienceTab({ profile }: { profile: ProfileData }) {
-    const { t } = useTranslation();
-    const [records, setRecords] = useState<WorkExperience[]>([]);
+    const [records, setRecords] = useState<{ current: EmergencyContact[], pending: EmergencyContact[] }>({ current: [], pending: [] });
     const [showModal, setShowModal] = useState(false);
+    const relationships = useRelationships(showModal);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
     const { data: fetchedData } = useQuery({
-        queryKey: ['experience', profile.userid, profile.eid],
+        queryKey: ['emergency', profile.userid, profile.eid],
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
-            const res = await mainClient.post(GET_EXPERIENCE, {
+            const res = await mainClient.post(EMERGENCY_COMPARE, {
                 userid: profile.userid,
                 domain: domain || 'demouat',
                 employeeid: profile.eid
             });
-            const arr = res.data?.data || [];
-            return arr.map((item: any) => ({
+            const processArr = (arr: any[]) => arr.map((item: any) => ({
                 id: item.syskey,
-                organization: item.organization,
-                orgType: item.organizationtype || '',
-                industry: item.industry || '',
-                designation: item.designation,
-                // API dates are DD/MM/YYYY. We need YYYY-MM for type="month" input
-                fromDate: item.fromdate ? `${item.fromdate.split('/')[2]}-${item.fromdate.split('/')[1]}` : '',
-                toDate: item.todate ? `${item.todate.split('/')[2]}-${item.todate.split('/')[1]}` : '',
-                salary: item.previousmonthlysalary || '',
-                currency: item.currency || 'MMK',
-                reasonForChange: item.reasonforchange || ''
-            })) as WorkExperience[];
+                name: item.name || '',
+                relationship: item.relationship || '',
+                contactNumber: item.contactnumber || '',
+                address: item.address || '',
+                status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
+                modOption: item.modificationoption || 'New'
+            })) as EmergencyContact[];
+
+            return {
+                current: processArr(res.data?.data?.current || []),
+                pending: processArr(res.data?.data?.update || [])
+            };
         },
         enabled: !!profile.userid && !!profile.eid
     });
@@ -666,7 +594,264 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blankExp = (): WorkExperience => ({ id: '', organization: '', orgType: '', industry: '', designation: '', fromDate: '', toDate: '', salary: '', currency: 'MMK', reasonForChange: '' });
+    const blank = (): EmergencyContact => ({ id: '', name: '', relationship: '', contactNumber: '', address: '', status: 'Pending', modOption: 'New' });
+    const [form, setForm] = useState<EmergencyContact>(blank());
+
+    const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
+    const openEdit = (r: EmergencyContact) => { setForm({ ...r }); setEditingId(r.id || null); setShowModal(true); };
+    const close = () => { setShowModal(false); setEditingId(null); };
+
+    const save = async () => {
+        if (!form.name || !form.contactNumber) { toast.error('Name and Contact Number are required'); return; }
+
+        const isUpdate = !!editingId;
+        const newRecord = { ...form };
+        if (!isUpdate) {
+            newRecord.id = Date.now().toString();
+            newRecord.status = 'Pending';
+        }
+
+        const allRecords = [...records.current, ...records.pending];
+        const updatedRecords = isUpdate
+            ? allRecords.map(r => r.id === editingId ? newRecord : r)
+            : [...allRecords, newRecord];
+
+        const { domain } = useAuthStore.getState();
+        const emergencylist = updatedRecords.map(r => ({
+            syskey: r.id && r.id.length > 20 ? r.id : "",
+            name: r.name,
+            relationship: r.relationship,
+            contactnumber: r.contactNumber,
+            address: r.address,
+            modificationoption: r.modOption,
+            status: r.status === 'Approved' ? 'Active' : "0"
+        }));
+
+        try {
+            await mainClient.post(EMERGENCY_UPDATE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid,
+                emergencylist
+            });
+            if (isUpdate) {
+                setRecords(prev => ({
+                    current: prev.current.filter(r => r.id !== editingId),
+                    pending: [...prev.pending.filter(r => r.id !== editingId), newRecord]
+                }));
+            } else {
+                setRecords(prev => ({ ...prev, pending: [...prev.pending, newRecord] }));
+            }
+            close();
+            toast.success(t('profile.emergency.saveSuccess'));
+        } catch (err) {
+            toast.error('Failed to save emergency contact');
+        }
+    };
+
+    const remove = async (id?: string) => {
+        if (!id) return;
+        const updatedCurrent = records.current.filter(r => r.id !== id);
+        const updatedPending = records.pending.filter(r => r.id !== id);
+        const allRecords = [...updatedCurrent, ...updatedPending];
+
+        const { domain } = useAuthStore.getState();
+        const emergencylist = allRecords.map(r => ({
+            syskey: r.id && r.id.length > 20 ? r.id : "",
+            name: r.name,
+            relationship: r.relationship,
+            contactnumber: r.contactNumber,
+            address: r.address,
+            modificationoption: r.modOption,
+            status: r.status === 'Approved' ? 'Active' : "0"
+        }));
+
+        try {
+            await mainClient.post(EMERGENCY_UPDATE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid,
+                emergencylist
+            });
+            setRecords({ current: updatedCurrent, pending: updatedPending });
+            toast.success('Removed emergency contact');
+        } catch (err) {
+            toast.error('Failed to remove emergency contact');
+        }
+    };
+
+    const fv = (k: keyof EmergencyContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value as any }));
+
+    return (
+        <div className={styles.sectionCard}>
+            <SectionHeader icon={<Phone size={20} />} title={t('profile.tabs.emergency')} subtitle={t('profile.emergency.subtitle')}
+                action={<button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> Add Contact</button>} />
+
+            {records.current.length === 0 && records.pending.length === 0
+                ? <EmptyState message={t('profile.emergency.noContact')} onAdd={openAdd} />
+                : (
+                    <>
+                        {records.current.length > 0 && (
+                            <div className={styles.tableWrapper}>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>Current Records</div>
+                                <table className={styles.table}>
+                                    <thead>
+                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.emergency.contactNumber')}</th><th>{t('profile.emergency.address')}</th><th></th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {records.current.map(r => (
+                                            <tr key={r.id}>
+                                                <td><strong>{r.name}</strong></td>
+                                                <td>{t(`profile.options.relationships.${r.relationship}` as any, r.relationship)}</td>
+                                                <td>{r.contactNumber}</td>
+                                                <td>{r.address}</td>
+                                                <td>
+                                                    <div className={styles.rowActions}>
+                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {records.pending.length > 0 && (
+                            <div className={styles.tableWrapper} style={{ marginTop: '24px', border: '1px solid var(--color-warning-200)' }}>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    Pending HR Approval
+                                </div>
+                                <table className={styles.table}>
+                                    <thead style={{ background: 'var(--color-warning-50)' }}>
+                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.emergency.contactNumber')}</th><th>{t('profile.emergency.address')}</th><th>Status</th><th></th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {records.pending.map(r => (
+                                            <tr key={r.id} style={{ opacity: 0.85 }}>
+                                                <td><strong>{r.name}</strong></td>
+                                                <td>{t(`profile.options.relationships.${r.relationship}` as any, r.relationship)}</td>
+                                                <td>{r.contactNumber}</td>
+                                                <td>{r.address}</td>
+                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} /></td>
+                                                <td>
+                                                    <div className={styles.rowActions}>
+                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </>
+                )
+            }
+
+            {showModal && (
+                <FormModal title={editingId ? 'Edit Emergency Contact' : 'Add Emergency Contact'} onClose={close} onSave={save}>
+                    <FormRow label={`${t('profile.emergency.name')} *`}>
+                        <input className={styles.formInput} value={form.name} onChange={fv('name')} placeholder={t('profile.emergency.fullName')} />
+                    </FormRow>
+                    <FormRow label={t('profile.emergency.relationship')}>
+                        <select className={styles.formSelect} value={form.relationship} onChange={fv('relationship')}>
+                            <option value="">{t('profile.emergency.selectRelationship')}</option>
+                            {relationships.map((r: string) => <option key={r} value={r}>{String(t(`profile.options.relationships.${r}` as any, r))}</option>)}
+                        </select>
+                    </FormRow>
+                    <FormRow label={`${t('profile.emergency.contactNumber')} *`}>
+                        <input className={styles.formInput} value={form.contactNumber} onChange={fv('contactNumber')} placeholder="09-xxx-xxx-xxx" />
+                    </FormRow>
+                    <FormRow label={t('profile.emergency.address')}>
+                        <textarea className={styles.formTextarea} value={form.address} onChange={fv('address')} placeholder={t('profile.emergency.fullAddress')} rows={2} />
+                    </FormRow>
+                </FormModal>
+            )}
+
+            <ConfirmModal
+                open={!!deleteTarget}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={() => { if (deleteTarget) { remove(deleteTarget); setDeleteTarget(null); } }}
+            />
+        </div>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB 4 — Work Experience (Create/Edit/View)
+// ═══════════════════════════════════════════════════════════════════════
+function WorkExperienceTab({ profile }: { profile: ProfileData }) {
+    const { t } = useTranslation();
+    const [records, setRecords] = useState<{ current: WorkExperience[], pending: WorkExperience[] }>({ current: [], pending: [] });
+    const [showModal, setShowModal] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+    const { data: fetchedData } = useQuery({
+        queryKey: ['experience', profile.userid, profile.eid],
+        queryFn: async () => {
+            const { domain } = useAuthStore.getState();
+            const res = await mainClient.post(EXPERIENCE_COMPARE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid
+            });
+            const parseExpDate = (val: string) => {
+                if (!val) return '';
+                if (val.includes('/')) {
+                    const parts = val.split('/');
+                    return parts.length === 3 ? `${parts[2]}-${parts[1]}` : val;
+                }
+                if (val.length >= 6) { // Supports YYYYMMDD and YYYYMM
+                    return `${val.substring(0, 4)}-${val.substring(4, 6)}`;
+                }
+                return val;
+            };
+
+            const processArr = (arr: any[]) => arr.map((item: any) => ({
+                id: item.syskey,
+                organization: item.organization,
+                orgType: item.organizationtype || '',
+                industry: item.industry || '',
+                designation: item.designation,
+                fromdate: parseExpDate(item.fromdate),
+                todate: parseExpDate(item.todate),
+                salary: item.previousmonthlysalary || '',
+                currency: item.currency || 'MMK',
+                reasonForChange: item.reasonforchange || '',
+                status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
+                modOption: item.modificationoption || 'New'
+            })) as WorkExperience[];
+
+            return {
+                current: processArr(res.data?.data?.current || []),
+                pending: processArr(res.data?.data?.update || [])
+            };
+        },
+        enabled: !!profile.userid && !!profile.eid
+    });
+
+    const displayExpDate = (val: string) => {
+        if (!val) return '';
+        if (val.includes('-')) {
+            const parts = val.split('-');
+            if (parts.length >= 2) {
+                // Return YYYY-MM as 01/MM/YYYY
+                return `01/${parts[1]}/${parts[0]}`;
+            }
+        }
+        return val;
+    };
+
+    useEffect(() => {
+        if (fetchedData) {
+            setRecords(fetchedData);
+        }
+    }, [fetchedData]);
+
+    const blankExp = (): WorkExperience => ({ id: '', organization: '', orgType: '', industry: '', designation: '', fromdate: '', todate: '', salary: '', currency: 'MMK', reasonForChange: '', status: 'Pending', modOption: 'New' });
     const [form, setForm] = useState<WorkExperience>(blankExp());
 
     const openAdd = () => { setForm(blankExp()); setEditingId(null); setShowModal(true); };
@@ -680,11 +865,13 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         const newRecord = { ...form };
         if (!isUpdate) {
             newRecord.id = Date.now().toString();
+            newRecord.status = 'Pending';
         }
 
+        const allRecords = [...records.current, ...records.pending];
         const updatedRecords = isUpdate
-            ? records.map(r => r.id === editingId ? newRecord : r)
-            : [...records, newRecord];
+            ? allRecords.map(r => r.id === editingId ? newRecord : r)
+            : [...allRecords, newRecord];
 
         const { domain } = useAuthStore.getState();
         const experiencelist = updatedRecords.map(r => ({
@@ -692,11 +879,13 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             organizationtype: r.orgType || null,
             industry: r.industry || null,
             designation: r.designation,
-            fromdate: r.fromDate ? r.fromDate.replace('-', '') + '01' : '',
-            todate: r.toDate ? r.toDate.replace('-', '') + '01' : '',
+            fromdate: r.fromdate ? r.fromdate.replace('-', '') + '01' : '',
+            todate: r.todate ? r.todate.replace('-', '') + '01' : '',
             previousmonthlysalary: r.salary ? r.salary.toString() : '',
             currency: r.currency || 'MMK',
-            reasonforchange: r.reasonForChange || ''
+            reasonforchange: r.reasonForChange || '',
+            modificationoption: r.modOption,
+            status: r.status === 'Approved' ? 'Active' : 0
         }));
 
         try {
@@ -706,7 +895,14 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                 employeeid: profile.eid,
                 experiencelist
             });
-            setRecords(updatedRecords);
+            if (isUpdate) {
+                setRecords(prev => ({
+                    current: prev.current.filter(r => r.id !== editingId),
+                    pending: [...prev.pending.filter(r => r.id !== editingId), newRecord]
+                }));
+            } else {
+                setRecords(prev => ({ ...prev, pending: [...prev.pending, newRecord] }));
+            }
             closeExp();
             toast.success(isUpdate ? t('profile.experience.saveSuccessUpdate') : t('profile.experience.saveSuccessAdd'));
         } catch (err) {
@@ -714,7 +910,39 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         }
     };
 
-    const removeExp = (id: string) => { setRecords(rs => rs.filter(r => r.id !== id)); toast.success(t('profile.experience.removeSuccess')); };
+    const removeExp = async (id: string) => {
+        const updatedCurrent = records.current.filter(r => r.id !== id);
+        const updatedPending = records.pending.filter(r => r.id !== id);
+        const allRecords = [...updatedCurrent, ...updatedPending];
+
+        const { domain } = useAuthStore.getState();
+        const experiencelist = allRecords.map(r => ({
+            organization: r.organization,
+            organizationtype: r.orgType || null,
+            industry: r.industry || null,
+            designation: r.designation,
+            fromdate: r.fromdate ? r.fromdate.replace('-', '') + '01' : '',
+            todate: r.todate ? r.todate.replace('-', '') + '01' : '',
+            previousmonthlysalary: r.salary ? r.salary.toString() : '',
+            currency: r.currency || 'MMK',
+            reasonforchange: r.reasonForChange || '',
+            modificationoption: r.modOption,
+            status: r.status === 'Approved' ? 'Active' : 0
+        }));
+
+        try {
+            await mainClient.post(EXPERIENCE_UPDATE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid,
+                experiencelist
+            });
+            setRecords({ current: updatedCurrent, pending: updatedPending });
+            toast.success(t('profile.experience.removeSuccess'));
+        } catch (err) {
+            toast.error('Failed to remove experience');
+        }
+    };
     const f = (k: keyof WorkExperience) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
     return (
@@ -722,37 +950,76 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             <SectionHeader icon={<Building2 size={20} />} title={t('profile.tabs.experience')} subtitle={t('profile.experience.subtitle')}
                 action={<button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('profile.experience.addBtn')}</button>} />
 
-            {records.length === 0
+            {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.experience.noData')} onAdd={openAdd} />
                 : (
-                    <div className={styles.tableWrapper}>
-                        <table className={styles.table}>
-                            <thead>
-                                <tr>
-                                    <th>{t('profile.experience.org')}</th><th>{t('profile.experience.orgType')}</th><th>{t('profile.experience.industry')}</th>
-                                    <th>{t('profile.experience.designation')}</th><th>{t('profile.experience.period')}</th><th>{t('profile.experience.salary')}</th><th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {records.map(r => (
-                                    <tr key={r.id}>
-                                        <td><strong>{r.organization}</strong></td>
-                                        <td>{r.orgType}</td>
-                                        <td>{r.industry}</td>
-                                        <td>{r.designation}</td>
-                                        <td className={styles.noWrap}>{r.fromDate} → {r.toDate || t('profile.experience.present')}</td>
-                                        <td className={styles.noWrap}>{r.salary} {r.currency}</td>
-                                        <td>
-                                            <div className={styles.rowActions}>
-                                                <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                <button className={styles.iconBtn} onClick={() => removeExp(r.id)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <>
+                        {records.current.length > 0 && (
+                            <div className={styles.tableWrapper}>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>Current Records</div>
+                                <table className={styles.table}>
+                                    <thead>
+                                        <tr>
+                                            <th>{t('profile.experience.org')}</th><th>{t('profile.experience.orgType')}</th><th>{t('profile.experience.industry')}</th>
+                                            <th>{t('profile.experience.designation')}</th><th>{t('profile.experience.period')}</th><th>{t('profile.experience.salary')}</th><th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {records.current.map(r => (
+                                            <tr key={r.id}>
+                                                <td><strong>{r.organization}</strong></td>
+                                                <td>{r.orgType}</td>
+                                                <td>{r.industry}</td>
+                                                <td>{r.designation}</td>
+                                                <td className={styles.noWrap}>{displayExpDate(r.fromdate)} → {displayExpDate(r.todate) || t('profile.experience.present')}</td>
+                                                <td className={styles.noWrap}>{r.salary} {r.currency}</td>
+                                                <td>
+                                                    <div className={styles.rowActions}>
+                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {records.pending.length > 0 && (
+                            <div className={styles.tableWrapper} style={{ marginTop: '24px', border: '1px solid var(--color-warning-200)' }}>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    Pending HR Approval
+                                </div>
+                                <table className={styles.table}>
+                                    <thead style={{ background: 'var(--color-warning-50)' }}>
+                                        <tr>
+                                            <th>{t('profile.experience.org')}</th><th>{t('profile.experience.orgType')}</th><th>{t('profile.experience.industry')}</th>
+                                            <th>{t('profile.experience.designation')}</th><th>{t('profile.experience.period')}</th><th>{t('profile.experience.salary')}</th><th>Status</th><th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {records.pending.map(r => (
+                                            <tr key={r.id} style={{ opacity: 0.85 }}>
+                                                <td><strong>{r.organization}</strong></td>
+                                                <td>{r.orgType}</td>
+                                                <td>{r.industry}</td>
+                                                <td>{r.designation}</td>
+                                                <td className={styles.noWrap}>{displayExpDate(r.fromdate)} → {displayExpDate(r.todate) || t('profile.experience.present')}</td>
+                                                <td className={styles.noWrap}>{r.salary} {r.currency}</td>
+                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} /></td>
+                                                <td>
+                                                    <div className={styles.rowActions}>
+                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </>
                 )
             }
 
@@ -780,10 +1047,10 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                     </FormRow>
                     <div className={styles.formGrid2}>
                         <FormRow label={t('profile.experience.fromDate')}>
-                            <input className={styles.formInput} type="month" value={form.fromDate} onChange={f('fromDate')} />
+                            <input className={styles.formInput} type="date" value={form.fromdate} onChange={f('fromdate')} />
                         </FormRow>
                         <FormRow label={t('profile.experience.toDate')}>
-                            <input className={styles.formInput} type="month" value={form.toDate} onChange={f('toDate')} />
+                            <input className={styles.formInput} type="date" value={form.todate} onChange={f('todate')} />
                         </FormRow>
                     </div>
                     <div className={styles.formGrid2}>
@@ -801,6 +1068,12 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                     </FormRow>
                 </FormModal>
             )}
+
+            <ConfirmModal
+                open={!!deleteTarget}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={() => { if (deleteTarget) { removeExp(deleteTarget); setDeleteTarget(null); } }}
+            />
         </div>
     );
 }
@@ -810,8 +1083,8 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 // ═══════════════════════════════════════════════════════════════════════
 function QualificationTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const [records, setRecords] = useState<Qualification[]>([]);
-    const [showModal, setShowModal] = useState(false);
+    const [records, setRecords] = useState<{ current: Qualification[], pending: Qualification[] }>({ current: [], pending: [] });
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
 
     const formatDateForApi = (dateStr: string) => {
@@ -830,23 +1103,30 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         queryKey: ['qualification', profile.userid, profile.eid],
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
-            const res = await mainClient.post(GET_QUALIFICATION, {
+            const res = await mainClient.post(QUALIFICATION_COMPARE, {
                 userid: profile.userid,
                 domain: domain || 'demouat',
                 employeeid: profile.eid
             });
-            const arr = res.data?.data || [];
-            return arr.map((item: any) => ({
+            const processArr = (arr: any[]) => arr.map((item: any) => ({
                 id: item.syskey,
                 type: item.type || 'Education',
                 qualificationtype: item.qualificationtype || 'Education',
                 description: item.description || '',
                 educationname: item.educationname || '',
+                university: item.university || '',
+                year: item.year || '',
+                country: item.country || '',
                 fromdate: parseDateFromApi(item.fromdate),
                 todate: parseDateFromApi(item.todate),
                 isheight: item.isheight?.toString() === 'true' ? 'true' : 'false',
                 status: item.status?.toString() || '0'
             })) as Qualification[];
+
+            return {
+                current: processArr(res.data?.data?.current || []),
+                pending: processArr(res.data?.data?.update || [])
+            };
         },
         enabled: !!profile.userid && !!profile.eid
     });
@@ -857,8 +1137,54 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blank = (): Qualification => ({ id: '', type: 'Education', qualificationtype: 'Education', description: '', educationname: '', fromdate: '', todate: '', isheight: 'false', status: '0' });
+    const blank = (): Qualification => ({ id: '', type: 'Education', qualificationtype: 'Education', description: '', educationname: '', university: '', year: '', country: '', fromdate: '', todate: '', isheight: 'false', status: '0' });
     const [form, setForm] = useState<Qualification>(blank());
+    const [showModal, setShowModal] = useState(false);
+
+    const { data: qTypes = [] } = useQuery({
+        queryKey: ['setup', 'qualificationtype'],
+        queryFn: async () => {
+            const { domain } = useAuthStore.getState();
+            const res = await mainClient.post(GET_SETUP_LIST, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                tblname: 'qualificationtype'
+            });
+            return res.data?.datalist || [];
+        },
+        enabled: showModal && form.type === 'Education'
+    });
+
+    const targetQualification = form.type === 'Education' ? form.qualificationtype : form.type;
+
+    const { data: eduNames = [] } = useQuery({
+        queryKey: ['setup', 'educationname', targetQualification],
+        queryFn: async () => {
+            if (!targetQualification) return [];
+            const { domain } = useAuthStore.getState();
+            const res = await mainClient.post(GET_EDUCATION_NAME, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                qualification: targetQualification
+            });
+            return res.data?.datalist || [];
+        },
+        enabled: showModal && !!targetQualification
+    });
+
+    const { data: countries = [] } = useQuery({
+        queryKey: ['setup', 'country'],
+        queryFn: async () => {
+            const { domain } = useAuthStore.getState();
+            const res = await mainClient.post(GET_SETUP_LIST, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                tblname: 'country'
+            });
+            return res.data?.datalist || [];
+        },
+        enabled: showModal
+    });
 
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
     const openEdit = (r: Qualification) => { setForm({ ...r }); setEditingId(r.id); setShowModal(true); };
@@ -873,17 +1199,61 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             newRecord.id = Date.now().toString(); // Temporary ID, real syskey provided by backend
         }
 
-        const updatedRecords = isUpdate
-            ? records.map(r => r.id === editingId ? newRecord : r)
-            : [...records, newRecord];
+        const filtered = [...records.current, ...records.pending].filter(r => r.id !== editingId);
+        const allRecords = [...filtered, newRecord];
 
         const { domain } = useAuthStore.getState();
-        const qualificationlist = updatedRecords.map(r => ({
+        const qualificationlist = allRecords.map(r => ({
             syskey: r.id.length < 20 ? '' : r.id, // Only send real syskeys
             type: r.type,
             qualificationtype: r.qualificationtype,
             description: r.description,
             educationname: r.educationname,
+            university: r.university,
+            year: r.year,
+            country: r.country,
+            fromdate: formatDateForApi(r.fromdate),
+            todate: formatDateForApi(r.todate),
+            ishighest: r.isheight,
+            status: r.id.length < 20 ? "0" : r.status
+        }));
+
+        try {
+            await mainClient.post(QUALIFICATION_UPDATE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid,
+                qualificationlist
+            });
+            if (isUpdate) {
+                setRecords(prev => ({
+                    current: prev.current.filter(r => r.id !== editingId),
+                    pending: [...prev.pending.filter(r => r.id !== editingId), newRecord]
+                }));
+            } else {
+                setRecords(prev => ({ ...prev, pending: [...prev.pending, newRecord] }));
+            }
+            close();
+            toast.success(isUpdate ? t('profile.qualification.saveSuccessUpdate') : t('profile.qualification.saveSuccessAdd'));
+        } catch (err) {
+            toast.error('Failed to save qualification information');
+        }
+    };
+
+    const remove = async (id: string) => {
+        const updatedCurrent = records.current.filter(r => r.id !== id);
+        const updatedPending = records.pending.filter(r => r.id !== id);
+        const allRecords = [...updatedCurrent, ...updatedPending];
+        const { domain } = useAuthStore.getState();
+        const qualificationlist = allRecords.map(r => ({
+            syskey: r.id.length < 20 ? '' : r.id,
+            type: r.type,
+            qualificationtype: r.qualificationtype,
+            description: r.description,
+            educationname: r.educationname,
+            university: r.university,
+            year: r.year,
+            country: r.country,
             fromdate: formatDateForApi(r.fromdate),
             todate: formatDateForApi(r.todate),
             isheight: r.isheight,
@@ -897,15 +1267,12 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                 employeeid: profile.eid,
                 qualificationlist
             });
-            setRecords(updatedRecords);
-            close();
-            toast.success(isUpdate ? t('profile.qualification.saveSuccessUpdate') : t('profile.qualification.saveSuccessAdd'));
+            setRecords({ current: updatedCurrent, pending: updatedPending });
+            toast.success(t('profile.experience.removeSuccess'));
         } catch (err) {
-            toast.error('Failed to save qualification information');
+            toast.error('Failed to remove qualification');
         }
     };
-
-    const remove = (id: string) => { setRecords(rs => rs.filter(r => r.id !== id)); toast.success(t('profile.experience.removeSuccess')); };
     const f = (k: keyof Qualification) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
     return (
@@ -913,65 +1280,139 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             <SectionHeader icon={<BookOpen size={20} />} title={t('profile.tabs.qualification')} subtitle={t('profile.qualification.subtitle')}
                 action={<button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('profile.qualification.addBtn')}</button>} />
 
-            {records.length === 0
+            {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.qualification.noData')} onAdd={openAdd} />
                 : (
-                    <div className={styles.tableWrapper}>
-                        <table className={styles.table}>
-                            <thead>
-                                <tr>
-                                    <th>Type</th>
-                                    <th>Description</th>
-                                    <th>Institution</th>
-                                    <th>Period</th>
-                                    <th>Highest?</th>
-                                    <th>Status</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {records.map(r => (
-                                    <tr key={r.id}>
-                                        <td>{r.type}</td>
-                                        <td><strong>{r.description}</strong></td>
-                                        <td>{r.educationname}</td>
-                                        <td className={styles.noWrap}>{formatDateForApi(r.fromdate)} → {formatDateForApi(r.todate) || t('profile.experience.present')}</td>
-                                        <td>{r.isheight === 'true' ? 'Yes' : 'No'}</td>
-                                        <td><StatusBadge status={r.status === '0' ? 'Pending' : 'Active'} /></td>
-                                        <td>
-                                            <div className={styles.rowActions}>
-                                                <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                <button className={styles.iconBtn} onClick={() => remove(r.id)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <>
+                        {records.current.length > 0 && (
+                            <div className={styles.tableWrapper}>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>Current Records</div>
+                                <table className={styles.table}>
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Description</th>
+                                            <th>Institution / University</th>
+                                            <th>Period / Year</th>
+                                            <th>Highest?</th>
+                                            <th>Status</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {records.current.map(r => (
+                                            <tr key={r.id}>
+                                                <td>{r.type}</td>
+                                                <td><strong>{r.description}</strong></td>
+                                                <td>{r.educationname}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.university}</small></td>
+                                                <td className={styles.noWrap}>{formatDateForApi(r.fromdate)} → {formatDateForApi(r.todate) || t('profile.experience.present')}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.year && `Class of ${r.year}`}</small></td>
+                                                <td>{r.isheight === 'true' ? 'Yes' : 'No'}</td>
+                                                <td><StatusBadge status={r.status === '0' ? 'Pending' : 'Active'} /></td>
+                                                <td>
+                                                    <div className={styles.rowActions}>
+                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {records.pending.length > 0 && (
+                            <div className={styles.tableWrapper} style={{ marginTop: '24px', border: '1px solid var(--color-warning-200)' }}>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    Pending HR Approval
+                                </div>
+                                <table className={styles.table}>
+                                    <thead style={{ background: 'var(--color-warning-50)' }}>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Description</th>
+                                            <th>Institution / University</th>
+                                            <th>Period / Year</th>
+                                            <th>Highest?</th>
+                                            <th>Status</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {records.pending.map(r => (
+                                            <tr key={r.id} style={{ opacity: 0.85 }}>
+                                                <td>{r.type}</td>
+                                                <td><strong>{r.description}</strong></td>
+                                                <td>{r.educationname}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.university}</small></td>
+                                                <td className={styles.noWrap}>{formatDateForApi(r.fromdate)} → {formatDateForApi(r.todate) || t('profile.experience.present')}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.year && `Class of ${r.year}`}</small></td>
+                                                <td>{r.isheight === 'true' ? 'Yes' : 'No'}</td>
+                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} /></td>
+                                                <td>
+                                                    <div className={styles.rowActions}>
+                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </>
                 )
             }
 
             {showModal && (
                 <FormModal title={editingId ? t('profile.qualification.modalEdit') : t('profile.qualification.modalAdd')} onClose={close} onSave={save}>
-                    <div className={styles.formGrid2}>
-                        <FormRow label="Type">
-                            <select className={styles.formSelect} value={form.type} onChange={f('type')}>
-                                <option value="Education">Education</option>
-                                <option value="Certificate">Certificate</option>
-                                <option value="Other">Other</option>
+                    <FormRow label="Type">
+                        <select className={styles.formSelect} value={form.type} onChange={f('type')}>
+                            <option value="Education">Education</option>
+                            <option value="Certificate">Certificate</option>
+                            <option value="Training">Training</option>
+                        </select>
+                    </FormRow>
+                    {form.type === 'Education' &&
+                        <FormRow label="Qualification Type">
+                            <select className={styles.formSelect} value={form.qualificationtype} onChange={f('qualificationtype')}>
+                                <option value="">Select Qualification Type...</option>
+                                {qTypes.map((q: any) => (
+                                    <option key={q.syskey} value={q.syskey}>{q.description}</option>
+                                ))}
                             </select>
                         </FormRow>
-                        <FormRow label="Qualification Type">
-                            <input className={styles.formInput} value={form.qualificationtype} onChange={f('qualificationtype')} placeholder="Education, Certificate..." />
-                        </FormRow>
-                    </div>
-                    <FormRow label={t('profile.qualification.degree', 'Description / Degree')}>
+                    }
+                    <FormRow label={t('profile.qualification.educationName', 'Education Name')}>
+                        {['Education', 'Certificate', 'Training'].includes(form.type) ? (
+                            <select className={styles.formSelect} value={form.educationname} onChange={f('educationname')}>
+                                <option value="">Select Education Name...</option>
+                                {eduNames.map((e: any) => (
+                                    <option key={e.syskey} value={e.syskey}>{e.description || e.code}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input className={styles.formInput} value={form.educationname} onChange={f('educationname')} placeholder={t('profile.qualification.instPlaceholder', 'Institution name')} />
+                        )}
+                    </FormRow>
+                    <FormRow label={t('profile.qualification.description', 'Description')}>
                         <input className={styles.formInput} value={form.description} onChange={f('description')} placeholder={t('profile.qualification.degreePlaceholder', 'e.g. Computer Science')} />
                     </FormRow>
-                    <FormRow label={t('profile.qualification.institution', 'Institution / Education Name')}>
-                        <input className={styles.formInput} value={form.educationname} onChange={f('educationname')} placeholder={t('profile.qualification.instPlaceholder', 'Institution name')} />
+                    <FormRow label={t('profile.qualification.universityOrInstitution', 'University/Institution')}>
+                        <input className={styles.formInput} value={form.university} onChange={f('university')} placeholder={t('profile.qualification.instPlaceholder', 'University / College / School')} />
                     </FormRow>
+                    <div className={styles.formGrid2}>
+                        <FormRow label={t('profile.qualification.year', 'Year')}>
+                            <input className={styles.formInput} value={form.year} onChange={f('year')} placeholder="e.g. 2024" />
+                        </FormRow>
+                        <FormRow label={t('profile.qualification.country', 'Country')}>
+                            <select className={styles.formSelect} value={form.country} onChange={f('country')}>
+                                <option value="">{t('profile.qualification.selectCountry', 'Select Country...')}</option>
+                                {countries.map((c: any) => (
+                                    <option key={c.syskey} value={c.code}>{c.description}</option>
+                                ))}
+                            </select>
+                        </FormRow>
+                    </div>
+
 
                     <div className={styles.formGrid2}>
                         <FormRow label="From Date">
@@ -991,6 +1432,12 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                     </div>
                 </FormModal>
             )}
+
+            <ConfirmModal
+                open={!!deleteTarget}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={() => { if (deleteTarget) { remove(deleteTarget); setDeleteTarget(null); } }}
+            />
         </div>
     );
 }
@@ -1000,22 +1447,23 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
 // ═══════════════════════════════════════════════════════════════════════
 function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const [records, setRecords] = useState<FamilyMember[]>([]);
+    const [records, setRecords] = useState<{ current: FamilyMember[], pending: FamilyMember[] }>({ current: [], pending: [] });
     const [showModal, setShowModal] = useState(false);
     const relationships = useRelationships(showModal);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
     const { data: fetchedData } = useQuery({
         queryKey: ['family', profile.userid, profile.eid],
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
-            const res = await mainClient.post(GET_FAMILY, {
+            const res = await mainClient.post(FAMILY_COMPARE, {
                 userid: profile.userid,
                 domain: domain || 'demouat',
                 employeeid: profile.eid
             });
-            const arr = res.data?.data || [];
-            return arr.map((item: any) => ({
+
+            const processArr = (arr: any[]) => arr.map((item: any) => ({
                 id: item.syskey,
                 name: item.name,
                 gender: item.gender,
@@ -1027,6 +1475,11 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                 status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
                 attachment: item.signurl || item.attachment || ''
             })) as FamilyMember[];
+
+            return {
+                current: processArr(res.data?.data?.current || []),
+                pending: processArr(res.data?.data?.update || [])
+            };
         },
         enabled: !!profile.userid && !!profile.eid
     });
@@ -1053,9 +1506,10 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             newRecord.status = 'Pending';
         }
 
+        const allRecords = [...records.current, ...records.pending];
         const updatedRecords = isUpdate
-            ? records.map(r => r.id === editingId ? newRecord : r)
-            : [...records, newRecord];
+            ? allRecords.map(r => r.id === editingId ? newRecord : r)
+            : [...allRecords, newRecord];
 
         const { domain } = useAuthStore.getState();
         const familylist = updatedRecords.map(r => ({
@@ -1078,14 +1532,53 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                 employeeid: profile.eid,
                 familylist
             });
-            setRecords(updatedRecords);
+            // Update local state by pushing to pending
+            if (isUpdate) {
+                setRecords(prev => ({
+                    current: prev.current.filter(r => r.id !== editingId),
+                    pending: [...prev.pending.filter(r => r.id !== editingId), newRecord]
+                }));
+            } else {
+                setRecords(prev => ({ ...prev, pending: [...prev.pending, newRecord] }));
+            }
             close();
             toast.success(isUpdate ? t('profile.family.saveSuccessUpdate') : t('profile.family.saveSuccessAdd'));
         } catch (err) {
             toast.error('Failed to save family information');
         }
     };
-    const remove = (id: string) => { setRecords(rs => rs.filter(r => r.id !== id)); toast.success(t('profile.experience.removeSuccess')); };
+    const remove = async (id: string) => {
+        const updatedCurrent = records.current.filter(r => r.id !== id);
+        const updatedPending = records.pending.filter(r => r.id !== id);
+        const allRecords = [...updatedCurrent, ...updatedPending];
+
+        const { domain } = useAuthStore.getState();
+        const familylist = allRecords.map(r => ({
+            name: r.name,
+            gender: r.gender,
+            dob: r.dob ? r.dob.replace(/-/g, '') : '',
+            relationship: r.relationship,
+            taxexeligibility: r.taxEligible === 'Yes',
+            attachment: r.attachment || null,
+            modificationoption: r.modOption,
+            effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
+            familystatus: r.modOption === 'New' ? '1' : '0',
+            status: r.status === 'Approved' ? 'Active' : 0
+        }));
+
+        try {
+            await mainClient.post(FAMILY_UPDATE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid,
+                familylist
+            });
+            setRecords({ current: updatedCurrent, pending: updatedPending });
+            toast.success(t('profile.experience.removeSuccess'));
+        } catch (err) {
+            toast.error('Failed to remove family information');
+        }
+    };
     const fv = (k: keyof FamilyMember) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(prev => ({ ...prev, [k]: e.target.value as any }));
 
     return (
@@ -1093,34 +1586,69 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             <SectionHeader icon={<Users size={20} />} title={t('profile.tabs.family')} subtitle={t('profile.family.subtitle')}
                 action={<button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('profile.family.addBtn')}</button>} />
 
-            {records.length === 0
+            {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.family.noData')} onAdd={openAdd} />
                 : (
-                    <div className={styles.tableWrapper}>
-                        <table className={styles.table}>
-                            <thead>
-                                <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.personal.gender')}</th><th>{t('profile.personal.dob')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.family.taxEligible')}</th><th>{t('profile.family.status')}</th><th></th></tr>
-                            </thead>
-                            <tbody>
-                                {records.map(r => (
-                                    <tr key={r.id}>
-                                        <td><strong>{r.name}</strong></td>
-                                        <td>{t(`profile.options.genders.${r.gender}` as any, r.gender)}</td>
-                                        <td>{r.dob}</td>
-                                        <td>{t(`profile.options.relationships.${r.relationship}` as any, r.relationship)}</td>
-                                        <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
-                                        <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} /></td>
-                                        <td>
-                                            <div className={styles.rowActions}>
-                                                <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                <button className={styles.iconBtn} onClick={() => remove(r.id)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <>
+                        {records.current.length > 0 && (
+                            <div className={styles.tableWrapper}>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>Current Records</div>
+                                <table className={styles.table}>
+                                    <thead>
+                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.personal.gender')}</th><th>{t('profile.personal.dob')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.family.taxEligible')}</th><th>{t('profile.family.status')}</th><th></th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {records.current.map(r => (
+                                            <tr key={r.id}>
+                                                <td><strong>{r.name}</strong></td>
+                                                <td>{t(`profile.options.genders.${r.gender}` as any, r.gender)}</td>
+                                                <td>{r.dob}</td>
+                                                <td>{t(`profile.options.relationships.${r.relationship}` as any, r.relationship)}</td>
+                                                <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
+                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} /></td>
+                                                <td>
+                                                    <div className={styles.rowActions}>
+                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {records.pending.length > 0 && (
+                            <div className={styles.tableWrapper} style={{ marginTop: '24px', border: '1px solid var(--color-warning-200)' }}>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    Pending HR Approval
+                                </div>
+                                <table className={styles.table}>
+                                    <thead style={{ background: 'var(--color-warning-50)' }}>
+                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.personal.gender')}</th><th>{t('profile.personal.dob')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.family.taxEligible')}</th><th>{t('profile.family.status')}</th><th></th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {records.pending.map(r => (
+                                            <tr key={r.id} style={{ opacity: 0.85 }}>
+                                                <td><strong>{r.name}</strong></td>
+                                                <td>{t(`profile.options.genders.${r.gender}` as any, r.gender)}</td>
+                                                <td>{r.dob}</td>
+                                                <td>{t(`profile.options.relationships.${r.relationship}` as any, r.relationship)}</td>
+                                                <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
+                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} /></td>
+                                                <td>
+                                                    <div className={styles.rowActions}>
+                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </>
                 )
             }
 
@@ -1170,6 +1698,12 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                     </FormRow>
                 </FormModal>
             )}
+
+            <ConfirmModal
+                open={!!deleteTarget}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={() => { if (deleteTarget) { remove(deleteTarget); setDeleteTarget(null); } }}
+            />
         </div>
     );
 }
@@ -1338,14 +1872,6 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string
     );
 }
 
-function ContactField({ label, value }: { label: string; value: string }) {
-    return (
-        <div className={styles.contactField}>
-            <span className={styles.contactFieldLabel}>{label}:</span>
-            <span className={styles.contactFieldValue}>{value || '-'}</span>
-        </div>
-    );
-}
 
 function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
     return (

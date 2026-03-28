@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════════════════ */
 import { flavor } from './features';
 
-const hxmPrefix = flavor === 'prd' ? 'hxm/api/' : 'hxm/';
+const hxmPrefix = flavor === 'prd' ? 'api/hxm' : 'hxm/';
 
 // ── Auth ──
 export const RENEW_TOKEN = 'generate/renew-token';
@@ -14,10 +14,16 @@ export const USER_PROFILE = 'api/employees/profile';
 export const USER_PROFILE_UPDATE = 'api/employees/profile/update';
 export const GET_FAMILY = 'api/employees/getfamily';
 export const FAMILY_UPDATE = 'api/employees/family/update';
+export const FAMILY_COMPARE = 'api/employees/family/compare';
 export const GET_EXPERIENCE = 'api/employees/getexperience';
 export const EXPERIENCE_UPDATE = 'api/employees/experience/update';
+export const EXPERIENCE_COMPARE = 'api/employees/experience/compare';
+export const EMERGENCY_UPDATE = 'api/employees/emergency/update';
+export const EMERGENCY_COMPARE = 'api/employees/emergencycontact/compare';
 export const GET_QUALIFICATION = 'api/employees/getqualification';
 export const QUALIFICATION_UPDATE = 'api/employees/qualification/update';
+export const QUALIFICATION_COMPARE = 'api/employees/qualification/compare';
+export const GET_EDUCATION_NAME = 'api/setup/educationname';
 
 // ── Request Management ──
 export const REQUEST_TYPES = `${hxmPrefix}request/getrequesttypelist`;
@@ -46,6 +52,11 @@ export const ATTENDANCE_SHIFT_DATA = 'api/checkin/shift';
 export const SAVE_ATTENDANCE_REQ = 'api/attendancerequest/saveattendancerequest';
 export const GET_ATTENDANCE_REQ_LIST = 'api/attendancerequest/getAttendanceRequestList';
 export const GET_ATTENDANCE_REQ_DETAIL = 'api/attendancerequest/getAttendanceRequestDetail';
+export const EXPORT_ATTENDANCE_REQ_TEMPLATE = 'api/attendancerequest/exportattendancerequesttemplate';
+export const PREPARE_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/prepareimportattendancerequest';
+export const PREVIEW_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/previewlistattendancerequest';
+export const CONFIRM_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/importdataattendancerequest';
+export const CLEAR_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/clearattendancerequest';
 export const GET_ATTENDANCE_APPROVAL_LIST = 'api/checkin/getapproval';
 export const SAVE_ATTENDANCE_APPROVAL = 'api/checkin/saveapproval';
 
@@ -78,6 +89,7 @@ export const MEMBER_LIST = `${hxmPrefix}integration/memberlist`;
 export const MENU_ITEMS = `${hxmPrefix}integration/get/menuitems`;
 
 // ── Assets ──
+export const FILE_UPLOAD = `${hxmPrefix}fileUpload`;
 export const RULES_AND_REGULATIONS_LIST = `${hxmPrefix}rulesandregulations/getall`;
 export const RULES_AND_REGULATIONS_DETAIL = `${hxmPrefix}rulesandregulations`;
 export const PHOTO_UPLOAD = `${hxmPrefix}integration/photoupload`;
