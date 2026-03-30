@@ -110,6 +110,7 @@ export const router = createBrowserRouter([
                     { path: '/attendanceapproval/:id/:type', element: <ApprovalDetailPage /> },
                     { path: '/attendancerequest', element: <RequestListPage /> },
                     { path: '/attendancerequest/new', element: <NewAttendanceRequestPage /> },
+                    { path: '/attendancerequest/:id', element: <RequestDetailPage /> },
                     { path: '/locationapproval', element: <ApprovalListPage /> },
                     // ── Other ──
                     { path: '/leave', element: <LeavePage /> },

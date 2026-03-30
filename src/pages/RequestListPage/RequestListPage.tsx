@@ -14,6 +14,7 @@ import {
     Banknote,
     FileText,
     Filter,
+    Download,
 } from 'lucide-react';
 import { Button, Input, Select } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
@@ -21,13 +22,15 @@ import { RequestStatus } from '../../types/models';
 import type { RequestModel, TypesModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
-import { 
-    GET_REQUEST_LIST, 
-    GET_ATTENDANCE_REQ_LIST, 
-    REQUEST_TYPES, 
-    ATTENDANCE_SHIFT_DATA 
+import {
+    GET_REQUEST_LIST,
+    GET_ATTENDANCE_REQ_LIST,
+    REQUEST_TYPES,
+    ATTENDANCE_SHIFT_DATA,
+    EXPORT_ATTENDANCE_REQ_TEMPLATE
 } from '../../config/api-routes';
 import { displayDate } from '../../lib/date-utils';
+import { useAuthStore } from '../../stores/auth-store';
 import styles from './RequestListPage.module.css';
 import '../../styles/pages.css';
 
@@ -106,6 +109,9 @@ export default function RequestListPage() {
     const isSubtypeView = pathTypeCfg !== null;
     const isAttendancePage = location.pathname === '/attendancerequest';
 
+    const { userId, domain } = useAuthStore();
+    const [exporting, setExporting] = useState(false);
+
     const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
     const [fromDate, setFromDate] = useState<string>(dateToInput(DEFAULT_FROM_DATE));
     const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
@@ -159,10 +165,13 @@ export default function RequestListPage() {
         queryKey: ['requests', fromDate, toDate, requestType, attType, location.pathname, activeStatus],
         queryFn: async () => {
             if (isAttendancePage) {
+                const reqStatus = activeStatus === RequestStatus.All ? '' : String(activeStatus);
                 const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
+                    userid: userId || '',
+                    domain: domain || 'dev',
                     fromdate: fromDate.replace(/-/g, ''),
                     todate: toDate.replace(/-/g, ''),
-                    status: '', // Fetch all for steady summary counts (as per previous strategy)
+                    status: reqStatus,
                     type: attType,
                 });
                 const list = res.data?.data || res.data?.datalist || [];
@@ -200,22 +209,31 @@ export default function RequestListPage() {
     });
 
     const displayRequests = useMemo(() => {
-        // Attendance Page filters locally because it fetches all statuses to maintain steady summary counts
-        if (isAttendancePage) {
-            if (activeStatus === RequestStatus.All) return allRequests;
-            return allRequests.filter(r => r.requeststatus === String(activeStatus));
-        }
-        // General request list is already filtered by API
+        // Since we are fetching exactly what the tab requested, just return allRequests
         return allRequests;
-    }, [allRequests, activeStatus, isAttendancePage]);
+    }, [allRequests]);
 
     const isLoading = shiftLoading || !didInitDates || requestsLoading;
 
     // Summary stats
     const { data: generalSummaryData = [] } = useQuery<RequestModel[]>({
-        queryKey: ['summaryRequests', fromDate, toDate, requestType, location.pathname],
+        queryKey: ['summaryRequests', fromDate, toDate, requestType, attType, location.pathname],
         queryFn: async () => {
-            if (isAttendancePage) return [];
+            if (isAttendancePage) {
+                const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
+                    userid: userId || '',
+                    domain: domain || 'dev',
+                    fromdate: fromDate.replace(/-/g, ''),
+                    todate: toDate.replace(/-/g, ''),
+                    status: '', // Fetch all for steady summary counts
+                    type: attType,
+                });
+                const list = res.data?.data || res.data?.datalist || [];
+                return list.map((item: any) => ({
+                    requeststatus: String(item.status ?? '1'),
+                }));
+            }
+
             const res = await apiClient.post(GET_REQUEST_LIST, {
                 fromdate: fromDate.replace(/-/g, ''),
                 todate: toDate.replace(/-/g, ''),
@@ -231,18 +249,44 @@ export default function RequestListPage() {
             }
             return all;
         },
-        enabled: didInitDates && !isAttendancePage,
+        enabled: didInitDates,
         staleTime: 30 * 1000,
     });
 
     const stats = useMemo(() => {
-        const sourceData = isAttendancePage ? allRequests : generalSummaryData;
+        const sourceData = generalSummaryData;
         const total = sourceData.length;
         const pending = sourceData.filter(r => String(r.requeststatus) === '1').length;
         const approved = sourceData.filter(r => String(r.requeststatus) === '2').length;
         const rejected = sourceData.filter(r => String(r.requeststatus) === '3').length;
         return { total, pending, approved, rejected };
-    }, [allRequests, generalSummaryData, isAttendancePage]);
+    }, [generalSummaryData]);
+
+    const handleExportTemplate = async () => {
+        try {
+            setExporting(true);
+            const res = await mainClient.post(EXPORT_ATTENDANCE_REQ_TEMPLATE, {
+                userid: userId || '',
+                domain: domain || 'dev'
+            });
+            const data = res.data?.data;
+            if (res.data?.status === 201 && data?.base64String) {
+                const link = document.createElement('a');
+                link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${data.base64String}`;
+                link.download = data.fileName || 'AttendanceRequestTemplate.xlsx';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert(res.data?.message || 'Failed to export template');
+            }
+        } catch (err) {
+            console.error('Export template failed:', err);
+            alert('An error occurred while exporting the template');
+        } finally {
+            setExporting(false);
+        }
+    };
 
     /* ── Render ── */
 
@@ -259,10 +303,22 @@ export default function RequestListPage() {
                             {displayRequests.length} {isSubtypeView ? pathTypeCfg!.filter : 'request'}{displayRequests.length === 1 ? '' : 's'}
                         </p>
                     </div>
-                    <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')}>
-                        <Plus size={16} />
-                        {isSubtypeView ? pathTypeCfg!.newLabel : t('request.newRequest')}
-                    </Button>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        {isAttendancePage && (
+                            <Button
+                                onClick={handleExportTemplate}
+                                disabled={exporting}
+                                style={{ background: 'var(--color-neutral-0)', color: 'var(--color-neutral-800)', border: '1px solid var(--color-neutral-300)' }}
+                            >
+                                <Download size={16} />
+                                {exporting ? 'Exporting...' : 'Export Template'}
+                            </Button>
+                        )}
+                        <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')}>
+                            <Plus size={16} />
+                            {isSubtypeView ? pathTypeCfg!.newLabel : t('request.newRequest')}
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -411,7 +467,13 @@ export default function RequestListPage() {
                                     const variant = getTypeVariant(typeDesc);
                                     const Icon = getTypeIcon(variant);
                                     return (
-                                        <tr key={req.syskey || i} onClick={() => navigate(`/requests/${req.syskey}`)}>
+                                        <tr key={req.syskey || i} onClick={() => {
+                                            if (isAttendancePage) {
+                                                navigate(`/attendancerequest/${req.syskey}`);
+                                            } else {
+                                                navigate(`/requests/${req.syskey}`);
+                                            }
+                                        }}>
                                             <td>{req.eid || '—'}</td>
                                             <td>{req.name || '—'}</td>
                                             <td>{req.refno || '—'}</td>

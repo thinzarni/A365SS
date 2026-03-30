@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -22,7 +22,9 @@ import { RequestStatus } from '../../types/models';
 import type { RequestDetailModel, Approver } from '../../types/models';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import apiClient from '../../lib/api-client';
-import { GET_REQUEST_DETAIL, DELETE_REQUEST, CURRENCY_TYPES } from '../../config/api-routes';
+import mainClient from '../../lib/main-client';
+import { useAuthStore } from '../../stores/auth-store';
+import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, CURRENCY_TYPES } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
 import styles from './RequestDetailPage.module.css';
 
@@ -53,7 +55,11 @@ export default function RequestDetailPage() {
     const { id } = useParams<{ id: string }>();
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const location = useLocation();
     const queryClient = useQueryClient();
+    const { user, domain } = useAuthStore();
+
+    const isAttendance = location.pathname.includes('/attendancerequest');
 
     // Mirrors mobile RequestDetail.fromJson — reads datalist + 4 separate person lists
     const { data: detailData, isLoading } = useQuery<{
@@ -63,14 +69,55 @@ export default function RequestDetailPage() {
         accompanyPersonList: Approver[];
         selectedHandovers: Approver[];
     }>({
-        queryKey: ['requestDetail', id],
+        queryKey: ['requestDetail', id, isAttendance],
         queryFn: async () => {
+            if (isAttendance) {
+                const res = await mainClient.post(`${GET_ATTENDANCE_REQ_DETAIL}/${id}`, {
+                    userid: user?.userid || '',
+                    domain: domain || 'dev'
+                });
+                const raw = res.data?.data || res.data?.datalist || {};
+                
+                // Map attendance request specifics to generic detail model
+                const requesttypedesc = (raw.attendancerequesttype === 1) ? 'Remote Time in' 
+                                      : (raw.attendancerequesttype === 2) ? 'Backdate Time in' 
+                                      : (raw.type === "601" ? 'Time In' : raw.type === "602" ? 'Time Out' : 'Attendance');
+                
+                const mappedDetail: any = {
+                    ...raw,
+                    requesttypedesc,
+                    requeststatus: String(raw.status || '1'),
+                    requestsubtypedesc: `${raw.intime || ''}${raw.intime && raw.outtime ? ' - ' : ''}${raw.outtime || ''}`,
+                    remark: raw.description,
+                    eid: raw.employee_id,
+                    name: raw.employee_name,
+                    startdate: raw.date,
+                    starttime: raw.intime,
+                    endtime: raw.outtime,
+                    locationname: raw.location,
+                    // refno can be the syskey for now
+                    refno: raw.syskey,
+                };
+
+                const approvers: Approver[] = typeof raw.approvedby === 'string' && raw.approvedby 
+                    ? [{ syskey: 'app-1', name: raw.approvedby, userid: '', position: '', photo: '' }] 
+                    : [];
+
+                return {
+                    detail: mappedDetail as RequestDetailModel,
+                    approverList: approvers,
+                    memberList: [],
+                    accompanyPersonList: [],
+                    selectedHandovers: [],
+                };
+            }
+
             const res = await apiClient.post(GET_REQUEST_DETAIL, { syskey: id });
             const detailData = res.data?.datalist || {};
             const parseList = (rootKey: string, detailKey: string): Approver[] =>
                 (res.data?.[rootKey] as Approver[] | undefined) ||
                 (detailData?.[detailKey] as Approver[] | undefined) || [];
-                
+
             return {
                 detail: detailData,
                 approverList: parseList('approverList', 'selectedApprovers'),
@@ -128,7 +175,7 @@ export default function RequestDetailPage() {
     if (!detail) {
         return (
             <div className={styles['request-detail']}>
-                <button className={styles['request-detail__back']} onClick={() => navigate('/requests')}>
+                <button className={styles['request-detail__back']} onClick={() => isAttendance ? navigate('/attendancerequest') : navigate('/requests')}>
                     <ArrowLeft size={16} /> Back
                 </button>
                 <div className="empty-state">
@@ -150,7 +197,7 @@ export default function RequestDetailPage() {
 
     return (
         <div className={styles['request-detail']}>
-            <button className={styles['request-detail__back']} onClick={() => navigate('/requests')}>
+            <button className={styles['request-detail__back']} onClick={() => isAttendance ? navigate('/attendancerequest') : navigate('/requests')}>
                 <ArrowLeft size={16} />
                 {t('common.back')}
             </button>
@@ -214,7 +261,7 @@ export default function RequestDetailPage() {
                                 <div style={{ marginTop: 'var(--space-3)' }}>
                                     <span className={styles['request-detail__section-title']}>Group Members</span>
                                     <div className={styles['request-detail__approver-list']}>
-                                        {memberList.map((m) => (
+                                        {memberList.map((m: Approver) => (
                                             <span key={m.syskey} className={styles['request-detail__approver-chip']}>
                                                 <span className={styles['request-detail__approver-avatar']}>
                                                     {m.name?.charAt(0).toUpperCase() || '?'}
@@ -304,7 +351,7 @@ export default function RequestDetailPage() {
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Attachments</h4>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-                                {detail.attachment.map((att, i) => {
+                                {detail.attachment.map((att: any, i: number) => {
                                     const url = typeof att === 'string' ? att : (att as any).signedURL || (att as any).url || '';
                                     const name = typeof att === 'string' ? `File ${i + 1}` : (att as any).filename || `File ${i + 1}`;
                                     return url ? (
@@ -332,20 +379,20 @@ export default function RequestDetailPage() {
                     {(String(detail.requeststatus) === RequestStatus.Approved || String(detail.requeststatus) === RequestStatus.Rejected)
                         && detail.confirmed_amount !== undefined
                         && detail.max_amount !== undefined && Number(detail.max_amount) !== 0 && (
-                        <div className={styles['request-detail__section']}>
-                            <h4 className={styles['request-detail__section-title']}>Confirmed Amount</h4>
-                            <div className={styles['request-detail__grid']}>
-                                <Field label="Amount" value={Number(detail.confirmed_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />
+                            <div className={styles['request-detail__section']}>
+                                <h4 className={styles['request-detail__section-title']}>Confirmed Amount</h4>
+                                <div className={styles['request-detail__grid']}>
+                                    <Field label="Amount" value={Number(detail.confirmed_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
                     {/* Approved By */}
                     {approverList.length > 0 && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Approved By</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                {approverList.map((a, idx) => (
+                                {approverList.map((a: Approver, idx: number) => (
                                     <div
                                         key={a.syskey}
                                         style={{
@@ -394,20 +441,20 @@ export default function RequestDetailPage() {
                     {(String(detail.requeststatus) === RequestStatus.Approved || String(detail.requeststatus) === RequestStatus.Rejected)
                         && detail.comment
                         && detail.max_amount !== undefined && Number(detail.max_amount) !== 0 && (
-                        <div className={styles['request-detail__section']}>
-                            <h4 className={styles['request-detail__section-title']}>Approver Comment</h4>
-                            <div className={styles['request-detail__grid']}>
-                                <Field label="Comment" value={detail.comment} />
+                            <div className={styles['request-detail__section']}>
+                                <h4 className={styles['request-detail__section-title']}>Approver Comment</h4>
+                                <div className={styles['request-detail__grid']}>
+                                    <Field label="Comment" value={detail.comment} />
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
                     {/* Accompanying Persons */}
                     {accompanyPersonList.length > 0 && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Accompanying Persons</h4>
                             <div className={styles['request-detail__approver-list']}>
-                                {accompanyPersonList.map((p) => (
+                                {accompanyPersonList.map((p: Approver) => (
                                     <span key={p.syskey} className={styles['request-detail__approver-chip']}>
                                         <span className={styles['request-detail__approver-avatar']}>
                                             {p.name?.charAt(0).toUpperCase() || '?'}

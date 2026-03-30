@@ -23,6 +23,38 @@
     color: var(--color-primary-600);
 }
 
+.mode-toggle {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-6);
+    background: var(--color-neutral-100);
+    padding: var(--space-1);
+    border-radius: var(--radius-lg);
+    width: fit-content;
+}
+
+.mode-btn {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--color-neutral-600);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.mode-btn:hover {
+    color: var(--color-neutral-800);
+}
+
+.mode-btn--active {
+    background: var(--color-neutral-0);
+    color: var(--color-primary-600);
+    box-shadow: var(--shadow-sm);
+}
+
 .new-request__card {
     background: var(--color-neutral-0);
     border: 1px solid var(--color-neutral-100);
