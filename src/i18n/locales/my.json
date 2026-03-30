@@ -311,7 +311,8 @@
             "secondaryEmail": "အရန် အီးမေးလ်",
             "primaryMobile": "အဓိက ဖုန်းနံပါတ်",
             "sameAsPermanent": "အမြဲတမ်းလိပ်စာနှင့် တူညီသည်",
-            "saveSuccess": "ဆက်သွယ်ရန် အချက်အလက် ပြင်ဆင်ပြီးပါပြီ။"
+            "saveSuccess": "ဆက်သွယ်ရန် အချက်အလက် ပြင်ဆင်ပြီးပါပြီ။",
+            "selectDistrict": "ခရိုင် ရွေးချယ်ပါ"
         },
         "options": {
             "relationships": {

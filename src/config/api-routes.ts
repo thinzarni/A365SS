@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════════════════ */
 import { flavor } from './features';
 
-const hxmPrefix = flavor === 'prd' ? 'api/hxm' : 'hxm/';
+const hxmPrefix = flavor === 'prd' ? 'api/hxm/' : 'hxm/';
 
 // ── Auth ──
 export const RENEW_TOKEN = 'generate/renew-token';
@@ -24,6 +24,12 @@ export const GET_QUALIFICATION = 'api/employees/getqualification';
 export const QUALIFICATION_UPDATE = 'api/employees/qualification/update';
 export const QUALIFICATION_COMPARE = 'api/employees/qualification/compare';
 export const GET_EDUCATION_NAME = 'api/setup/educationname';
+export const ADDRESS_UPDATE = 'api/employees/address/update';
+export const ADDRESS_COMPARE = 'api/employees/address/compare';
+export const GET_DISTRICT_LIST = 'api/setup/getdistrict';
+export const GET_TOWNSHIP_LIST = 'api/setup/gettownship';
+export const GET_CITY_LIST = 'api/setup/getcity';
+export const GET_WARD_LIST = 'api/setup/getward';
 
 // ── Request Management ──
 export const REQUEST_TYPES = `${hxmPrefix}request/getrequesttypelist`;
@@ -171,4 +177,3 @@ export const ESS_CONTACT_INFO = 'api/employees/contact-info';
 export const ESS_ADDRESS_STATES = 'api/master/states';
 export const ESS_ADDRESS_DISTRICTS = 'api/master/districts';
 export const ESS_ADDRESS_TOWNSHIPS = 'api/master/townships';
-

@@ -546,6 +546,11 @@
     gap: var(--space-1);
 }
 
+.formRow.fullWidth {
+    grid-column: span 2;
+}
+
+
 .formGrid2 {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

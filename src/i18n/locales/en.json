@@ -311,7 +311,8 @@
             "secondaryEmail": "Secondary Email",
             "primaryMobile": "Primary Mobile",
             "sameAsPermanent": "Same as permanent address",
-            "saveSuccess": "Contact information updated."
+            "saveSuccess": "Contact information updated.",
+            "selectDistrict": "Select district"
         },
         "options": {
             "relationships": {

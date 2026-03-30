@@ -10,15 +10,27 @@ import {
     ChevronRight, FileText, AlertCircle, Save
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
-import mainClient from '../../lib/main-client';
 import authClient from '../../lib/auth-client';
 import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
 import { Button, Input, ConfirmModal } from '../../components/ui';
 import { toast } from 'react-hot-toast';
-import { MENU_ITEMS, FAMILY_UPDATE, FAMILY_COMPARE, EXPERIENCE_UPDATE, EXPERIENCE_COMPARE, EMERGENCY_UPDATE, EMERGENCY_COMPARE, GET_SETUP_LIST, GET_EDUCATION_NAME, QUALIFICATION_COMPARE, QUALIFICATION_UPDATE } from '../../config/api-routes';
+import {
+    MENU_ITEMS,
+    FAMILY_UPDATE, FAMILY_COMPARE,
+    EXPERIENCE_UPDATE, EXPERIENCE_COMPARE,
+    EMERGENCY_UPDATE, EMERGENCY_COMPARE,
+    GET_SETUP_LIST, GET_EDUCATION_NAME,
+    QUALIFICATION_COMPARE, QUALIFICATION_UPDATE,
+    ADDRESS_UPDATE, ADDRESS_COMPARE,
+    GET_DISTRICT_LIST,
+    GET_TOWNSHIP_LIST,
+    GET_CITY_LIST,
+    GET_WARD_LIST
+} from '../../config/api-routes';
 import styles from './ProfilePagePrd.module.css';
+import mainClient from '../../lib/main-client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -101,6 +113,27 @@ interface Qualification {
     isheight: string;
     status: string;
 }
+interface Address {
+    syskey: string;
+    employeeid: string;
+    address: string;
+    postalcode: string;
+    state: string;
+    statesyskey: string;
+    district: string;
+    districtsyskey: string;
+    township: string;
+    townshipsyskey: string;
+    city: string;
+    citysyskey: string;
+    ward: string;
+    wardsyskey: string;
+    country: string;
+    countrysyskey: string;
+    addressstatus: number;
+    status: string;
+}
+
 
 interface FamilyMember {
     id: string;
@@ -162,7 +195,6 @@ const INDUSTRIES = ['IT', 'Banking', 'Finance', 'Healthcare', 'Education', 'Manu
 const CURRENCIES = ['MMK', 'USD', 'THB', 'SGD', 'EUR'];
 const GENDERS = ['Male', 'Female', 'Other'];
 const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed'];
-const STATES = ['Yangon', 'Mandalay', 'Naypyidaw', 'Sagaing', 'Bago', 'Magway', 'Ayeyarwady', 'Shan', 'Kachin', 'Kayah', 'Kayin', 'Chin', 'Mon', 'Rakhine', 'Tanintharyi'];
 const MOD_OPTIONS = ['New', 'Correct', 'Update'];
 
 // ── Mock placeholder data (Qualification, Contact still use mock) ──
@@ -354,7 +386,7 @@ export default function ProfilePage() {
                     {activeTab === 'experience' && <WorkExperienceTab profile={profile} />}
                     {activeTab === 'qualification' && <QualificationTab profile={profile} />}
                     {activeTab === 'family' && <FamilyInfoTab profile={profile} />}
-                    {activeTab === 'contact' && <ContactInfoTab />}
+                    {activeTab === 'contact' && <ContactInfoTab profile={profile} />}
                 </div>
             </div>
 
@@ -1711,20 +1743,316 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
 // ═══════════════════════════════════════════════════════════════════════
 // TAB 7 — Contact Information (Create/Edit/View)
 // ═══════════════════════════════════════════════════════════════════════
-function ContactInfoTab() {
+function ContactInfoTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const [data, setData] = useState(MOCK_CONTACT);
+    const { domain } = useAuthStore();
+    const [records, setRecords] = useState<{ current: Address[], pending: Address[] }>({ current: [], pending: [] });
     const [isEditing, setIsEditing] = useState(false);
-    const [draft, setDraft] = useState(MOCK_CONTACT);
 
-    const startEdit = () => { setDraft({ ...data }); setIsEditing(true); };
-    const cancel = () => setIsEditing(false);
-    const save = () => {
-        setData(draft);
-        setIsEditing(false);
-        toast.success(t('profile.contact.saveSuccess'));
+    // Separate state for email/mobile as they are not in address/compare
+    const [contactDetails, setContactDetails] = useState({
+        primaryEmail: MOCK_CONTACT.primaryEmail,
+        secondaryEmail: MOCK_CONTACT.secondaryEmail,
+        primaryMobile: MOCK_CONTACT.primaryMobile
+    });
+
+    const [form, setForm] = useState<{ permanent: Address, temporary: Address }>({
+        permanent: {
+            syskey: '', employeeid: '', address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 0, status: '0',
+            statesyskey: '',
+            districtsyskey: '',
+            townshipsyskey: '',
+            citysyskey: '',
+            wardsyskey: '',
+            countrysyskey: ''
+        },
+        temporary: {
+            syskey: '', employeeid: '', address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 1, status: '0',
+            statesyskey: '',
+            districtsyskey: '',
+            townshipsyskey: '',
+            citysyskey: '',
+            wardsyskey: '',
+            countrysyskey: ''
+        }
+    });
+
+    // Fetch countries for the dropdown
+    const { data: countries } = useQuery({
+        queryKey: ['countries', domain],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_SETUP_LIST, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                tblname: 'country'
+            });
+            return res.data?.datalist || [];
+        }
+    });
+
+    // Fetch states for the dropdown
+    const { data: states } = useQuery({
+        queryKey: ['states', domain],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_SETUP_LIST, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                tblname: 'state'
+            });
+            return res.data?.datalist || [];
+        }
+    });
+
+    // Locations for Permanent Address
+    const { data: permDistricts } = useQuery({
+        queryKey: ['districts', domain, form.permanent.statesyskey],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_DISTRICT_LIST, { statesyskey: form.permanent.statesyskey, domain: domain || 'demouat' });
+            return res.data?.datalist || [];
+        },
+        enabled: !!form.permanent.statesyskey
+    });
+    const { data: permTownships } = useQuery({
+        queryKey: ['townships', domain, form.permanent.statesyskey, form.permanent.districtsyskey],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_TOWNSHIP_LIST, { statesyskey: form.permanent.statesyskey, districtsyskey: form.permanent.districtsyskey, domain: domain || 'demouat' });
+            return res.data?.datalist || [];
+        },
+        enabled: !!form.permanent.statesyskey && !!form.permanent.districtsyskey
+    });
+
+    // Locations for Temporary Address
+    const { data: tempDistricts } = useQuery({
+        queryKey: ['districts', domain, form.temporary.statesyskey],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_DISTRICT_LIST, { statesyskey: form.temporary.statesyskey, domain: domain || 'demouat' });
+            return res.data?.datalist || [];
+        },
+        enabled: !!form.temporary.statesyskey
+    });
+
+    const { data: tempTownships } = useQuery({
+        queryKey: ['townships', domain, form.temporary.statesyskey, form.temporary.districtsyskey],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_TOWNSHIP_LIST, { statesyskey: form.temporary.statesyskey, districtsyskey: form.temporary.districtsyskey, domain: domain || 'demouat' });
+            return res.data?.datalist || [];
+        },
+        enabled: !!form.temporary.statesyskey && !!form.temporary.districtsyskey
+    });
+
+    // Cities for Permanent Address
+    const { data: permCities } = useQuery({
+        queryKey: ['cities', domain, form.permanent.statesyskey, form.permanent.districtsyskey, form.permanent.townshipsyskey],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_CITY_LIST, { statesyskey: form.permanent.statesyskey, districtsyskey: form.permanent.districtsyskey, townshipsyskey: form.permanent.townshipsyskey, domain: domain || 'demouat' });
+            return res.data?.datalist || [];
+        },
+        enabled: !!form.permanent.statesyskey && !!form.permanent.districtsyskey && !!form.permanent.townshipsyskey
+    });
+    // Wards for Permanent Address
+    const { data: permWards } = useQuery({
+        queryKey: ['wards', domain, form.permanent.statesyskey, form.permanent.districtsyskey, form.permanent.townshipsyskey, form.permanent.citysyskey],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_WARD_LIST, { statesyskey: form.permanent.statesyskey, districtsyskey: form.permanent.districtsyskey, townshipsyskey: form.permanent.townshipsyskey, citysyskey: form.permanent.citysyskey, domain: domain || 'demouat' });
+            return res.data?.datalist || [];
+        },
+        enabled: !!form.permanent.statesyskey && !!form.permanent.districtsyskey && !!form.permanent.townshipsyskey && !!form.permanent.citysyskey
+    });
+
+    // Cities for Temporary Address
+    const { data: tempCities } = useQuery({
+        queryKey: ['cities', domain, form.temporary.statesyskey, form.temporary.districtsyskey, form.temporary.townshipsyskey],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_CITY_LIST, { statesyskey: form.temporary.statesyskey, districtsyskey: form.temporary.districtsyskey, townshipsyskey: form.temporary.townshipsyskey, domain: domain || 'demouat' });
+            return res.data?.datalist || [];
+        },
+        enabled: !!form.temporary.statesyskey && !!form.temporary.districtsyskey && !!form.temporary.townshipsyskey
+    });
+    // Wards for Temporary Address
+    const { data: tempWards } = useQuery({
+        queryKey: ['wards', domain, form.temporary.statesyskey, form.temporary.districtsyskey, form.temporary.townshipsyskey, form.temporary.citysyskey],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_WARD_LIST, { statesyskey: form.temporary.statesyskey, districtsyskey: form.temporary.districtsyskey, townshipsyskey: form.temporary.townshipsyskey, citysyskey: form.temporary.citysyskey, domain: domain || 'demouat' });
+            return res.data?.datalist || [];
+        },
+        enabled: !!form.temporary.statesyskey && !!form.temporary.districtsyskey && !!form.temporary.townshipsyskey && !!form.temporary.citysyskey
+    });
+
+
+    const { data: fetchedData, refetch } = useQuery({
+        queryKey: ['address', profile.userid, profile.eid],
+        queryFn: async () => {
+            const res = await mainClient.post(ADDRESS_COMPARE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid
+            });
+
+            const processArr = (arr: any[]) => (arr || []).map((item: any) => ({
+                syskey: item.syskey,
+                employeeid: item.employeeid,
+                address: item.address,
+                postalcode: item.postalcode,
+                state: item.state || item.state,
+                statesyskey: item.statesyskey || item.state,
+                districtsyskey: item.districtsyskey || item.district,
+                district: item.district || item.district,
+                townshipsyskey: item.townshipsyskey || item.township,
+                township: item.township || item.township,
+                citysyskey: item.citysyskey || item.city,
+                city: item.city || item.city,
+                wardsyskey: item.wardsyskey || item.ward,
+                ward: item.ward || item.ward,
+                countrysyskey: item.countrysyskey || item.country,
+                country: item.country || item.country,
+                addressstatus: Number(item.addressstatus),
+                status: item.status?.toString() || '0'
+            })) as Address[];
+
+            return {
+                current: processArr(res.data?.data?.current || []),
+                pending: processArr(res.data?.data?.update || [])
+            };
+        },
+        enabled: !!profile.userid && !!profile.eid
+    });
+
+    useEffect(() => {
+        if (fetchedData) {
+            setRecords(fetchedData);
+        }
+    }, [fetchedData]);
+
+    const startEdit = () => {
+        const curPerm = records.current.find(a => a.addressstatus === 0) || records.pending.find(a => a.addressstatus === 0);
+        const curTemp = records.current.find(a => a.addressstatus === 1) || records.pending.find(a => a.addressstatus === 1);
+
+        setForm({
+            permanent: curPerm ? { ...curPerm } : { syskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 0, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '' },
+            temporary: curTemp ? { ...curTemp } : { syskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 1, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '' }
+        });
+        setIsEditing(true);
     };
-    const d = (k: keyof typeof draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setDraft(prev => ({ ...prev, [k]: e.target.value }));
+
+    const cancel = () => setIsEditing(false);
+
+    const save = async () => {
+        const toPayload = (addr: Address) => ({
+            syskey: addr.syskey,
+            employeeid: profile.eid,
+            address: addr.address,
+            postalcode: addr.postalcode,
+            state: addr.statesyskey || '',
+            district: addr.districtsyskey || '',
+            township: addr.townshipsyskey || '',
+            city: addr.citysyskey || '',
+            ward: addr.wardsyskey || '',
+            country: addr.countrysyskey || '',
+            addressstatus: addr.addressstatus,
+            status: '0'
+        });
+        const addressinfo = [toPayload(form.permanent), toPayload(form.temporary)];
+
+        try {
+            await mainClient.post(ADDRESS_UPDATE, {
+                userid: profile.userid,
+                domain: domain || 'demouat',
+                employeeid: profile.eid,
+                addressinfo
+            });
+            toast.success(t('profile.contact.saveSuccess'));
+            setIsEditing(false);
+            refetch();
+        } catch (err) {
+            toast.error('Failed to update address information');
+        }
+    };
+
+    const updateAddr = (type: 'permanent' | 'temporary', field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const val = e.target.value;
+        setForm(prev => {
+            const updated = { ...prev[type], [field]: val };
+
+            // Sync Name and Syskey fields for cascading logic and form binding
+            if (field === 'state') updated.statesyskey = val;
+            if (field === 'district') updated.districtsyskey = val;
+            if (field === 'township') updated.townshipsyskey = val;
+            if (field === 'city') updated.citysyskey = val;
+            if (field === 'ward') updated.wardsyskey = val;
+            if (field === 'country') updated.countrysyskey = val;
+
+            // Clear child fields when parent changes
+            if (field === 'state' || field === 'statesyskey') {
+                updated.district = '';
+                updated.districtsyskey = '';
+                updated.township = '';
+                updated.townshipsyskey = '';
+                updated.city = '';
+                updated.citysyskey = '';
+                updated.ward = '';
+                updated.wardsyskey = '';
+            } else if (field === 'district' || field === 'districtsyskey') {
+                updated.township = '';
+                updated.townshipsyskey = '';
+                updated.city = '';
+                updated.citysyskey = '';
+                updated.ward = '';
+                updated.wardsyskey = '';
+            } else if (field === 'township' || field === 'townshipsyskey') {
+                updated.city = '';
+                updated.citysyskey = '';
+                updated.ward = '';
+                updated.wardsyskey = '';
+            } else if (field === 'city' || field === 'citysyskey') {
+                updated.ward = '';
+                updated.wardsyskey = '';
+            }
+
+            return {
+                ...prev,
+                [type]: updated
+            };
+        });
+    };
+
+    const updateContact = (field: keyof typeof contactDetails) => (e: React.ChangeEvent<HTMLInputElement>) => {
+        setContactDetails(prev => ({ ...prev, [field]: e.target.value }));
+    };
+
+    const renderAddressTable = (addrs: Address[], title: string, background: string = 'transparent') => {
+        if (addrs.length === 0) return null;
+        return (
+            <div className={styles.tableWrapper} style={{ marginBottom: '24px' }}>
+                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: background === 'transparent' ? 'var(--color-neutral-800)' : 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {title}
+                </div>
+                <table className={styles.table}>
+                    <thead style={{ background }}>
+                        <tr>
+                            <th>Type</th>
+                            <th>Address</th>
+                            <th>City / Ward</th>
+                            <th>District / Township</th>
+                            <th>State / Country</th>
+                            {/* <th>Status</th> */}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {addrs.map(a => (
+                            <tr key={a.syskey || a.addressstatus}>
+                                <td><strong>{a.addressstatus === 0 ? 'Permanent' : 'Current'}</strong></td>
+                                <td>{a.address}</td>
+                                <td>{a.city}{a.city && a.ward ? ' / ' : ''}{a.ward}</td>
+                                <td>{(a.addressstatus === 0 ? permDistricts : tempDistricts)?.find((d: any) => d.syskey === a.district)?.description || a.district}{a.district && a.township ? ' / ' : ''}{(a.addressstatus === 0 ? permTownships : tempTownships)?.find((t: any) => t.syskey === a.township)?.description || a.township}</td>
+                                <td>{states?.find((s: any) => s.syskey === a.state)?.description || a.state}{(a.state && a.country) ? ' / ' : ''}{countries?.find((c: any) => c.syskey === a.country)?.description || a.country}</td>
+                                {/* <td><StatusBadge status={a.status === '1' ? 'Active' : (a.status === '2' ? 'Rejected' : 'Pending')} /></td> */}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        );
+    };
 
     return (
         <div className={styles.sectionCard}>
@@ -1738,108 +2066,141 @@ function ContactInfoTab() {
             {isEditing ? (
                 <div className={styles.editForm}>
                     {/* Permanent Address */}
-                    <p className={styles.subSectionTitle}>{t('profile.contact.permanentAddress')}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                        <p className={styles.subSectionTitle} style={{ margin: 0 }}>{t('profile.contact.permanentAddress')}</p>
+                        <span style={{ fontSize: '12px', background: 'var(--color-neutral-100)', padding: '2px 8px', borderRadius: '4px', color: 'var(--color-neutral-600)' }}>Status: 0</span>
+                    </div>
                     <div className={styles.formGrid2}>
                         <FormRow label={t('profile.contact.state')}>
-                            <select className={styles.formSelect} value={draft.permanentState} onChange={d('permanentState')}>
+                            <select className={styles.formSelect} value={form.permanent.statesyskey} onChange={updateAddr('permanent', 'state')}>
                                 <option value="">{t('profile.contact.selectState')}</option>
-                                {STATES.map(s => <option key={s}>{s}</option>)}
+                                {states?.map((s: any) => <option key={s.syskey} value={s.syskey}>{s.description}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label="Country">
+                            <select className={styles.formSelect} value={form.permanent.countrysyskey} onChange={updateAddr('permanent', 'country')}>
+                                <option value="">Select country</option>
+                                {countries?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
                             </select>
                         </FormRow>
                         <FormRow label={t('profile.contact.district')}>
-                            <input className={styles.formInput} value={draft.permanentDistrict} onChange={d('permanentDistrict')} />
+                            <select className={styles.formSelect} value={form.permanent.districtsyskey} onChange={updateAddr('permanent', 'district')}>
+                                <option value="">Select district</option>
+                                {permDistricts?.map((d: any) => <option key={d.syskey} value={d.syskey}>{d.description}</option>)}
+                            </select>
                         </FormRow>
                         <FormRow label={t('profile.contact.township')}>
-                            <input className={styles.formInput} value={draft.permanentTownship} onChange={d('permanentTownship')} />
+                            <select className={styles.formSelect} value={form.permanent.townshipsyskey} onChange={updateAddr('permanent', 'township')}>
+                                <option value="">Select township</option>
+                                {permTownships?.map((t: any) => <option key={t.syskey} value={t.syskey}>{t.description}</option>)}
+                            </select>
                         </FormRow>
-                        <FormRow label={t('profile.contact.town')}>
-                            <input className={styles.formInput} value={draft.permanentTown} onChange={d('permanentTown')} />
+                        <FormRow label="City">
+                            <select className={styles.formSelect} value={form.permanent.citysyskey} onChange={updateAddr('permanent', 'city')}>
+                                <option value="">Select city</option>
+                                {permCities?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label="Ward">
+                            <select className={styles.formSelect} value={form.permanent.wardsyskey} onChange={updateAddr('permanent', 'ward')}>
+                                <option value="">Select ward</option>
+                                {permWards?.map((w: any) => <option key={w.syskey} value={w.syskey}>{w.description}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label="Address Details" fullWidth>
+                            <input className={styles.formInput} value={form.permanent.address} onChange={updateAddr('permanent', 'address')} placeholder="Street, Building, etc." />
                         </FormRow>
                     </div>
 
-                    {/* Temporary Address */}
-                    <p className={styles.subSectionTitle} style={{ marginTop: 'var(--space-6)' }}>{t('profile.contact.temporaryAddress')}</p>
+                    {/* Current Address */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', marginTop: 'var(--space-8)' }}>
+                        <p className={styles.subSectionTitle} style={{ margin: 0 }}>Current Address</p>
+                        <span style={{ fontSize: '12px', background: 'var(--color-neutral-100)', padding: '2px 8px', borderRadius: '4px', color: 'var(--color-neutral-600)' }}>Status: 1</span>
+                    </div>
                     <div className={styles.formGrid2}>
                         <FormRow label={t('profile.contact.state')}>
-                            <select className={styles.formSelect} value={draft.temporaryState} onChange={d('temporaryState')}>
+                            <select className={styles.formSelect} value={form.temporary.statesyskey} onChange={updateAddr('temporary', 'state')}>
                                 <option value="">{t('profile.contact.selectState')}</option>
-                                {STATES.map(s => <option key={s}>{s}</option>)}
+                                {states?.map((s: any) => <option key={s.syskey} value={s.syskey}>{s.description}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label="Country">
+                            <select className={styles.formSelect} value={form.temporary.countrysyskey} onChange={updateAddr('temporary', 'country')}>
+                                <option value="">Select country</option>
+                                {countries?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
                             </select>
                         </FormRow>
                         <FormRow label={t('profile.contact.district')}>
-                            <input className={styles.formInput} value={draft.temporaryDistrict} onChange={d('temporaryDistrict')} />
+                            <select className={styles.formSelect} value={form.temporary.districtsyskey} onChange={updateAddr('temporary', 'district')}>
+                                <option value="">Select district</option>
+                                {tempDistricts?.map((d: any) => <option key={d.syskey} value={d.syskey}>{d.description}</option>)}
+                            </select>
                         </FormRow>
                         <FormRow label={t('profile.contact.township')}>
-                            <input className={styles.formInput} value={draft.temporaryTownship} onChange={d('temporaryTownship')} />
+                            <select className={styles.formSelect} value={form.temporary.townshipsyskey} onChange={updateAddr('temporary', 'township')}>
+                                <option value="">Select township</option>
+                                {tempTownships?.map((t: any) => <option key={t.syskey} value={t.syskey}>{t.description}</option>)}
+                            </select>
                         </FormRow>
-                        <FormRow label={t('profile.contact.town')}>
-                            <input className={styles.formInput} value={draft.temporaryTown} onChange={d('temporaryTown')} />
+                        <FormRow label="City">
+                            <select className={styles.formSelect} value={form.temporary.citysyskey} onChange={updateAddr('temporary', 'city')}>
+                                <option value="">Select city</option>
+                                {tempCities?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label="Ward">
+                            <select className={styles.formSelect} value={form.temporary.wardsyskey} onChange={updateAddr('temporary', 'ward')}>
+                                <option value="">Select ward</option>
+                                {tempWards?.map((w: any) => <option key={w.syskey} value={w.syskey}>{w.description}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label="Address Details" fullWidth>
+                            <input className={styles.formInput} value={form.temporary.address} onChange={updateAddr('temporary', 'address')} placeholder="Street, Building, etc." />
                         </FormRow>
                     </div>
 
                     {/* Email & Phone */}
-                    <p className={styles.subSectionTitle} style={{ marginTop: 'var(--space-6)' }}>{t('profile.contact.contactDetails')}</p>
+                    <p className={styles.subSectionTitle} style={{ marginTop: 'var(--space-8)' }}>{t('profile.contact.contactDetails')}</p>
                     <div className={styles.formGrid2}>
                         <FormRow label={t('profile.contact.primaryEmail')}>
-                            <input className={styles.formInput} type="email" value={draft.primaryEmail} onChange={d('primaryEmail')} placeholder="primary@email.com" />
+                            <input className={styles.formInput} type="email" value={contactDetails.primaryEmail} onChange={updateContact('primaryEmail')} placeholder="primary@email.com" />
                         </FormRow>
                         <FormRow label={t('profile.contact.secondaryEmail')}>
-                            <input className={styles.formInput} type="email" value={draft.secondaryEmail} onChange={d('secondaryEmail')} placeholder="secondary@email.com" />
+                            <input className={styles.formInput} type="email" value={contactDetails.secondaryEmail} onChange={updateContact('secondaryEmail')} placeholder="secondary@email.com" />
                         </FormRow>
                         <FormRow label={t('profile.contact.primaryMobile')}>
-                            <input className={styles.formInput} type="tel" value={draft.primaryMobile} onChange={d('primaryMobile')} placeholder="09-xxx-xxx-xxx" />
+                            <input className={styles.formInput} type="tel" value={contactDetails.primaryMobile} onChange={updateContact('primaryMobile')} placeholder="09-xxx-xxx-xxx" />
                         </FormRow>
                     </div>
 
-                    <div className={styles.formActions} style={{ marginTop: 'var(--space-6)' }}>
+                    <div className={styles.formActions} style={{ marginTop: 'var(--space-8)' }}>
                         <button className={styles.btnGhost} onClick={cancel}>{t('common.cancel')}</button>
                         <button className={styles.btnPrimary} onClick={save}><Save size={14} /> {t('request.save')}</button>
                     </div>
                 </div>
             ) : (
-                <div>
-                    <div className={styles.contactSections}>
-                        <div className={styles.addressBlock}>
-                            <p className={styles.subSectionTitle}>{t('profile.contact.permanentAddress')}</p>
-                            <div className={styles.infoGrid}>
-                                <InfoItem icon={<MapPin size={18} />} label={t('profile.contact.state')} value={data.permanentState} />
-                                <InfoItem icon={<MapPin size={18} />} label={t('profile.contact.district')} value={data.permanentDistrict} />
-                                <InfoItem icon={<MapPin size={18} />} label={t('profile.contact.township')} value={data.permanentTownship} />
-                                <InfoItem icon={<MapPin size={18} />} label={t('profile.contact.town')} value={data.permanentTown} />
-                            </div>
+                <div style={{ padding: '0 16px 16px' }}>
+                    {renderAddressTable(records.current, 'Current Addresses')}
+                    {renderAddressTable(records.pending, 'Pending HR Approval', 'var(--color-warning-50)')}
+
+                    {records.current.length === 0 && records.pending.length === 0 && (
+                        <p className={styles.emptySlot} style={{ textAlign: 'center', padding: '24px' }}>{t('common.noData')}</p>
+                    )}
+
+                    <div className={styles.addressBlock} style={{ marginTop: '24px' }}>
+                        <p className={styles.subSectionTitle}>{t('profile.contact.contactDetails')}</p>
+                        <div className={styles.infoGrid}>
+                            <InfoItem icon={<Mail size={18} />} label={t('profile.contact.primaryEmail')} value={contactDetails.primaryEmail} />
+                            <InfoItem icon={<Mail size={18} />} label={t('profile.contact.secondaryEmail')} value={contactDetails.secondaryEmail || '-'} />
+                            <InfoItem icon={<Phone size={18} />} label={t('profile.contact.primaryMobile')} value={contactDetails.primaryMobile} />
                         </div>
-                        <div className={styles.addressBlock}>
-                            <p className={styles.subSectionTitle}>{t('profile.contact.temporaryAddress')}</p>
-                            {data.temporaryState || data.temporaryDistrict || data.temporaryTownship || data.temporaryTown
-                                ? (
-                                    <div className={styles.infoGrid}>
-                                        <InfoItem icon={<MapPin size={18} />} label={t('profile.contact.state')} value={data.temporaryState} />
-                                        <InfoItem icon={<MapPin size={18} />} label={t('profile.contact.district')} value={data.temporaryDistrict} />
-                                        <InfoItem icon={<MapPin size={18} />} label={t('profile.contact.township')} value={data.temporaryTownship} />
-                                        <InfoItem icon={<MapPin size={18} />} label={t('profile.contact.town')} value={data.temporaryTown} />
-                                    </div>
-                                )
-                                : <p className={styles.emptySlot}>{t('common.noData')}</p>
-                            }
-                        </div>
-                        <div className={styles.addressBlock}>
-                            <p className={styles.subSectionTitle}>{t('profile.contact.contactDetails')}</p>
-                            <div className={styles.infoGrid}>
-                                <InfoItem icon={<Mail size={18} />} label={t('profile.contact.primaryEmail')} value={data.primaryEmail} />
-                                <InfoItem icon={<Mail size={18} />} label={t('profile.contact.secondaryEmail')} value={data.secondaryEmail || '-'} />
-                                <InfoItem icon={<Phone size={18} />} label={t('profile.contact.primaryMobile')} value={data.primaryMobile} />
-                            </div>
-                        </div>
-                    </div>
-                    <div className={styles.statusRow}>
-                        <span className={styles.statusLabel}>{t('profile.family.status')}:</span>
-                        <StatusBadge status={t(`profile.options.status.${data.status}` as any, data.status)} />
                     </div>
                 </div>
             )}
         </div>
     );
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════
 // Shared sub-components
@@ -1873,9 +2234,9 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 
-function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
+function FormRow({ label, children, fullWidth }: { label: string; children: React.ReactNode; fullWidth?: boolean }) {
     return (
-        <div className={styles.formRow}>
+        <div className={`${styles.formRow} ${fullWidth ? styles.fullWidth : ''}`}>
             <label className={styles.formLabel}>{label}</label>
             {children}
         </div>
