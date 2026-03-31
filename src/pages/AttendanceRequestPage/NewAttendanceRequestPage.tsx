@@ -405,6 +405,7 @@ export default function NewAttendanceRequestPage() {
                                                                 <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-danger-200)' }}>Date</th>
                                                                 <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-danger-200)' }}>Time</th>
                                                                 <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-danger-200)' }}>Type</th>
+                                                                <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-danger-200)' }}>Subtype</th>
                                                                 <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-danger-200)' }}>Reason & Errors</th>
                                                             </tr>
                                                         </thead>
@@ -417,6 +418,7 @@ export default function NewAttendanceRequestPage() {
                                                                         <td style={{ padding: '0.75rem 1rem' }}>{row.date}</td>
                                                                         <td style={{ padding: '0.75rem 1rem' }}>{row.time}</td>
                                                                         <td style={{ padding: '0.75rem 1rem' }}>{row.type === 601 ? 'Time In' : row.type === 602 ? 'Time Out' : 'In/Out'}</td>
+                                                                        <td style={{ padding: '0.75rem 1rem' }}>{row.requesttype}</td>
                                                                         <td style={{ padding: '0.75rem 1rem' }}>
                                                                             {row.description}
                                                                             {errors.length > 0 ? (
@@ -452,6 +454,7 @@ export default function NewAttendanceRequestPage() {
                                                                 <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-success-200)' }}>Date</th>
                                                                 <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-success-200)' }}>Time</th>
                                                                 <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-success-200)' }}>Type</th>
+                                                                <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-success-200)' }}>Subtype</th>
                                                                 <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-success-200)' }}>Reason</th>
                                                             </tr>
                                                         </thead>
@@ -462,6 +465,7 @@ export default function NewAttendanceRequestPage() {
                                                                     <td style={{ padding: '0.75rem 1rem' }}>{row.date}</td>
                                                                     <td style={{ padding: '0.75rem 1rem' }}>{row.time}</td>
                                                                     <td style={{ padding: '0.75rem 1rem' }}>{row.type === 601 ? 'Time In' : row.type === 602 ? 'Time Out' : 'In/Out'}</td>
+                                                                    <td style={{ padding: '0.75rem 1rem' }}>{row.requesttype}</td>
                                                                     <td style={{ padding: '0.75rem 1rem' }}>{row.description}</td>
                                                                 </tr>
                                                             ))}
