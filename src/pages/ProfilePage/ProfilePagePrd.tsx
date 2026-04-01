@@ -132,6 +132,9 @@ interface Address {
     countrysyskey: string;
     addressstatus: number;
     status: string;
+    personalprimaryemail?: string;
+    personalsecondarymail?: string;
+    personalmobilephone?: string;
 }
 
 
@@ -1749,11 +1752,10 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
     const [records, setRecords] = useState<{ current: Address[], pending: Address[] }>({ current: [], pending: [] });
     const [isEditing, setIsEditing] = useState(false);
 
-    // Separate state for email/mobile as they are not in address/compare
     const [contactDetails, setContactDetails] = useState({
-        primaryEmail: MOCK_CONTACT.primaryEmail,
-        secondaryEmail: MOCK_CONTACT.secondaryEmail,
-        primaryMobile: MOCK_CONTACT.primaryMobile
+        primaryEmail: '',
+        secondaryEmail: '',
+        primaryMobile: ''
     });
 
     const [form, setForm] = useState<{ permanent: Address, temporary: Address }>({
@@ -1906,7 +1908,10 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                 countrysyskey: item.countrysyskey || item.country,
                 country: item.country || item.country,
                 addressstatus: Number(item.addressstatus),
-                status: item.status?.toString() || '0'
+                status: item.status?.toString() || '0',
+                personalprimaryemail: item.personalprimaryemail || item.personalprimaymail || '',
+                personalsecondarymail: item.personalsecondarymail || '',
+                personalmobilephone: item.personalmobilephone || ''
             })) as Address[];
 
             return {
@@ -1931,6 +1936,14 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
             permanent: curPerm ? { ...curPerm } : { syskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 0, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '' },
             temporary: curTemp ? { ...curTemp } : { syskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 1, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '' }
         });
+
+        const contactRef = records.pending[0] || records.current[0] || {} as any;
+        setContactDetails({
+            primaryEmail: contactRef.personalprimaryemail || '',
+            secondaryEmail: contactRef.personalsecondarymail || '',
+            primaryMobile: contactRef.personalmobilephone || ''
+        });
+
         setIsEditing(true);
     };
 
@@ -1958,7 +1971,10 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                 userid: profile.userid,
                 domain: domain || 'demouat',
                 employeeid: profile.eid,
-                addressinfo
+                addressinfo,
+                personalprimaymail: contactDetails.primaryEmail,
+                personalsecondarymail: contactDetails.secondaryEmail,
+                personalmobilephone: contactDetails.primaryMobile
             });
             toast.success(t('profile.contact.saveSuccess'));
             setIsEditing(false);
@@ -2188,13 +2204,24 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                     )}
 
                     <div className={styles.addressBlock} style={{ marginTop: '24px' }}>
-                        <p className={styles.subSectionTitle}>{t('profile.contact.contactDetails')}</p>
+                        <p className={styles.subSectionTitle}>Current Personal Contact Details</p>
                         <div className={styles.infoGrid}>
-                            <InfoItem icon={<Mail size={18} />} label={t('profile.contact.primaryEmail')} value={contactDetails.primaryEmail} />
-                            <InfoItem icon={<Mail size={18} />} label={t('profile.contact.secondaryEmail')} value={contactDetails.secondaryEmail || '-'} />
-                            <InfoItem icon={<Phone size={18} />} label={t('profile.contact.primaryMobile')} value={contactDetails.primaryMobile} />
+                            <InfoItem icon={<Mail size={18} />} label={t('profile.contact.primaryEmail')} value={records.current[0]?.personalprimaryemail || '-'} />
+                            <InfoItem icon={<Mail size={18} />} label={t('profile.contact.secondaryEmail')} value={records.current[0]?.personalsecondarymail || '-'} />
+                            <InfoItem icon={<Phone size={18} />} label={t('profile.contact.primaryMobile')} value={records.current[0]?.personalmobilephone || '-'} />
                         </div>
                     </div>
+
+                    {records.pending.length > 0 && (
+                        <div className={styles.addressBlock} style={{ marginTop: '24px', padding: '16px', background: 'var(--color-warning-50)', borderRadius: '8px', border: '1px solid var(--color-warning-200)' }}>
+                            <p className={styles.subSectionTitle} style={{ color: 'var(--color-warning-700)' }}>Pending HR Approval Contact Details</p>
+                            <div className={styles.infoGrid}>
+                                <InfoItem icon={<Mail size={18} />} label={t('profile.contact.primaryEmail')} value={records.pending[0]?.personalprimaryemail || '-'} />
+                                <InfoItem icon={<Mail size={18} />} label={t('profile.contact.secondaryEmail')} value={records.pending[0]?.personalsecondarymail || '-'} />
+                                <InfoItem icon={<Phone size={18} />} label={t('profile.contact.primaryMobile')} value={records.pending[0]?.personalmobilephone || '-'} />
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
