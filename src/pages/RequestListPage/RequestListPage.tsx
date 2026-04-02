@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Plus,
     ClipboardList,
@@ -26,11 +26,11 @@ import {
     GET_REQUEST_LIST,
     GET_ATTENDANCE_REQ_LIST,
     REQUEST_TYPES,
-    ATTENDANCE_SHIFT_DATA,
-    EXPORT_ATTENDANCE_REQ_TEMPLATE
+    ATTENDANCE_SHIFT_DATA
 } from '../../config/api-routes';
 import { displayDate } from '../../lib/date-utils';
 import { useAuthStore } from '../../stores/auth-store';
+import AttendanceImportModal from '../AttendanceRequestPage/AttendanceImportModal';
 import styles from './RequestListPage.module.css';
 import '../../styles/pages.css';
 
@@ -103,6 +103,7 @@ export default function RequestListPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
+    const queryClient = useQueryClient();
 
     // Detect subtype view
     const pathTypeCfg = PATH_TYPE_MAP[location.pathname] ?? null;
@@ -110,7 +111,6 @@ export default function RequestListPage() {
     const isAttendancePage = location.pathname === '/attendancerequest';
 
     const { userId, domain } = useAuthStore();
-    const [exporting, setExporting] = useState(false);
 
     const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
     const [fromDate, setFromDate] = useState<string>(dateToInput(DEFAULT_FROM_DATE));
@@ -119,6 +119,7 @@ export default function RequestListPage() {
     const [attType, setAttType] = useState('1');
     const [didInitDates, setDidInitDates] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
+    const [importModalOpen, setImportModalOpen] = useState(false);
 
     // Fetch shift data for transition dates
     const { data: shiftData, isLoading: shiftLoading } = useQuery({
@@ -262,31 +263,6 @@ export default function RequestListPage() {
         return { total, pending, approved, rejected };
     }, [generalSummaryData]);
 
-    const handleExportTemplate = async () => {
-        try {
-            setExporting(true);
-            const res = await mainClient.post(EXPORT_ATTENDANCE_REQ_TEMPLATE, {
-                userid: userId || '',
-                domain: domain || 'dev'
-            });
-            const data = res.data?.data;
-            if (res.data?.status === 201 && data?.base64String) {
-                const link = document.createElement('a');
-                link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${data.base64String}`;
-                link.download = data.fileName || 'AttendanceRequestTemplate.xlsx';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            } else {
-                alert(res.data?.message || 'Failed to export template');
-            }
-        } catch (err) {
-            console.error('Export template failed:', err);
-            alert('An error occurred while exporting the template');
-        } finally {
-            setExporting(false);
-        }
-    };
 
     /* ── Render ── */
 
@@ -306,12 +282,12 @@ export default function RequestListPage() {
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         {isAttendancePage && (
                             <Button
-                                onClick={handleExportTemplate}
-                                disabled={exporting}
-                                style={{ background: 'var(--color-neutral-0)', color: 'var(--color-neutral-800)', border: '1px solid var(--color-neutral-300)' }}
+                                onClick={() => setImportModalOpen(true)}
+                                variant="ghost"
+                                style={{ background: 'var(--color-neutral-0)', border: '1px solid var(--color-neutral-300)' }}
                             >
                                 <Download size={16} />
-                                {exporting ? 'Exporting...' : 'Export Template'}
+                                Import / Export
                             </Button>
                         )}
                         <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')}>
@@ -321,6 +297,16 @@ export default function RequestListPage() {
                     </div>
                 </div>
             </div>
+
+            {isAttendancePage && (
+                <AttendanceImportModal
+                    open={importModalOpen}
+                    onClose={() => setImportModalOpen(false)}
+                    onSuccess={() => {
+                        queryClient.invalidateQueries({ queryKey: ['requests'] });
+                    }}
+                />
+            )}
 
             {/* ── Summary cards ── */}
             <div className={styles['requests-summary']}>
