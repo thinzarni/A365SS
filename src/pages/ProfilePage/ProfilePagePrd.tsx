@@ -2388,7 +2388,6 @@ function StatusBadge({ status }: { status: string | number }) {
     const s = status?.toString().toLowerCase();
     const isApproved = s === 'approved' || s === '1' || s === 'active';
     const isRejected = s === 'rejected' || s === '2';
-    const isPending = s === 'pending' || s === '0' || !s;
 
     let className = styles.statusBadge__pending;
     let icon = <Clock size={12} />;
