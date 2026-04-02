@@ -28,13 +28,7 @@ function normalizeDateStr(raw: string): string {
     return s;
 }
 
-/* ── Helpers ── */
-const MONTH_NAMES = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-const DAY_NAMES = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+/* ── Helpers (Names are now localized inside the component) ── */
 
 function getDaysInMonth(year: number, month: number): number {
     return new Date(year, month, 0).getDate();
@@ -138,7 +132,7 @@ export default function HolidaysPage() {
                     <div>
                         <h1 className="page-header__title">{t('nav.holidays')}</h1>
                         <p className="page-header__subtitle">
-                            {holidays.length} {holidays.length === 1 ? 'holiday' : 'holidays'} in {selectedYear}
+                            {t('holidays.holidayCount', { count: holidays.length })} {t('holidays.inYear', { year: selectedYear })}
                         </p>
                     </div>
                 </div>
@@ -167,8 +161,8 @@ export default function HolidaysPage() {
             ) : holidays.length === 0 ? (
                 <div className="empty-state">
                     <CalendarX2 size={64} className="empty-state__icon" />
-                    <h3 className="empty-state__title">No Holidays</h3>
-                    <p className="empty-state__desc">No public holidays available for {selectedYear}.</p>
+                    <h3 className="empty-state__title">{t('holidays.noHolidays')}</h3>
+                    <p className="empty-state__desc">{t('holidays.noHolidaysDesc', { year: selectedYear })}</p>
                 </div>
             ) : (
                 <div className={styles.monthsGrid}>
@@ -183,6 +177,7 @@ export default function HolidaysPage() {
                             isCurrentMonth={selectedYear === currentYear && month === currentMonth}
                             currentDay={selectedYear === currentYear && month === currentMonth ? currentDay : null}
                             onHolidayClick={setSelectedHoliday}
+                            t={t}
                         />
                     ))}
                 </div>
@@ -220,10 +215,11 @@ interface MonthCardProps {
     isCurrentMonth: boolean;
     currentDay: number | null;
     onHolidayClick: (h: Holiday) => void;
+    t: any;
 }
 
 const MonthCard = forwardRef<HTMLDivElement, MonthCardProps>(function MonthCard(
-    { year, month, holidays, holidayCount, isCurrentMonth, currentDay, onHolidayClick },
+    { year, month, holidays, holidayCount, isCurrentMonth, currentDay, onHolidayClick, t },
     ref,
 ) {
     const daysInMonth = getDaysInMonth(year, month);
@@ -236,7 +232,7 @@ const MonthCard = forwardRef<HTMLDivElement, MonthCardProps>(function MonthCard(
         >
             {/* Month header */}
             <div className={styles.monthHeader}>
-                <h3 className={styles.monthName}>{MONTH_NAMES[month - 1]}</h3>
+                <h3 className={styles.monthName}>{t(`common.months.${month - 1}`)}</h3>
                 {holidayCount > 0 && (
                     <span className={styles.monthBadge}>{holidayCount}</span>
                 )}
@@ -244,8 +240,8 @@ const MonthCard = forwardRef<HTMLDivElement, MonthCardProps>(function MonthCard(
 
             {/* Weekday names */}
             <div className={styles.weekRow}>
-                {DAY_NAMES.map((d, i) => (
-                    <span key={i} className={styles.weekDay}>{d}</span>
+                {DAY_NAMES_FALLBACK.map((_, i) => (
+                    <span key={i} className={styles.weekDay}>{t(`common.days.${i}`)}</span>
                 ))}
             </div>
 
@@ -280,22 +276,27 @@ const MonthCard = forwardRef<HTMLDivElement, MonthCardProps>(function MonthCard(
     );
 });
 
-/* ═══════════════════════════════════════════════════════════
-   HolidayDetail — Shown in the modal
-   ═══════════════════════════════════════════════════════════ */
+/* ── Fallback ── */
+const DAY_NAMES_FALLBACK = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
 function HolidayDetail({ holiday }: { holiday: Holiday }) {
+    const { t } = useTranslation();
     const date = new Date(holiday.date);
     const dayNum = date.getDate();
-    const monthYear = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const monthIdx = date.getMonth();
+    const weekdayIdx = date.getDay();
 
     return (
         <div className={styles.detailContent}>
             {/* Big date display */}
             <div className={styles.detailDateBlock}>
                 <span className={styles.detailDayBig}>{dayNum}</span>
-                <span className={styles.detailMonthYear}>{monthYear}</span>
-                <span className={styles.detailWeekday}>{weekday}</span>
+                <span className={styles.detailMonthYear}>
+                    {t(`common.months.${monthIdx}`)} {date.getFullYear()}
+                </span>
+                <span className={styles.detailWeekday}>
+                    {t(`common.daysLong.${weekdayIdx}`)}
+                </span>
             </div>
 
             {/* Holiday name */}
@@ -304,7 +305,7 @@ function HolidayDetail({ holiday }: { holiday: Holiday }) {
             {/* Badge */}
             <span className={styles.detailBadge}>
                 <PartyPopper size={14} />
-                Public Holiday
+                {t('holidays.publicHoliday')}
             </span>
         </div>
     );

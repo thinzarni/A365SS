@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Bell } from 'lucide-react';
 import { useNotificationStore } from '../../stores/notification-store';
 import type { NotificationModel } from '../../stores/notification-store';
@@ -7,6 +8,7 @@ import { parseApiDate, formatNotiTime, getNotiRoute } from '../../lib/notificati
 import styles from './NotificationPage.module.css';
 
 export default function NotificationPage() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { items, unreadCount, isLoading, hasMore, fetchNotifications, markNotificationRead } =
         useNotificationStore();
@@ -63,9 +65,9 @@ export default function NotificationPage() {
                     <Bell size={22} />
                 </div>
                 <div>
-                    <h1 className={styles['noti-page__title']}>Notifications</h1>
+                    <h1 className={styles['noti-page__title']}>{t('notification.title')}</h1>
                     <p className={styles['noti-page__subtitle']}>
-                        {totalUnread > 0 ? `${totalUnread} unread` : 'All caught up'}
+                        {totalUnread > 0 ? t('notification.unreadCount', { count: totalUnread }) : t('notification.allCaughtUp')}
                     </p>
                 </div>
             </div>
@@ -95,13 +97,13 @@ export default function NotificationPage() {
                     <div className={styles['noti-page__empty-icon']}>
                         <Bell size={32} />
                     </div>
-                    <h3>No notifications yet</h3>
-                    <p>You're all caught up. New notifications will appear here.</p>
+                    <h3>{t('notification.noNotifications')}</h3>
+                    <p>{t('notification.emptySubtitle')}</p>
                     <button
                         className={styles['noti-page__refresh-btn']}
                         onClick={() => fetchNotifications({ isRefresh: true })}
                     >
-                        Refresh
+                        {t('notification.refresh')}
                     </button>
                 </div>
             ) : (
@@ -160,7 +162,7 @@ export default function NotificationPage() {
                             className={styles['noti-page__load-more']}
                             onClick={() => fetchNotifications()}
                         >
-                            Load more
+                            {t('notification.loadMore')}
                         </button>
                     )}
 

@@ -2275,23 +2275,23 @@ function UpdateHistoryTab({ profile }: { profile: ProfileData }) {
         <div className={styles.sectionCard}>
             <SectionHeader
                 icon={<Clock size={20} />}
-                title={t('profile.tabs.history', 'Update History')}
-                subtitle="Track all your profile change requests and their current status."
+                title={t('profile.tabs.history')}
+                subtitle={t('profile.history.subtitle')}
             />
 
             {updates.length === 0 ? (
                 <div className={styles.emptyState}>
                     <AlertCircle size={36} className={styles.emptyStateIcon} />
-                    <p>No pending or recent update requests found.</p>
+                    <p>{t('profile.history.noData')}</p>
                 </div>
             ) : (
                 <div className={styles.tableWrapper}>
                     <table className={styles.table}>
                         <thead>
                             <tr>
-                                <th>Category</th>
-                                <th>Description</th>
-                                <th>Status</th>
+                                <th>{t('profile.history.category')}</th>
+                                <th>{t('profile.history.description')}</th>
+                                <th>{t('profile.history.status')}</th>
                             </tr>
                         </thead>
                         <tbody>

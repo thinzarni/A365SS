@@ -130,7 +130,10 @@
         "date": "Date",
         "time": "Time",
         "back": "Back",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+        "days": ["S", "M", "T", "W", "T", "F", "S"],
+        "daysLong": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     },
     "dashboard": {
         "greetingMorning": "Good Morning",
@@ -180,7 +183,15 @@
             "experience": "Work Experience",
             "qualification": "Qualification",
             "family": "Family Information",
-            "contact": "Contact Information"
+            "contact": "Contact Information",
+            "history": "Update History"
+        },
+        "history": {
+            "subtitle": "Track all your profile change requests and their current status.",
+            "noData": "No pending or recent update requests found.",
+            "category": "Category",
+            "description": "Description",
+            "status": "Status"
         },
         "employment": {
             "subtitle": "View your employment information",
@@ -347,5 +358,23 @@
                 "Rejected": "Rejected"
             }
         }
+    },
+    "notification": {
+        "title": "Notifications",
+        "unreadCount": "{{count}} unread",
+        "allCaughtUp": "All caught up",
+        "noNotifications": "No notifications yet",
+        "emptySubtitle": "You're all caught up. New notifications will appear here.",
+        "refresh": "Refresh",
+        "loadMore": "Load more"
+    },
+    "holidays": {
+        "title": "Holidays",
+        "holidayCount": "{{count}} holiday",
+        "holidayCount_plural": "{{count}} holidays",
+        "inYear": "in {{year}}",
+        "noHolidays": "No Holidays",
+        "noHolidaysDesc": "No public holidays available for {{year}}.",
+        "publicHoliday": "Public Holiday"
     }
 }
