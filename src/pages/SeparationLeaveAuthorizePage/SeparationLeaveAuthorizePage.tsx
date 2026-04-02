@@ -25,7 +25,11 @@ interface SeparationRecord {
     resigndate: string;
     enddate: string;
     positionname: string;
+    jopositionname: string;
     officename: string;
+    divisionname: string;
+    departmentname: string;
+    teamname: string;
     leaveauthorize: number; // 1=Pending, 2=Authorize, 3=Unauthorize
 }
 
@@ -130,10 +134,14 @@ export default function SeparationLeaveAuthorizePage() {
             const exportData = allRecords.map(rec => ({
                 'Employee ID': rec.employeeid,
                 'Employee Name': rec.employeename,
+                'MPT Position': rec.positionname || '',
+                'Job Position': rec.jopositionname || '',
+                'Office': rec.officename || '',
+                'Division': rec.divisionname || '',
+                'Department': rec.departmentname || '',
+                'Team': rec.teamname || '',
                 'Resign Date': formatDate(rec.resigndate),
                 'End Date': formatDate(rec.enddate),
-                'Position': rec.positionname || 'N/A',
-                'Office': rec.officename || 'N/A',
                 'Status': rec.leaveauthorize === 2 ? 'Approved' : rec.leaveauthorize === 3 ? 'Rejected' : 'Pending'
             }));
 
@@ -145,10 +153,14 @@ export default function SeparationLeaveAuthorizePage() {
             const wscols = [
                 { wch: 15 }, // ID
                 { wch: 25 }, // Name
+                { wch: 25 }, // MPT Position
+                { wch: 25 }, // Job Position
+                { wch: 20 }, // Office
+                { wch: 20 }, // Division
+                { wch: 25 }, // Department
+                { wch: 15 }, // Team
                 { wch: 15 }, // Resign Date
                 { wch: 15 }, // End Date
-                { wch: 25 }, // Position
-                { wch: 20 }, // Office
                 { wch: 15 }  // Status
             ];
             worksheet['!cols'] = wscols;
@@ -233,9 +245,14 @@ export default function SeparationLeaveAuthorizePage() {
                                     <tr>
                                         <th>Employee ID</th>
                                         <th>Employee Name</th>
+                                        <th>MPT Position</th>
+                                        <th>Job Position</th>
+                                        <th>Office</th>
+                                        <th>Division</th>
+                                        <th>Department</th>
+                                        <th>Team</th>
                                         <th>Resign Date</th>
                                         <th>End Date</th>
-                                        <th>Details</th>
                                         <th>Leave Authorize</th>
                                     </tr>
                                 </thead>
@@ -244,14 +261,14 @@ export default function SeparationLeaveAuthorizePage() {
                                         <tr key={rec.syskey}>
                                             <td className={styles.empId}>{rec.employeeid}</td>
                                             <td className={styles.empName}>{rec.employeename}</td>
+                                            <td>{rec.positionname || ''}</td>
+                                            <td>{rec.jopositionname || ''}</td>
+                                            <td>{rec.officename || ''}</td>
+                                            <td>{rec.divisionname || ''}</td>
+                                            <td>{rec.departmentname || ''}</td>
+                                            <td>{rec.teamname || ''}</td>
                                             <td>{formatDate(rec.resigndate)}</td>
                                             <td>{formatDate(rec.enddate)}</td>
-                                            <td>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                    <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{rec.positionname || 'N/A'}</span>
-                                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{rec.officename || 'N/A'}</span>
-                                                </div>
-                                            </td>
                                             <td>
                                                 <div className={styles.actionContainer}>
                                                     {(rec.leaveauthorize === 1 || rec.leaveauthorize === 0) ? (
