@@ -172,6 +172,7 @@ const getTabs = (t: any) => [
     { id: 'qualification', label: t('profile.tabs.qualification'), icon: BookOpen },
     { id: 'family', label: t('profile.tabs.family'), icon: Users },
     { id: 'contact', label: t('profile.tabs.contact'), icon: MapPin },
+    { id: 'history', label: t('profile.tabs.history', 'Update History'), icon: Clock },
 ] as const;
 type TabId = ReturnType<typeof getTabs>[number]['id'];
 
@@ -383,6 +384,7 @@ export default function ProfilePage() {
                     {activeTab === 'qualification' && <QualificationTab profile={profile} />}
                     {activeTab === 'family' && <FamilyInfoTab profile={profile} />}
                     {activeTab === 'contact' && <ContactInfoTab profile={profile} />}
+                    {activeTab === 'history' && <UpdateHistoryTab profile={profile} />}
                 </div>
             </div>
 
@@ -2043,7 +2045,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                             <th>City / Ward</th>
                             <th>District / Township</th>
                             <th>State / Country</th>
-                            {/* <th>Status</th> */}
+                            {typeof background === 'string' && background !== 'transparent' && <th>Status</th>}
                         </tr>
                     </thead>
                     <tbody>
@@ -2054,7 +2056,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                                 <td>{a.city}{a.city && a.ward ? ' / ' : ''}{a.ward}</td>
                                 <td>{(a.addressstatus === 0 ? permDistricts : tempDistricts)?.find((d: any) => d.syskey === a.district)?.description || a.district}{a.district && a.township ? ' / ' : ''}{(a.addressstatus === 0 ? permTownships : tempTownships)?.find((t: any) => t.syskey === a.township)?.description || a.township}</td>
                                 <td>{states?.find((s: any) => s.syskey === a.state)?.description || a.state}{(a.state && a.country) ? ' / ' : ''}{countries?.find((c: any) => c.syskey === a.country)?.description || a.country}</td>
-                                {/* <td><StatusBadge status={a.status === '1' ? 'Active' : (a.status === '2' ? 'Rejected' : 'Pending')} /></td> */}
+                                {typeof background === 'string' && background !== 'transparent' && <td><StatusBadge status={a.status} /></td>}
                             </tr>
                         ))}
                     </tbody>
@@ -2221,18 +2223,109 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
     );
 }
 
+function UpdateHistoryTab({ profile }: { profile: ProfileData }) {
+    const { t } = useTranslation();
+    const { domain } = useAuthStore();
+
+    const { data: updates = [], isLoading } = useQuery({
+        queryKey: ['profile-updates', profile.userid],
+        queryFn: async () => {
+            const endpoints = [
+                { id: 'family', url: FAMILY_COMPARE, label: 'Family Info' },
+                { id: 'experience', url: EXPERIENCE_COMPARE, label: 'Work Experience' },
+                { id: 'emergency', url: EMERGENCY_COMPARE, label: 'Emergency Contacts' },
+                { id: 'qualification', url: QUALIFICATION_COMPARE, label: 'Qualification' },
+                { id: 'address', url: ADDRESS_COMPARE, label: 'Address & Contact' }
+            ];
+
+            const allUpdates: any[] = [];
+
+            await Promise.all(endpoints.map(async (ep) => {
+                try {
+                    const res = await mainClient.post(ep.url, {
+                        userid: profile.userid,
+                        domain: domain || 'dev',
+                        employeeid: profile.eid
+                    });
+                    const pending = res.data?.data?.update || [];
+                    pending.forEach((p: any) => {
+                        console.log(p);
+
+                        allUpdates.push({
+                            ...p,
+                            category: ep.label,
+                            categoryId: ep.id,
+                            displayName: p.name || p.organization || p.educationname || p.address || 'Update'
+                        });
+                    });
+                } catch (err) {
+                    console.error(`Failed to fetch ${ep.label} updates`, err);
+                }
+            }));
+
+            return allUpdates.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+        }
+    });
+
+    if (isLoading) {
+        return <div className={styles.loadingContainer}><Loader2 className="animate-spin" size={32} style={{ color: 'var(--color-primary-500)' }} /></div>;
+    }
+
+    return (
+        <div className={styles.sectionCard}>
+            <SectionHeader
+                icon={<Clock size={20} />}
+                title={t('profile.tabs.history', 'Update History')}
+                subtitle="Track all your profile change requests and their current status."
+            />
+
+            {updates.length === 0 ? (
+                <div className={styles.emptyState}>
+                    <AlertCircle size={36} className={styles.emptyStateIcon} />
+                    <p>No pending or recent update requests found.</p>
+                </div>
+            ) : (
+                <div className={styles.tableWrapper}>
+                    <table className={styles.table}>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {updates.map((up: any, idx: number) => (
+                                <tr key={idx}>
+                                    <td><span className={styles.badgeGray}>{up.category}</span></td>
+                                    <td><strong>{up.displayName}</strong></td>
+                                    <td><StatusBadge status={up.status} /></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+}
+
+
 
 // ═══════════════════════════════════════════════════════════════════════
 // Shared sub-components
 // ═══════════════════════════════════════════════════════════════════════
 
-function SectionHeader({ icon, title, subtitle, action }: { icon: React.ReactNode; title: string; subtitle?: string; action?: React.ReactNode }) {
+function SectionHeader({ icon, title, subtitle, action, status }: { icon: React.ReactNode; title: string; subtitle?: string; action?: React.ReactNode; status?: string | number }) {
     return (
         <div className={styles.sectionHeader}>
             <div className={styles.sectionHeaderLeft}>
                 <div className={styles.sectionIconWrap}>{icon}</div>
                 <div>
-                    <h2 className={styles.sectionTitle}>{title}</h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <h2 className={styles.sectionTitle}>{title}</h2>
+                        {status !== undefined && <StatusBadge status={status} />}
+                    </div>
                     {subtitle && <p className={styles.sectionSubtitle}>{subtitle}</p>}
                 </div>
             </div>
@@ -2291,12 +2384,30 @@ function EmptyState({ message, onAdd }: { message: string; onAdd: () => void }) 
     );
 }
 
-function StatusBadge({ status }: { status: string }) {
-    const isApproved = status?.toLowerCase() === 'approved';
+function StatusBadge({ status }: { status: string | number }) {
+    const s = status?.toString().toLowerCase();
+    const isApproved = s === 'approved' || s === '1' || s === 'active';
+    const isRejected = s === 'rejected' || s === '2';
+    const isPending = s === 'pending' || s === '0' || !s;
+
+    let className = styles.statusBadge__pending;
+    let icon = <Clock size={12} />;
+    let label = 'Pending';
+
+    if (isApproved) {
+        className = styles.statusBadge__approved;
+        icon = <CheckCircle2 size={12} />;
+        label = 'Approved';
+    } else if (isRejected) {
+        className = styles.statusBadge__rejected;
+        icon = <X size={12} />;
+        label = 'Rejected';
+    }
+
     return (
-        <span className={`${styles.statusBadge} ${isApproved ? styles.statusBadge__approved : styles.statusBadge__pending}`}>
-            {isApproved ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-            {status}
+        <span className={`${styles.statusBadge} ${className}`}>
+            {icon}
+            {label}
         </span>
     );
 }
