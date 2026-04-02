@@ -200,15 +200,6 @@ const GENDERS = ['Male', 'Female', 'Other'];
 const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed'];
 const MOD_OPTIONS = ['New', 'Correct', 'Update'];
 
-// ── Mock placeholder data (Qualification, Contact still use mock) ──
-
-const MOCK_CONTACT = {
-    permanentState: 'Yangon', permanentDistrict: 'Bahan', permanentTownship: 'Bahan', permanentTown: 'Bahan',
-    temporaryState: '', temporaryDistrict: '', temporaryTownship: '', temporaryTown: '',
-    primaryEmail: 'personal@email.com', secondaryEmail: '', primaryMobile: '09-999-888-777',
-    status: 'Approved',
-};
-
 // ── Main Component ─────────────────────────────────────────────────────
 export default function ProfilePage() {
     const { t } = useTranslation();
