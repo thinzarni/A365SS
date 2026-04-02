@@ -24,7 +24,7 @@ export interface AppConfig {
 // IAM prd url => https://iamdemo.southeastasia.cloudapp.azure.com
 // IAM other url => https://iam.omnicloudapi.com
 const IAM_URL = import.meta.env.VITE_IAM_URL || 'https://iam.omnicloudapi.com';
-const PRD_IAM_URL = 'https://iamdemo.southeastasia.cloudapp.azure.com';
+const PRD_IAM_URL = 'https://mptiam.mitcloud.com';
 
 const configs: Record<string, AppConfig> = {
     dev: {
@@ -53,10 +53,10 @@ const configs: Record<string, AppConfig> = {
         environment: 'staging',
     },
     prod: {
-        baseUrl: import.meta.env.VITE_BASE_URL || 'https://mpt.mitcloud.com/',
+        baseUrl: import.meta.env.VITE_BASE_URL || 'https://mpthxm.mitcloud.com/',
         authUrl: import.meta.env.VITE_AUTH_URL || PRD_IAM_URL + '/api/auth/',
         iamUrl: import.meta.env.VITE_IAM_URL || PRD_IAM_URL,
-        mainUrl: import.meta.env.VITE_MAIN_URL || 'https://mpt.mitcloud.com/',
+        mainUrl: import.meta.env.VITE_MAIN_URL || 'https://mpta365.mitcloud.com/',
         chatUrl: import.meta.env.VITE_CHAT_URL || PRD_IAM_URL + '/api/',
         wsUrl: import.meta.env.VITE_WS_URL || PRD_IAM_URL + '/api',
         appName: 'A365 HR',

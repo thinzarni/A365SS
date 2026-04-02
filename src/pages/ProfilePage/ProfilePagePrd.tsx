@@ -27,7 +27,9 @@ import {
     GET_DISTRICT_LIST,
     GET_TOWNSHIP_LIST,
     GET_CITY_LIST,
-    GET_WARD_LIST
+    GET_WARD_LIST,
+    USER_PROFILE,
+    USER_PROFILE_BY_ID
 } from '../../config/api-routes';
 import styles from './ProfilePagePrd.module.css';
 import mainClient from '../../lib/main-client';
@@ -269,10 +271,10 @@ export default function ProfilePage() {
         queryKey: ['employee-profile', urlUserId || user?.usersyskey],
         queryFn: async () => {
             try {
-                const endpoint = urlUserId
-                    ? `api/teams/employees/profile?userid=${encodeURIComponent(urlUserId)}`
-                    : 'api/employees/profile';
-                const res = await mainClient.post(endpoint);
+                const endpoint = urlUserId ? USER_PROFILE_BY_ID : USER_PROFILE;
+                const res = await mainClient.post(endpoint, {
+                    userid: urlUserId || user?.userid
+                });
                 return res.data?.data ?? res.data ?? null;
             } catch (err) { console.error('Failed to fetch profile', err); return null; }
         },

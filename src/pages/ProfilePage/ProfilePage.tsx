@@ -11,7 +11,7 @@ import { APP_ID } from '../../lib/auth-token';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
 import { Button, Input } from '../../components/ui';
 import { toast } from 'react-hot-toast';
-import { MENU_ITEMS } from '../../config/api-routes';
+import { MENU_ITEMS, USER_PROFILE, USER_PROFILE_BY_ID } from '../../config/api-routes';
 import styles from './ProfilePage.module.css';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -114,10 +114,10 @@ export default function ProfilePage() {
         queryKey: ['employee-profile', urlUserId || user?.usersyskey],
         queryFn: async () => {
             try {
-                const endpoint = urlUserId
-                    ? `api/teams/employees/profile?userid=${encodeURIComponent(urlUserId)}`
-                    : 'api/employees/profile';
-                const res = await mainClient.post(endpoint);
+                const endpoint = urlUserId ? USER_PROFILE_BY_ID : USER_PROFILE;
+                const res = await mainClient.post(endpoint, {
+                    userid: urlUserId || user?.userid
+                });
                 return res.data?.data ?? res.data ?? null;
             } catch (err) {
                 console.error('Failed to fetch profile', err);
