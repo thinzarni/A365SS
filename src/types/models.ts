@@ -12,6 +12,13 @@ export const RequestStatus = {
 } as const;
 export type RequestStatus = (typeof RequestStatus)[keyof typeof RequestStatus];
 
+export const EmpInfoUpdateStatus = {
+  PENDING: 0,
+  APPROVED: 1,
+  REJECTED: 2,
+} as const;
+export type EmpInfoUpdateStatus = (typeof EmpInfoUpdateStatus)[keyof typeof EmpInfoUpdateStatus];
+
 export const RequestType = {
   Reservation: '1',
   Transportation: '2',

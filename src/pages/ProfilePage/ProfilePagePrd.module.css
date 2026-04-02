@@ -760,6 +760,11 @@
     color: #b45309;
 }
 
+.statusBadge__rejected {
+    background: rgba(239, 68, 68, .1);
+    color: #b91c1c;
+}
+
 .badgeGreen {
     display: inline-flex;
     padding: 2px 8px;
