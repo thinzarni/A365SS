@@ -24,9 +24,17 @@ export function RequireAuth() {
     const hydrated = useHasHydrated();
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
     const token = useAuthStore((s) => s.token);
+    const logout = useAuthStore((s) => s.logout);
 
     // Don't redirect until we know the real auth state
     if (!hydrated) return null;
+
+    // ── Self-healing: Break redirect loops by clearing invalid state ──
+    if (isAuthenticated && !token) {
+        console.warn('Inconsistent auth state detected (authenticated but no token). Logging out...');
+        logout();
+        return <Navigate to="/login" replace />;
+    }
 
     if (!isAuthenticated || !token) {
         return <Navigate to="/login" replace />;
@@ -38,11 +46,12 @@ export function RequireAuth() {
 export function GuestOnly() {
     const hydrated = useHasHydrated();
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+    const token = useAuthStore((s) => s.token);
 
     // Don't redirect until we know the real auth state
     if (!hydrated) return null;
 
-    if (isAuthenticated) {
+    if (isAuthenticated && token) {
         return <Navigate to="/" replace />;
     }
 

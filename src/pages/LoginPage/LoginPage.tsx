@@ -153,6 +153,12 @@ export default function LoginPage() {
         }
 
         // ──────── Store auth state and determine routing ────────
+        if (!iamToken) {
+            console.error('Login failed: Server response did not return an access token.', signInData);
+            setError('Sign-in failed: No access token received. Please contact your administrator.');
+            return;
+        }
+
         // Initial partial login
         login({
             token: iamToken,
@@ -192,7 +198,7 @@ export default function LoginPage() {
                 finalRefresh = menuData.refresh_token || menuData.data?.refresh_token || '';
                 const fetchedMenuList = menuData.datalist || menuData.data?.datalist || menuData.cards || [];
 
-                // Update store with final token and menu list
+                // Final login state with menu and refined token
                 login({
                     token: finalToken,
                     refreshToken: finalRefresh || undefined,
