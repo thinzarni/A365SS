@@ -17,14 +17,26 @@ import {
     FileText,
     Users,
     Briefcase,
+    Check,
+    RotateCcw,
+    CheckCircle2,
+    XCircle,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
 import type { RequestModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
-import { APPROVAL_LIST, ATTENDANCE_SHIFT_DATA, GET_ATTENDANCE_APPROVAL_LIST } from '../../config/api-routes';
+import { 
+    APPROVAL_LIST, 
+    ATTENDANCE_SHIFT_DATA, 
+    GET_ATTENDANCE_APPROVAL_LIST,
+    MULTI_APPROVE_REJECT 
+} from '../../config/api-routes';
 import { useLocation } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '../../stores/auth-store';
+import toast from 'react-hot-toast';
 import styles from './ApprovalListPage.module.css';
 
 const statusTabs = [
@@ -99,6 +111,11 @@ export default function ApprovalListPage() {
     const [attType, setAttType] = useState('1'); // Changed default to '0' for 'All Types'
     const location = useLocation();
     const isAttendance = location.pathname === '/attendanceapproval';
+    const { userId, domain } = useAuthStore();
+    const queryClient = useQueryClient();
+
+    const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+
 
     const { data: shiftData, isLoading: shiftLoading } = useQuery({
         queryKey: ['shiftData'],
@@ -177,6 +194,69 @@ export default function ApprovalListPage() {
     const filteredApprovals = (activeStatus === RequestStatus.All && !isAttendance)
         ? displayRequests.filter(req => String(req.requeststatus) !== '1')
         : displayRequests;
+
+    const pendingRequests = useMemo(() => 
+        filteredApprovals.filter(r => String(r.requeststatus) === '1'),
+        [filteredApprovals]
+    );
+
+    const isAllSelected = pendingRequests.length > 0 && selectedKeys.size === pendingRequests.length;
+
+    const toggleSelect = (syskey: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        setSelectedKeys(prev => {
+            const next = new Set(prev);
+            if (next.has(syskey)) next.delete(syskey);
+            else next.add(syskey);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (isAllSelected) {
+            setSelectedKeys(new Set());
+        } else {
+            setSelectedKeys(new Set(pendingRequests.map(r => String(r.syskey))));
+        }
+    };
+
+    const multiApproveMutation = useMutation({
+        mutationFn: async ({ status }: { status: '2' | '3' }) => {
+            const selectedList = Array.from(selectedKeys).map(key => {
+                const req = pendingRequests.find(r => String(r.syskey) === key);
+                return {
+                    syskey: key,
+                    date: req?.date || '',
+                    attendancenotitype: 0
+                };
+            });
+
+            const payload = {
+                userid: userId || '',
+                domain: domain || 'dev',
+                type: attType, // 1 for remote, 2 for backdate
+                status,       // 2 for approved, 3 for rejected
+                selectedRequestList: selectedList
+            };
+
+            const res = await mainClient.post(MULTI_APPROVE_REJECT, payload);
+            return res.data;
+        },
+        onSuccess: (_, variables) => {
+            const action = variables.status === '2' ? 'approved' : 'rejected';
+            toast.success(`Successfully ${action} ${selectedKeys.size} requests`);
+            setSelectedKeys(new Set());
+            queryClient.invalidateQueries({ queryKey: ['approvals'] });
+        },
+        onError: (err: any) => {
+            toast.error(err.message || 'Bulk action failed');
+        }
+    });
+
+    useEffect(() => {
+        setSelectedKeys(new Set());
+    }, [activeStatus, attType]);
+
 
     /* Count by status for tab badges / summary header using all category-specific data */
     const stats = useMemo(() => {
@@ -309,6 +389,15 @@ export default function ApprovalListPage() {
                 </div>
             ) : (
                 <div className={styles['approval-page__list']}>
+                    {isAttendance && activeStatus === RequestStatus.Pending && pendingRequests.length > 0 && (
+                        <div className={styles['select-all-row']} onClick={toggleSelectAll}>
+                            <div className={`${styles['checkbox']} ${isAllSelected ? styles['checkbox--checked'] : ''}`}>
+                                {isAllSelected && <Check size={14} className={styles['checkbox-icon']} />}
+                            </div>
+                            <span>Select all pending attendance requests</span>
+                        </div>
+                    )}
+
                     {filteredApprovals.map((req, i) => {
                         const { Icon, bg, color } = getTypeVisual(req);
                         const reqName = req.name || req.eid || 'Employee';
@@ -318,10 +407,18 @@ export default function ApprovalListPage() {
                         return (
                             <div
                                 key={req.syskey || i}
-                                className={styles['approval-page__card']}
+                                className={`${styles['approval-page__card']} ${selectedKeys.has(String(req.syskey)) ? styles['approval-page__card--selected'] : ''}`}
                                 style={{ animationDelay: `${i * 40}ms` }}
                                 onClick={() => navigate(isAttendance ? `/attendanceapproval/${req.syskey}/${req.requesttype}` : `/approvals/${req.syskey}`)}
                             >
+                                {isAttendance && activeStatus === RequestStatus.Pending && (
+                                    <div className={styles['checkbox-wrapper']} onClick={(e) => toggleSelect(String(req.syskey), e)}>
+                                        <div className={`${styles['checkbox']} ${selectedKeys.has(String(req.syskey)) ? styles['checkbox--checked'] : ''}`}>
+                                            {selectedKeys.has(String(req.syskey)) && <Check size={14} className={styles['checkbox-icon']} />}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div
                                     className={styles['approval-page__card-icon']}
                                     style={{ background: bg, color }}
@@ -384,6 +481,30 @@ export default function ApprovalListPage() {
                     </div>
                 </div>
             )}
+            <div className={`${styles['bulk-actions-bar']} ${selectedKeys.size > 0 ? styles['bulk-actions-bar--visible'] : ''}`}>
+                <div className={styles['bulk-actions-info']}>
+                    <div className={styles['bulk-actions-count']}>{selectedKeys.size}</div>
+                    <span>Selected</span>
+                </div>
+                <div className={styles['bulk-actions-btns']}>
+                    <button
+                        className={`${styles['bulk-btn']} ${styles['bulk-btn--approve']}`}
+                        onClick={() => multiApproveMutation.mutate({ status: '2' })}
+                        disabled={multiApproveMutation.isPending}
+                    >
+                        {multiApproveMutation.isPending ? <RotateCcw size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                        Approve
+                    </button>
+                    <button
+                        className={`${styles['bulk-btn']} ${styles['bulk-btn--reject']}`}
+                        onClick={() => multiApproveMutation.mutate({ status: '3' })}
+                        disabled={multiApproveMutation.isPending}
+                    >
+                        {multiApproveMutation.isPending ? <RotateCcw size={14} className="animate-spin" /> : <XCircle size={14} />}
+                        Reject
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
