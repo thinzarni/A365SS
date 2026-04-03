@@ -97,7 +97,7 @@ const DESC_TO_KEY: Record<string, string> = {
 };
 
 /* Helper: types that use the generic single-date + time form */
-const GENERIC_TYPES = new Set(['general', 'employeerequisition', 'purchase', 'attendancerequest', 'other']);
+const GENERIC_TYPES = new Set(['general', 'employeerequisition', 'purchase', 'other']);
 
 /* ── Visual style per internal key ── */
 const TYPE_VISUAL: Record<string, { icon: React.FC<{ size?: number }>; color: string; bgColor: string }> = {
@@ -149,6 +149,14 @@ export default function NewRequestPage() {
     const [subType, setSubType] = useState('');
     const [leaveType, setLeaveType] = useState('');
     const { user } = useAuthStore();
+
+    // ── Redirect Attendance Request to its specialized page ──
+    useEffect(() => {
+        if (presetType === 'attendancerequest') {
+            navigate('/attendancerequest/new', { replace: true });
+        }
+    }, [presetType, navigate]);
+
 
     // ── Organization Change ──
     const [orgUnitSubject, setOrgUnitSubject] = useState('Team');
@@ -937,7 +945,13 @@ export default function NewRequestPage() {
                                     <div
                                         key={rt.syskey}
                                         className={`${styles['new-request__type-card']} ${selectedType === key ? styles['new-request__type-card--active'] : ''}`}
-                                        onClick={() => setSelectedType(key)}
+                                        onClick={() => {
+                                            if (key === 'attendancerequest') {
+                                                navigate('/attendancerequest/new');
+                                            } else {
+                                                setSelectedType(key);
+                                            }
+                                        }}
                                     >
                                         <div className={styles['new-request__type-card-icon']} style={{ background: bgColor, color }}>
                                             <Icon size={22} />
