@@ -197,7 +197,11 @@ export default function RequestListPage() {
                 type: isSubtypeView ? '' : requestType,
                 status: activeStatus === RequestStatus.All ? 0 : Number(activeStatus),
             });
-            const all: RequestModel[] = res.data?.datalist || [];
+            const datalist: any[] = res.data?.datalist || [];
+            const all: RequestModel[] = datalist.map(item => ({
+                ...item,
+                eid: item.employeeid || item.employee_id || item.eid || '',
+            }));
             if (pathTypeCfg) {
                 return all.filter(r => {
                     const desc = ((r as any).requesttypedesc || (r as any).requesttype || '').toLowerCase();

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { ArrowLeft } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
@@ -9,7 +9,8 @@ import { Textarea } from '../../components/ui/Input/Input';
 import Select from '../../components/ui/Select/Select';
 import { useAuthStore } from '../../stores/auth-store';
 import mainClient from '../../lib/main-client';
-import { SAVE_ATTENDANCE_REQ } from '../../config/api-routes';
+import { SAVE_ATTENDANCE_REQ, TEAM_LIST } from '../../config/api-routes';
+import type { TeamMember } from '../../types/models';
 import styles from './AttendanceRequestPage.module.css';
 import '../../styles/pages.css';
 
@@ -27,14 +28,68 @@ function nowTimeStr(): string {
 export default function NewAttendanceRequestPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const { user, domain } = useAuthStore();
+    const { userId, user, domain } = useAuthStore();
+
+    // ── Team Data Query ──
+    const { data: members = [] } = useQuery<TeamMember[]>({
+        queryKey: ['team-members', userId],
+        queryFn: async () => {
+            const res = await mainClient.post(TEAM_LIST, {
+                userid: userId,
+            });
+            // Try all common response paths
+            const raw = res.data?.data || res.data?.datalist || res.data;
+            if (!raw) return [];
+
+            const juniorsRaw = Array.isArray(raw.juniorEmployees) ? raw.juniorEmployees : [];
+            const seniorsRaw = Array.isArray(raw.seniorEmployees) ? raw.seniorEmployees : [];
+            const teamMembersRaw = Array.isArray(raw.teamMembers) ? raw.teamMembers : [];
+
+            const allRaw = [...juniorsRaw, ...seniorsRaw, ...teamMembersRaw];
+
+            // Deduplicate by syskey
+            const seen = new Set();
+            const uniqueRaw = allRaw.filter(m => {
+                const k = m.syskey || m.employee_syskey;
+                if (!k || seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            });
+
+            return uniqueRaw.map((m: any) => ({
+                syskey: String(m.syskey ?? m.employee_syskey ?? ''),
+                userName: String(m.userName ?? m.username ?? m.employee_name ?? m.name ?? ''),
+                employeeId: String(m.employee_id ?? m.employeeId ?? m.employeeid ?? ''),
+                profile: m.profile ? String(m.profile) : null,
+                userid: String(m.employee_userid ?? m.userid ?? m.user_id ?? m.email ?? ''),
+                rank: String(m.rank ?? ''),
+                department: String(m.department ?? ''),
+                division: String(m.division ?? ''),
+                teamId: String(m.teamId ?? m.teamid ?? m.team_id ?? ''),
+                level: (juniorsRaw.some((j: any) => j.syskey === m.syskey) ? 'junior' : 'senior') as 'junior' | 'senior',
+                priority: String(m.priority ?? '0'),
+                role: m.role ? String(m.role) : null,
+                type: m.type ? String(m.type) : null,
+                hasJunior: Boolean(m.hasJunior ?? m.hasjunior ?? false),
+                workingDays: '0', timeInCount: '0', timeOutCount: '0', activityCount: '0', leaveCount: '0',
+                requiredWorkDays: '0', todayTimeInCount: '0', todayTimeOutCount: '0', todayIsLeave: '0',
+                leaveStatus: 0, lastRecordTypeName: 0, timeInTime: '', timeOutTime: '', key: ''
+            }));
+        },
+        enabled: !!userId,
+    });
 
     // ── State ──
+    const [selectedMemberSyskey, setSelectedMemberSyskey] = useState<string>('__SELF__');
     const [type, setType] = useState('601'); // 601=Time In, 602=Time Out
     const [date, setDate] = useState(todayStr());
     const [intime, setIntime] = useState(nowTimeStr());
     const [outtime, setOuttime] = useState(nowTimeStr());
+    const [location, setLocation] = useState('');
     const [reason, setReason] = useState('');
+    const [requestType, setRequestType] = useState('1'); // 1=Remote, 2=Backdate
+    const [reasonType, setReasonType] = useState('1');  // 1=None, 2=Forget
+
 
     const toApiDate = (d: string) => d ? d.replace(/-/g, '') : '';
     const toApi12hTime = (t: string) => {
@@ -45,31 +100,87 @@ export default function NewAttendanceRequestPage() {
         return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${suffix}`;
     };
 
+    const employeeOptions = useMemo(() => {
+        const options = [
+            { value: '__SELF__', label: `Myself (${user?.name})` }
+        ];
+        // Only show JUNIOR members in the choice list (seniors were fetched to resolve 'Myself' EID)
+        members.filter(m => m.level === 'junior').forEach(m => {
+            options.push({ value: m.syskey, label: `${m.userName} (${m.employeeId})` });
+        });
+        return options;
+    }, [user, members]);
+
+    const selectedMemberInfo = useMemo(() => {
+        if (selectedMemberSyskey === '__SELF__') {
+            // Find myself in the full list to get the real numeric EID and Employee Record syskey
+            const myself = [...members].reverse().find(m => String(m.userid).toLowerCase() === String(userId).toLowerCase())
+                || members.find(m => m.level === 'senior'); // Fallback to a senior if direct match fails
+
+            return {
+                syskey: myself?.syskey || user?.syskey || user?.usersyskey || '0',
+                id: (myself?.employeeId || (user as any)?.eid || (user as any)?.employee_id || (user as any)?.employeeId || userId || '') as string,
+                userid: userId || '',
+                name: user?.name || '',
+            };
+        }
+        const m = members.find(m => String(m.syskey) === String(selectedMemberSyskey));
+        return {
+            syskey: m?.syskey || '',
+            id: (m?.employeeId || '') as string,
+            userid: m?.userid || '',
+            name: m?.userName || '',
+        };
+    }, [selectedMemberSyskey, userId, user, members]);
+
     const submitMutation = useMutation({
         mutationFn: async () => {
+            // Find selected member info
+            let targetEmp: { syskey: string, id: string, name: string, userid: string };
+            const isSelf = selectedMemberSyskey === '__SELF__';
+
+            if (isSelf) {
+                targetEmp = {
+                    syskey: selectedMemberInfo.syskey,
+                    id: selectedMemberInfo.id,
+                    name: user?.name || '',
+                    userid: selectedMemberInfo.userid,
+                };
+            } else {
+                const member = members.find(m => String(m.syskey) === String(selectedMemberSyskey));
+                if (!member) throw new Error('Selected member not found');
+                targetEmp = {
+                    syskey: selectedMemberInfo.syskey, // Using pre-calculated info
+                    id: selectedMemberInfo.id,
+                    name: selectedMemberInfo.name,
+                    userid: selectedMemberInfo.userid,
+                };
+            }
+
             const payload = {
-                userid: user?.userid || '',
-                domain: domain || 'demouat',
-                syskey: '0',
+                userid: userId || '', // The manager/requester
+                domain: domain || 'dev',
                 type,
                 date: toApiDate(date),
                 intime: type === '601' ? toApi12hTime(intime) : '',
                 outtime: type === '602' ? toApi12hTime(outtime) : '',
-                location: '0',
-                latitude: '0',
-                longitude: '0',
+                location: location || 'MIT q',
+                latitude: '0.0',
+                longitude: '0.0',
                 description: reason,
                 status: 1,
                 approvedby: '',
-                employee_syskey: user?.usersyskey || '0',
-                employee_id: user?.userid || '',
-                employee_name: user?.name || '',
-                reasonType: 1,
+                employee_syskey: targetEmp.syskey,
+                employee_id: targetEmp.id,
+                employee_name: targetEmp.name,
+                employee_userid: targetEmp.userid,
+                requesttype: Number(requestType),
+                reasonType: Number(reasonType),
             };
 
             const res = await mainClient.post(SAVE_ATTENDANCE_REQ, payload);
             const data = res.data;
-            const isSuccess = data?.status === 201 || data?.statuscode === 200 || data?.statuscode === 300 || data?.message_code === "203";
+            const isSuccess = data?.status === 201 || data?.statuscode === 200 || data?.statuscode === 300 || data?.message_code === "203" || data?.message === "Save successfully";
             if (!isSuccess) {
                 throw new Error(data?.message || t('common.error'));
             }
@@ -110,7 +221,32 @@ export default function NewAttendanceRequestPage() {
                 <div className={styles['new-request__section']}>
                     <h3 className={styles['new-request__section-title']}>Details</h3>
                     <div className={styles['new-request__grid']}>
+                        <div className={styles['new-request__full']} style={{ marginBottom: 'var(--space-2)' }}>
+                            <Select
+                                id="employee"
+                                label="Select Employee"
+                                value={selectedMemberSyskey}
+                                onChange={(e) => setSelectedMemberSyskey(e.target.value)}
+                                options={employeeOptions}
+                            />
+                        </div>
+
                         <div className={styles['new-request__full']}>
+                            <div className={styles['member-info-card']}>
+                                <div className={styles['member-info-row']}>
+                                    <div className={styles['member-info-item']}>
+                                        <span className={styles['member-info-label']}>Employee ID</span>
+                                        <span className={styles['member-info-value']}>{selectedMemberInfo.id}</span>
+                                    </div>
+                                    <div className={styles['member-info-item']}>
+                                        <span className={styles['member-info-label']}>User ID (Email/Phone)</span>
+                                        <span className={styles['member-info-value']}>{selectedMemberInfo.userid}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={styles['new-request__full']} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                             <Select
                                 id="type"
                                 label="Attendance Type"
@@ -121,6 +257,42 @@ export default function NewAttendanceRequestPage() {
                                     { value: '602', label: 'Time Out' },
                                 ]}
                             />
+                            <Select
+                                id="request-type"
+                                label="Request Type"
+                                value={requestType}
+                                onChange={(e) => setRequestType(e.target.value)}
+                                options={[
+                                    { value: '1', label: 'Remote' },
+                                    { value: '2', label: 'Backdate' },
+                                ]}
+                            />
+                        </div>
+
+                        <div className={styles['new-request__full']}>
+                            <label className={styles['new-request__label']}>Reason Type</label>
+                            <div className={styles['radio-group']}>
+                                <label className={styles['radio-option']}>
+                                    <input
+                                        type="radio"
+                                        name="reasonType"
+                                        value="1"
+                                        checked={reasonType === '1'}
+                                        onChange={(e) => setReasonType(e.target.value)}
+                                    />
+                                    <span>None</span>
+                                </label>
+                                <label className={styles['radio-option']}>
+                                    <input
+                                        type="radio"
+                                        name="reasonType"
+                                        value="2"
+                                        checked={reasonType === '2'}
+                                        onChange={(e) => setReasonType(e.target.value)}
+                                    />
+                                    <span>Forget</span>
+                                </label>
+                            </div>
                         </div>
 
                         <div className={styles['new-request__full']}>
@@ -159,6 +331,16 @@ export default function NewAttendanceRequestPage() {
                                 />
                             </div>
                         )}
+
+                        <div className={styles['new-request__full']}>
+                            <Input
+                                id="location"
+                                label="Location"
+                                value={location}
+                                onChange={(e) => setLocation(e.target.value)}
+                                placeholder="MIT q, My Office, etc."
+                            />
+                        </div>
 
                         <div className={styles['new-request__full']}>
                             <Textarea

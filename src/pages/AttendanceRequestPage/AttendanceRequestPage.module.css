@@ -105,3 +105,102 @@
         padding: var(--space-4);
     }
 }
+
+.member-info-card {
+    background: var(--color-neutral-50);
+    border: 1px solid var(--color-neutral-100);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin-top: calc(-1 * var(--space-2));
+}
+
+.member-info-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-6);
+}
+
+.member-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.member-info-label {
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    color: var(--color-neutral-500);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.member-info-value {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-neutral-800);
+}
+
+@media (max-width: 768px) {
+    .member-info-row {
+        grid-template-columns: 1fr;
+        gap: var(--space-3);
+    }
+}
+
+.new-request__label {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--color-neutral-700);
+    margin-bottom: var(--space-2);
+}
+
+.radio-group {
+    display: flex;
+    gap: var(--space-6);
+    padding: var(--space-2) 0;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    color: var(--color-neutral-700);
+    transition: color 0.2s;
+}
+
+.radio-option:hover {
+    color: var(--color-primary-600);
+}
+
+.radio-option input[type="radio"] {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--color-neutral-300);
+    border-radius: 50%;
+    margin: 0;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.2s;
+    outline: none;
+}
+
+.radio-option input[type="radio"]:checked {
+    border-color: var(--color-primary-600);
+}
+
+.radio-option input[type="radio"]:checked::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    background: var(--color-primary-600);
+    border-radius: 50%;
+}
+

@@ -301,6 +301,7 @@ export interface UserProfile {
   domainName?: string;
   usersyskey?: string;
   role?: string;
+  eid: string;
 }
 
 export interface ApiResponse<T = unknown> {
