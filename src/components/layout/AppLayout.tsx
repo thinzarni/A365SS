@@ -37,7 +37,7 @@ import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { useNotificationStore } from '../../stores/notification-store';
-import { MENU_ITEMS } from '../../config/api-routes';
+import { MENU_ITEMS, CHECK_PASSWORD_EXPIRY } from '../../config/api-routes';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
 
@@ -319,26 +319,40 @@ export default function AppLayout() {
 
         const checkPasswordExpiry = async () => {
             try {
-                const authUrl = (await import('../../config/app-config')).appConfig.authUrl;
-                const res = await fetch(`${authUrl}check/password-expried`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userid: userId, appid: APP_ID, domain }),
+                // Once-per-day check logic using localStorage
+                const today = new Date().toISOString().split('T')[0];
+                const storageKey = `last_pwd_expiry_check_${userId}_${domain}`;
+                const lastCheck = localStorage.getItem(storageKey);
+
+                if (lastCheck === today) {
+                    console.log('Skipping password expiry check: already checked today for this domain.');
+                    return;
+                }
+
+                const res = await authClient.post(CHECK_PASSWORD_EXPIRY, {
+                    userid: userId,
+                    appid: APP_ID,
+                    domain,
                 });
-                if (!res.ok) return;
-                const json = await res.json();
+
+                const json = res.data;
+                // If status is 200, we mark it as checked for today regardless of expiry
+                if (res.status === 200 || json?.status === 200) {
+                    localStorage.setItem(storageKey, today);
+                }
+
                 if (json?.status === 200) {
                     if (json.data?.status === true) {
                         const expiredDateStr: string | undefined = json.data.expired_date;
                         const message: string = json.data.message || 'Your password will expire soon.';
                         if (expiredDateStr) {
                             // Normalize both dates to local midnight to avoid UTC vs local offset
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
+                            const checkDate = new Date();
+                            checkDate.setHours(0, 0, 0, 0);
                             const expiredDate = new Date(expiredDateStr);
                             expiredDate.setHours(0, 0, 0, 0);
                             const daysLeft = Math.round(
-                                (expiredDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+                                (expiredDate.getTime() - checkDate.getTime()) / (1000 * 60 * 60 * 24)
                             );
                             const isExpired = daysLeft < 0;
                             // Show modal if: already expired OR expiring within 5 days
@@ -352,14 +366,9 @@ export default function AppLayout() {
 
                         // Fire off password expiry email silently
                         try {
-                            const mainUrl = (await import('../../config/app-config')).appConfig.mainUrl;
-                            fetch(`${mainUrl}api/mail/sendemailfrommodule`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    userid: userId,
-                                    domain: domain || 'dev'
-                                }),
+                            mainClient.post('api/mail/sendemailfrommodule', {
+                                userid: userId,
+                                domain: domain || 'dev'
                             }).catch(console.error); // catch fetch errors silently
                         } catch (err) {
                             console.error('Failed to dispatch password expiry email', err);

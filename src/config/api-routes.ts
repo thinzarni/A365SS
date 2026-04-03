@@ -9,6 +9,7 @@ const hxmPrefix = flavor === 'prd' ? 'api/hxm/' : 'hxm/';
 export const RENEW_TOKEN = 'generate/renew-token';
 export const GENERATE_QR = 'generate/qr';
 export const QR_SUCCESS = 'qr-success';
+export const CHECK_PASSWORD_EXPIRY = 'check/password-expried';
 export const DOMAIN_LIST = `${hxmPrefix}payroll/domainlist`;
 export const USER_PROFILE = 'api/employees/profile';
 export const USER_PROFILE_UPDATE = 'api/employees/profile/update';
@@ -65,6 +66,7 @@ export const CONFIRM_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/importdataat
 export const CLEAR_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/clearattendancerequest';
 export const GET_ATTENDANCE_APPROVAL_LIST = 'api/checkin/getapproval';
 export const SAVE_ATTENDANCE_APPROVAL = 'api/checkin/saveapproval';
+export const MULTI_APPROVE_REJECT = 'api/checkin/multiapproveorreject';
 
 // ── Approvals ──
 export const APPROVAL_LIST = `${hxmPrefix}approval/approvallist`;
