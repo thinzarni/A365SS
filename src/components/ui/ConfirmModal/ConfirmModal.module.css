@@ -95,6 +95,12 @@
     box-shadow: 0 0 0 8px rgba(217, 119, 6, 0.08);
 }
 
+.iconWrap--primary {
+    background: var(--color-primary-50);
+    color: var(--color-primary-600);
+    box-shadow: 0 0 0 8px var(--color-primary-100);
+}
+
 .title {
     font-size: var(--text-lg);
     font-weight: var(--font-semibold);
@@ -158,6 +164,15 @@
 
 .confirmBtn--warning:hover:not(:disabled) {
     background: #b45309;
+}
+
+.confirmBtn--primary {
+    background: var(--color-primary-600);
+    color: #fff;
+}
+
+.confirmBtn--primary:hover:not(:disabled) {
+    background: var(--color-primary-700);
 }
 
 .cancelBtn:disabled,

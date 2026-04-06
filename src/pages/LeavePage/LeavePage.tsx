@@ -2,10 +2,13 @@ import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Palmtree, FileSpreadsheet } from 'lucide-react';
-import { Button } from '../../components/ui';
+import { Plus, Palmtree, FileSpreadsheet, Download, Loader2, Filter } from 'lucide-react';
+import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
+import { Button, Input } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import LeaveImportModal from './LeaveImportModal';
+import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import type { LeaveType, RequestModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import { LEAVE_TYPES, LEAVE_LIST } from '../../config/api-routes';
@@ -19,7 +22,28 @@ export default function LeavePage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+
     const [importModalOpen, setImportModalOpen] = useState(false);
+    const [exporting, setExporting] = useState(false);
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [showExportConfirm, setShowExportConfirm] = useState(false);
+
+    /* ── Date Filters (Default to current month) ── */
+    const initialDates = useMemo(() => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const fmt = (d: Date) => d.toISOString().split('T')[0];
+        return { from: fmt(start), to: fmt(end) };
+    }, []);
+
+    const [fromDate, setFromDate] = useState(initialDates.from);
+    const [toDate, setToDate] = useState(initialDates.to);
+
+    const apiDates = useMemo(() => {
+        const clean = (s: string) => s.replace(/-/g, '');
+        return { from: clean(fromDate), to: clean(toDate) };
+    }, [fromDate, toDate]);
 
     /* ── Leave types (for resolving syskey → description) ── */
     const { data: leaveTypes = [] } = useQuery<LeaveType[]>({
@@ -32,21 +56,75 @@ export default function LeavePage() {
 
     /* ── Leave history ── */
     const { data: leaveHistory = [], isLoading } = useQuery<RequestModel[]>({
-        queryKey: ['leaveHistory'],
+        queryKey: ['leaveHistory', apiDates.from, apiDates.to],
         queryFn: async () => {
-            const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            const fmt = (d: Date) =>
-                `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
             const res = await apiClient.post(LEAVE_LIST, {
-                fromdate: fmt(startOfMonth),
-                todate: fmt(endOfMonth),
+                fromdate: apiDates.from,
+                todate: apiDates.to,
                 status: '4',
             });
             return res.data?.datalist || [];
         },
     });
+
+    const handleExport = async () => {
+        if (leaveHistory.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        try {
+            setExporting(true);
+
+            // Map data to Excel format
+            const exportData = (leaveHistory as any[]).map((leave) => {
+                let statusText = '—';
+                const st = String(leave.requeststatus);
+                if (st === '1') statusText = 'Pending';
+                else if (st === '2') statusText = 'Approved';
+                else if (st === '3') statusText = 'Rejected';
+                else if (st === '4') statusText = 'Draft';
+
+                const dateRange = (leave.startdate || leave.date) +
+                    (leave.enddate && leave.enddate !== leave.startdate ? ` to ${leave.enddate}` : '');
+
+                return {
+                    'Employee ID': leave.eid || '—',
+                    'Employee Name': leave.name || '—',
+                    'Ref #': leave.refno || '—',
+                    'Date': dateRange,
+                    'Type': resolveLeaveType(leave),
+                    'Duration': leave.duration != null && leave.duration !== '' ? `${leave.duration} day(s)` : '—',
+                    'Status': statusText,
+                };
+            });
+
+            // SheetJS logic
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Leave Requests');
+
+            // Set column widths for better readability
+            const wscols = [
+                { wch: 15 }, // Employee ID
+                { wch: 20 }, // Employee Name
+                { wch: 10 }, // Ref #
+                { wch: 25 }, // Date
+                { wch: 20 }, // Type
+                { wch: 15 }, // Duration
+                { wch: 12 }, // Status
+            ];
+            worksheet['!cols'] = wscols;
+
+            XLSX.writeFile(workbook, `Leave_Requests_${apiDates.from}_to_${apiDates.to}.xlsx`);
+            toast.success('Excel file exported successfully');
+        } catch (err) {
+            console.error('Frontend export failed:', err);
+            toast.error('An error occurred during export');
+        } finally {
+            setExporting(false);
+        }
+    };
 
     /* ── Quick stats ── */
     const stats = useMemo(() => {
@@ -90,6 +168,7 @@ export default function LeavePage() {
                             <FileSpreadsheet size={16} />
                             {t('leave.importExcel')}
                         </Button>
+
                         <Button onClick={() => navigate('/requests/new?type=leave')}>
                             <Plus size={16} />
                             {t('leave.apply')}
@@ -130,12 +209,60 @@ export default function LeavePage() {
                 </div>
             </div>
 
+            {/* ── Filters ── */}
+            {filterOpen && (
+                <div className={styles['leave-filters']}>
+                    <div className={styles['leave-filters__group']}>
+                        <div className={styles['leave-filters__field']}>
+                            <label>{t('leave.fromDate')}</label>
+                            <Input
+                                type="date"
+                                value={fromDate}
+                                onChange={(e) => setFromDate(e.target.value)}
+                            />
+                        </div>
+                        <div className={styles['leave-filters__field']}>
+                            <label>{t('leave.toDate')}</label>
+                            <Input
+                                type="date"
+                                value={toDate}
+                                onChange={(e) => setToDate(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        loading={exporting}
+                        onClick={() => setShowExportConfirm(true)}
+                        className={styles['leave-filters__export']}
+                    >
+                        {exporting ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
+                        {t('leave.exportExcel')}
+                    </Button>
+                </div>
+            )}
+
             {/* ── Leave list table ── */}
             <div className={styles['leave-list-card']}>
-                <div className={styles['leave-list-card__header']}>
-                    <h3 className={styles['leave-list-card__title']}>All Leave Requests</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className={styles['leave-list-card__header']}>
+                        <h3 className={styles['leave-list-card__title']}>All Leave Requests</h3>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        onClick={() => setFilterOpen(!filterOpen)}
+                        style={{
+                            background: filterOpen ? 'var(--color-primary-50)' : 'var(--color-neutral-0)',
+                            color: filterOpen ? 'var(--color-primary-600)' : 'inherit',
+                            border: `1px solid ${filterOpen ? 'var(--color-primary-200)' : 'var(--color-neutral-300)'}`,
+                            marginRight: '20px'
+                        }}
+                    >
+                        <Filter size={14} />
+                        {t('common.filter')}
+                    </Button>
                 </div>
-
                 {isLoading ? (
                     <div className="empty-state" style={{ padding: '2rem' }}>
                         <p className="empty-state__desc">{t('common.loading')}</p>
@@ -182,6 +309,20 @@ export default function LeavePage() {
                     </div>
                 )}
             </div>
+            <ConfirmModal
+                open={showExportConfirm}
+                onClose={() => setShowExportConfirm(false)}
+                onConfirm={() => {
+                    handleExport();
+                    setShowExportConfirm(false);
+                }}
+                title={t('leave.exportExcel')}
+                message={t('leave.exportConfirmMessage')}
+                confirmLabel={t('leave.exportExcel')}
+                loading={exporting}
+                variant="primary"
+                icon={<FileSpreadsheet size={28} />}
+            />
         </div>
     );
 }

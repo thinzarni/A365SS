@@ -86,7 +86,11 @@
         "remaining": "Remaining",
         "summary": "Leave Summary",
         "apply": "Apply Leave",
-        "importExcel": "Import Excel"
+        "importExcel": "Import Excel",
+        "exportExcel": "Export to Excel",
+        "exportConfirmMessage": "Are you sure you want to export the current filtered leave history to Excel?",
+        "fromDate": "From Date",
+        "toDate": "To Date"
     },
     "claim": {
         "title": "Claims",
@@ -100,7 +104,16 @@
     "approval": {
         "title": "Approvals",
         "pendingApprovals": "Pending Approvals",
-        "comment": "Comment"
+        "comment": "Comment",
+        "workflowTitle": "Approval Workflow",
+        "workflowSubtitle": "Track the detailed approval process for this request",
+        "step": "Step",
+        "processedBy": "Processed by",
+        "remark": "Remark",
+        "waitingAction": "Waiting for action...",
+        "lockedUntil": "Locked until previous steps complete.",
+        "viewWorkflow": "View Approval Workflow",
+        "upcoming": "Upcoming"
     },
     "chat": {
         "title": "Messages",
