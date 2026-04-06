@@ -1,17 +1,23 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, Loader2, AlertCircle } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { Download, Loader2, XCircle, CheckCircle2 } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import Modal from '../../components/ui/Modal/Modal';
 import FileUpload from '../../components/ui/FileUpload/FileUpload';
 import { Button } from '../../components/ui';
-import { useQuery } from '@tanstack/react-query';
-import { toast } from 'react-hot-toast';
 import apiClient from '../../lib/api-client';
-import { LEAVE_TYPES, SAVE_LEAVE } from '../../config/api-routes';
-import styles from './LeaveImportModal.module.css';
-import type { LeaveType } from '../../types/models';
+import mainClient from '../../lib/main-client';
+import {
+    FILE_UPLOAD,
+    EXPORT_LEAVE_TEMPLATE,
+    PREPARE_IMPORT_LEAVE,
+    PREVIEW_IMPORT_LEAVE,
+    CONFIRM_IMPORT_LEAVE,
+    CLEAR_IMPORT_LEAVE
+} from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
+import styles from './LeaveImportModal.module.css';
 
 interface LeaveImportModalProps {
     open: boolean;
@@ -19,199 +25,173 @@ interface LeaveImportModalProps {
     onSuccess: () => void;
 }
 
-interface ImportRow {
-    'Employee ID': string;
-    'Leave Type': string;
-    'Start Date': string;
-    'End Date': string;
-    'Duration': string | number;
-    'Remark': string;
-}
-
-const TEMPLATE_HEADERS = ['Employee ID', 'Leave Type', 'Start Date', 'End Date', 'Duration', 'Remark'];
-
 export default function LeaveImportModal({ open, onClose, onSuccess }: LeaveImportModalProps) {
     const { t } = useTranslation();
-    const { user, userId } = useAuthStore();
+    const { userId, domain } = useAuthStore();
+    const queryClient = useQueryClient();
+
     const [files, setFiles] = useState<File[]>([]);
-    const [previewData, setPreviewData] = useState<ImportRow[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [importing, setImporting] = useState(false);
+    const [previewData, setPreviewData] = useState<any>(null);
+    const [previewTab, setPreviewTab] = useState<'invalid' | 'valid'>('invalid');
+    const [exporting, setExporting] = useState(false);
 
-    /* ── Leave types for mapping ── */
-    const { data: leaveTypes = [] } = useQuery<LeaveType[]>({
-        queryKey: ['leaveTypes'],
-        queryFn: async () => {
-            const res = await apiClient.get(LEAVE_TYPES);
-            return res.data?.datalist || [];
-        },
-        enabled: open,
-    });
-
-    const handleFileChange = useCallback(async (newFiles: File[]) => {
-        setFiles(newFiles);
-        if (newFiles.length > 0) {
-            setLoading(true);
-            try {
-                const file = newFiles[0];
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    const json = XLSX.utils.sheet_to_json(worksheet) as ImportRow[];
-                    console.log('Parsed Excel Data:', json);
-                    setPreviewData(json);
-                    setLoading(false);
-                };
-                reader.readAsArrayBuffer(file);
-            } catch (error) {
-                console.error('Failed to parse excel:', error);
-                toast.error('Failed to parse excel file');
-                setLoading(false);
+    /* ── Download Template (Export) ── */
+    const downloadTemplate = async () => {
+        try {
+            setExporting(true);
+            const res = await mainClient.post(EXPORT_LEAVE_TEMPLATE, {
+                userid: userId || '',
+                domain: domain || 'dev'
+            });
+            const data = res.data?.data;
+            if (res.data?.status === 201 && data?.base64String) {
+                const link = document.createElement('a');
+                link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${data.base64String}`;
+                link.download = data.fileName || 'Leave_Import_Template.xlsx';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                toast.success('Template downloaded successfully');
+            } else {
+                toast.error(res.data?.message || 'Failed to export template');
             }
-        } else {
-            setPreviewData([]);
+        } catch (err) {
+            console.error('Export template failed:', err);
+            toast.error('An error occurred while exporting the template');
+        } finally {
+            setExporting(false);
         }
-    }, []);
-
-    const downloadTemplate = () => {
-        const demoData = [
-            TEMPLATE_HEADERS,
-            ['EMP001', 'Annual Leave', '2024-03-10', '2024-03-12', 3, 'Sample Request']
-        ];
-        const worksheet = XLSX.utils.aoa_to_sheet(demoData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
-        XLSX.writeFile(workbook, 'Leave_Import_Template.xlsx');
     };
 
-    const handleImport = async () => {
-        if (previewData.length === 0) return;
-        setImporting(true);
-        let successCount = 0;
-        let failCount = 0;
+    /* ── Mutations ── */
+    const uploadMutation = useMutation({
+        mutationFn: async (file: File) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = async () => {
+                    const base64String = (reader.result as string).split(',')[1];
+                    try {
+                        // 1. Upload File
+                        const uploadPayload = {
+                            base64filename: file.name,
+                            base64String: base64String,
+                            domain: domain || 'dev',
+                            userid: userId || ''
+                        };
+                        const uploadRes = await apiClient.post(FILE_UPLOAD, uploadPayload);
+                        const uploadedFileName = uploadRes.data?.fileName;
 
-        try {
-            console.log('Starting import for', previewData.length, 'rows');
-            console.log('Available Leave Types:', leaveTypes);
+                        if (!uploadedFileName) {
+                            throw new Error(uploadRes.data?.message || 'File upload failed');
+                        }
 
-            for (const row of previewData) {
-                // Find leave type syskey
-                const typeName = String(row['Leave Type'] || '').trim().toLowerCase();
+                        // 2. Prepare Import
+                        const prepareRes = await mainClient.post(`${PREPARE_IMPORT_LEAVE}?fileName=${uploadedFileName}`, {
+                            userid: userId || '',
+                            domain: domain || 'dev'
+                        });
+                        const prepareData = prepareRes.data?.data;
+                        const batchid = prepareData?.batchid;
 
-                // 1. Exact match (Description or Code)
-                let lt = leaveTypes.find(t =>
-                    t.description.trim().toLowerCase() === typeName ||
-                    (t as any).code?.trim().toLowerCase() === typeName
-                );
+                        if (!batchid) {
+                            throw new Error(prepareRes.data?.message || prepareData?.message || 'Failed to prepare import');
+                        }
 
-                // 2. Substring match (Fuzzy) if no exact match
-                if (!lt) {
-                    lt = leaveTypes.find(t =>
-                        t.description.toLowerCase().includes(typeName) ||
-                        typeName.includes(t.description.toLowerCase())
-                    );
-                }
+                        // 3. Preview Import
+                        const previewPayload = {
+                            userid: userId || '',
+                            domain: domain || 'dev',
+                            type: '3',
+                            currentPage: 1,
+                            pageSize: 500
+                        };
+                        const previewRes = await mainClient.post(`${PREVIEW_IMPORT_LEAVE}/${batchid}`, previewPayload);
+                        const previewResult = previewRes.data?.data;
 
-                if (!lt) {
-                    const msg = `Leave type not found for: "${row['Leave Type']}". Please check if it matches the system categories.`;
-                    console.warn(msg);
-                    console.log('Available types for comparison:', leaveTypes.map(t => t.description));
-                    toast.error(msg, { duration: 4000 });
-                    failCount++;
-                    continue;
-                }
+                        if (!previewResult) throw new Error('Failed to fetch preview data');
 
-                // Format dates to YYYYMMDD
-                const formatDate = (val: any) => {
-                    if (!val) return '';
-
-                    let d: Date;
-                    if (val instanceof Date) {
-                        d = val;
-                    } else if (typeof val === 'number') {
-                        // Handle Excel serial date
-                        d = new Date((val - 25569) * 86400 * 1000);
-                    } else {
-                        d = new Date(val);
+                        resolve({ batchid, ...previewResult });
+                    } catch (err) {
+                        reject(err);
                     }
-
-                    if (isNaN(d.getTime())) {
-                        // Fallback: try to strip dashes
-                        return String(val).replace(/-/g, '').replace(/\//g, '');
-                    }
-
-                    const y = d.getFullYear();
-                    const m = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    return `${y}${m}${day}`;
                 };
-
-                const payload = {
-                    syskey: '0',
-                    eid: String(row['Employee ID'] || userId || user?.userid || ''),
-                    name: user?.name || '',
-                    approver: '',
-                    duration: String(row['Duration'] || '1'),
-                    startdate: formatDate(row['Start Date']),
-                    enddate: formatDate(row['End Date']),
-                    starttime: '09:00',
-                    endtime: '18:00',
-                    refno: 0,
-                    remark: row['Remark'] || 'Imported from Excel',
-                    requeststatus: 1, // Pending
-                    requesttype: 'leave',
-                    requestsubtype: lt.syskey,
-                    attachment: []
-                };
-
-                console.log('Importing payload:', payload);
-
-                try {
-                    const res = await apiClient.post(SAVE_LEAVE, payload);
-                    if (res.data?.statuscode === '200' || res.data?.status === 'SUCCESS' || res.data?.statuscode === 200) {
-                        successCount++;
-                    } else {
-                        const errorMsg = res.data?.message || 'Server rejected the record';
-                        console.error('Row import failed:', errorMsg, row);
-                        toast.error(`Row failed: ${errorMsg}`);
-                        failCount++;
-                    }
-                } catch (err) {
-                    console.error('Failed to save row:', row, err);
-                    failCount++;
-                }
-            }
-
-            if (successCount > 0) {
-                toast.success(`Successfully imported ${successCount} leave requests`);
-                if (failCount > 0) {
-                    toast.error(`Failed to import ${failCount} records. Check leave type names.`);
-                }
-                onSuccess();
-                onClose();
-            } else {
-                toast.error(`Failed to import records. Please check your data.`);
-            }
-        } catch (error) {
-            console.error('Import process error:', error);
-            toast.error('An error occurred during import');
-        } finally {
-            setImporting(false);
+                reader.onerror = error => reject(error);
+            });
+        },
+        onSuccess: (data: any) => {
+            setPreviewData(data);
+            setPreviewTab(data.invalidCount > 0 ? 'invalid' : 'valid');
+        },
+        onError: (err: unknown) => {
+            const msg = err instanceof Error ? err.message : t('common.error');
+            toast.error(msg);
+            setFiles([]);
         }
+    });
+
+    const confirmMutation = useMutation({
+        mutationFn: async () => {
+            if (!previewData?.batchid) throw new Error('No batch ready to import');
+            const res = await mainClient.post(`${CONFIRM_IMPORT_LEAVE}/${previewData.batchid}`, {
+                userid: userId || '',
+                domain: domain || 'dev'
+            });
+            const data = res.data;
+            const isSuccess = data?.status === 201 || data?.statuscode === 200 || data?.statuscode === 300 || data?.message_code === "203" || (data?.data?.statuscode >= 200 && data?.data?.statuscode < 400);
+            if (!isSuccess) {
+                throw new Error(data?.message || data?.data?.message || t('common.error'));
+            }
+            return data;
+        },
+        onSuccess: () => {
+            toast.success('Leave requests imported successfully');
+            queryClient.invalidateQueries({ queryKey: ['leaveList'] });
+            setFiles([]);
+            setPreviewData(null);
+            onSuccess();
+            onClose();
+        },
+        onError: (err: unknown) => {
+            const msg = err instanceof Error ? err.message : t('common.error');
+            toast.error(msg);
+        }
+    });
+
+    const handleFileChange = useCallback((newFiles: File[]) => {
+        setFiles(newFiles);
+        if (newFiles.length > 0) {
+            uploadMutation.mutate(newFiles[0]);
+        } else {
+            setPreviewData(null);
+        }
+    }, [uploadMutation]);
+
+    const handleClose = async () => {
+        if (previewData?.batchid && !confirmMutation.isSuccess) {
+            try {
+                await mainClient.post(`${CLEAR_IMPORT_LEAVE}/${previewData.batchid}`, {
+                    userid: userId || '',
+                    domain: domain || 'dev'
+                });
+            } catch (err) {
+                console.error('Clear batch failed', err);
+            }
+        }
+        setFiles([]);
+        setPreviewData(null);
+        onClose();
     };
 
     const handleReset = () => {
         setFiles([]);
-        setPreviewData([]);
+        setPreviewData(null);
     };
 
     return (
         <Modal
             open={open}
-            onClose={onClose}
+            onClose={handleClose}
             title="Import Leave Requests"
             large
         >
@@ -219,9 +199,13 @@ export default function LeaveImportModal({ open, onClose, onSuccess }: LeaveImpo
                 <div className={styles['import-modal__steps']}>
                     <div className={styles['import-modal__step']}>
                         <h4 className={styles['import-modal__step-title']}>1. Download Template</h4>
-                        <button className={styles['import-modal__template-btn']} onClick={downloadTemplate}>
+                        <button
+                            className={styles['import-modal__template-btn']}
+                            onClick={downloadTemplate}
+                            disabled={exporting}
+                        >
                             <Download size={14} />
-                            Download Leave_Import_Template.xlsx
+                            {exporting ? 'Preparing template...' : 'Download Leave_Import_Template.xlsx'}
                         </button>
                     </div>
 
@@ -230,124 +214,103 @@ export default function LeaveImportModal({ open, onClose, onSuccess }: LeaveImpo
                         <FileUpload
                             files={files}
                             onChange={handleFileChange}
-                            accept=".xlsx, .xls, .csv"
+                            accept=".xlsx, .xls"
                             multiple={false}
                         />
-                        {leaveTypes.length > 0 && (
-                            <div style={{
-                                marginTop: '0.75rem',
-                                padding: '0.75rem',
-                                background: 'var(--color-neutral-50)',
-                                border: '1px dashed var(--color-neutral-200)',
-                                borderRadius: 'var(--radius-md)'
-                            }}>
-                                <p style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', color: 'var(--color-neutral-600)', marginBottom: '0.25rem' }}>
-                                    Allowed Leave Types (use these names):
-                                </p>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                    {leaveTypes.map(lt => (
-                                        <span key={lt.syskey} style={{
-                                            fontSize: '11px',
-                                            background: 'var(--color-neutral-0)',
-                                            padding: '2px 8px',
-                                            borderRadius: 'var(--radius-full)',
-                                            border: '1px solid var(--color-neutral-200)',
-                                            color: 'var(--color-neutral-800)'
-                                        }}>
-                                            {lt.description}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
 
-                {loading && (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                {uploadMutation.isPending && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', gap: '1rem' }}>
                         <Loader2 className="animate-spin" size={32} color="var(--color-primary-600)" />
+                        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-neutral-600)' }}>Processing file and preparing preview...</p>
                     </div>
                 )}
 
-                {previewData.length > 0 && !loading && (
+                {previewData && !uploadMutation.isPending && (
                     <div className={styles['import-modal__preview']}>
-                        <div className={styles['import-modal__preview-header']}>
-                            <span className={styles['import-modal__preview-title']}>
-                                Preview: {previewData.length} records found
-                            </span>
-                            <Button variant="ghost" size="sm" onClick={handleReset} style={{ color: 'var(--color-danger-600)' }}>
-                                Remove File
-                            </Button>
+                        <div className={styles['import-modal__tabs']}>
+                            <button
+                                className={`${styles['import-modal__tab-btn']} ${previewTab === 'invalid' ? styles['import-modal__tab-btn--active-invalid'] : ''}`}
+                                onClick={() => setPreviewTab('invalid')}
+                            >
+                                <XCircle size={16} />
+                                Invalid Records
+                                <span className={`${styles['import-modal__badge']} ${styles['import-modal__badge--invalid']}`}>{previewData.invalidCount || 0}</span>
+                            </button>
+                            <button
+                                className={`${styles['import-modal__tab-btn']} ${previewTab === 'valid' ? styles['import-modal__tab-btn--active-valid'] : ''}`}
+                                onClick={() => setPreviewTab('valid')}
+                            >
+                                <CheckCircle2 size={16} />
+                                Valid Records
+                                <span className={`${styles['import-modal__badge']} ${styles['import-modal__badge--valid']}`}>{previewData.validCount || 0}</span>
+                            </button>
                         </div>
+
                         <div className={styles['import-modal__table-container']}>
                             <table className={styles['import-modal__table']}>
                                 <thead>
                                     <tr>
-                                        {TEMPLATE_HEADERS.map(h => <th key={h}>{h}</th>)}
+                                        <th>Employee ID</th>
+                                        <th>Leave Type</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
+                                        <th>Duration</th>
+                                        <th>Status</th>
+                                        <th>{previewTab === 'invalid' ? 'Remark & Errors' : 'Remark'}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {previewData.map((row, i) => {
-                                        const formatDatePreview = (val: any) => {
-                                            if (!val) return '—';
-                                            let d: Date;
-                                            if (val instanceof Date) {
-                                                d = val;
-                                            } else if (typeof val === 'number') {
-                                                d = new Date((val - 25569) * 86400 * 1000);
-                                            } else {
-                                                d = new Date(val);
-                                            }
-                                            return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString();
-                                        };
-
+                                    {(previewTab === 'invalid' ? previewData.invalidList : previewData.validList)?.map((row: any, i: number) => {
+                                        const errors = previewTab === 'invalid' ? Object.keys(row).filter(k => k.endsWith('_error') && row[k]).map(k => row[k]) : [];
                                         return (
                                             <tr key={i}>
-                                                <td>{row['Employee ID'] || '—'}</td>
-                                                <td>{row['Leave Type'] || '—'}</td>
-                                                <td>{formatDatePreview(row['Start Date'])}</td>
-                                                <td>{formatDatePreview(row['End Date'])}</td>
-                                                <td>{row['Duration']}</td>
-                                                <td>{row['Remark'] || '—'}</td>
+                                                <td>{row.employeeid}</td>
+                                                <td>{row.leavetype}</td>
+                                                <td>{row.startdate}</td>
+                                                <td>{row.enddate}</td>
+                                                <td>{row.duration}</td>
+                                                <td>{row.status}</td>
+                                                <td>
+                                                    {row.remark || '—'}
+                                                    {errors.length > 0 && (
+                                                        <ul className={styles['import-modal__error-list']}>
+                                                            {errors.map((err: string, idx: number) => <li key={idx}>{err}</li>)}
+                                                        </ul>
+                                                    )}
+                                                </td>
                                             </tr>
                                         );
                                     })}
+                                    {((previewTab === 'invalid' ? previewData.invalidList : previewData.validList)?.length || 0) === 0 && (
+                                        <tr>
+                                            <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-neutral-400)' }}>
+                                                No {previewTab} records found.
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
-                    </div>
-                )}
-
-                {files.length > 0 && previewData.length === 0 && !loading && (
-                    <div style={{
-                        marginTop: '1rem',
-                        padding: '1rem',
-                        background: 'var(--color-warning-50)',
-                        border: '1px solid var(--color-warning-200)',
-                        borderRadius: 'var(--radius-lg)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem',
-                        color: 'var(--color-warning-700)',
-                        fontSize: 'var(--text-sm)'
-                    }}>
-                        <AlertCircle size={18} />
-                        <div>
-                            <strong>No data found.</strong> Please make sure you have added data rows below the header in your Excel file.
+                        <div style={{ padding: 'var(--space-2) var(--space-4)', background: 'var(--color-neutral-50)', borderTop: '1px solid var(--color-neutral-200)', display: 'flex', justifyContent: 'flex-end' }}>
+                            <Button variant="ghost" size="sm" onClick={handleReset} style={{ color: 'var(--color-danger-600)' }}>
+                                Remove File
+                            </Button>
                         </div>
                     </div>
                 )}
 
                 <div className={styles['import-modal__footer']}>
-                    <Button variant="ghost" onClick={onClose} disabled={importing}>
+                    <Button variant="ghost" onClick={handleClose} disabled={confirmMutation.isPending}>
                         {t('common.cancel')}
                     </Button>
                     <Button
-                        onClick={handleImport}
-                        disabled={previewData.length === 0 || importing}
-                        loading={importing}
+                        onClick={() => confirmMutation.mutate()}
+                        disabled={!previewData || previewData.validCount <= 0 || confirmMutation.isPending}
+                        loading={confirmMutation.isPending}
                     >
-                        {importing ? 'Importing...' : 'Start Import'}
+                        {confirmMutation.isPending ? 'Importing...' : 'Confirm Import'}
                     </Button>
                 </div>
             </div>

@@ -82,6 +82,12 @@ export const DELETE_LEAVE = `${hxmPrefix}leave/deleteleaverequest`;
 export const LEAVE_TYPES = `${hxmPrefix}leave/empleavetypelist`;
 export const LEAVE_TYPE_LIST = `${hxmPrefix}leave/leavetypelist`;
 export const HANDOVER_PERSONS = `${hxmPrefix}leave/handoverpersonlist`;
+export const EXPORT_LEAVE_TEMPLATE = 'api/request/exportLeaverequesttemplate';
+export const PREPARE_IMPORT_LEAVE = 'api/request/prepareimportdataleaverequest';
+export const PREVIEW_IMPORT_LEAVE = 'api/request/previewlistleaverequest';
+export const CONFIRM_IMPORT_LEAVE = 'api/request/importleaverequest';
+export const CLEAR_IMPORT_LEAVE = 'api/request/clearleaverequest';
+export const SAVE_LEAVE_HR = `${hxmPrefix}request/saverequesthr`;
 
 // ── Claims ──
 export const CLAIM_LIST = `${hxmPrefix}claim/getclaimlist`;
