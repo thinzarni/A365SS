@@ -118,11 +118,22 @@ export interface RequestModel {
   confirmed_amount?: number;
 }
 
+export interface StepLevelData {
+  level: number;
+  status: number; // 0=upcoming, 1=pending, 2=approved, 3=rejected
+  approvedby: string | null;
+  remark: string | null;
+  rankrole_specificperson: string;
+  is_ro: boolean;
+}
+
 export interface RequestDetailModel {
   syskey: string;
   eid: string;
   approver: string;
   duration: string;
+  approvaltype?: string;
+  stepLevelData?: StepLevelData[];
   startdate: string;
   enddate: string;
   starttime: string;
