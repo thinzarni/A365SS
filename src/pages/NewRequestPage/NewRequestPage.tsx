@@ -1053,19 +1053,7 @@ export default function NewRequestPage() {
                                                     placeholder="e.g. 1.5"
                                                 />
                                             </div>
-                                            {flavor === 'prd' && (
-                                                <div className={styles['new-request__full']}>
-                                                    <Select
-                                                        id="leaveReason"
-                                                        label="Leave Reason"
-                                                        value={leaveReason}
-                                                        onChange={(e) => setLeaveReason(e.target.value)}
-                                                        options={leaveReasonsList.map((r) => ({ value: r.syskey, label: r.description }))}
-                                                        placeholder="Choose your reason..."
-                                                        required
-                                                    />
-                                                </div>
-                                            )}
+
                                         </>
                                     ) : selectedType === 'offinlieu' ? (
                                         // Off in Lieu: single date + start/end time (no duration) — mirrors mobile
@@ -1420,6 +1408,21 @@ export default function NewRequestPage() {
                                         required
                                     />
                                 </div>
+                            </div>
+                        )}
+
+                        {/* ── Leave Reason ── */}
+                        {flavor === 'prd' && (
+                            <div className={styles['new-request__full']} style={{ marginBottom: 'var(--space-4)' }}>
+                                <Select
+                                    id="leaveReason"
+                                    label="Leave Reason"
+                                    value={leaveReason}
+                                    onChange={(e) => setLeaveReason(e.target.value)}
+                                    options={leaveReasonsList.map((r) => ({ value: r.syskey, label: r.description }))}
+                                    placeholder="Choose your reason..."
+                                    required
+                                />
                             </div>
                         )}
 
