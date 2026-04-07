@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Palmtree, FileSpreadsheet, Download, Loader2, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, Select } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import LeaveImportModal from './LeaveImportModal';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
@@ -45,6 +45,15 @@ export default function LeavePage() {
         return { from: clean(fromDate), to: clean(toDate) };
     }, [fromDate, toDate]);
 
+    const [statusFilter, setStatusFilter] = useState('4');
+
+    const statusOptions = useMemo(() => [
+        { value: '4', label: t('leave.all') },
+        { value: '1', label: t('profile.options.status.Pending') },
+        { value: '2', label: t('profile.options.status.Approved') },
+        { value: '3', label: t('profile.options.status.Rejected') },
+    ], [t]);
+
     /* ── Leave types (for resolving syskey → description) ── */
     const { data: leaveTypes = [] } = useQuery<LeaveType[]>({
         queryKey: ['leaveTypes'],
@@ -56,12 +65,12 @@ export default function LeavePage() {
 
     /* ── Leave history ── */
     const { data: leaveHistory = [], isLoading } = useQuery<RequestModel[]>({
-        queryKey: ['leaveHistory', apiDates.from, apiDates.to],
+        queryKey: ['leaveHistory', apiDates.from, apiDates.to, statusFilter],
         queryFn: async () => {
             const res = await apiClient.post(LEAVE_LIST, {
                 fromdate: apiDates.from,
                 todate: apiDates.to,
-                status: '4',
+                status: statusFilter,
             });
             return res.data?.datalist || [];
         },
@@ -227,6 +236,15 @@ export default function LeavePage() {
                                 type="date"
                                 value={toDate}
                                 onChange={(e) => setToDate(e.target.value)}
+                            />
+                        </div>
+                        <div className={styles['leave-filters__field']}>
+                            <label>{t('leave.status')}</label>
+                            <Select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                options={statusOptions}
+                                className={styles['leave-filters__select']}
                             />
                         </div>
                     </div>

@@ -90,7 +90,9 @@
         "exportExcel": "Export to Excel",
         "exportConfirmMessage": "Are you sure you want to export the current filtered leave history to Excel?",
         "fromDate": "From Date",
-        "toDate": "To Date"
+        "toDate": "To Date",
+        "status": "Status",
+        "all": "All Status"
     },
     "claim": {
         "title": "Claims",
