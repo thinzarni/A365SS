@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LockKeyhole, Mail } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import authClient from '../../lib/auth-client';
-import { makeSignInPayload } from '../../lib/auth-token';
+import { makeResetPayload } from '../../lib/auth-token';
 import styles from './ForgotPasswordPage.module.css';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -22,8 +22,8 @@ export default function ForgotPasswordPage() {
         setLoading(true);
         try {
             // req_type 3 = forgot password (mirrors Flutter's ForgotPwd)
-            const payload = await makeSignInPayload(email, 3);
-            const res = await authClient.post('signin', payload);
+            const payload = await makeResetPayload(email, 3);
+            const res = await authClient.post('reset-mail', payload);
             const data = res.data;
 
             if (data.status === 200 || res.status === 200) {

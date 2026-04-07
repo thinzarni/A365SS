@@ -20,9 +20,6 @@ export async function createSToken(dateTime: string, reqType: string, uuid: stri
     return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Build the full sign-in payload matching Flutter's auth models
- */
 export async function makeSignInPayload(userId: string, reqType: number, password = '') {
     const uuid = getOrCreateUUID();
     const dateTime = new Date().toISOString();
@@ -37,6 +34,22 @@ export async function makeSignInPayload(userId: string, reqType: number, passwor
         date_time: dateTime,
         req_type: reqType,
         password, // empty string when not used (OTP flow)
+    };
+}
+
+export async function makeResetPayload(userId: string, reqType: number) {
+    const uuid = getOrCreateUUID();
+    const dateTime = new Date().toISOString();
+    const sToken = await createSToken(dateTime, String(reqType), uuid);
+
+    return {
+        user_id: userId,
+        date_time: dateTime,
+        uuid,
+        app_id: APP_ID,
+        s_token: sToken,
+        secret_key: SECRET_KEY,
+        req_type: reqType.toString()
     };
 }
 

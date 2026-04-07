@@ -336,7 +336,7 @@ export default function LoginPage() {
                             className={styles.login__lang_btn}
                             onClick={() => setLanguage(language === 'en' ? 'my' : 'en')}
                         >
-                            <Globe size={14} className="mr-2" />
+                            <Globe size={14} style={{ marginRight: "5px" }} />
                             {language === 'en' ? 'English' : 'Myanmar'}
                         </button>
                     </div>
