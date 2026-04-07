@@ -43,6 +43,7 @@ import {
 import type { LeaveType } from '../../types/models';
 import { formatAmount, unformatAmount } from '../../lib/format-utils';
 import { useAuthStore } from '../../stores/auth-store';
+import { flavor } from '../../config/features';
 import styles from './NewRequestPage.module.css';
 
 /* ── Date/time default helpers ── */
@@ -373,7 +374,7 @@ export default function NewRequestPage() {
             const res = await apiClient.post(LEAVE_REASONS, payload);
             return res.data?.datalist || [];
         },
-        enabled: selectedType === 'leave',
+        enabled: selectedType === 'leave' && flavor === 'prd',
     });
 
     const { data: claimTypeList = [] } = useQuery<TypesModel[]>({
@@ -643,7 +644,7 @@ export default function NewRequestPage() {
                             payload.requestsubtypedesc = selectedLt.description;
                         }
                     }
-                    if (leaveReason) {
+                    if (flavor === 'prd' && leaveReason) {
                         payload.leavereason = leaveReason;
                     }
                     payload.selectedHandovers = handovers.map((h) => ({ syskey: h.syskey, name: h.name }));
@@ -877,11 +878,11 @@ export default function NewRequestPage() {
 
         if (selectedType === 'leave') {
             if (!leaveType) {
-                toast.error('Please select a Leave Type');
+                toast.error('Please select a leave type');
                 return;
             }
-            if (!leaveReason) {
-                toast.error('Please select a Leave Reason');
+            if (flavor === 'prd' && !leaveReason) {
+                toast.error('Please select a leave reason');
                 return;
             }
         }
@@ -1052,17 +1053,19 @@ export default function NewRequestPage() {
                                                     placeholder="e.g. 1.5"
                                                 />
                                             </div>
-                                            <div className={styles['new-request__full']}>
-                                                <Select
-                                                    id="leaveReason"
-                                                    label="Leave Reason"
-                                                    value={leaveReason}
-                                                    onChange={(e) => setLeaveReason(e.target.value)}
-                                                    options={leaveReasonsList.map((r) => ({ value: r.syskey, label: r.description }))}
-                                                    placeholder="Choose your reason..."
-                                                    required
-                                                />
-                                            </div>
+                                            {flavor === 'prd' && (
+                                                <div className={styles['new-request__full']}>
+                                                    <Select
+                                                        id="leaveReason"
+                                                        label="Leave Reason"
+                                                        value={leaveReason}
+                                                        onChange={(e) => setLeaveReason(e.target.value)}
+                                                        options={leaveReasonsList.map((r) => ({ value: r.syskey, label: r.description }))}
+                                                        placeholder="Choose your reason..."
+                                                        required
+                                                    />
+                                                </div>
+                                            )}
                                         </>
                                     ) : selectedType === 'offinlieu' ? (
                                         // Off in Lieu: single date + start/end time (no duration) — mirrors mobile

@@ -27,6 +27,7 @@ import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
 import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS } from '../../config/api-routes';
+import { flavor } from '../../config/features';
 import type { TypesModel } from '../../types/models';
 import styles from './RequestDetailPage.module.css';
 
@@ -153,7 +154,7 @@ export default function RequestDetailPage() {
             const res = await apiClient.post(LEAVE_REASONS, payload);
             return res.data?.datalist || [];
         },
-        enabled: !!isLeave,
+        enabled: !!isLeave && flavor === 'prd',
     });
 
     const detail = detailData?.detail;
@@ -273,7 +274,7 @@ export default function RequestDetailPage() {
                             {(detail.starttime || detail.time) && <Field label="Start Time" value={detail.starttime || detail.time} />}
                             {detail.endtime && <Field label="End Time" value={detail.endtime} />}
                             {detail.duration && <Field label="Duration" value={detail.duration} />}
-                            {leaveReasonText && <Field label="Leave Reason" value={leaveReasonText} />}
+                            {flavor === 'prd' && leaveReasonText && <Field label="Leave Reason" value={leaveReasonText} />}
                             {detail.selectday && <Field label="Select Day" value={detail.selectday} />}
                             {detail.days && <Field label="Days" value={String(detail.days)} />}
                             {detail.hour && <Field label="Hours" value={detail.hour} />}
