@@ -28,6 +28,8 @@ import {
     KeyRound,
     MapPin,
     Bell,
+    ChevronLeft,
+    ChevronRight,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import { useChatStore } from '../../stores/chat-store';
@@ -154,6 +156,17 @@ export default function AppLayout() {
     const [switchingDomainId, setSwitchingDomainId] = useState<string | null>(null);
     const [pwdExpiry, setPwdExpiry] = useState<{ message: string; daysLeft: number; isExpired: boolean } | null>(null);
     const [sidebarImgError, setSidebarImgError] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+        return localStorage.getItem('sidebar-collapsed') === 'true';
+    });
+
+    // Toggle sidebar collapse
+    const toggleSidebarCollapse = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const newState = !isSidebarCollapsed;
+        setIsSidebarCollapsed(newState);
+        localStorage.setItem('sidebar-collapsed', String(newState));
+    };
 
     // Sync persisted language preference into i18next on mount
     useEffect(() => {
@@ -455,7 +468,7 @@ export default function AppLayout() {
     return (
         <div className={styles.layout}>
             {/* ── Sidebar ── */}
-            <aside className={`${styles.sidebar} ${sidebarOpen ? styles['sidebar--open'] : ''}`}>
+            <aside className={`${styles.sidebar} ${sidebarOpen ? styles['sidebar--open'] : ''} ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`}>
                 <div className={styles.sidebar__brand}>
                     <div
                         style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, cursor: 'pointer', minWidth: 0 }}
@@ -468,6 +481,16 @@ export default function AppLayout() {
                             <span className={styles.sidebar__subtitle}>Self-Service</span>
                         </div>
                     </div>
+
+                    {/* Desktop Collapse Toggle */}
+                    <button
+                        className={styles.sidebar__collapse_toggle}
+                        onClick={toggleSidebarCollapse}
+                        title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                    >
+                        {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                    </button>
+
                     <button
                         className={styles.sidebar__close}
                         onClick={() => setSidebarOpen(false)}
@@ -491,7 +514,7 @@ export default function AppLayout() {
                     >
                         <div className={styles['sidebar__link-content']}>
                             <LayoutDashboard size={20} className={styles['sidebar__link-icon']} />
-                            {t('nav.dashboard')}
+                            <span className={styles['sidebar__link-text']}>{t('nav.dashboard')}</span>
                         </div>
                     </NavLink>
 
@@ -505,7 +528,7 @@ export default function AppLayout() {
                     >
                         <div className={styles['sidebar__link-content']}>
                             <Users size={20} className={styles['sidebar__link-icon']} />
-                            {t('nav.team')}
+                            <span className={styles['sidebar__link-text']}>{t('nav.team')}</span>
                         </div>
                     </NavLink>
                     {/* ── All items from MENU_ITEMS datalist ── */}
@@ -531,7 +554,7 @@ export default function AppLayout() {
                             >
                                 <div className={styles['sidebar__link-content']}>
                                     <Icon size={20} className={styles['sidebar__link-icon']} />
-                                    {label}
+                                    <span className={styles['sidebar__link-text']}>{label}</span>
                                 </div>
                                 {isChat && unreadCount > 0 && (
                                     <span className={styles.sidebar__unreadBadge}>{unreadCount}</span>
@@ -632,7 +655,7 @@ export default function AppLayout() {
             />
 
             {/* ── Main Content ── */}
-            <main className={`${styles.main} ${isChatPage ? styles['main--chat'] : ''}`}>
+            <main className={`${styles.main} ${isSidebarCollapsed ? styles['main--sidebar-collapsed'] : ''} ${isChatPage ? styles['main--chat'] : ''}`}>
                 <header className={styles.main__header}>
                     <div className={styles['main__header-left']}>
                         <button

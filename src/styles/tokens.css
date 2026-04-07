@@ -133,6 +133,7 @@
 
   /* ── Layout ── */
   --sidebar-width: 260px;
+  --sidebar-width-mini: 76px;
   --header-height: 64px;
   --max-content-width: 1200px;
 }

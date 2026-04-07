@@ -15,7 +15,11 @@
     left: 0;
     bottom: 0;
     z-index: var(--z-modal);
-    transition: transform var(--transition-slow);
+    transition: width var(--transition-slow), transform var(--transition-slow);
+}
+
+.sidebarCollapsed {
+    width: var(--sidebar-width-mini);
 }
 
 .sidebar__brand {
@@ -27,11 +31,17 @@
 }
 
 .sidebar__logo {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-md);
     flex-shrink: 0;
-    object-fit: cover;
+    object-fit: contain;
+    transition: all var(--transition-base);
+}
+
+.sidebarCollapsed .sidebar__logo {
+    width: 28px;
+    height: 28px;
 }
 
 .sidebar__brand-text {
@@ -61,6 +71,10 @@
     text-overflow: ellipsis;
 }
 
+.sidebarCollapsed .sidebar__brand-text {
+    display: none;
+}
+
 .sidebar__nav {
     flex: 1;
     padding: var(--space-3) var(--space-3);
@@ -68,6 +82,11 @@
     flex-direction: column;
     gap: var(--space-1);
     overflow-y: auto;
+    scrollbar-width: none; /* Firefox */
+}
+
+.sidebar__nav::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
 }
 
 .sidebar__section-label {
@@ -114,6 +133,29 @@
     align-items: center;
     gap: var(--space-3);
     flex: 1;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.sidebarCollapsed .sidebar__link {
+    justify-content: center;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    margin: 0 auto;
+}
+
+.sidebarCollapsed .sidebar__link-icon {
+    margin: 0;
+}
+
+.sidebarCollapsed .sidebar__link-content {
+    justify-content: center;
+}
+
+.sidebarCollapsed .sidebar__link-text,
+.sidebarCollapsed .sidebar__section-label {
+    display: none;
 }
 
 .sidebar__unreadBadge {
@@ -236,6 +278,30 @@
     color: var(--color-neutral-500);
 }
 
+.sidebarCollapsed .sidebar__user-info,
+.sidebarCollapsed .sidebar__logout span,
+.sidebarCollapsed .sidebar__org_select {
+    display: none;
+}
+
+.sidebarCollapsed .sidebar__logout {
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    margin: 0 auto;
+}
+
+.sidebarCollapsed .sidebar__user {
+    padding: var(--space-4) 0;
+    align-items: center;
+}
+
+.sidebarCollapsed .sidebar__avatar {
+    width: 32px;
+    height: 32px;
+    margin: 0 auto;
+}
+
 .sidebar__logout {
     display: flex;
     align-items: center;
@@ -279,6 +345,65 @@
 .sidebar__close:hover {
     background: rgba(255, 255, 255, 0.14);
     color: white;
+}
+
+.sidebar__collapse_toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+/* Expanded State */
+.sidebar:not(.sidebarCollapsed) .sidebar__collapse_toggle {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--color-neutral-400);
+}
+
+.sidebar:not(.sidebarCollapsed) .sidebar__collapse_toggle:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: white;
+}
+
+/* Collapsed State */
+.sidebarCollapsed .sidebar__collapse_toggle {
+    position: absolute;
+    right: -12px;
+    top: 26px;
+    background: var(--color-neutral-0);
+    border: 1px solid var(--color-neutral-200);
+    color: var(--color-neutral-600);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    z-index: 100;
+}
+
+.sidebarCollapsed .sidebar__collapse_toggle:hover {
+    background: var(--color-neutral-50);
+    color: var(--color-primary-600);
+    border-color: var(--color-primary-300);
+}
+
+.sidebarCollapsed .sidebar__close {
+    display: none;
+}
+
+.sidebarCollapsed .sidebar__brand {
+    justify-content: center;
+    padding: var(--space-6) 0;
+}
+
+.sidebarCollapsed .sidebar__nav {
+    padding-top: var(--space-6);
+}
+
+.sidebarCollapsed .sidebar__brand > div {
+    justify-content: center;
 }
 
 /* ── Domain Switcher Menu ── */
@@ -392,6 +517,11 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    transition: margin-left var(--transition-slow);
+}
+
+.main--sidebar-collapsed {
+    margin-left: var(--sidebar-width-mini);
 }
 
 .main__header {

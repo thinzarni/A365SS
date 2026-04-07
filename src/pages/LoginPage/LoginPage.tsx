@@ -22,7 +22,7 @@ export default function LoginPage() {
     const { instance, inProgress } = useMsal();
     const { login, setUser, setLanguage, language, isAuthenticated } = useAuthStore();
 
-    const [mode, setMode] = useState<AuthMode>('otp');
+    const [mode, setMode] = useState<AuthMode>('password');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
