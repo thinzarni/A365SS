@@ -11,7 +11,7 @@ import LeaveImportModal from './LeaveImportModal';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import type { LeaveType, RequestModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
-import { LEAVE_TYPES, LEAVE_LIST } from '../../config/api-routes';
+import { LEAVE_TYPES, GET_REQUEST_LIST } from '../../config/api-routes';
 import { displayDate } from '../../lib/date-utils';
 import styles from './LeavePage.module.css';
 import '../../styles/pages.css';
@@ -45,13 +45,13 @@ export default function LeavePage() {
         return { from: clean(fromDate), to: clean(toDate) };
     }, [fromDate, toDate]);
 
-    const [statusFilter, setStatusFilter] = useState('4');
+    const [statusFilter, setStatusFilter] = useState<number>(0);
 
     const statusOptions = useMemo(() => [
-        { value: '4', label: t('leave.all') },
-        { value: '1', label: t('profile.options.status.Pending') },
-        { value: '2', label: t('profile.options.status.Approved') },
-        { value: '3', label: t('profile.options.status.Rejected') },
+        { value: 0, label: t('leave.all') },
+        { value: 1, label: t('profile.options.status.Pending') },
+        { value: 2, label: t('profile.options.status.Approved') },
+        { value: 3, label: t('profile.options.status.Rejected') },
     ], [t]);
 
     /* ── Leave types (for resolving syskey → description) ── */
@@ -67,9 +67,10 @@ export default function LeavePage() {
     const { data: leaveHistory = [], isLoading } = useQuery<RequestModel[]>({
         queryKey: ['leaveHistory', apiDates.from, apiDates.to, statusFilter],
         queryFn: async () => {
-            const res = await apiClient.post(LEAVE_LIST, {
+            const res = await apiClient.post(GET_REQUEST_LIST, {
                 fromdate: apiDates.from,
                 todate: apiDates.to,
+                type: '6c63afdb-6e06-43bb-8549-27dac948f455',
                 status: statusFilter,
             });
             return res.data?.datalist || [];
@@ -241,9 +242,9 @@ export default function LeavePage() {
                         <div className={styles['leave-filters__field']}>
                             <label>{t('leave.status')}</label>
                             <Select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                options={statusOptions}
+                                value={String(statusFilter)}
+                                onChange={(e) => setStatusFilter(Number(e.target.value))}
+                                options={statusOptions.map(opt => ({ ...opt, value: String(opt.value) }))}
                                 className={styles['leave-filters__select']}
                             />
                         </div>

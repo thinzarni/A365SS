@@ -40,6 +40,7 @@ export const GET_REQUEST_DETAIL = `${hxmPrefix}request/getrequestdetail`;
 export const DELETE_REQUEST = `${hxmPrefix}request/deleterequest`;
 
 // ── Request Lookups ──
+export const LEAVE_REASONS = `${hxmPrefix}leavereason/getlist`;
 export const TRANSPORTATION_TYPES = `${hxmPrefix}request/getTransportationType`;
 export const CARS_LIST = `${hxmPrefix}request/getCarList`;
 export const CAR_TYPES = `${hxmPrefix}cartype/list`;
@@ -83,6 +84,7 @@ export const LEAVE_TYPES = `${hxmPrefix}leave/empleavetypelist`;
 export const LEAVE_TYPE_LIST = `${hxmPrefix}leave/leavetypelist`;
 export const HANDOVER_PERSONS = `${hxmPrefix}leave/handoverpersonlist`;
 export const EXPORT_LEAVE_TEMPLATE = 'api/request/exportLeaverequesttemplate';
+export const EXPORT_LEAVE_DATA = 'api/request/export/leaverequestdata';
 export const PREPARE_IMPORT_LEAVE = 'api/request/prepareimportdataleaverequest';
 export const PREVIEW_IMPORT_LEAVE = 'api/request/previewlistleaverequest';
 export const CONFIRM_IMPORT_LEAVE = 'api/request/importleaverequest';

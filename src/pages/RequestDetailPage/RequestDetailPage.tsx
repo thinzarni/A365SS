@@ -15,8 +15,10 @@ import {
     Banknote,
     FileText,
     Trash2,
+    ListTree,
 } from 'lucide-react';
 import { Button } from '../../components/ui';
+import ApprovalWorkflowModal from '../../components/modals/ApprovalWorkflowModal';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
 import type { RequestDetailModel, Approver } from '../../types/models';
@@ -24,7 +26,7 @@ import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
-import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, CURRENCY_TYPES } from '../../config/api-routes';
+import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
 import styles from './RequestDetailPage.module.css';
 
@@ -77,12 +79,12 @@ export default function RequestDetailPage() {
                     domain: domain || 'dev'
                 });
                 const raw = res.data?.data || res.data?.datalist || {};
-                
+
                 // Map attendance request specifics to generic detail model
-                const requesttypedesc = (raw.attendancerequesttype === 1) ? 'Remote Time in' 
-                                      : (raw.attendancerequesttype === 2) ? 'Backdate Time in' 
-                                      : (raw.type === "601" ? 'Time In' : raw.type === "602" ? 'Time Out' : 'Attendance');
-                
+                const requesttypedesc = (raw.attendancerequesttype === 1) ? 'Remote Time in'
+                    : (raw.attendancerequesttype === 2) ? 'Backdate Time in'
+                        : (raw.type === "601" ? 'Time In' : raw.type === "602" ? 'Time Out' : 'Attendance');
+
                 const mappedDetail: any = {
                     ...raw,
                     requesttypedesc,
@@ -99,8 +101,8 @@ export default function RequestDetailPage() {
                     refno: raw.syskey,
                 };
 
-                const approvers: Approver[] = typeof raw.approvedby === 'string' && raw.approvedby 
-                    ? [{ syskey: 'app-1', name: raw.approvedby, userid: '', position: '', photo: '' }] 
+                const approvers: Approver[] = typeof raw.approvedby === 'string' && raw.approvedby
+                    ? [{ syskey: 'app-1', name: raw.approvedby, userid: '', position: '', photo: '' }]
                     : [];
 
                 return {
@@ -137,6 +139,23 @@ export default function RequestDetailPage() {
         },
     });
 
+    const isLeave = detailData?.detail?.requesttypedesc?.toLowerCase().includes('leave');
+
+    const { data: leaveReasonsList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['leaveReasonList'],
+        queryFn: async () => {
+            const payload = {
+                currentpage: 0,
+                pagesize: 0,
+                searchVal: '',
+                searchObj: { order: '', orderType: '' }
+            };
+            const res = await apiClient.post(LEAVE_REASONS, payload);
+            return res.data?.datalist || [];
+        },
+        enabled: !!isLeave,
+    });
+
     const detail = detailData?.detail;
     const approverList = detailData?.approverList || [];
     const memberList = detailData?.memberList || [];
@@ -155,6 +174,11 @@ export default function RequestDetailPage() {
     });
 
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showWorkflowModal, setShowWorkflowModal] = useState(false);
+
+    const isPending = String(detail?.requeststatus || '') === RequestStatus.Pending;
+    const hasApprovedStep = detail?.approvaltype === '1' && detail.stepLevelData?.some(s => s.status === 2);
+    const canDelete = isPending && !hasApprovedStep;
 
     if (isLoading) {
         return (
@@ -187,13 +211,16 @@ export default function RequestDetailPage() {
     }
 
     const { Icon, bg, color } = getTypeVisual(detail.requesttypedesc);
-    const isPending = String(detail.requeststatus) === RequestStatus.Pending;
 
     // Resolve currency syskey → readable name
     const currencyName = currencyList.find(c => c.syskey === detail.currencytype)?.description
         || (detail as any).currencytypedesc
         || detail.currencytype
         || '';
+
+    const leaveReasonText = isLeave && (detail as any).leavereason
+        ? leaveReasonsList.find(r => r.syskey === (detail as any).leavereason)?.description || (detail as any).leavereason
+        : '';
 
     return (
         <div className={styles['request-detail']}>
@@ -220,6 +247,21 @@ export default function RequestDetailPage() {
                     <StatusBadge status={String(detail.requeststatus)} />
                 </div>
 
+                {/* ── Workflow Toggle ── */}
+                {detail.approvaltype === '1' && (
+                    <div style={{ padding: '0 var(--space-6) var(--space-4) var(--space-6)', marginTop: '-8px' }}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowWorkflowModal(true)}
+                            style={{ color: 'var(--color-primary-600)', background: 'var(--color-primary-50)' }}
+                        >
+                            <ListTree size={16} />
+                            {t('approval.viewWorkflow')}
+                        </Button>
+                    </div>
+                )}
+
                 {/* ── Body ── */}
                 <div className={styles['request-detail__body']}>
                     {/* Core dates */}
@@ -231,6 +273,7 @@ export default function RequestDetailPage() {
                             {(detail.starttime || detail.time) && <Field label="Start Time" value={detail.starttime || detail.time} />}
                             {detail.endtime && <Field label="End Time" value={detail.endtime} />}
                             {detail.duration && <Field label="Duration" value={detail.duration} />}
+                            {leaveReasonText && <Field label="Leave Reason" value={leaveReasonText} />}
                             {detail.selectday && <Field label="Select Day" value={detail.selectday} />}
                             {detail.days && <Field label="Days" value={String(detail.days)} />}
                             {detail.hour && <Field label="Hours" value={detail.hour} />}
@@ -388,7 +431,7 @@ export default function RequestDetailPage() {
                         )}
 
                     {/* Approved By */}
-                    {approverList.length > 0 && (
+                    {detail.approvaltype !== '1' && approverList.length > 0 && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Approved By</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -468,7 +511,7 @@ export default function RequestDetailPage() {
                 </div>
 
                 {/* ── Actions ── */}
-                {isPending && (
+                {canDelete && (
                     <div className={styles['request-detail__actions']}>
                         <Button
                             variant="danger"
@@ -482,6 +525,12 @@ export default function RequestDetailPage() {
                     </div>
                 )}
             </div>
+
+            <ApprovalWorkflowModal
+                open={showWorkflowModal}
+                onClose={() => setShowWorkflowModal(false)}
+                steps={detail.stepLevelData || []}
+            />
 
             <ConfirmModal
                 open={showDeleteModal}

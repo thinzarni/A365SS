@@ -34,6 +34,7 @@ import {
     TRAVEL_TYPE_LIST,
     VEHICLE_USE_LIST,
     LEAVE_TYPES,
+    LEAVE_REASONS,
     CLAIM_TYPES,
     CURRENCY_TYPES,
     ORG_TYPE_LIST,
@@ -148,6 +149,7 @@ export default function NewRequestPage() {
     const [selectedType, setSelectedType] = useState(presetType);
     const [subType, setSubType] = useState('');
     const [leaveType, setLeaveType] = useState('');
+    const [leaveReason, setLeaveReason] = useState('');
     const { user } = useAuthStore();
 
     // ── Redirect Attendance Request to its specialized page ──
@@ -354,6 +356,21 @@ export default function NewRequestPage() {
         queryKey: ['leaveTypeList'],
         queryFn: async () => {
             const res = await apiClient.get(LEAVE_TYPES);
+            return res.data?.datalist || [];
+        },
+        enabled: selectedType === 'leave',
+    });
+
+    const { data: leaveReasonsList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['leaveReasonList'],
+        queryFn: async () => {
+            const payload = {
+                currentpage: 0,
+                pagesize: 0,
+                searchVal: '',
+                searchObj: { order: '', orderType: '' }
+            };
+            const res = await apiClient.post(LEAVE_REASONS, payload);
             return res.data?.datalist || [];
         },
         enabled: selectedType === 'leave',
@@ -626,6 +643,9 @@ export default function NewRequestPage() {
                             payload.requestsubtypedesc = selectedLt.description;
                         }
                     }
+                    if (leaveReason) {
+                        payload.leavereason = leaveReason;
+                    }
                     payload.selectedHandovers = handovers.map((h) => ({ syskey: h.syskey, name: h.name }));
                 } else {
                     // WFH: no starttime/endtime in mobile payload
@@ -854,6 +874,18 @@ export default function NewRequestPage() {
             toast.error('Please select a request type');
             return;
         }
+
+        if (selectedType === 'leave') {
+            if (!leaveType) {
+                toast.error('Please select a Leave Type');
+                return;
+            }
+            if (!leaveReason) {
+                toast.error('Please select a Leave Reason');
+                return;
+            }
+        }
+
         // Mirror Flutter requestform_page.dart lines 939-1015
         if (selectedType === 'transportation') {
             if (!transToPlace.trim()) {
@@ -1018,6 +1050,17 @@ export default function NewRequestPage() {
                                                     value={duration}
                                                     onChange={(e) => setDuration(e.target.value)}
                                                     placeholder="e.g. 1.5"
+                                                />
+                                            </div>
+                                            <div className={styles['new-request__full']}>
+                                                <Select
+                                                    id="leaveReason"
+                                                    label="Leave Reason"
+                                                    value={leaveReason}
+                                                    onChange={(e) => setLeaveReason(e.target.value)}
+                                                    options={leaveReasonsList.map((r) => ({ value: r.syskey, label: r.description }))}
+                                                    placeholder="Choose your reason..."
+                                                    required
                                                 />
                                             </div>
                                         </>
@@ -1363,7 +1406,7 @@ export default function NewRequestPage() {
                         {selectedType === 'leave' && (
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Leave Details</h3>
-                                <div className={styles['new-request__grid']}>
+                                <div className={styles['new-request__full']}>
                                     <Select
                                         id="leaveType"
                                         label="Leave Type"
@@ -1371,6 +1414,7 @@ export default function NewRequestPage() {
                                         onChange={(e) => setLeaveType(e.target.value)}
                                         options={leaveTypeList.map((lt) => ({ value: lt.syskey, label: lt.description }))}
                                         placeholder="Select leave type…"
+                                        required
                                     />
                                 </div>
                             </div>
