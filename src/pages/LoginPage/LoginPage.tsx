@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast';
 import { useMsal } from '@azure/msal-react';
 import { InteractionStatus } from '@azure/msal-browser';
 import { loginRequest } from '../../config/msal-config';
+import { appConfig } from '../../config/app-config';
 import styles from './LoginPage.module.css';
 
 type AuthMode = 'password' | 'otp';
@@ -453,6 +454,10 @@ export default function LoginPage() {
                             <Monitor size={18} className="mr-2" />
                             {t('auth.azureSignIn')}
                         </Button>
+                    </div>
+
+                    <div className={styles.login__version} style={{ textAlign: 'center', fontSize: '13px', color: '#64748b', marginTop: '24px' }}>
+                        Version {appConfig.appVersion}
                     </div>
                 </div>
             </div>

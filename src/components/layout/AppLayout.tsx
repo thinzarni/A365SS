@@ -40,6 +40,7 @@ import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { useNotificationStore } from '../../stores/notification-store';
 import { MENU_ITEMS, CHECK_PASSWORD_EXPIRY } from '../../config/api-routes';
+import { appConfig } from '../../config/app-config';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
 
@@ -645,6 +646,9 @@ export default function AppLayout() {
                             </div>
                         </div>
                     )}
+                    <div className={styles.sidebar__version} style={{ textAlign: 'center', fontSize: '12px', color: '#94a3b8', padding: '10px 0', marginTop: 'auto' }}>
+                        Version {appConfig.appVersion}
+                    </div>
                 </div>
             </aside>
 
