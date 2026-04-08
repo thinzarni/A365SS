@@ -51,8 +51,9 @@ class ChatSocketService {
         const dom = domain || 'demouat';
 
         // 1. Prefer explicit wsUrl from app-config (set via VITE_WS_URL env var)
-        const explicitWs = appConfig.wsUrl || (import.meta as any).env?.VITE_WS_URL as string | undefined;
+        let explicitWs = appConfig.wsUrl || (import.meta as any).env?.VITE_WS_URL as string | undefined;
         if (explicitWs) {
+            explicitWs = explicitWs.replace(/^https?/, 'wss');
             const base = explicitWs.replace(/\/$/, '');
             return `${base}/v1?user=${encodeURIComponent(userId)}&app=${APP_ID}&domain=${encodeURIComponent(dom)}`;
         }

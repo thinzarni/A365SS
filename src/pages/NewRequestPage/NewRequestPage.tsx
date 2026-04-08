@@ -39,12 +39,16 @@ import {
     CURRENCY_TYPES,
     ORG_TYPE_LIST,
     ORG_UNIT_LIST,
+    TEAM_LIST,
+    SAVE_LEAVE_HR,
 } from '../../config/api-routes';
-import type { LeaveType } from '../../types/models';
+import type { LeaveType, TeamMember } from '../../types/models';
 import { formatAmount, unformatAmount } from '../../lib/format-utils';
+import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
 import { flavor } from '../../config/features';
 import styles from './NewRequestPage.module.css';
+import React from 'react';
 
 /* ── Date/time default helpers ── */
 function todayStr(): string {
@@ -151,7 +155,7 @@ export default function NewRequestPage() {
     const [subType, setSubType] = useState('');
     const [leaveType, setLeaveType] = useState('');
     const [leaveReason, setLeaveReason] = useState('');
-    const { user } = useAuthStore();
+    const { user, userId } = useAuthStore();
 
     // ── Redirect Attendance Request to its specialized page ──
     useEffect(() => {
@@ -160,6 +164,84 @@ export default function NewRequestPage() {
         }
     }, [presetType, navigate]);
 
+    // ── Team Data Query (For Leave Request RO) ──
+    const { data: members = [] } = useQuery<TeamMember[]>({
+        queryKey: ['team-members', userId],
+        queryFn: async () => {
+            const res = await mainClient.post(TEAM_LIST, {
+                userid: userId,
+            });
+            // Try all common response paths
+            const raw = res.data?.data || res.data?.datalist || res.data;
+            if (!raw) return [];
+
+            const juniorsRaw = Array.isArray(raw.juniorEmployees) ? raw.juniorEmployees : [];
+            const seniorsRaw = Array.isArray(raw.seniorEmployees) ? raw.seniorEmployees : [];
+            const teamMembersRaw = Array.isArray(raw.teamMembers) ? raw.teamMembers : [];
+            const allRaw = [...juniorsRaw, ...seniorsRaw, ...teamMembersRaw];
+
+            const seen = new Set();
+            const uniqueRaw = allRaw.filter(m => {
+                const k = m.syskey || m.employee_syskey;
+                if (!k || seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            });
+
+            return uniqueRaw.map((m: any) => ({
+                syskey: String(m.syskey ?? m.employee_syskey ?? ''),
+                userName: String(m.userName ?? m.username ?? m.employee_name ?? m.name ?? ''),
+                employeeId: String(m.employee_id ?? m.employeeId ?? m.employeeid ?? ''),
+                profile: m.profile ? String(m.profile) : null,
+                userid: String(m.employee_userid ?? m.userid ?? m.user_id ?? m.email ?? ''),
+                rank: String(m.rank ?? ''),
+                department: String(m.department ?? ''),
+                division: String(m.division ?? ''),
+                teamId: String(m.teamId ?? m.teamid ?? m.team_id ?? ''),
+                level: (juniorsRaw.some((j: any) => j.syskey === m.syskey) ? 'junior' : 'senior') as 'junior' | 'senior',
+                priority: String(m.priority ?? '0'),
+                role: m.role ? String(m.role) : null,
+                type: m.type ? String(m.type) : null,
+                hasJunior: Boolean(m.hasJunior ?? m.hasjunior ?? false),
+                workingDays: '0', timeInCount: '0', timeOutCount: '0', activityCount: '0', leaveCount: '0',
+                requiredWorkDays: '0', todayTimeInCount: '0', todayTimeOutCount: '0', todayIsLeave: '0',
+                leaveStatus: 0, lastRecordTypeName: 0, timeInTime: '', timeOutTime: '', key: ''
+            }));
+        },
+        enabled: !!userId && selectedType === 'leave',
+    });
+
+    const [selectedMemberSyskey, setSelectedMemberSyskey] = useState<string>('__SELF__');
+
+    const employeeOptions = React.useMemo(() => {
+        const options = [
+            { value: '__SELF__', label: `Myself (${user?.name})` }
+        ];
+        members.filter(m => m.level === 'junior').forEach(m => {
+            options.push({ value: m.syskey, label: `${m.userName} (${m.employeeId})` });
+        });
+        return options;
+    }, [user, members]);
+
+    const selectedMemberInfo = React.useMemo(() => {
+        if (selectedMemberSyskey === '__SELF__') {
+            const myself = [...members].reverse().find(m => String(m.userid).toLowerCase() === String(userId).toLowerCase())
+                || members.find(m => m.level === 'senior');
+            return {
+                syskey: myself?.syskey || user?.syskey || user?.usersyskey || '0',
+                id: (myself?.employeeId || (user as any)?.eid || (user as any)?.employee_id || (user as any)?.employeeId || userId || '') as string,
+                userid: userId || '',
+                name: user?.name || '',
+            };
+        }
+        const m = members.find(m => String(m.syskey) === String(selectedMemberSyskey));
+        return {
+            syskey: m?.syskey || '',
+            id: (m?.employeeId || '') as string,
+            userid: m?.userid || '',
+            name: m?.userName || '',
+        };
+    }, [selectedMemberSyskey, user, userId, members]);
 
     // ── Organization Change ──
     const [orgUnitSubject, setOrgUnitSubject] = useState('Team');
@@ -648,6 +730,14 @@ export default function NewRequestPage() {
                         payload.leavereason = leaveReason;
                     }
                     payload.selectedHandovers = handovers.map((h) => ({ syskey: h.syskey, name: h.name }));
+
+                    // For RO making leave requests
+                    if (selectedMemberSyskey !== '__SELF__') {
+                        payload.employeeid = selectedMemberInfo.id;
+                        payload.employeename = selectedMemberInfo.name;
+                        payload.userid = userId || '';
+                        payload.domain = useAuthStore.getState().domain || 'dev';
+                    }
                 } else {
                     // WFH: no starttime/endtime in mobile payload
                     payload.locationname = locationName;
@@ -837,11 +927,17 @@ export default function NewRequestPage() {
                 payload.requeststatus = "1";
             }
 
-            const res = await apiClient.post(SAVE_REQUEST, payload);
+            let endpoint = SAVE_REQUEST;
+            if (selectedType === 'leave' && selectedMemberSyskey !== '__SELF__') {
+                endpoint = SAVE_LEAVE_HR;
+            }
+
+            const res = await apiClient.post(endpoint, payload);
             // Flutter: Neocode.statusIsOk(statuscode) == (status === 300)
             // Any statuscode other than 300 is an error — show message and stay on form
             const sc = Number(res.data?.statuscode);
-            if (sc !== 300) {
+            if (sc !== 300 && res.data?.status !== 200 && res.data?.status !== 201) {
+                // Adjusting condition: sometimes saverequesthr returns standard 200/201 status
                 throw new Error(res.data?.message || t('common.error'));
             }
             return res.data;
@@ -1000,6 +1096,29 @@ export default function NewRequestPage() {
                 {selectedType && (
                     <>
 
+
+                        {/* ═════ 2. Request Details (for RO Leave Proxy) ═════ */}
+                        {selectedType === 'leave' && (
+                            <div className={styles['new-request__section']}>
+                                <h3 className={styles['new-request__section-title']}>Details</h3>
+                                <div className={styles['new-request__grid']}>
+                                    <div className={styles['new-request__full']} style={{ marginBottom: 'var(--space-2)' }}>
+                                        <Select
+                                            id="employee"
+                                            label="Select Employee"
+                                            value={selectedMemberSyskey}
+                                            onChange={(e) => setSelectedMemberSyskey(e.target.value)}
+                                            options={employeeOptions}
+                                        />
+                                        {selectedMemberSyskey !== '__SELF__' && (
+                                            <div className={styles['new-request__member-info-mini']} style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                                <strong>Employee ID:</strong> {selectedMemberInfo.id}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* ═════ 3. Date & Time (common — hidden for claim/cashadvance/orgchange) ═════ */}
                         {selectedType !== 'claim' && selectedType !== 'cashadvance' && selectedType !== 'orgchange' && (

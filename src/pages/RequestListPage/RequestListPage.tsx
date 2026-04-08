@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as XLSX from 'xlsx';
+import toast from 'react-hot-toast';
 import {
     Plus,
     ClipboardList,
@@ -15,9 +17,12 @@ import {
     FileText,
     Filter,
     Download,
+    Loader2,
+    FileSpreadsheet,
 } from 'lucide-react';
 import { Button, Input, Select } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
+import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import { RequestStatus } from '../../types/models';
 import type { RequestModel, TypesModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
@@ -120,6 +125,8 @@ export default function RequestListPage() {
     const [didInitDates, setDidInitDates] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
+    const [exporting, setExporting] = useState(false);
+    const [showExportConfirm, setShowExportConfirm] = useState(false);
 
     // Fetch shift data for transition dates
     const { data: shiftData, isLoading: shiftLoading } = useQuery({
@@ -267,6 +274,77 @@ export default function RequestListPage() {
         return { total, pending, approved, rejected };
     }, [generalSummaryData]);
 
+    const handleExport = async () => {
+        if (displayRequests.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        try {
+            setExporting(true);
+
+            // Map data to Excel format
+            const exportData = (displayRequests as any[]).map((req) => {
+                let statusText = '—';
+                const st = String(req.requeststatus);
+                if (st === '1') statusText = 'Pending';
+                else if (st === '2') statusText = 'Approved';
+                else if (st === '3') statusText = 'Rejected';
+                else if (st === '4') statusText = 'Draft';
+
+                const typeDesc = req.requesttypedesc || req.requesttype || '—';
+                
+                let details = '—';
+                const typeStr = typeDesc.toLowerCase();
+                if (typeStr.includes('early out') || typeStr.includes('late')) {
+                    details = typeDesc; // Just show 'Early Out' or 'Late'
+                } else if (req.requestsubtypedesc) {
+                    details = req.requestsubtypedesc;
+                } else if (req.duration != null && req.duration !== '') {
+                    details = `${req.duration} day(s)`;
+                } else if (req.amount) {
+                    details = `${Number(req.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+                }
+
+                return {
+                    'Employee ID': req.eid || '—',
+                    'Employee Name': req.name || '—',
+                    'Ref #': req.refno || '—',
+                    'Date': displayDate(req.startdate || req.date) || '—',
+                    'Type': typeDesc,
+                    'Details': details,
+                    'Status': statusText,
+                };
+            });
+
+            // SheetJS logic
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, isAttendancePage ? 'Attendance Requests' : 'Requests');
+
+            // Set column widths
+            const wscols = [
+                { wch: 15 }, // Employee ID
+                { wch: 20 }, // Employee Name
+                { wch: 10 }, // Ref #
+                { wch: 25 }, // Date
+                { wch: 20 }, // Type
+                { wch: 20 }, // Details
+                { wch: 12 }, // Status
+            ];
+            worksheet['!cols'] = wscols;
+
+            const filenamePrefix = isAttendancePage ? 'Attendance_Requests' : 'Requests';
+            XLSX.writeFile(workbook, `${filenamePrefix}_${fromDate.replace(/-/g, '')}_to_${toDate.replace(/-/g, '')}.xlsx`);
+            toast.success('Excel file exported successfully');
+        } catch (err) {
+            console.error('Frontend export failed:', err);
+            toast.error('An error occurred during export');
+        } finally {
+            setExporting(false);
+        }
+    };
+
 
     /* ── Render ── */
 
@@ -369,6 +447,21 @@ export default function RequestListPage() {
                                 className={styles['filter-select']}
                                 placeholder="All Types"
                             />
+                        </div>
+                    )}
+
+                    {isAttendancePage && (
+                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                loading={exporting}
+                                onClick={() => setShowExportConfirm(true)}
+                                style={{ marginBottom: '2px' }}
+                            >
+                                {exporting ? <Loader2 className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />}
+                                Export Excel
+                            </Button>
                         </div>
                     )}
                 </div>
@@ -506,6 +599,21 @@ export default function RequestListPage() {
                     </div>
                 )}
             </div>
+
+            <ConfirmModal
+                open={showExportConfirm}
+                onClose={() => setShowExportConfirm(false)}
+                onConfirm={() => {
+                    handleExport();
+                    setShowExportConfirm(false);
+                }}
+                title="Export Excel"
+                message="Are you sure you want to export these requests to an Excel file?"
+                confirmLabel="Export Excel"
+                loading={exporting}
+                variant="primary"
+                icon={<FileSpreadsheet size={28} />}
+            />
         </div>
     );
 }
