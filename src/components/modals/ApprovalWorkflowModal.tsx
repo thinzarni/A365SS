@@ -1,16 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import { X, Check, Clock, ChevronRight, User, MessageSquare, Info } from 'lucide-react';
-import Modal from '../ui/Modal/Modal';
 import type { StepLevelData } from '../../types/models';
 import styles from './ApprovalWorkflowModal.module.css';
 
 interface ApprovalWorkflowModalProps {
-    open: boolean;
-    onClose: () => void;
     steps: StepLevelData[];
 }
 
-export default function ApprovalWorkflowModal({ open, onClose, steps }: ApprovalWorkflowModalProps) {
+export default function ApprovalWorkflowModal({ steps }: ApprovalWorkflowModalProps) {
     const { t } = useTranslation();
 
     const getStatusConfig = (status: number) => {
@@ -47,18 +44,17 @@ export default function ApprovalWorkflowModal({ open, onClose, steps }: Approval
     };
 
     return (
-        <Modal
-            open={open}
-            onClose={onClose}
-            title={t('approval.workflowTitle')}
-            large
-        >
-            <div className={styles.workflow}>
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-neutral-600)', marginBottom: 'var(--space-2)' }}>
+        <div className={styles.workflow}>
+            <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 'var(--space-4)' }}>
+                <h4 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-semibold)', color: 'var(--color-neutral-900)' }}>
+                    {t('approval.workflowTitle')}
+                </h4>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-neutral-600)' }}>
                     {t('approval.workflowSubtitle')}
                 </p>
+            </div>
 
-                {steps.map((step, idx) => {
+            {steps.map((step, idx) => {
                     const config = getStatusConfig(step.status);
                     const isLast = idx === steps.length - 1;
                     const nextStepStatus = !isLast ? steps[idx + 1].status : null;
@@ -135,7 +131,6 @@ export default function ApprovalWorkflowModal({ open, onClose, steps }: Approval
                         </div>
                     );
                 })}
-            </div>
-        </Modal>
+        </div>
     );
 }

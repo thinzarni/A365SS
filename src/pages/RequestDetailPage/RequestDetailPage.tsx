@@ -15,7 +15,6 @@ import {
     Banknote,
     FileText,
     Trash2,
-    ListTree,
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import ApprovalWorkflowModal from '../../components/modals/ApprovalWorkflowModal';
@@ -175,7 +174,6 @@ export default function RequestDetailPage() {
     });
 
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [showWorkflowModal, setShowWorkflowModal] = useState(false);
 
     const isPending = String(detail?.requeststatus || '') === RequestStatus.Pending;
     const hasApprovedStep = detail?.approvaltype === '1' && detail.stepLevelData?.some(s => s.status === 2);
@@ -248,20 +246,7 @@ export default function RequestDetailPage() {
                     <StatusBadge status={String(detail.requeststatus)} />
                 </div>
 
-                {/* ── Workflow Toggle ── */}
-                {detail.approvaltype === '1' && (
-                    <div style={{ padding: '0 var(--space-6) var(--space-4) var(--space-6)', marginTop: '-8px' }}>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowWorkflowModal(true)}
-                            style={{ color: 'var(--color-primary-600)', background: 'var(--color-primary-50)' }}
-                        >
-                            <ListTree size={16} />
-                            {t('approval.viewWorkflow')}
-                        </Button>
-                    </div>
-                )}
+
 
                 {/* ── Body ── */}
                 <div className={styles['request-detail__body']}>
@@ -509,6 +494,13 @@ export default function RequestDetailPage() {
                             </div>
                         </div>
                     )}
+
+                    {/* Inline Workflow Form */}
+                    {detail.approvaltype === '1' && detail.stepLevelData && detail.stepLevelData.length > 0 && (
+                        <div className={styles['request-detail__section']}>
+                            <ApprovalWorkflowModal steps={detail.stepLevelData} />
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Actions ── */}
@@ -527,11 +519,7 @@ export default function RequestDetailPage() {
                 )}
             </div>
 
-            <ApprovalWorkflowModal
-                open={showWorkflowModal}
-                onClose={() => setShowWorkflowModal(false)}
-                steps={detail.stepLevelData || []}
-            />
+
 
             <ConfirmModal
                 open={showDeleteModal}

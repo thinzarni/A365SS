@@ -31,7 +31,8 @@ import {
     APPROVAL_LIST, 
     ATTENDANCE_SHIFT_DATA, 
     GET_ATTENDANCE_APPROVAL_LIST,
-    MULTI_APPROVE_REJECT 
+    MULTI_APPROVE_REJECT,
+    MULTI_SAVE_APPROVAL
 } from '../../config/api-routes';
 import { useLocation } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -222,25 +223,35 @@ export default function ApprovalListPage() {
 
     const multiApproveMutation = useMutation({
         mutationFn: async ({ status }: { status: '2' | '3' }) => {
-            const selectedList = Array.from(selectedKeys).map(key => {
-                const req = pendingRequests.find(r => String(r.syskey) === key);
-                return {
-                    syskey: key,
-                    date: req?.date || '',
-                    attendancenotitype: 0
+            if (isAttendance) {
+                const selectedList = Array.from(selectedKeys).map(key => {
+                    const req = pendingRequests.find(r => String(r.syskey) === key);
+                    return {
+                        syskey: key,
+                        date: req?.date || '',
+                        attendancenotitype: 0
+                    };
+                });
+                const payload = {
+                    userid: userId || '',
+                    domain: domain || 'dev',
+                    type: attType, // 1 for remote, 2 for backdate
+                    status,       // 2 for approved, 3 for rejected
+                    selectedRequestList: selectedList
                 };
-            });
-
-            const payload = {
-                userid: userId || '',
-                domain: domain || 'dev',
-                type: attType, // 1 for remote, 2 for backdate
-                status,       // 2 for approved, 3 for rejected
-                selectedRequestList: selectedList
-            };
-
-            const res = await mainClient.post(MULTI_APPROVE_REJECT, payload);
-            return res.data;
+                const res = await mainClient.post(MULTI_APPROVE_REJECT, payload);
+                return res.data;
+            } else {
+                const selectedList = Array.from(selectedKeys).map(key => ({ syskey: key }));
+                const payload = {
+                    userid: userId || '',
+                    domain: domain || 'dev',
+                    status: Number(status),
+                    selectedRequestList: selectedList
+                };
+                const res = await apiClient.post(MULTI_SAVE_APPROVAL, payload);
+                return res.data;
+            }
         },
         onSuccess: (_, variables) => {
             const action = variables.status === '2' ? 'approved' : 'rejected';
@@ -389,12 +400,12 @@ export default function ApprovalListPage() {
                 </div>
             ) : (
                 <div className={styles['approval-page__list']}>
-                    {isAttendance && activeStatus === RequestStatus.Pending && pendingRequests.length > 0 && (
+                    {activeStatus === RequestStatus.Pending && pendingRequests.length > 0 && (
                         <div className={styles['select-all-row']} onClick={toggleSelectAll}>
                             <div className={`${styles['checkbox']} ${isAllSelected ? styles['checkbox--checked'] : ''}`}>
                                 {isAllSelected && <Check size={14} className={styles['checkbox-icon']} />}
                             </div>
-                            <span>Select all pending attendance requests</span>
+                            <span>Select all pending requests</span>
                         </div>
                     )}
 
@@ -411,7 +422,7 @@ export default function ApprovalListPage() {
                                 style={{ animationDelay: `${i * 40}ms` }}
                                 onClick={() => navigate(isAttendance ? `/attendanceapproval/${req.syskey}/${req.requesttype}` : `/approvals/${req.syskey}`)}
                             >
-                                {isAttendance && activeStatus === RequestStatus.Pending && (
+                                {activeStatus === RequestStatus.Pending && (
                                     <div className={styles['checkbox-wrapper']} onClick={(e) => toggleSelect(String(req.syskey), e)}>
                                         <div className={`${styles['checkbox']} ${selectedKeys.has(String(req.syskey)) ? styles['checkbox--checked'] : ''}`}>
                                             {selectedKeys.has(String(req.syskey)) && <Check size={14} className={styles['checkbox-icon']} />}

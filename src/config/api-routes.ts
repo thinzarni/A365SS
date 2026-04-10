@@ -73,6 +73,7 @@ export const MULTI_APPROVE_REJECT = 'api/checkin/multiapproveorreject';
 export const APPROVAL_LIST = `${hxmPrefix}approval/approvallist`;
 export const APPROVAL_DETAIL = `${hxmPrefix}approval/getapprovaldetail`;
 export const SAVE_APPROVAL = `${hxmPrefix}approval/saveapproval`;
+export const MULTI_SAVE_APPROVAL = `${hxmPrefix}approval/saveApproveOrReject`;
 
 // ── Leave ──
 export const SAVE_LEAVE = `${hxmPrefix}leave/saveleave`;

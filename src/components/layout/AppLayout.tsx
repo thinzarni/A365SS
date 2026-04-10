@@ -328,6 +328,23 @@ export default function AppLayout() {
         // 1. Establish the global Chat WS connection (Skip in Prod flavor)
         if (import.meta.env.VITE_FLAVOR !== 'prd') {
             chatSocket.connect();
+            // appSocket.connect();
+
+            // const reqHandler = () => {
+            //     queryClient.invalidateQueries({ queryKey: ['requests'] });
+            //     queryClient.invalidateQueries({ queryKey: ['summaryRequests'] });
+            //     toast.success('New request submitted or updated.');
+            //     fetchNotifications({ isRefresh: true });
+            // };
+
+            // const appHandler = () => {
+            //     queryClient.invalidateQueries({ queryKey: ['approvals'] });
+            //     toast.success('Approval status updated.');
+            //     fetchNotifications({ isRefresh: true });
+            // };
+
+            // appSocket.on('requestConfirmed', reqHandler);
+            // appSocket.on('approvalConfirmed', appHandler);
         }
 
         // 1.b. Establish dedicated Password Expiry listener using IAM server directly
@@ -435,6 +452,8 @@ export default function AppLayout() {
             if (pwdWsObj && pwdWsObj.readyState === WebSocket.OPEN) {
                 pwdWsObj.close();
             }
+            // appSocket.off('requestConfirmed');
+            // appSocket.off('approvalConfirmed');
         };
     }, [userId, domain, token, loginType, navigate]);
 

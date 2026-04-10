@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -104,13 +104,25 @@ export default function NewAttendanceRequestPage() {
         const options = [
             { value: '__SELF__', label: `Myself (${user?.name})` }
         ];
-        // Only show JUNIOR members in the choice list (seniors were fetched to resolve 'Myself' EID)
-        members.filter(m => m.level === 'junior').forEach(m => {
+        members.filter(m => {
+            if (m.level !== 'junior') return false;
+
+            const t = (m.type || '').toLowerCase();
+            if (t === 'reporting officer' || !t) return true;
+            if (t === 'attendance supervisor') return true;
+
+            return false;
+        }).forEach(m => {
             options.push({ value: m.syskey, label: `${m.userName} (${m.employeeId})` });
         });
         return options;
     }, [user, members]);
 
+    useEffect(() => {
+        if (selectedMemberSyskey !== '__SELF__' && !employeeOptions.some(o => o.value === selectedMemberSyskey)) {
+            setSelectedMemberSyskey('__SELF__');
+        }
+    }, [employeeOptions, selectedMemberSyskey]);
     const selectedMemberInfo = useMemo(() => {
         if (selectedMemberSyskey === '__SELF__') {
             // Find myself in the full list to get the real numeric EID and Employee Record syskey

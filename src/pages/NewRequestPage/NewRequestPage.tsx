@@ -208,7 +208,7 @@ export default function NewRequestPage() {
                 leaveStatus: 0, lastRecordTypeName: 0, timeInTime: '', timeOutTime: '', key: ''
             }));
         },
-        enabled: !!userId && selectedType === 'leave',
+        enabled: !!userId,
     });
 
     const [selectedMemberSyskey, setSelectedMemberSyskey] = useState<string>('__SELF__');
@@ -217,11 +217,29 @@ export default function NewRequestPage() {
         const options = [
             { value: '__SELF__', label: `Myself (${user?.name})` }
         ];
-        members.filter(m => m.level === 'junior').forEach(m => {
+        members.filter(m => {
+            if (m.level !== 'junior') return false;
+
+            const t = (m.type || '').toLowerCase();
+            if (t === 'reporting officer' || !t) return true;
+
+            if (t === 'leave supervisor') return selectedType === 'leave';
+            if (t === 'ot supervisor' || t === 'overtime supervisor') return selectedType === 'overtime';
+            if (t === 'attendance supervisor') return selectedType === 'attendancerequest';
+
+            // Catch-all block: hide this member if they have an unhandled specific supervisor type
+            return false;
+        }).forEach(m => {
             options.push({ value: m.syskey, label: `${m.userName} (${m.employeeId})` });
         });
         return options;
-    }, [user, members]);
+    }, [user, members, selectedType]);
+
+    React.useEffect(() => {
+        if (selectedMemberSyskey !== '__SELF__' && !employeeOptions.some(o => o.value === selectedMemberSyskey)) {
+            setSelectedMemberSyskey('__SELF__');
+        }
+    }, [employeeOptions, selectedMemberSyskey]);
 
     const selectedMemberInfo = React.useMemo(() => {
         if (selectedMemberSyskey === '__SELF__') {
@@ -730,14 +748,6 @@ export default function NewRequestPage() {
                         payload.leavereason = leaveReason;
                     }
                     payload.selectedHandovers = handovers.map((h) => ({ syskey: h.syskey, name: h.name }));
-
-                    // For RO making leave requests
-                    if (selectedMemberSyskey !== '__SELF__') {
-                        payload.employeeid = selectedMemberInfo.id;
-                        payload.employeename = selectedMemberInfo.name;
-                        payload.userid = userId || '';
-                        payload.domain = useAuthStore.getState().domain || 'dev';
-                    }
                 } else {
                     // WFH: no starttime/endtime in mobile payload
                     payload.locationname = locationName;
@@ -927,9 +937,17 @@ export default function NewRequestPage() {
                 payload.requeststatus = "1";
             }
 
+            // ── Generic Subordinate Form Details ──
+            if (selectedMemberSyskey !== '__SELF__') {
+                payload.employeeid = selectedMemberInfo.id;
+                payload.employeename = selectedMemberInfo.name;
+                payload.userid = userId || '';
+                payload.domain = useAuthStore.getState().domain || 'dev';
+            }
+
             let endpoint = SAVE_REQUEST;
-            if (selectedType === 'leave' && selectedMemberSyskey !== '__SELF__') {
-                endpoint = SAVE_LEAVE_HR;
+            if (selectedMemberSyskey !== '__SELF__') {
+                endpoint = SAVE_LEAVE_HR; // "request/saverequesthr" supports ALL request types for subordinates
             }
 
             const res = await apiClient.post(endpoint, payload);
@@ -1097,8 +1115,8 @@ export default function NewRequestPage() {
                     <>
 
 
-                        {/* ═════ 2. Request Details (for RO Leave Proxy) ═════ */}
-                        {selectedType === 'leave' && (
+                        {/* ═════ 2. Request Details (for RO Proxy) ═════ */}
+                        {['leave', 'overtime'].includes(selectedType) && (
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Details</h3>
                                 <div className={styles['new-request__grid']}>
@@ -1531,7 +1549,7 @@ export default function NewRequestPage() {
                         )}
 
                         {/* ── Leave Reason ── */}
-                        {flavor === 'prd' && (
+                        {flavor === 'prd' && selectedType === 'leave' && (
                             <div className={styles['new-request__full']} style={{ marginBottom: 'var(--space-4)' }}>
                                 <Select
                                     id="leaveReason"
