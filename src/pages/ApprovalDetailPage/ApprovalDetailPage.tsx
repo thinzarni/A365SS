@@ -204,7 +204,7 @@ export default function ApprovalDetailPage() {
     });
 
     const data = detail?.datalist || ({} as Record<string, unknown>);
-    const approverList = (data as Record<string, unknown>)?.selectedApprovers as Array<{ syskey: string; name: string }> | undefined;
+    const approverList = ((data as Record<string, unknown>)?.approverList || (data as Record<string, unknown>)?.selectedApprovers) as Array<{ syskey: string; name: string }> | undefined;
 
     // ── Approve / Reject mutation ──
     const actionMutation = useMutation({
@@ -231,7 +231,7 @@ export default function ApprovalDetailPage() {
                 status: statusCode,
                 comment,
                 confirmed_amount: confirmedAmount,
-                selectedApprovers: [],
+                selectedApprovers: approverList || [],
             };
             const res = await apiClient.post(SAVE_APPROVAL, payload);
             return res.data;

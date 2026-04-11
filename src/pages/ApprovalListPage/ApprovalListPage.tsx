@@ -140,7 +140,7 @@ export default function ApprovalListPage() {
     }, [shiftData, shiftLoading, didInitDates]);
 
     const { data: allApprovals = [], isLoading: approvalsLoading } = useQuery<RequestModel[]>({
-        queryKey: ['approvals', fromDate, toDate, attType],
+        queryKey: ['approvals', fromDate, toDate, attType, activeStatus, isAttendance],
         queryFn: async () => {
             if (isAttendance) {
                 const res = await mainClient.post(GET_ATTENDANCE_APPROVAL_LIST, {
