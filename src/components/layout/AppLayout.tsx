@@ -42,6 +42,7 @@ import { useNotificationStore } from '../../stores/notification-store';
 import { MENU_ITEMS, CHECK_PASSWORD_EXPIRY } from '../../config/api-routes';
 import { appConfig } from '../../config/app-config';
 import { chatSocket } from '../../lib/chat-socket';
+// import { appSocket } from '../../lib/app-socket';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
 
@@ -61,6 +62,7 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/attendanceapproval': ShieldCheck,
     '/attendancerequest': UserCheck,
     '/locationapproval': MapPin,
+    '/supervised-attendance': UserCheck,
     // Leave
     '/leave': TreePalm,
     '/leave-summary': Palmtree,
@@ -106,6 +108,7 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/attendanceapproval': 'nav.attendanceApproval',
     '/attendancerequest': 'nav.attendanceRequest',
     '/locationapproval': 'nav.locationApproval',
+    '/supervised-attendance': 'nav.supervisedAttendance',
     '/leave': 'nav.leave',
     '/leave-summary': 'nav.leaveSummary',
     '/separation-leave-authorize': 'nav.separationLeaveAuthorize',
@@ -151,6 +154,7 @@ type ApiMenuItem = {
 export default function AppLayout() {
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
+    // const queryClient = useQueryClient();
     const { instance } = useMsal();
     const { user, domain, domains, token, userId, login, setUser, logout, menuList, setLanguage, language, loginType } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -323,24 +327,31 @@ export default function AppLayout() {
     const pwdCheckRan = React.useRef(false);
     useEffect(() => {
         // Run active check and websocket listening for non-Azure logins
-        if (!userId || !domain || !token || loginType === 'azure') return;
+        if (!userId || !domain || !token || loginType === 'azure') {
+            console.log("❌ [AppLayout] Returning early. Valid credentials missing.");
+            return;
+        }
 
         // 1. Establish the global Chat WS connection (Skip in Prod flavor)
         if (import.meta.env.VITE_FLAVOR !== 'prd') {
+            console.log("🔌 [AppLayout] Connecting to CHAT SOCKET (Flavor is not prd)");
             chatSocket.connect();
+
+        } else {
+            // console.log("🔌 [AppLayout] Connecting to APP SOCKET (Flavor is prd)");
             // appSocket.connect();
 
-            // const reqHandler = () => {
+            // const reqHandler = (data: any) => {
+            //     console.log('🔔 [AppSocket] requestConfirmed data received:', data);
             //     queryClient.invalidateQueries({ queryKey: ['requests'] });
             //     queryClient.invalidateQueries({ queryKey: ['summaryRequests'] });
             //     toast.success('New request submitted or updated.');
-            //     fetchNotifications({ isRefresh: true });
             // };
 
-            // const appHandler = () => {
+            // const appHandler = (data: any) => {
+            //     console.log('🔔 [AppSocket] approvalConfirmed data received:', data);
             //     queryClient.invalidateQueries({ queryKey: ['approvals'] });
             //     toast.success('Approval status updated.');
-            //     fetchNotifications({ isRefresh: true });
             // };
 
             // appSocket.on('requestConfirmed', reqHandler);
@@ -455,7 +466,7 @@ export default function AppLayout() {
             // appSocket.off('requestConfirmed');
             // appSocket.off('approvalConfirmed');
         };
-    }, [userId, domain, token, loginType, navigate]);
+    }, [userId, domain, token, loginType, navigate, user?.syskey]);
 
     const handleLogout = async () => {
         // 1. Flag intentional logout so LoginPage silent-SSO does NOT auto-sign-in again

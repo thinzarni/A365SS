@@ -557,7 +557,7 @@
 }
 
 .selectWrap select,
-.formGroup input[type="time"],
+.formGroup input,
 .formGroup textarea {
     width: 100%;
     padding: 12px 16px;

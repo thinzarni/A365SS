@@ -45,7 +45,8 @@
         "objectDetection": "Object Detection",
         "separationLeaveAuthorize": "Separation Leave Authorize",
         "separationAttendanceAuthorize": "Separation Attendance Authorize",
-        "employeeHandbook": "Employee Handbook"
+        "employeeHandbook": "Employee Handbook",
+        "supervisedAttendance": "Attendance"
     },
     "request": {
         "title": "Requests",
@@ -146,9 +147,38 @@
         "time": "Time",
         "back": "Back",
         "cancel": "Cancel",
-        "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
-        "days": ["S", "M", "T", "W", "T", "F", "S"],
-        "daysLong": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        "months": [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December"
+        ],
+        "days": [
+            "S",
+            "M",
+            "T",
+            "W",
+            "T",
+            "F",
+            "S"
+        ],
+        "daysLong": [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday"
+        ]
     },
     "dashboard": {
         "greetingMorning": "Good Morning",
