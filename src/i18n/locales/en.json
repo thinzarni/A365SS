@@ -147,6 +147,12 @@
         "time": "Time",
         "back": "Back",
         "cancel": "Cancel",
+        "currentRecords": "Current Records",
+        "pendingHRApproval": "Pending HR Approval",
+        "addContact": "Add Contact",
+        "addNow": "Add Now",
+        "status": "Status",
+        "save": "Save",
         "months": [
             "January",
             "February",
@@ -236,7 +242,12 @@
             "noData": "No pending or recent update requests found.",
             "category": "Category",
             "description": "Description",
-            "status": "Status"
+            "status": "Status",
+            "familyInfo": "Family Info",
+            "workExperience": "Work Experience",
+            "emergencyContacts": "Emergency Contacts",
+            "qualification": "Qualification",
+            "addressContact": "Address & Contact"
         },
         "employment": {
             "subtitle": "View your employment information",
@@ -331,7 +342,21 @@
             "gradePlaceholder": "e.g. Distinction, 3.8 GPA",
             "saveSuccessAdd": "Qualification added.",
             "saveSuccessUpdate": "Qualification updated.",
-            "reqDegree": "Degree is required."
+            "reqDegree": "Degree is required.",
+            "type": "Type",
+            "description": "Description",
+            "institution": "Institution / University",
+            "periodYear": "Period / Year",
+            "highest": "Highest?",
+            "qualificationType": "Qualification Type",
+            "selectQualificationType": "Select Qualification Type...",
+            "selectEducationName": "Select Education Name...",
+            "fromDate": "From Date",
+            "toDate": "To Date",
+            "highestQualification": "Highest Qualification?",
+            "country": "Country",
+            "selectCountry": "Select Country...",
+            "classOf": "Class of {{year}}"
         },
         "family": {
             "subtitle": "Family members used for tax deduction purposes",
@@ -357,6 +382,7 @@
             "subtitle": "Your permanent and temporary addresses",
             "permanentAddress": "Permanent Address",
             "temporaryAddress": "Temporary Address",
+            "currentAddress": "Current Address",
             "contactDetails": "Contact Details",
             "state": "State / Region",
             "selectState": "Select state/region",
@@ -368,7 +394,26 @@
             "primaryMobile": "Primary Mobile",
             "sameAsPermanent": "Same as permanent address",
             "saveSuccess": "Contact information updated.",
-            "selectDistrict": "Select district"
+            "selectDistrict": "Select district",
+            "type": "Type",
+            "address": "Address",
+            "cityWard": "City / Ward",
+            "districtTownship": "District / Township",
+            "stateCountry": "State / Country",
+            "permanent": "Permanent",
+            "current": "Current",
+            "currentAddresses": "Current Addresses",
+            "currentPersonalContact": "Current Personal Contact Details",
+            "pendingContactDetails": "Pending HR Approval Contact Details",
+            "country": "Country",
+            "selectCountry": "Select country",
+            "selectTownship": "Select township",
+            "city": "City",
+            "selectCity": "Select city",
+            "ward": "Ward",
+            "selectWard": "Select ward",
+            "addressDetails": "Address Details",
+            "addressPlaceholder": "Street, Building, etc."
         },
         "options": {
             "relationships": {
@@ -400,7 +445,13 @@
             "status": {
                 "Pending": "Pending",
                 "Approved": "Approved",
-                "Rejected": "Rejected"
+                "Rejected": "Rejected",
+                "Active": "Active"
+            },
+            "qualTypes": {
+                "Education": "Education",
+                "Certificate": "Certificate",
+                "Training": "Training"
             }
         }
     },
@@ -421,5 +472,31 @@
         "noHolidays": "No Holidays",
         "noHolidaysDesc": "No public holidays available for {{year}}.",
         "publicHoliday": "Public Holiday"
+    },
+    "supervisedAttendance": {
+        "title": "Attendance",
+        "subtitle": "Shows attendance records for your direct reports and supervised members.",
+        "dateRange": "Date Range",
+        "searchKeyword": "Search Keyword",
+        "searchPlaceholder": "Employee name or details...",
+        "attendanceType": "Attendance Type",
+        "pairStatus": "Pair Status",
+        "noRecords": "No Records Found",
+        "noRecordsDesc": "No team members have recorded attendance or activities on this date.",
+        "employee": "Employee",
+        "dateTime": "Date & Time",
+        "type": "Type",
+        "location": "Location",
+        "description": "Description",
+        "userType": "User Type",
+        "backdated": "BACKDATED",
+        "viewRecord": "View Record",
+        "editRecord": "Edit Record",
+        "timeIn": "Time In",
+        "timeOut": "Time Out",
+        "activity": "Activity",
+        "checkIn": "Check In",
+        "new": "New",
+        "process": "Process"
     }
 }

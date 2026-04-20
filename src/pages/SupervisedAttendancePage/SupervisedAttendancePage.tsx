@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery, useQueryClient, useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
@@ -47,6 +48,7 @@ interface SupervisedRecord {
 
 
 export default function SupervisedAttendancePage() {
+    const { t } = useTranslation();
     const { userId, domain } = useAuthStore();
     const queryClient = useQueryClient();
 
@@ -98,16 +100,16 @@ export default function SupervisedAttendancePage() {
 
         const lowered = String(label).toLowerCase();
         if (lowered.includes('time in') || lowered.includes('timein')) {
-            return { label: 'Time In', styleClass: styles.type601, icon: <LogIn size={14} /> };
+            return { label: t('supervisedAttendance.timeIn', 'Time In'), styleClass: styles.type601, icon: <LogIn size={14} /> };
         }
         if (lowered.includes('time out') || lowered.includes('timeout')) {
-            return { label: 'Time Out', styleClass: styles.type602, icon: <LogOut size={14} /> };
+            return { label: t('supervisedAttendance.timeOut', 'Time Out'), styleClass: styles.type602, icon: <LogOut size={14} /> };
         }
         if (lowered.includes('check in') || lowered.includes('checkin') || lowered.includes('check_in')) {
-            return { label: 'Check In', styleClass: styles.type604, icon: <CheckCircle2 size={14} /> };
+            return { label: t('supervisedAttendance.checkIn', 'Check In'), styleClass: styles.type604, icon: <CheckCircle2 size={14} /> };
         }
         if (lowered.includes('activity')) {
-            return { label: 'Activity', styleClass: styles.type603, icon: <Activity size={14} /> };
+            return { label: t('supervisedAttendance.activity', 'Activity'), styleClass: styles.type603, icon: <Activity size={14} /> };
         }
         return { label: label || rawType || 'Record', styleClass: styles.typeDefault, icon: <Clock size={14} /> };
     };
@@ -153,8 +155,12 @@ export default function SupervisedAttendancePage() {
         <div className={styles.page}>
             <header className={styles.header}>
                 <div>
-                    <h1 className={styles.title}>Attendance</h1>
+                    <h1 className={styles.title}>{t('supervisedAttendance.title', 'Attendance')}</h1>
+                    <p className="page-header__subtitle">
+                        {t('supervisedAttendance.subtitle', 'Shows attendance records for your direct reports and supervised members.')}
+                    </p>
                 </div>
+
                 {isFetching &&
                     <div className={styles.filters}>
                         <Loader2 size={18} className={styles.spinIcon} />
@@ -164,7 +170,7 @@ export default function SupervisedAttendancePage() {
 
             <div style={{ padding: '1rem', background: 'var(--color-neutral-0)', borderBottom: '1px solid var(--color-neutral-100)', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', animation: 'fadeIn 0.2s ease-in-out' }}>
                 <div style={{ minWidth: '240px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>Date Range</label>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>{t('supervisedAttendance.dateRange', 'Date Range')}</label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Input
                             type="date"
@@ -180,38 +186,38 @@ export default function SupervisedAttendancePage() {
                     </div>
                 </div>
                 <div style={{ flex: 1, minWidth: '200px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>Search Keyword</label>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>{t('supervisedAttendance.searchKeyword', 'Search Keyword')}</label>
                     <Input
-                        placeholder="Employee name or details..."
+                        placeholder={t('supervisedAttendance.searchPlaceholder', 'Employee name or details...')}
                         value={searchKey}
                         onChange={(e) => setSearchKey(e.target.value)}
                     />
                 </div>
                 <div style={{ minWidth: '160px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>Attendance Type</label>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>{t('supervisedAttendance.attendanceType', 'Attendance Type')}</label>
                     <Select
                         id="att-type-select"
                         value={attendanceType}
                         onChange={(e) => setAttendanceType(e.target.value)}
                         options={[
-                            { value: '', label: 'All' },
-                            { value: '601', label: 'Time In' },
-                            { value: '602', label: 'Time Out' },
-                            { value: '603', label: 'Activity' },
-                            { value: '604', label: 'Check In' }
+                            { value: '', label: t('status.all', 'All') },
+                            { value: '601', label: t('supervisedAttendance.timeIn', 'Time In') },
+                            { value: '602', label: t('supervisedAttendance.timeOut', 'Time Out') },
+                            { value: '603', label: t('supervisedAttendance.activity', 'Activity') },
+                            { value: '604', label: t('supervisedAttendance.checkIn', 'Check In') }
                         ]}
                     />
                 </div>
                 <div style={{ minWidth: '160px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>Pair Status</label>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>{t('supervisedAttendance.pairStatus', 'Pair Status')}</label>
                     <Select
                         id="pair-status-select"
                         value={String(pairStatus)}
                         onChange={(e) => setPairStatus(Number(e.target.value))}
                         options={[
-                            { value: '2', label: 'All' },
-                            { value: '0', label: 'New' },
-                            { value: '1', label: 'Process' }
+                            { value: '2', label: t('status.all', 'All') },
+                            { value: '0', label: t('supervisedAttendance.new', 'New') },
+                            { value: '1', label: t('supervisedAttendance.process', 'Process') }
                         ]}
                     />
                 </div>
@@ -247,8 +253,8 @@ export default function SupervisedAttendancePage() {
                     <div className={styles.emptyIconWrapper}>
                         <Users size={32} />
                     </div>
-                    <h3>No Records Found</h3>
-                    <p>No team members have recorded attendance or activities on this date.</p>
+                    <h3>{t('supervisedAttendance.noRecords', 'No Records Found')}</h3>
+                    <p>{t('supervisedAttendance.noRecordsDesc', 'No team members have recorded attendance or activities on this date.')}</p>
                 </div>
             ) : (
                 <>
@@ -256,14 +262,14 @@ export default function SupervisedAttendancePage() {
                         <table className={styles.table}>
                             <thead>
                                 <tr>
-                                    <th className={styles.th}>Employee</th>
-                                    <th className={styles.th}>Date & Time</th>
-                                    <th className={styles.th}>Type</th>
-                                    <th className={styles.th}>Location</th>
-                                    <th className={styles.th}>Description</th>
-                                    <th className={styles.th}>User Type</th>
-                                    <th className={styles.th}>Status</th>
-                                    <th className={styles.th}>Actions</th>
+                                    <th className={styles.th}>{t('supervisedAttendance.employee', 'Employee')}</th>
+                                    <th className={styles.th}>{t('supervisedAttendance.dateTime', 'Date & Time')}</th>
+                                    <th className={styles.th}>{t('supervisedAttendance.type', 'Type')}</th>
+                                    <th className={styles.th}>{t('supervisedAttendance.location', 'Location')}</th>
+                                    <th className={styles.th}>{t('supervisedAttendance.description', 'Description')}</th>
+                                    <th className={styles.th}>{t('supervisedAttendance.userType', 'User Type')}</th>
+                                    <th className={styles.th}>{t('request.status', 'Status')}</th>
+                                    <th className={styles.th}>{t('common.actions', 'Actions')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -292,7 +298,7 @@ export default function SupervisedAttendancePage() {
                                                 </div>
                                                 {rec.backdateFlag && (
                                                     <div style={{ fontSize: 11, color: '#eab308', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                        <CheckCircle2 size={12} /> BACKDATED
+                                                        <CheckCircle2 size={12} /> {t('supervisedAttendance.backdated', 'BACKDATED')}
                                                     </div>
                                                 )}
                                             </td>
@@ -315,14 +321,14 @@ export default function SupervisedAttendancePage() {
                                             </td>
                                             <td className={styles.td}>
                                                 <span className={`${styles.badge} ${rec.pair_status === 1 ? styles.type601 : styles.type604}`} style={{ display: 'inline-flex', width: 'auto' }}>
-                                                    {rec.pair_status === 1 ? 'Process' : 'New'}
+                                                    {rec.pair_status === 1 ? t('supervisedAttendance.process', 'Process') : t('supervisedAttendance.new', 'New')}
                                                 </span>
                                             </td>
                                             <td className={styles.td}>
                                                 <button
                                                     onClick={() => setEditingRecord(rec)}
                                                     className={styles.tableActionBtn}
-                                                    title={rec.pair_status === 1 ? 'View Record' : 'Edit Record'}
+                                                    title={rec.pair_status === 1 ? t('supervisedAttendance.viewRecord', 'View Record') : t('supervisedAttendance.editRecord', 'Edit Record')}
                                                 >
                                                     {rec.pair_status === 1 ? <Eye size={16} /> : <Edit3 size={16} />}
                                                 </button>
@@ -341,7 +347,7 @@ export default function SupervisedAttendancePage() {
                                 disabled={isFetchingNextPage}
                                 className={styles.btnLoadMore}
                             >
-                                {isFetchingNextPage ? 'Loading...' : 'Load More'}
+                                {isFetchingNextPage ? t('common.loading', 'Loading...') : t('common.loadMore', 'Load More')}
                                 {!isFetchingNextPage && <ChevronDown size={18} />}
                             </button>
                         </div>
