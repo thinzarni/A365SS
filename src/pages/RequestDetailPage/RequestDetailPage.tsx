@@ -29,6 +29,7 @@ import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, CURRENCY
 import { flavor } from '../../config/features';
 import type { TypesModel } from '../../types/models';
 import styles from './RequestDetailPage.module.css';
+import { displayDate } from '../../lib/date-utils';
 
 function getTypeVisual(desc: string) {
     const d = desc?.toLowerCase() || '';
@@ -161,6 +162,8 @@ export default function RequestDetailPage() {
     const memberList = detailData?.memberList || [];
     const accompanyPersonList = detailData?.accompanyPersonList || [];
 
+
+
     const deleteMutation = useMutation({
         mutationFn: async () => {
             await apiClient.post(DELETE_REQUEST, { syskey: id });
@@ -254,8 +257,8 @@ export default function RequestDetailPage() {
                     <div className={styles['request-detail__section']}>
                         <h4 className={styles['request-detail__section-title']}>Date &amp; Time</h4>
                         <div className={styles['request-detail__grid']}>
-                            {(detail.startdate || detail.date) && <Field label="Start Date" value={detail.startdate || detail.date} />}
-                            {detail.enddate && <Field label="End Date" value={detail.enddate} />}
+                            {(detail.startdate || detail.date) && <Field label="Start Date" value={displayDate(detail.startdate || detail.date)} />}
+                            {detail.enddate && <Field label="End Date" value={displayDate(detail.enddate)} />}
                             {(detail.starttime || detail.time) && <Field label="Start Time" value={detail.starttime || detail.time} />}
                             {detail.endtime && <Field label="End Time" value={detail.endtime} />}
                             {detail.duration && <Field label="Duration" value={detail.duration} />}

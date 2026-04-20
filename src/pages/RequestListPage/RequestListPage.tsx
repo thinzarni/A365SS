@@ -202,9 +202,9 @@ export default function RequestListPage() {
                 fromdate: fromDate.replace(/-/g, ''),
                 todate: toDate.replace(/-/g, ''),
                 type: isSubtypeView ? '' : requestType,
-                status: activeStatus === RequestStatus.All ? 0 : Number(activeStatus),
+                status: activeStatus === RequestStatus.All ? "0" : String(activeStatus),
             });
-            const datalist: any[] = res.data?.datalist || [];
+            const datalist: any[] = res.data?.datalist || res.data?.data || [];
             const all: RequestModel[] = datalist.map(item => ({
                 ...item,
                 eid: item.employeeid || item.employee_id || item.eid || '',
@@ -250,9 +250,13 @@ export default function RequestListPage() {
                 fromdate: fromDate.replace(/-/g, ''),
                 todate: toDate.replace(/-/g, ''),
                 type: isSubtypeView ? '' : requestType,
-                status: 0, // All statuses
+                status: "0", // All statuses
             });
-            const all: RequestModel[] = res.data?.datalist || [];
+            const datalist: any[] = res.data?.datalist || res.data?.data || [];
+            const all: RequestModel[] = datalist.map(item => ({
+                ...item,
+                eid: item.employeeid || item.employee_id || item.eid || '',
+            }));
             if (pathTypeCfg) {
                 return all.filter(r => {
                     const desc = ((r as any).requesttypedesc || (r as any).requesttype || '').toLowerCase();
