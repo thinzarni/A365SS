@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft,
@@ -135,6 +135,7 @@ export default function NewRequestPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams] = useSearchParams();
+    const queryClient = useQueryClient();
 
     // Derive preset type from URL path (most reliable) then fall back to ?type= query param.
     // e.g. /transportation/new → 'transportation', /claim/new → 'claim'
@@ -632,6 +633,11 @@ export default function NewRequestPage() {
                     return apiClient.post(PHOTO_UPLOAD, {
                         base64String,
                         base64filename: file.name,
+                    }).catch((err) => {
+                        if (err.message === 'Network Error') {
+                            throw new Error(`Upload failed for ${file.name}. The file might be too large.`);
+                        }
+                        throw err;
                     });
                 });
                 const results = await Promise.all(uploads);
@@ -961,6 +967,7 @@ export default function NewRequestPage() {
             return res.data;
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['requests'] });
             toast.success(t('request.submitSuccess'));
             const SUCCESS_RETURN: Record<string, string> = {
                 leave: '/leave',
@@ -975,10 +982,15 @@ export default function NewRequestPage() {
             };
             navigate(SUCCESS_RETURN[selectedType] || '/requests');
         },
-        onError: (err: unknown) => {
+        onError: (err: any) => {
             console.error('Submit error:', err);
-            const msg = err instanceof Error ? err.message : t('common.error');
-            toast.error(msg);
+            let msg = err instanceof Error ? err.message : t('common.error');
+            if (err?.response?.data) {
+                const srvData = err.response.data;
+                const errDetail = typeof srvData === 'string' ? srvData : (srvData.message || srvData.error || JSON.stringify(srvData));
+                msg = `Server Error: ${errDetail}`;
+            }
+            toast.error(msg, { duration: 6000 });
             // Stay on the form — do NOT navigate
         },
     });
@@ -1027,6 +1039,34 @@ export default function NewRequestPage() {
             // Mobile: validates shiftStart < shiftEnd
             if (startTime && endTime && startTime >= endTime) {
                 toast.error('Start time must be before end time');
+                return;
+            }
+        }
+        if (selectedType === 'claim') {
+            if (!claimType) {
+                toast.error('Please select a claim type');
+                return;
+            }
+            if (!amount || Number(amount) <= 0) {
+                toast.error('Amount must be greater than zero');
+                return;
+            }
+            if (!currencyType) {
+                toast.error('Please select a currency');
+                return;
+            }
+            if (isTaxiClaimType) {
+                if (!claimFromPlace.trim()) { toast.error('From Place is required'); return; }
+                if (!claimToPlace.trim()) { toast.error('To Place is required'); return; }
+            }
+        }
+        if (selectedType === 'cashadvance') {
+            if (!amount || Number(amount) <= 0) {
+                toast.error('Amount must be greater than zero');
+                return;
+            }
+            if (!currencyType) {
+                toast.error('Please select a currency');
                 return;
             }
         }
@@ -1376,12 +1416,12 @@ export default function NewRequestPage() {
                                     <Input id="initiatorDivision" label="Initiator's Division" value={user?.division || ''} readOnly />
 
                                     {/* ROW 3 */}
-                                    <FileUpload label="Summary of Change**" files={files} onChange={setFiles} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
+                                    <FileUpload label="Summary of Change**" files={files} onChange={setFiles} accept=".pdf,.docx,.jpg,.png" />
                                     <Textarea id="orgComment" label="Comment for Summary Change**" value={orgComment} onChange={e => setOrgComment(e.target.value)} placeholder="Test" required />
 
                                     {/* ROW 4 */}
                                     <Textarea id="orgObjective" label="Objective of Change**" value={orgObjective} onChange={e => setOrgObjective(e.target.value)} placeholder="TEST" required />
-                                    <FileUpload label="Employee Reassignment**" files={files} onChange={setFiles} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
+                                    <FileUpload label="Employee Reassignment**" files={files} onChange={setFiles} accept=".pdf,.docx,.jpg,.png" />
 
                                     {/* ROW 5 */}
                                     <div className={styles['new-request__full']} style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '8px', marginTop: '16px' }}>
@@ -1697,7 +1737,7 @@ export default function NewRequestPage() {
                                             label="Attachments"
                                             files={files}
                                             onChange={setFiles}
-                                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                                            accept=".pdf,.docx,.jpg,.png"
                                         />
                                     </div>
                                 )}
