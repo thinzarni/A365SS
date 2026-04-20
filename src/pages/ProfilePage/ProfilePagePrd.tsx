@@ -715,7 +715,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<Phone size={20} />} title={t('profile.tabs.emergency')} subtitle={t('profile.emergency.subtitle')}
-                action={<button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> Add Contact</button>} />
+                action={<button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('common.addContact')}</button>} />
 
             {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.emergency.noContact')} onAdd={openAdd} />
@@ -723,7 +723,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                     <>
                         {records.current.length > 0 && (
                             <div className={styles.tableWrapper}>
-                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>Current Records</div>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>{t('common.currentRecords')}</div>
                                 <table className={styles.table}>
                                     <thead>
                                         <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.emergency.contactNumber')}</th><th>{t('profile.emergency.address')}</th><th></th></tr>
@@ -751,11 +751,11 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                         {records.pending.length > 0 && (
                             <div className={styles.tableWrapper} style={{ marginTop: '24px', border: '1px solid var(--color-warning-200)' }}>
                                 <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    Pending HR Approval
+                                    {t('common.pendingHRApproval')}
                                 </div>
                                 <table className={styles.table}>
                                     <thead style={{ background: 'var(--color-warning-50)' }}>
-                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.emergency.contactNumber')}</th><th>{t('profile.emergency.address')}</th><th>Status</th><th></th></tr>
+                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.emergency.contactNumber')}</th><th>{t('profile.emergency.address')}</th><th>{t('common.status')}</th><th></th></tr>
                                     </thead>
                                     <tbody>
                                         {records.pending.map(r => (
@@ -986,7 +986,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                     <>
                         {records.current.length > 0 && (
                             <div className={styles.tableWrapper}>
-                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>Current Records</div>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>{t('common.currentRecords')}</div>
                                 <table className={styles.table}>
                                     <thead>
                                         <tr>
@@ -1019,13 +1019,13 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                         {records.pending.length > 0 && (
                             <div className={styles.tableWrapper} style={{ marginTop: '24px', border: '1px solid var(--color-warning-200)' }}>
                                 <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    Pending HR Approval
+                                    {t('common.pendingHRApproval')}
                                 </div>
                                 <table className={styles.table}>
                                     <thead style={{ background: 'var(--color-warning-50)' }}>
                                         <tr>
                                             <th>{t('profile.experience.org')}</th><th>{t('profile.experience.orgType')}</th><th>{t('profile.experience.industry')}</th>
-                                            <th>{t('profile.experience.designation')}</th><th>{t('profile.experience.period')}</th><th>{t('profile.experience.salary')}</th><th>Status</th><th></th>
+                                            <th>{t('profile.experience.designation')}</th><th>{t('profile.experience.period')}</th><th>{t('profile.experience.salary')}</th><th>{t('common.status')}</th><th></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1224,9 +1224,16 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         if (!form.description) { toast.error(t('profile.qualification.reqDegree', 'Description is required')); return; }
 
         const isUpdate = !!editingId;
-        const newRecord = { ...form };
+        const newRecord: Qualification & { _displayEduName?: string } = { ...form };
         if (!isUpdate) {
             newRecord.id = Date.now().toString(); // Temporary ID, real syskey provided by backend
+        }
+
+        if (['Education', 'Certificate', 'Training'].includes(form.type)) {
+            const selectedEdu = eduNames.find((e: any) => e.syskey === form.educationname);
+            if (selectedEdu) {
+                newRecord._displayEduName = selectedEdu.description || selectedEdu.code;
+            }
         }
 
         const filtered = [...records.current, ...records.pending].filter(r => r.id !== editingId);
@@ -1316,16 +1323,16 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                     <>
                         {records.current.length > 0 && (
                             <div className={styles.tableWrapper}>
-                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>Current Records</div>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>{t('common.currentRecords')}</div>
                                 <table className={styles.table}>
                                     <thead>
                                         <tr>
-                                            <th>Type</th>
-                                            <th>Description</th>
-                                            <th>Institution / University</th>
-                                            <th>Period / Year</th>
-                                            <th>Highest?</th>
-                                            <th>Status</th>
+                                            <th>{t('profile.qualification.type')}</th>
+                                            <th>{t('profile.qualification.description')}</th>
+                                            <th>{t('profile.qualification.institution')}</th>
+                                            <th>{t('profile.qualification.periodYear')}</th>
+                                            <th>{t('profile.qualification.highest')}</th>
+                                            <th>{t('common.status')}</th>
                                             <th></th>
                                         </tr>
                                     </thead>
@@ -1334,7 +1341,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                             <tr key={r.id}>
                                                 <td>{r.type}</td>
                                                 <td><strong>{r.description}</strong></td>
-                                                <td>{r.educationname}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.university}</small></td>
+                                                <td>{(r as any)._displayEduName || r.educationname} <br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.university}</small></td>
                                                 <td className={styles.noWrap}>{formatDateForApi(r.fromdate)} → {formatDateForApi(r.todate) || t('profile.experience.present')}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.year && `Class of ${r.year}`}</small></td>
                                                 <td>{r.isheight === 'true' ? 'Yes' : 'No'}</td>
                                                 <td><StatusBadge status={r.status === '0' ? 'Pending' : 'Active'} /></td>
@@ -1354,17 +1361,17 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                         {records.pending.length > 0 && (
                             <div className={styles.tableWrapper} style={{ marginTop: '24px', border: '1px solid var(--color-warning-200)' }}>
                                 <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    Pending HR Approval
+                                    {t('common.pendingHRApproval')}
                                 </div>
                                 <table className={styles.table}>
                                     <thead style={{ background: 'var(--color-warning-50)' }}>
                                         <tr>
-                                            <th>Type</th>
-                                            <th>Description</th>
-                                            <th>Institution / University</th>
-                                            <th>Period / Year</th>
-                                            <th>Highest?</th>
-                                            <th>Status</th>
+                                            <th>{t('profile.qualification.type')}</th>
+                                            <th>{t('profile.qualification.description')}</th>
+                                            <th>{t('profile.qualification.institution')}</th>
+                                            <th>{t('profile.qualification.periodYear')}</th>
+                                            <th>{t('profile.qualification.highest')}</th>
+                                            <th>{t('common.status')}</th>
                                             <th></th>
                                         </tr>
                                     </thead>
@@ -1373,7 +1380,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                             <tr key={r.id} style={{ opacity: 0.85 }}>
                                                 <td>{r.type}</td>
                                                 <td><strong>{r.description}</strong></td>
-                                                <td>{r.educationname}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.university}</small></td>
+                                                <td>{(r as any)._displayEduName || r.educationname} <br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.university}</small></td>
                                                 <td className={styles.noWrap}>{formatDateForApi(r.fromdate)} → {formatDateForApi(r.todate) || t('profile.experience.present')}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.year && `Class of ${r.year}`}</small></td>
                                                 <td>{r.isheight === 'true' ? 'Yes' : 'No'}</td>
                                                 <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} /></td>
@@ -1394,27 +1401,27 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
 
             {showModal && (
                 <FormModal title={editingId ? t('profile.qualification.modalEdit') : t('profile.qualification.modalAdd')} onClose={close} onSave={save}>
-                    <FormRow label="Type">
+                    <FormRow label={t('profile.qualification.type')}>
                         <select className={styles.formSelect} value={form.type} onChange={f('type')}>
-                            <option value="Education">Education</option>
-                            <option value="Certificate">Certificate</option>
-                            <option value="Training">Training</option>
+                            <option value="Education">{t('profile.options.qualTypes.Education')}</option>
+                            <option value="Certificate">{t('profile.options.qualTypes.Certificate')}</option>
+                            <option value="Training">{t('profile.options.qualTypes.Training')}</option>
                         </select>
                     </FormRow>
                     {form.type === 'Education' &&
-                        <FormRow label="Qualification Type">
+                        <FormRow label={t('profile.qualification.qualificationType')}>
                             <select className={styles.formSelect} value={form.qualificationtype} onChange={f('qualificationtype')}>
-                                <option value="">Select Qualification Type...</option>
+                                <option value="">{t('profile.qualification.selectQualificationType')}</option>
                                 {qTypes.map((q: any) => (
                                     <option key={q.syskey} value={q.syskey}>{q.description}</option>
                                 ))}
                             </select>
                         </FormRow>
                     }
-                    <FormRow label={t('profile.qualification.educationName', 'Education Name')}>
+                    <FormRow label={t('profile.qualification.educationName')}>
                         {['Education', 'Certificate', 'Training'].includes(form.type) ? (
                             <select className={styles.formSelect} value={form.educationname} onChange={f('educationname')}>
-                                <option value="">Select Education Name...</option>
+                                <option value="">{t('profile.qualification.selectEducationName')}</option>
                                 {eduNames.map((e: any) => (
                                     <option key={e.syskey} value={e.syskey}>{e.description || e.code}</option>
                                 ))}
@@ -1445,18 +1452,18 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
 
 
                     <div className={styles.formGrid2}>
-                        <FormRow label="From Date">
+                        <FormRow label={t('profile.qualification.fromDate')}>
                             <input className={styles.formInput} type="date" value={form.fromdate} onChange={f('fromdate')} />
                         </FormRow>
-                        <FormRow label="To Date">
+                        <FormRow label={t('profile.qualification.toDate')}>
                             <input className={styles.formInput} type="date" value={form.todate} onChange={f('todate')} />
                         </FormRow>
                     </div>
                     <div className={styles.formGrid2}>
-                        <FormRow label="Highest Qualification?">
+                        <FormRow label={t('profile.qualification.highestQualification')}>
                             <select className={styles.formSelect} value={form.isheight} onChange={f('isheight')}>
-                                <option value="false">No</option>
-                                <option value="true">Yes</option>
+                                <option value="false">{t('profile.options.yesno.No')}</option>
+                                <option value="true">{t('profile.options.yesno.Yes')}</option>
                             </select>
                         </FormRow>
                     </div>
@@ -1622,7 +1629,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                     <>
                         {records.current.length > 0 && (
                             <div className={styles.tableWrapper}>
-                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>Current Records</div>
+                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>{t('common.currentRecords')}</div>
                                 <table className={styles.table}>
                                     <thead>
                                         <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.personal.gender')}</th><th>{t('profile.personal.dob')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.family.taxEligible')}</th><th>{t('profile.family.status')}</th><th></th></tr>
@@ -1652,7 +1659,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                         {records.pending.length > 0 && (
                             <div className={styles.tableWrapper} style={{ marginTop: '24px', border: '1px solid var(--color-warning-200)' }}>
                                 <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    Pending HR Approval
+                                    {t('common.pendingHRApproval')}
                                 </div>
                                 <table className={styles.table}>
                                     <thead style={{ background: 'var(--color-warning-50)' }}>
@@ -1723,7 +1730,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                         </FormRow>
                     </div>
                     <FormRow label={`${t('profile.family.attachment')} *`}>
-                        <input className={styles.formInput} type="file" accept="image/*,.pdf" onChange={e => setForm(prev => ({ ...prev, attachment: e.target.files?.[0]?.name || '' }))} />
+                        <input className={styles.formInput} type="file" accept=".pdf,.docx,.jpg,.png" onChange={e => setForm(prev => ({ ...prev, attachment: e.target.files?.[0]?.name || '' }))} />
                         {form.attachment && <p className={styles.fileHint}>Selected: {form.attachment}</p>}
                     </FormRow>
                 </FormModal>
@@ -2040,18 +2047,18 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                 <table className={styles.table}>
                     <thead style={{ background }}>
                         <tr>
-                            <th>Type</th>
-                            <th>Address</th>
-                            <th>City / Ward</th>
-                            <th>District / Township</th>
-                            <th>State / Country</th>
-                            {typeof background === 'string' && background !== 'transparent' && <th>Status</th>}
+                            <th>{t('profile.contact.type')}</th>
+                            <th>{t('profile.contact.address')}</th>
+                            <th>{t('profile.contact.cityWard')}</th>
+                            <th>{t('profile.contact.districtTownship')}</th>
+                            <th>{t('profile.contact.stateCountry')}</th>
+                            {typeof background === 'string' && background !== 'transparent' && <th>{t('common.status')}</th>}
                         </tr>
                     </thead>
                     <tbody>
                         {addrs.map(a => (
                             <tr key={a.syskey || a.addressstatus}>
-                                <td><strong>{a.addressstatus === 0 ? 'Permanent' : 'Current'}</strong></td>
+                                <td><strong>{a.addressstatus === 0 ? t('profile.contact.permanent') : t('profile.contact.current')}</strong></td>
                                 <td>{a.address}</td>
                                 <td>{a.city}{a.city && a.ward ? ' / ' : ''}{a.ward}</td>
                                 <td>{(a.addressstatus === 0 ? permDistricts : tempDistricts)?.find((d: any) => d.syskey === a.district)?.description || a.district}{a.district && a.township ? ' / ' : ''}{(a.addressstatus === 0 ? permTownships : tempTownships)?.find((t: any) => t.syskey === a.township)?.description || a.township}</td>
@@ -2088,44 +2095,44 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                                 {states?.map((s: any) => <option key={s.syskey} value={s.syskey}>{s.description}</option>)}
                             </select>
                         </FormRow>
-                        <FormRow label="Country">
+                        <FormRow label={t('profile.contact.country')}>
                             <select className={styles.formSelect} value={form.permanent.countrysyskey} onChange={updateAddr('permanent', 'country')}>
-                                <option value="">Select country</option>
+                                <option value="">{t('profile.contact.selectCountry')}</option>
                                 {countries?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
                             </select>
                         </FormRow>
                         <FormRow label={t('profile.contact.district')}>
                             <select className={styles.formSelect} value={form.permanent.districtsyskey} onChange={updateAddr('permanent', 'district')}>
-                                <option value="">Select district</option>
+                                <option value="">{t('profile.contact.selectDistrict')}</option>
                                 {permDistricts?.map((d: any) => <option key={d.syskey} value={d.syskey}>{d.description}</option>)}
                             </select>
                         </FormRow>
                         <FormRow label={t('profile.contact.township')}>
                             <select className={styles.formSelect} value={form.permanent.townshipsyskey} onChange={updateAddr('permanent', 'township')}>
-                                <option value="">Select township</option>
+                                <option value="">{t('profile.contact.selectTownship')}</option>
                                 {permTownships?.map((t: any) => <option key={t.syskey} value={t.syskey}>{t.description}</option>)}
                             </select>
                         </FormRow>
-                        <FormRow label="City">
+                        <FormRow label={t('profile.contact.city')}>
                             <select className={styles.formSelect} value={form.permanent.citysyskey} onChange={updateAddr('permanent', 'city')}>
-                                <option value="">Select city</option>
+                                <option value="">{t('profile.contact.selectCity')}</option>
                                 {permCities?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
                             </select>
                         </FormRow>
-                        <FormRow label="Ward">
+                        <FormRow label={t('profile.contact.ward')}>
                             <select className={styles.formSelect} value={form.permanent.wardsyskey} onChange={updateAddr('permanent', 'ward')}>
-                                <option value="">Select ward</option>
+                                <option value="">{t('profile.contact.selectWard')}</option>
                                 {permWards?.map((w: any) => <option key={w.syskey} value={w.syskey}>{w.description}</option>)}
                             </select>
                         </FormRow>
-                        <FormRow label="Address Details" fullWidth>
-                            <input className={styles.formInput} value={form.permanent.address} onChange={updateAddr('permanent', 'address')} placeholder="Street, Building, etc." />
+                        <FormRow label={t('profile.contact.addressDetails')} fullWidth>
+                            <input className={styles.formInput} value={form.permanent.address} onChange={updateAddr('permanent', 'address')} placeholder={t('profile.contact.addressPlaceholder')} />
                         </FormRow>
                     </div>
 
                     {/* Current Address */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', marginTop: 'var(--space-8)' }}>
-                        <p className={styles.subSectionTitle} style={{ margin: 0 }}>Current Address</p>
+                        <p className={styles.subSectionTitle} style={{ margin: 0 }}>{t('profile.contact.currentAddress')}</p>
                         <span style={{ fontSize: '12px', background: 'var(--color-neutral-100)', padding: '2px 8px', borderRadius: '4px', color: 'var(--color-neutral-600)' }}>Status: 1</span>
                     </div>
                     <div className={styles.formGrid2}>
@@ -2135,38 +2142,38 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                                 {states?.map((s: any) => <option key={s.syskey} value={s.syskey}>{s.description}</option>)}
                             </select>
                         </FormRow>
-                        <FormRow label="Country">
+                        <FormRow label={t('profile.contact.country')}>
                             <select className={styles.formSelect} value={form.temporary.countrysyskey} onChange={updateAddr('temporary', 'country')}>
-                                <option value="">Select country</option>
+                                <option value="">{t('profile.contact.selectCountry')}</option>
                                 {countries?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
                             </select>
                         </FormRow>
                         <FormRow label={t('profile.contact.district')}>
                             <select className={styles.formSelect} value={form.temporary.districtsyskey} onChange={updateAddr('temporary', 'district')}>
-                                <option value="">Select district</option>
+                                <option value="">{t('profile.contact.selectDistrict')}</option>
                                 {tempDistricts?.map((d: any) => <option key={d.syskey} value={d.syskey}>{d.description}</option>)}
                             </select>
                         </FormRow>
                         <FormRow label={t('profile.contact.township')}>
                             <select className={styles.formSelect} value={form.temporary.townshipsyskey} onChange={updateAddr('temporary', 'township')}>
-                                <option value="">Select township</option>
+                                <option value="">{t('profile.contact.selectTownship')}</option>
                                 {tempTownships?.map((t: any) => <option key={t.syskey} value={t.syskey}>{t.description}</option>)}
                             </select>
                         </FormRow>
-                        <FormRow label="City">
+                        <FormRow label={t('profile.contact.city')}>
                             <select className={styles.formSelect} value={form.temporary.citysyskey} onChange={updateAddr('temporary', 'city')}>
-                                <option value="">Select city</option>
+                                <option value="">{t('profile.contact.selectCity')}</option>
                                 {tempCities?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
                             </select>
                         </FormRow>
-                        <FormRow label="Ward">
+                        <FormRow label={t('profile.contact.ward')}>
                             <select className={styles.formSelect} value={form.temporary.wardsyskey} onChange={updateAddr('temporary', 'ward')}>
-                                <option value="">Select ward</option>
+                                <option value="">{t('profile.contact.selectWard')}</option>
                                 {tempWards?.map((w: any) => <option key={w.syskey} value={w.syskey}>{w.description}</option>)}
                             </select>
                         </FormRow>
-                        <FormRow label="Address Details" fullWidth>
-                            <input className={styles.formInput} value={form.temporary.address} onChange={updateAddr('temporary', 'address')} placeholder="Street, Building, etc." />
+                        <FormRow label={t('profile.contact.addressDetails')} fullWidth>
+                            <input className={styles.formInput} value={form.temporary.address} onChange={updateAddr('temporary', 'address')} placeholder={t('profile.contact.addressPlaceholder')} />
                         </FormRow>
                     </div>
 
@@ -2191,8 +2198,8 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                 </div>
             ) : (
                 <div style={{ padding: '0 16px 16px' }}>
-                    {renderAddressTable(records.current, 'Current Addresses')}
-                    {renderAddressTable(records.pending, 'Pending HR Approval', 'var(--color-warning-50)')}
+                    {renderAddressTable(records.current, t('profile.contact.currentAddresses'))}
+                    {renderAddressTable(records.pending, t('common.pendingHRApproval'), 'var(--color-warning-50)')}
 
                     {records.current.length === 0 && records.pending.length === 0 && (
                         <p className={styles.emptySlot} style={{ textAlign: 'center', padding: '24px' }}>{t('common.noData')}</p>
@@ -2209,7 +2216,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
 
                     {records.pending.length > 0 && (
                         <div className={styles.addressBlock} style={{ marginTop: '24px', padding: '16px', background: 'var(--color-warning-50)', borderRadius: '8px', border: '1px solid var(--color-warning-200)' }}>
-                            <p className={styles.subSectionTitle} style={{ color: 'var(--color-warning-700)' }}>Pending HR Approval Contact Details</p>
+                            <p className={styles.subSectionTitle} style={{ color: 'var(--color-warning-700)' }}>{t('profile.contact.pendingContactDetails')}</p>
                             <div className={styles.infoGrid}>
                                 <InfoItem icon={<Mail size={18} />} label={t('profile.contact.primaryEmail')} value={records.pending[0]?.personalprimaryemail || '-'} />
                                 <InfoItem icon={<Mail size={18} />} label={t('profile.contact.secondaryEmail')} value={records.pending[0]?.personalsecondarymail || '-'} />
@@ -2231,11 +2238,11 @@ function UpdateHistoryTab({ profile }: { profile: ProfileData }) {
         queryKey: ['profile-updates', profile.userid],
         queryFn: async () => {
             const endpoints = [
-                { id: 'family', url: FAMILY_COMPARE, label: 'Family Info' },
-                { id: 'experience', url: EXPERIENCE_COMPARE, label: 'Work Experience' },
-                { id: 'emergency', url: EMERGENCY_COMPARE, label: 'Emergency Contacts' },
-                { id: 'qualification', url: QUALIFICATION_COMPARE, label: 'Qualification' },
-                { id: 'address', url: ADDRESS_COMPARE, label: 'Address & Contact' }
+                { id: 'family', url: FAMILY_COMPARE, label: t('profile.history.familyInfo') },
+                { id: 'experience', url: EXPERIENCE_COMPARE, label: t('profile.history.workExperience') },
+                { id: 'emergency', url: EMERGENCY_COMPARE, label: t('profile.history.emergencyContacts') },
+                { id: 'qualification', url: QUALIFICATION_COMPARE, label: t('profile.history.qualification') },
+                { id: 'address', url: ADDRESS_COMPARE, label: t('profile.history.addressContact') }
             ];
 
             const allUpdates: any[] = [];
@@ -2357,6 +2364,7 @@ function FormRow({ label, children, fullWidth }: { label: string; children: Reac
 }
 
 function FormModal({ title, onClose, onSave, children }: { title: string; onClose: () => void; onSave: () => void; children: React.ReactNode }) {
+    const { t } = useTranslation();
     return (
         <div className={styles.modalBackdrop} onClick={onClose}>
             <div className={styles.modalCard} style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
@@ -2366,8 +2374,8 @@ function FormModal({ title, onClose, onSave, children }: { title: string; onClos
                 </div>
                 <div className={styles.modalBody}>{children}</div>
                 <div className={styles.modalActions}>
-                    <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-                    <Button type="button" onClick={onSave}><Save size={14} style={{ marginRight: 4 }} /> Save</Button>
+                    <Button type="button" variant="ghost" onClick={onClose}>{t('common.cancel')}</Button>
+                    <Button type="button" onClick={onSave}><Save size={14} style={{ marginRight: 4 }} /> {t('common.save')}</Button>
                 </div>
             </div>
         </div>
@@ -2375,32 +2383,34 @@ function FormModal({ title, onClose, onSave, children }: { title: string; onClos
 }
 
 function EmptyState({ message, onAdd }: { message: string; onAdd: () => void }) {
+    const { t } = useTranslation();
     return (
         <div className={styles.emptyState}>
             <FileText size={36} className={styles.emptyStateIcon} />
             <p>{message}</p>
-            <button className={styles.addBtn} onClick={onAdd}><Plus size={15} /> Add Now</button>
+            <button className={styles.addBtn} onClick={onAdd}><Plus size={15} /> {t('common.addNow')}</button>
         </div>
     );
 }
 
 function StatusBadge({ status }: { status: string | number }) {
+    const { t } = useTranslation();
     const s = status?.toString().toLowerCase();
     const isApproved = s === 'approved' || s === '1' || s === 'active';
     const isRejected = s === 'rejected' || s === '2';
 
     let className = styles.statusBadge__pending;
     let icon = <Clock size={12} />;
-    let label = 'Pending';
+    let label = t('profile.options.status.Pending');
 
     if (isApproved) {
         className = styles.statusBadge__approved;
         icon = <CheckCircle2 size={12} />;
-        label = 'Approved';
+        label = t('profile.options.status.Approved');
     } else if (isRejected) {
         className = styles.statusBadge__rejected;
         icon = <X size={12} />;
-        label = 'Rejected';
+        label = t('profile.options.status.Rejected');
     }
 
     return (

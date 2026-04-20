@@ -236,7 +236,7 @@ export default function NewClaimPage() {
                             label={t('request.attachments')}
                             files={files}
                             onChange={setFiles}
-                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                            accept=".pdf,.docx,.jpg,.png"
                         />
 
                         <MemberPicker
