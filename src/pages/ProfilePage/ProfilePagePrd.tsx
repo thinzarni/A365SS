@@ -75,6 +75,8 @@ interface ProfileData {
     serviceyearnumeric?: string;
     nationalitytype?: string;
     nationalitytypesyskey?: string;
+    nationality?: string;
+    nationalitysyskey?: string;
     ethnicity?: string | null;
     ethnicitysyskey?: string;
     isnrcinput?: boolean;
@@ -489,7 +491,7 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
         nrc: profile.ic || '',
         maritalStatus: profile.maritalstatus || '',
         gender: profile.gender || '',
-        nationality: profile.nationalitytype || '',
+        nationality: profile.nationality || '',
         ethnicity: profile.ethnicity || '',
     });
 

@@ -11,7 +11,7 @@ export const GENERATE_QR = 'generate/qr';
 export const QR_SUCCESS = 'qr-success';
 export const CHECK_PASSWORD_EXPIRY = 'check/password-expried';
 export const DOMAIN_LIST = `${hxmPrefix}payroll/domainlist`;
-export const USER_PROFILE = 'api/employees/profile';
+export const USER_PROFILE = flavor == 'prd' ? 'api/employees/extended-profile' : 'api/employees/profile';
 export const USER_PROFILE_UPDATE = 'api/employees/profile/update';
 export const GET_FAMILY = 'api/employees/getfamily';
 export const FAMILY_UPDATE = 'api/employees/family/update';
