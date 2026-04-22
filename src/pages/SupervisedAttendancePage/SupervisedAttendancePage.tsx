@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useInfiniteQuery, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
     Clock,
     Activity,
-    MapPin,
+    ChevronLeft,
+    ChevronRight,
     LogIn,
     LogOut,
     CheckCircle2,
@@ -14,7 +15,11 @@ import {
     Edit3,
     Eye,
     Loader2,
-    Search
+    Search,
+    MapPin,
+    ArrowUpDown,
+    ArrowUp,
+    ArrowDown
 } from 'lucide-react';
 import { Input, Select } from '../../components/ui';
 import apiClient from '../../lib/api-client';
@@ -60,12 +65,18 @@ export default function SupervisedAttendancePage() {
     const [attendanceType, setAttendanceType] = useState<string>('');
     const [pairStatus, setPairStatus] = useState<number>(2);
 
+
+    const [page, setPage] = useState<number>(1);
+    const pageSize = 20;
+
     // API-bound states that actually trigger the fetch
     const [apiFromDate, setApiFromDate] = useState<string>(format(new Date(), 'yyyyMMdd'));
     const [apiToDate, setApiToDate] = useState<string>(format(new Date(), 'yyyyMMdd'));
     const [apiSearchKey, setApiSearchKey] = useState<string>('');
     const [apiAttendanceType, setApiAttendanceType] = useState<string>('');
     const [apiPairStatus, setApiPairStatus] = useState<number>(2);
+    const [apiOrderBy, setApiOrderBy] = useState<string>('date');
+    const [apiOrderDir, setApiOrderDir] = useState<string>('DESC');
 
     const handleApplyFilters = () => {
         setApiFromDate(fromDate.replace(/-/g, ''));
@@ -73,6 +84,7 @@ export default function SupervisedAttendancePage() {
         setApiSearchKey(searchKey);
         setApiAttendanceType(attendanceType);
         setApiPairStatus(pairStatus);
+        setPage(1);
     };
 
     // Fetch setup types for binding labels
@@ -114,7 +126,7 @@ export default function SupervisedAttendancePage() {
         return { label: label || rawType || 'Record', styleClass: styles.typeDefault, icon: <Clock size={14} /> };
     };
 
-    const fetchAttendances = async ({ pageParam = 1 }) => {
+    const fetchAttendances = async () => {
         const res = await mainClient.post('api/checkin/supervised-attendance', {
             userid: userId,
             domain: domain,
@@ -123,33 +135,45 @@ export default function SupervisedAttendancePage() {
             searchkey: apiSearchKey,
             attendancetype: apiAttendanceType,
             pairstatus: apiPairStatus,
-            page: pageParam,
-            limit: 20
+            page: page,
+            limit: pageSize,
+            orderBy: apiOrderBy,
+            order: apiOrderDir
         });
         return res.data?.data ?? res.data ?? [];
     };
 
     const {
-        data,
-        fetchNextPage,
-        hasNextPage,
-        isFetchingNextPage,
+        data: recordsData,
         isLoading,
-        isFetching
-    } = useInfiniteQuery({
-        queryKey: ['supervised-attendance', apiFromDate, apiToDate, apiSearchKey, apiAttendanceType, apiPairStatus, userId, domain],
-        queryFn: fetchAttendances,
-        initialPageParam: 1,
-        getNextPageParam: (lastPage, allPages) => {
-            if (lastPage.length < 20) return undefined;
-            return allPages.length + 1;
-        }
+        isFetching,
+        refetch
+    } = useQuery({
+        queryKey: ['supervised-attendance', apiFromDate, apiToDate, apiSearchKey, apiAttendanceType, apiPairStatus, apiOrderBy, apiOrderDir, userId, domain, page],
+        queryFn: fetchAttendances
     });
 
     const records = useMemo(() => {
-        if (!data) return [];
-        return data.pages.flat() as SupervisedRecord[];
-    }, [data]);
+        if (!recordsData) return [];
+        return recordsData as SupervisedRecord[];
+    }, [recordsData]);
+
+    const handleSort = (column: string) => {
+        if (apiOrderBy === column) {
+            setApiOrderDir(prev => prev === 'DESC' ? 'ASC' : 'DESC');
+        } else {
+            setApiOrderBy(column);
+            setApiOrderDir('DESC');
+        }
+        setPage(1);
+    };
+
+    const renderSortIcon = (column: string) => {
+        if (apiOrderBy !== column) return <ArrowUpDown size={14} style={{ marginLeft: 6, opacity: 0.3 }} />;
+        return apiOrderDir === 'ASC' ? <ArrowUp size={14} style={{ marginLeft: 6 }} /> : <ArrowDown size={14} style={{ marginLeft: 6 }} />;
+    };
+
+    const hasNextPage = records.length === pageSize;
 
     return (
         <div className={styles.page}>
@@ -244,7 +268,7 @@ export default function SupervisedAttendancePage() {
                 </div>
             </div>
 
-            {(isLoading || (isFetching && !isFetchingNextPage)) ? (
+            {(isLoading || isFetching) ? (
                 <div className={styles.skeletonTable}>
                     {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className={styles.skeletonRow} />)}
                 </div>
@@ -262,8 +286,24 @@ export default function SupervisedAttendancePage() {
                         <table className={styles.table}>
                             <thead>
                                 <tr>
-                                    <th className={styles.th}>{t('supervisedAttendance.employee', 'Employee')}</th>
-                                    <th className={styles.th}>{t('supervisedAttendance.dateTime', 'Date & Time')}</th>
+                                    <th className={styles.th} style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('eid')}>
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            {'ID'}
+                                            {renderSortIcon('eid')}
+                                        </div>
+                                    </th>
+                                    <th className={styles.th} style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('name')}>
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            {t('supervisedAttendance.employee', 'Employee')}
+                                            {renderSortIcon('name')}
+                                        </div>
+                                    </th>
+                                    <th className={styles.th} style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('date')}>
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            {t('supervisedAttendance.dateTime', 'Date & Time')}
+                                            {renderSortIcon('date')}
+                                        </div>
+                                    </th>
                                     <th className={styles.th}>{t('supervisedAttendance.type', 'Type')}</th>
                                     <th className={styles.th}>{t('supervisedAttendance.location', 'Location')}</th>
                                     <th className={styles.th}>{t('supervisedAttendance.description', 'Description')}</th>
@@ -279,8 +319,12 @@ export default function SupervisedAttendancePage() {
                                         <tr key={rec.syskey || Math.random().toString()} className={styles.tr}>
                                             <td className={styles.td}>
                                                 <div className={styles.employeeCell}>
-                                                    <span className={styles.employeeName}>{rec.employee_name}</span>
-                                                    <span className={styles.employeeId}>ID: {rec.employee_id}</span>
+                                                    <span>{rec.employee_id}</span>
+                                                </div>
+                                            </td>
+                                            <td className={styles.td}>
+                                                <div className={styles.employeeCell}>
+                                                    <span>{rec.employee_name}</span>
                                                 </div>
                                             </td>
                                             <td className={styles.td}>
@@ -340,18 +384,32 @@ export default function SupervisedAttendancePage() {
                         </table>
                     </div>
 
-                    {hasNextPage && (
-                        <div className={styles.loadMore}>
+                    <div className={styles.pagination}>
+                        <div className={styles.pageInfo}>
+                            {t('common.page', 'Page')} {page}
+                        </div>
+                        <div className={styles.pageControls}>
                             <button
-                                onClick={() => fetchNextPage()}
-                                disabled={isFetchingNextPage}
-                                className={styles.btnLoadMore}
+                                className={styles.pageBtn}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
                             >
-                                {isFetchingNextPage ? t('common.loading', 'Loading...') : t('common.loadMore', 'Load More')}
-                                {!isFetchingNextPage && <ChevronDown size={18} />}
+                                <ChevronLeft size={16} />
+                                {t('common.prev', 'Prev')}
+                            </button>
+                            <button className={`${styles.pageBtn} ${styles.pageBtnActive}`}>
+                                {page}
+                            </button>
+                            <button
+                                className={styles.pageBtn}
+                                onClick={() => setPage(p => p + 1)}
+                                disabled={!hasNextPage}
+                            >
+                                {t('common.next', 'Next')}
+                                <ChevronRight size={16} />
                             </button>
                         </div>
-                    )}
+                    </div>
                 </>
             )}
 
