@@ -230,7 +230,7 @@ export default function ApprovalDetailPage() {
                 syskey: syskey,
                 status: statusCode,
                 comment,
-                confirmed_amount: confirmedAmount,
+                confirmed_amount: parseFloat(confirmedAmount),
                 selectedApprovers: approverList || [],
             };
             const res = await apiClient.post(SAVE_APPROVAL, payload);

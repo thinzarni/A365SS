@@ -422,7 +422,7 @@ export default function RequestDetailPage() {
                     {/* Approved By */}
                     {detail.approvaltype !== '1' && approverList.length > 0 && (
                         <div className={styles['request-detail__section']}>
-                            <h4 className={styles['request-detail__section-title']}>Approved By</h4>
+                            <h4 className={styles['request-detail__section-title']}>Approvers</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                 {approverList.map((a: Approver, idx: number) => (
                                     <div

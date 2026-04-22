@@ -507,9 +507,12 @@ export default function NewRequestPage() {
         setStartPeriod('AM');
         setEndPeriod('AM');
         if (selectedType && requestTypes.length > 0) {
-            const match = requestTypes.find(
-                (t) => (DESC_TO_KEY[(t.description || '').trim().toLowerCase()] || 'other') === selectedType
-            );
+            const match = requestTypes.find((t) => {
+                if (selectedType.startsWith('other_')) {
+                    return t.syskey === selectedType.replace('other_', '');
+                }
+                return DESC_TO_KEY[(t.description || '').trim().toLowerCase()] === selectedType;
+            });
             if (match) setSubType(match.syskey);
         }
     }, [selectedType, requestTypes]);
@@ -603,9 +606,12 @@ export default function NewRequestPage() {
                 }
             }
             // Find the API entry whose description maps to our selectedType key
-            const matchedType = types.find(
-                (t: TypesModel) => (DESC_TO_KEY[(t.description || '').trim().toLowerCase()] || 'other') === selectedType
-            );
+            const matchedType = types.find((t: TypesModel) => {
+                if (selectedType.startsWith('other_')) {
+                    return t.syskey === selectedType.replace('other_', '');
+                }
+                return DESC_TO_KEY[(t.description || '').trim().toLowerCase()] === selectedType;
+            });
             const typeDesc = matchedType?.description || selectedType;
             const typeSyskey = matchedType?.syskey || selectedType;
 
@@ -1126,8 +1132,10 @@ export default function NewRequestPage() {
                                 <p style={{ color: 'var(--color-neutral-400)', fontSize: 'var(--text-sm)' }}>Loading…</p>
                             ) : requestTypes.map((rt) => {
                                 const descLower = (rt.description || '').trim().toLowerCase();
-                                const key = DESC_TO_KEY[descLower] || 'other';
-                                const { icon: Icon, color, bgColor } = TYPE_VISUAL[key] || TYPE_VISUAL.other;
+                                const mapped = DESC_TO_KEY[descLower];
+                                const key = mapped || `other_${rt.syskey}`;
+                                const displayKey = mapped || 'other';
+                                const { icon: Icon, color, bgColor } = TYPE_VISUAL[displayKey] || TYPE_VISUAL.other;
                                 return (
                                     <div
                                         key={rt.syskey}
@@ -1239,7 +1247,7 @@ export default function NewRequestPage() {
                                             <Input id="startTime" label="Start Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
                                             <Input id="endTime" label="End Time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
                                         </>
-                                    ) : GENERIC_TYPES.has(selectedType) ? (
+                                    ) : GENERIC_TYPES.has(selectedType) || selectedType.startsWith('other_') ? (
                                         // General/Employee Requisition/Purchase/Attendance — single date + time
                                         <>
                                             <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
