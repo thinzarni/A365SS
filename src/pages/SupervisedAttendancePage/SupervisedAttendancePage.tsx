@@ -11,7 +11,6 @@ import {
     LogOut,
     CheckCircle2,
     Users,
-    ChevronDown,
     Edit3,
     Eye,
     Loader2,
@@ -147,7 +146,6 @@ export default function SupervisedAttendancePage() {
         data: recordsData,
         isLoading,
         isFetching,
-        refetch
     } = useQuery({
         queryKey: ['supervised-attendance', apiFromDate, apiToDate, apiSearchKey, apiAttendanceType, apiPairStatus, apiOrderBy, apiOrderDir, userId, domain, page],
         queryFn: fetchAttendances

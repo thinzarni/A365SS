@@ -717,7 +717,7 @@ export default function AppLayout() {
                         </div>
                     )}
                     <div className={styles.sidebar__version} style={{ textAlign: 'center', fontSize: '12px', color: '#94a3b8', padding: '10px 0', marginTop: 'auto' }}>
-                        Version {appConfig.appVersion}
+                        {isSidebarCollapsed ? `v${appConfig.appVersion}` : `Version ${appConfig.appVersion}`}
                     </div>
                 </div>
             </aside>
