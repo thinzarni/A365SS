@@ -22,6 +22,7 @@ interface MemberPickerProps {
     onChange: (members: MemberItem[]) => void;
     multiple?: boolean;
     required?: boolean;
+    excludeSyskeys?: string[];
 }
 
 export default function MemberPicker({
@@ -30,6 +31,7 @@ export default function MemberPicker({
     onChange,
     multiple = true,
     required,
+    excludeSyskeys = [],
 }: MemberPickerProps) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
@@ -45,15 +47,29 @@ export default function MemberPicker({
     });
 
     const filtered = useMemo(() => {
-        if (!search.trim()) return employees;
+        let list = employees;
+        if (excludeSyskeys && excludeSyskeys.length > 0) {
+            const excludeSet = new Set(excludeSyskeys.map(String));
+            list = list.filter((e: any) => {
+                const s1 = String(e.syskey);
+                const s2 = e.employeeid ? String(e.employeeid) : null;
+                const s3 = e.userid ? String(e.userid) : null;
+                const s4 = e.employee_id ? String(e.employee_id) : null;
+                return !excludeSet.has(s1) &&
+                       (!s2 || !excludeSet.has(s2)) &&
+                       (!s3 || !excludeSet.has(s3)) &&
+                       (!s4 || !excludeSet.has(s4));
+            });
+        }
+        if (!search.trim()) return list;
         const q = search.toLowerCase();
-        return employees.filter(
+        return list.filter(
             (e) =>
                 e.name?.toLowerCase().includes(q) ||
                 e.employeeid?.toLowerCase().includes(q) ||
                 e.department?.toLowerCase().includes(q)
         );
-    }, [employees, search]);
+    }, [employees, search, excludeSyskeys]);
 
     const selectedKeys = useMemo(() => new Set(members.map((m) => m.syskey)), [members]);
 

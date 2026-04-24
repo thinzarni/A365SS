@@ -1057,6 +1057,18 @@ export default function NewRequestPage() {
                 toast.error('Amount must be greater than zero');
                 return;
             }
+            
+            const selClaimType = claimTypeList.find(ct => ct.syskey === claimType);
+            if (selClaimType) {
+                const maxAmount = Number(selClaimType.max_amount) || 0;
+                const remainingBalance = Number(selClaimType.remaining_balance) || 0;
+                const reqAmount = Number(amount) || 0;
+                if (maxAmount !== 0 && reqAmount > remainingBalance) {
+                    toast.error(`Amount cannot exceed remaining balance (${remainingBalance.toLocaleString()})`);
+                    return;
+                }
+            }
+
             if (!currencyType) {
                 toast.error('Please select a currency');
                 return;
@@ -1756,6 +1768,16 @@ export default function NewRequestPage() {
                                         label="Approvers"
                                         members={approvers}
                                         onChange={setApprovers}
+                                        excludeSyskeys={[
+                                            selectedMemberInfo?.syskey,
+                                            selectedMemberInfo?.id,
+                                            selectedMemberInfo?.userid,
+                                            userId,
+                                            user?.usersyskey,
+                                            (user as any)?.syskey,
+                                            (user as any)?.eid,
+                                            (user as any)?.employee_id
+                                        ].filter(Boolean) as string[]}
                                         required
                                     />
                                 </div>

@@ -27,9 +27,9 @@ import { RequestStatus } from '../../types/models';
 import type { RequestModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
-import { 
-    APPROVAL_LIST, 
-    ATTENDANCE_SHIFT_DATA, 
+import {
+    APPROVAL_LIST,
+    ATTENDANCE_SHIFT_DATA,
     GET_ATTENDANCE_APPROVAL_LIST,
     MULTI_APPROVE_REJECT,
     MULTI_SAVE_APPROVAL
@@ -196,7 +196,7 @@ export default function ApprovalListPage() {
         ? displayRequests.filter(req => String(req.requeststatus) !== '1')
         : displayRequests;
 
-    const pendingRequests = useMemo(() => 
+    const pendingRequests = useMemo(() =>
         filteredApprovals.filter(r => String(r.requeststatus) === '1'),
         [filteredApprovals]
     );
@@ -226,11 +226,7 @@ export default function ApprovalListPage() {
             if (isAttendance) {
                 const selectedList = Array.from(selectedKeys).map(key => {
                     const req = pendingRequests.find(r => String(r.syskey) === key);
-                    return {
-                        syskey: key,
-                        date: req?.date || '',
-                        attendancenotitype: 0
-                    };
+                    return req;
                 });
                 const payload = {
                     userid: userId || '',
@@ -242,7 +238,10 @@ export default function ApprovalListPage() {
                 const res = await mainClient.post(MULTI_APPROVE_REJECT, payload);
                 return res.data;
             } else {
-                const selectedList = Array.from(selectedKeys).map(key => ({ syskey: key }));
+                const selectedList = Array.from(selectedKeys).map(key => {
+                    const req = pendingRequests.find(r => String(r.syskey) === key);
+                    return req;
+                });
                 const payload = {
                     userid: userId || '',
                     domain: domain || 'dev',

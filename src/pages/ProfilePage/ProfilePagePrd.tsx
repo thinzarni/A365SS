@@ -66,10 +66,10 @@ interface ProfileData {
     departmentsyskey?: string;
     employmenttype?: string;
     employmenttypesyskey?: string;
-    officelocation?: string | null;
-    officelocationsyskey?: string | null;
-    worklocation?: string | null;
-    worklocationsyskey?: string | null;
+    officelocation?: string[] | string | null;
+    officelocationsyskey?: string[] | string | null;
+    worklocation?: string[] | string | null;
+    worklocationsyskey?: string[] | string | null;
     roname?: string;
     serviceyearstring?: string;
     serviceyearnumeric?: string;
@@ -148,6 +148,7 @@ interface FamilyMember {
     gender: string;
     dob: string;
     relationship: string;
+    relationshipSyskey?: string;
     taxEligible: 'Yes' | 'No';
     modOption: 'New' | 'Correct' | 'Update';
     effectiveFrom: string;
@@ -159,6 +160,7 @@ interface EmergencyContact {
     id?: string;
     name: string;
     relationship: string;
+    relationshipSyskey?: string;
     contactNumber: string;
     address: string;
     status?: string;
@@ -189,7 +191,10 @@ function useRelationships(isOpen: boolean) {
                 tblname: 'relativetype'
             });
             const list = res.data?.datalist || [];
-            return list.map((item: any) => item.code || item.description);
+            return list.map((item: any) => ({
+                syskey: item.syskey,
+                name: item.description || item.code
+            }));
         },
         enabled: !!userId && isOpen,
         staleTime: 5 * 60 * 1000,
@@ -447,8 +452,8 @@ function EmploymentTab({ profile }: { profile: ProfileData }) {
                 <InfoItem icon={<Award size={18} />} label={t('profile.employment.jobPosition')} value={profile.rank || profile.role || '-'} />
                 <InfoItem icon={<Award size={18} />} label={t('profile.employment.grade')} value={profile.paylevel || '-'} />
                 <InfoItem icon={<Mail size={18} />} label={t('profile.employment.officeEmail')} value={profile.officeemail || '-'} />
-                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.officeLocation')} value={profile.officelocation || '-'} />
-                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.workLocation')} value={profile.worklocation || '-'} />
+                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.officeLocation')} value={Array.isArray(profile.officelocation) ? profile.officelocation.join(', ') : (profile.officelocation || '-')} />
+                <InfoItem icon={<MapPin size={18} />} label={t('profile.employment.workLocation')} value={Array.isArray(profile.worklocation) ? profile.worklocation.join(', ') : (profile.worklocation || '-')} />
                 <InfoItem icon={<Building2 size={18} />} label={t('profile.employment.department')} value={profile.department || '-'} />
                 <InfoItem icon={<Calendar size={18} />} label={t('profile.employment.doj')} value={profile.joineddate || '-'} />
                 <InfoItem icon={<Clock size={18} />} label={t('profile.employment.serviceYear')} value={profile.serviceyearstring || '-'} />
@@ -606,6 +611,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                 id: item.syskey,
                 name: item.name || '',
                 relationship: item.relationship || '',
+                relationshipSyskey: item.relationshipsyskey || item.relationship || '',
                 contactNumber: item.contactnumber || '',
                 address: item.address || '',
                 status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
@@ -626,10 +632,18 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blank = (): EmergencyContact => ({ id: '', name: '', relationship: '', contactNumber: '', address: '', status: 'Pending', modOption: 'New' });
+    const blank = (): EmergencyContact => ({ id: '', name: '', relationship: '', relationshipSyskey: '', contactNumber: '', address: '', status: 'Pending', modOption: 'New' });
     const [form, setForm] = useState<EmergencyContact>(blank());
 
-    const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
+    const openAdd = () => {
+        if (records.current.length + records.pending.length >= 2) {
+            toast.error('Emergency contact can be add max 2 person');
+            return;
+        }
+        setForm(blank());
+        setEditingId(null);
+        setShowModal(true);
+    };
     const openEdit = (r: EmergencyContact) => { setForm({ ...r }); setEditingId(r.id || null); setShowModal(true); };
     const close = () => { setShowModal(false); setEditingId(null); };
 
@@ -652,7 +666,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
         const emergencylist = updatedRecords.map(r => ({
             syskey: r.id && r.id.length > 20 ? r.id : "",
             name: r.name,
-            relationship: r.relationship,
+            relationship: r.relationshipSyskey || r.relationship,
             contactnumber: r.contactNumber,
             address: r.address,
             modificationoption: r.modOption,
@@ -691,7 +705,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
         const emergencylist = allRecords.map(r => ({
             syskey: r.id && r.id.length > 20 ? r.id : "",
             name: r.name,
-            relationship: r.relationship,
+            relationship: r.relationshipSyskey || r.relationship,
             contactnumber: r.contactNumber,
             address: r.address,
             modificationoption: r.modOption,
@@ -717,7 +731,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<Phone size={20} />} title={t('profile.tabs.emergency')} subtitle={t('profile.emergency.subtitle')}
-                action={<button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('common.addContact')}</button>} />
+                action={(records.current.length + records.pending.length) < 2 ? <button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('common.addContact')}</button> : undefined} />
 
             {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.emergency.noContact')} onAdd={openAdd} />
@@ -734,7 +748,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                         {records.current.map(r => (
                                             <tr key={r.id}>
                                                 <td><strong>{r.name}</strong></td>
-                                                <td>{t(`profile.options.relationships.${r.relationship}` as any, r.relationship)}</td>
+                                                <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td>{r.contactNumber}</td>
                                                 <td>{r.address}</td>
                                                 <td>
@@ -763,7 +777,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                         {records.pending.map(r => (
                                             <tr key={r.id} style={{ opacity: 0.85 }}>
                                                 <td><strong>{r.name}</strong></td>
-                                                <td>{t(`profile.options.relationships.${r.relationship}` as any, r.relationship)}</td>
+                                                <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td>{r.contactNumber}</td>
                                                 <td>{r.address}</td>
                                                 <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} /></td>
@@ -788,9 +802,13 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                         <input className={styles.formInput} value={form.name} onChange={fv('name')} placeholder={t('profile.emergency.fullName')} />
                     </FormRow>
                     <FormRow label={t('profile.emergency.relationship')}>
-                        <select className={styles.formSelect} value={form.relationship} onChange={fv('relationship')}>
+                        <select className={styles.formSelect} value={form.relationshipSyskey || ''} onChange={e => {
+                            const syskey = e.target.value;
+                            const desc = relationships.find((r: any) => r.syskey === syskey)?.name || syskey;
+                            setForm(prev => ({ ...prev, relationshipSyskey: syskey, relationship: desc }));
+                        }}>
                             <option value="">{t('profile.emergency.selectRelationship')}</option>
-                            {relationships.map((r: string) => <option key={r} value={r}>{String(t(`profile.options.relationships.${r}` as any, r))}</option>)}
+                            {relationships.map((r: any) => <option key={r.syskey} value={r.syskey}>{r.name && r.name !== 'null' ? String(t(`profile.options.relationships.${r.name}` as any, r.name)) : String(r.name)}</option>)}
                         </select>
                     </FormRow>
                     <FormRow label={`${t('profile.emergency.contactNumber')} *`}>
@@ -1508,6 +1526,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                 gender: item.gender,
                 dob: item.dob,
                 relationship: item.relationship,
+                relationshipSyskey: item.relationshipsyskey || item.relationship || '',
                 taxEligible: (item.taxexeligibility || item.taxeligibility) ? 'Yes' : 'No',
                 modOption: item.modificationoption || 'New',
                 effectiveFrom: item.effectivedate,
@@ -1529,7 +1548,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blank = (): FamilyMember => ({ id: '', name: '', gender: '', dob: '', relationship: '', taxEligible: 'No', modOption: 'New', effectiveFrom: '', status: 'Pending', attachment: '' });
+    const blank = (): FamilyMember => ({ id: '', name: '', gender: '', dob: '', relationship: '', relationshipSyskey: '', taxEligible: 'No', modOption: 'New', effectiveFrom: '', status: 'Pending', attachment: '' });
     const [form, setForm] = useState<FamilyMember>(blank());
 
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
@@ -1555,7 +1574,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             name: r.name,
             gender: r.gender,
             dob: r.dob ? r.dob.replace(/-/g, '') : '',
-            relationship: r.relationship,
+            relationship: r.relationshipSyskey || r.relationship,
             taxexeligibility: r.taxEligible === 'Yes',
             attachment: r.attachment || null,
             modificationoption: r.modOption,
@@ -1596,7 +1615,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             name: r.name,
             gender: r.gender,
             dob: r.dob ? r.dob.replace(/-/g, '') : '',
-            relationship: r.relationship,
+            relationship: r.relationshipSyskey || r.relationship,
             taxexeligibility: r.taxEligible === 'Yes',
             attachment: r.attachment || null,
             modificationoption: r.modOption,
@@ -1642,7 +1661,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td><strong>{r.name}</strong></td>
                                                 <td>{t(`profile.options.genders.${r.gender}` as any, r.gender)}</td>
                                                 <td>{r.dob}</td>
-                                                <td>{t(`profile.options.relationships.${r.relationship}` as any, r.relationship)}</td>
+                                                <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
                                                 <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} /></td>
                                                 <td>
@@ -1673,7 +1692,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td><strong>{r.name}</strong></td>
                                                 <td>{t(`profile.options.genders.${r.gender}` as any, r.gender)}</td>
                                                 <td>{r.dob}</td>
-                                                <td>{t(`profile.options.relationships.${r.relationship}` as any, r.relationship)}</td>
+                                                <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
                                                 <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} /></td>
                                                 <td>
@@ -1709,9 +1728,13 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                     </div>
                     <div className={styles.formGrid2}>
                         <FormRow label={t('profile.emergency.relationship')}>
-                            <select className={styles.formSelect} value={form.relationship} onChange={fv('relationship')}>
+                            <select className={styles.formSelect} value={form.relationshipSyskey || ''} onChange={e => {
+                                const syskey = e.target.value;
+                                const desc = relationships.find((r: any) => r.syskey === syskey)?.name || syskey;
+                                setForm(prev => ({ ...prev, relationshipSyskey: syskey, relationship: desc }));
+                            }}>
                                 <option value="">{t('profile.emergency.selectRelationship')}</option>
-                                {relationships.map((r: string) => <option key={r} value={r}>{String(t(`profile.options.relationships.${r}` as any, r))}</option>)}
+                                {relationships.map((r: any) => <option key={r.syskey} value={r.syskey}>{String(t(`profile.options.relationships.${r.name}` as any, r.name))}</option>)}
                             </select>
                         </FormRow>
                         <FormRow label={t('profile.family.taxEligible')}>
