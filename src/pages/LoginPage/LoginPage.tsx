@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mail, Lock, QrCode, Monitor, Eye, EyeOff, Globe, IdCard, IdCardLanyard, IdCardIcon } from 'lucide-react';
+import { Mail, Lock, QrCode, Monitor, Eye, EyeOff, Globe, IdCardIcon } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
