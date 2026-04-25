@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mail, Lock, QrCode, Monitor, Eye, EyeOff, Globe } from 'lucide-react';
+import { Mail, Lock, QrCode, Monitor, Eye, EyeOff, Globe, IdCard, IdCardLanyard, IdCardIcon } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
@@ -24,7 +24,7 @@ export default function LoginPage() {
     const { login, setUser, setLanguage, language, isAuthenticated } = useAuthStore();
 
     const [mode, setMode] = useState<AuthMode>('password');
-    const [email, setEmail] = useState('');
+    const [employeeId, setEmployeeId] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -104,7 +104,7 @@ export default function LoginPage() {
     const completeLogin = async (signInData: Record<string, any>, loginType: 'normal' | 'azure' = 'normal') => {
         const nested = signInData.data as Record<string, any> | undefined;
         const iamToken = (nested?.access_token || signInData.token || signInData.access_token) as string;
-        const userId = (nested?.user_id || signInData.user_id || email) as string;
+        const userId = (nested?.user_id || signInData.user_id || employeeId) as string;
         const usersyskey = (nested?.usersyskey || signInData.usersyskey || '') as string;
         const role = String(nested?.role || signInData.approle || '');
 
@@ -259,13 +259,13 @@ export default function LoginPage() {
         e.preventDefault();
         setError('');
 
-        if (!email.trim()) { setError('Please enter your email.'); return; }
+        if (!employeeId.trim()) { setError('Please enter your Employee ID.'); return; }
         if (!password.trim()) { setError('Please enter your password.'); return; }
 
         setLoading(true);
         try {
             const b64Password = btoa(unescape(encodeURIComponent(password)));
-            const payload = await makeSignInPayload(email, 2, b64Password);
+            const payload = await makeSignInPayload(employeeId, 2, b64Password);
             const res = await authClient.post('signin', payload);
             const data = res.data;
 
@@ -277,7 +277,7 @@ export default function LoginPage() {
                     // ── OTP 2FA required — navigate to verify page ──
                     navigate('/verify-otp', {
                         state: {
-                            userId: email,
+                            userId: employeeId,
                             session: sessionId,
                             b64Password, // for resend
                         },
@@ -301,14 +301,14 @@ export default function LoginPage() {
         setError('');
         setLoading(true);
         try {
-            const payload = await makeSignInPayload(email, 2); // reqType=2: OTP, no password
+            const payload = await makeSignInPayload(employeeId, 2); // reqType=2: OTP, no password
             const res = await authClient.post('signin', payload);
             if (res.data.status === 200 || res.status === 200) {
                 const nested = res.data.data;
                 const sessionId = nested?.session_id || res.data.session_id;
                 if (sessionId) {
                     navigate('/verify-otp', {
-                        state: { userId: email, session: sessionId },
+                        state: { userId: employeeId, session: sessionId },
                     });
                 } else {
                     await completeLogin(res.data);
@@ -374,13 +374,13 @@ export default function LoginPage() {
                     {mode === 'password' ? (
                         <form className={styles.login__form} onSubmit={handlePasswordLogin}>
                             <Input
-                                id="email"
-                                label={t('auth.email')}
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="user@company.com"
-                                icon={<Mail size={18} />}
+                                id="employeeId"
+                                label={t('profile.employment.employeeId', 'Employee ID')}
+                                type="text"
+                                value={employeeId}
+                                onChange={(e) => setEmployeeId(e.target.value)}
+                                placeholder="Enter Employee ID"
+                                icon={<IdCardIcon size={18} />}
                                 required
                             />
                             <Input
@@ -414,12 +414,12 @@ export default function LoginPage() {
                     ) : (
                         <form className={styles.login__form} onSubmit={e => { e.preventDefault(); handleRequestOtp(); }}>
                             <Input
-                                id="otp-email"
-                                label={t('auth.email')}
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="user@company.com"
+                                id="otp-employeeId"
+                                label={t('profile.employment.employeeId', 'Employee ID')}
+                                type="text"
+                                value={employeeId}
+                                onChange={(e) => setEmployeeId(e.target.value)}
+                                placeholder="Enter Employee ID"
                                 icon={<Mail size={18} />}
                                 required
                             />
