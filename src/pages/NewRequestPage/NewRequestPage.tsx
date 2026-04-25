@@ -889,8 +889,6 @@ export default function NewRequestPage() {
                 payload.selectday = '';
                 payload.otday = '';
                 payload.remark = payload.remark || '';
-                payload.reason = '';
-                payload.description = '';
                 payload.travelpurpose = '';
                 payload.car = '';
                 payload.driver = '';

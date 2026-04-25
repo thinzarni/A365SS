@@ -398,11 +398,11 @@ export default function RequestDetailPage() {
                     )}
 
                     {/* Requester Remark */}
-                    {detail.remark && (
+                    {(detail.remark || (detail as any).reason || (detail as any).description) && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Remarks</h4>
-                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-neutral-700)', lineHeight: 'var(--leading-relaxed)' }}>
-                                {detail.remark}
+                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-neutral-700)', lineHeight: 'var(--leading-relaxed)', whiteSpace: 'pre-wrap' }}>
+                                {detail.remark || (detail as any).reason || (detail as any).description}
                             </p>
                         </div>
                     )}
