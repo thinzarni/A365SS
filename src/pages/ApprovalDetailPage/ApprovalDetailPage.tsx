@@ -226,6 +226,7 @@ export default function ApprovalDetailPage() {
                 return res.data;
             }
 
+
             const payload = {
                 syskey: syskey,
                 status: statusCode,
@@ -250,6 +251,19 @@ export default function ApprovalDetailPage() {
     });
 
     const handleAction = (status: 'approve' | 'reject') => {
+        if (status === 'approve') {
+            const isClaimWithMaxAmount = requestTypeString.includes('claim') && d.max_amount !== undefined && Number(d.max_amount) !== 0;
+            if (isClaimWithMaxAmount && (!confirmedAmount || confirmedAmount.trim() === '')) {
+                toast.error('Confirmed amount is required for approval.');
+                return;
+            }
+        } else if (status === 'reject') {
+            if (!comment || comment.trim() === '') {
+                toast.error(t('approval.commentRequired', 'Comment is required for rejection.'));
+                return;
+            }
+        }
+
         actionMutation.mutate(status);
     };
 
@@ -597,11 +611,11 @@ export default function ApprovalDetailPage() {
                     )}
 
                     {/* Remarks */}
-                    {(d.remark || d.comment) && (
+                    {(d.remark || d.comment || d.reason || d.description) && (
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>Remarks</h4>
-                            <p className={styles['approval-detail__remark']}>
-                                {String(d.remark || d.comment)}
+                            <p className={styles['approval-detail__remark']} style={{ whiteSpace: 'pre-wrap' }}>
+                                {String(d.remark || d.comment || d.reason || d.description)}
                             </p>
                         </div>
                     )}
@@ -665,8 +679,8 @@ export default function ApprovalDetailPage() {
                 {/* ── Action Bar ── */}
                 {showActionBar && (
                     <div className={styles['approval-detail__actions']}>
-                        {(isPending || isApproved) && requestTypeString.includes('claim') && d.max_amount !== undefined && Number(d.max_amount) !== 0 && (
-                            <div className={styles['approval-detail__comment-box']}>
+                        <div className={styles['approval-detail__comment-box']}>
+                            {(isPending || isApproved || isRejected) && requestTypeString.includes('claim') && d.max_amount !== undefined && Number(d.max_amount) !== 0 && (
                                 <div style={{ marginBottom: 12 }}>
                                     <label
                                         htmlFor="confirmedAmount"
@@ -680,40 +694,59 @@ export default function ApprovalDetailPage() {
                                     >
                                         Confirmed Amount
                                     </label>
-                                    <input
-                                        id="confirmedAmount"
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={confirmedAmount}
-                                        onChange={(e) => setConfirmedAmount(e.target.value)}
-                                        placeholder="Enter confirmed amount…"
-                                        style={{
+                                    {isApproved ? (
+                                        <div style={{
                                             width: '100%',
                                             padding: '8px 12px',
                                             fontSize: '14px',
                                             border: '1.5px solid var(--color-neutral-200)',
                                             borderRadius: 8,
-                                            outline: 'none',
+                                            background: 'var(--color-neutral-50, #f8fafc)',
                                             color: 'var(--color-neutral-900)',
-                                            background: 'var(--color-neutral-0, #fff)',
                                             boxSizing: 'border-box',
-                                            transition: 'border-color 0.2s',
-                                        }}
-                                        onFocus={(e) => (e.target.style.borderColor = 'var(--color-primary-500)')}
-                                        onBlur={(e) => (e.target.style.borderColor = 'var(--color-neutral-200)')}
-                                    />
+                                            cursor: 'not-allowed'
+                                        }}>
+                                            {d.confirmed_amount != null
+                                                ? Number(d.confirmed_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+                                                : (confirmedAmount || '—')}
+                                        </div>
+                                    ) : (
+                                        <input
+                                            id="confirmedAmount"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={confirmedAmount}
+                                            onChange={(e) => setConfirmedAmount(e.target.value)}
+                                            placeholder="Enter confirmed amount…"
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px 12px',
+                                                fontSize: '14px',
+                                                border: '1.5px solid var(--color-neutral-200)',
+                                                borderRadius: 8,
+                                                outline: 'none',
+                                                color: 'var(--color-neutral-900)',
+                                                background: 'var(--color-neutral-0, #fff)',
+                                                boxSizing: 'border-box',
+                                                transition: 'border-color 0.2s',
+                                            }}
+                                            onFocus={(e) => (e.target.style.borderColor = 'var(--color-primary-500)')}
+                                            onBlur={(e) => (e.target.style.borderColor = 'var(--color-neutral-200)')}
+                                        />
+                                    )}
                                 </div>
-                                <Textarea
-                                    id="approvalComment"
-                                    label={t('approval.comment')}
-                                    value={comment}
-                                    onChange={(e) => setComment(e.target.value)}
-                                    placeholder="Add your comment (required for rejection)…"
-                                    rows={3}
-                                />
-                            </div>
-                        )}
+                            )}
+
+                            <Textarea
+                                id="approvalComment"
+                                label={t('approval.comment')}
+                                value={comment}
+                                onChange={(e) => setComment(e.target.value)}
+                                placeholder="Add your comment (required for rejection)…"
+                                rows={3}
+                            />
+                        </div>
 
                         <div className={styles['approval-detail__action-row']}>
                             {(isPending || isRejected) && (

@@ -191,10 +191,7 @@ export default function ApprovalListPage() {
         return allApprovals.filter(req => String(req.requeststatus) === String(activeStatus));
     }, [allApprovals, activeStatus, isAttendance]);
 
-    /* Filter out pending from 'All' specifically for general (non-attendance) approvals */
-    const filteredApprovals = (activeStatus === RequestStatus.All && !isAttendance)
-        ? displayRequests.filter(req => String(req.requeststatus) !== '1')
-        : displayRequests;
+    const filteredApprovals = displayRequests;
 
     const pendingRequests = useMemo(() =>
         filteredApprovals.filter(r => String(r.requeststatus) === '1'),
