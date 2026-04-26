@@ -136,7 +136,7 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
 // Fallback: shown when API hasn't loaded yet
 const DEFAULT_ROUTERS = [
     '/request', '/approval', '/reservation', '/leave',
-    '/claim', '/holiday', '/chat', '/team',
+    '/claim', '/holiday', '/team',
 ];
 
 // Shape of one API menu item (datalist entry from hxm/integration/get/menuitems)
