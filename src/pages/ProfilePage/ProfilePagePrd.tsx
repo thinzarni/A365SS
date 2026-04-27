@@ -139,6 +139,8 @@ interface Address {
     personalprimaryemail?: string;
     personalsecondarymail?: string;
     personalmobilephone?: string;
+    modificationoption?: string;
+    effectivedate?: string;
 }
 
 
@@ -162,9 +164,11 @@ interface EmergencyContact {
     relationship: string;
     relationshipSyskey?: string;
     contactNumber: string;
+    countryCode?: string;
     address: string;
     status?: string;
     modOption?: string;
+    effectiveFrom?: string;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -200,6 +204,29 @@ function useRelationships(isOpen: boolean) {
         staleTime: 5 * 60 * 1000,
     });
     return relationships;
+}
+
+function useCountryCodes(isOpen: boolean) {
+    const { domain, userId } = useAuthStore();
+    const { data: codes = [] } = useQuery({
+        queryKey: ['countrycodes', userId, domain],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_SETUP_LIST, {
+                userid: userId,
+                domain: domain || 'demouat',
+                tblname: 'countrycode'
+            });
+            const list = res.data?.datalist || [];
+            return list.map((item: any) => ({
+                syskey: item.syskey,
+                code: item.code,
+                name: item.description
+            }));
+        },
+        enabled: !!userId && isOpen,
+        staleTime: 5 * 60 * 1000,
+    });
+    return codes;
 }
 const NATIONALITIES = ['Myanmar', 'Chinese', 'Indian', 'Thai', 'Japanese', 'Korean', 'American', 'Other'];
 const ETHNICITIES = ['Bamar', 'Shan', 'Karen', 'Rakhine', 'Mon', 'Karenni', 'Chin', 'Kachin', 'Other'];
@@ -595,10 +622,11 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     const [records, setRecords] = useState<{ current: EmergencyContact[], pending: EmergencyContact[] }>({ current: [], pending: [] });
     const [showModal, setShowModal] = useState(false);
     const relationships = useRelationships(showModal);
+    const countryCodes = useCountryCodes(showModal);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-    const { data: fetchedData } = useQuery({
+    const { data: fetchedData, isLoading } = useQuery({
         queryKey: ['emergency', profile.userid, profile.eid],
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
@@ -612,10 +640,12 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                 name: item.name || '',
                 relationship: item.relationship || '',
                 relationshipSyskey: item.relationshipsyskey || item.relationship || '',
+                countryCode: item.countrycode || '+95',
                 contactNumber: item.contactnumber || '',
                 address: item.address || '',
                 status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
-                modOption: item.modificationoption || 'New'
+                modOption: item.modificationoption || 'New',
+                effectiveFrom: item.effectivedate && item.effectivedate.length === 8 ? `${item.effectivedate.substring(0, 4)}-${item.effectivedate.substring(4, 6)}-${item.effectivedate.substring(6, 8)}` : (item.effectivedate || '')
             })) as EmergencyContact[];
 
             return {
@@ -632,29 +662,35 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blank = (): EmergencyContact => ({ id: '', name: '', relationship: '', relationshipSyskey: '', contactNumber: '', address: '', status: 'Pending', modOption: 'New' });
+    const blank = (): EmergencyContact => ({ id: '', name: '', relationship: '', relationshipSyskey: '', countryCode: '+95', contactNumber: '', address: '', status: 'Pending', modOption: 'New', effectiveFrom: '' });
     const [form, setForm] = useState<EmergencyContact>(blank());
 
     const openAdd = () => {
-        if (records.current.length + records.pending.length >= 2) {
-            toast.error('Emergency contact can be add max 2 person');
+        if (records.pending.length >= 2) {
+            toast.error('Emergency contact can be add max 2 person to pending');
             return;
         }
         setForm(blank());
         setEditingId(null);
         setShowModal(true);
     };
-    const openEdit = (r: EmergencyContact) => { setForm({ ...r }); setEditingId(r.id || null); setShowModal(true); };
+    const openEdit = (r: EmergencyContact) => {
+        const isCurrent = records.current.some(c => c.id === r.id);
+        setForm({ ...r, modOption: isCurrent ? 'Update' : r.modOption });
+        setEditingId(r.id || null);
+        setShowModal(true);
+    };
     const close = () => { setShowModal(false); setEditingId(null); };
 
     const save = async () => {
         if (!form.name || !form.contactNumber) { toast.error('Name and Contact Number are required'); return; }
+        if (form.modOption !== 'Correct' && !form.effectiveFrom) { toast.error('Effective Date is required for New or Update'); return; }
 
         const isUpdate = !!editingId;
         const newRecord = { ...form };
+        newRecord.status = 'Pending';
         if (!isUpdate) {
             newRecord.id = Date.now().toString();
-            newRecord.status = 'Pending';
         }
 
         const allRecords = [...records.current, ...records.pending];
@@ -667,10 +703,12 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             syskey: r.id && r.id.length > 20 ? r.id : "",
             name: r.name,
             relationship: r.relationshipSyskey || r.relationship,
+            countrycode: r.countryCode || '+95',
             contactnumber: r.contactNumber,
             address: r.address,
             modificationoption: r.modOption,
-            status: r.status === 'Approved' ? 'Active' : "0"
+            effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
+            status: r.status === 'Approved' ? "1" : "0"
         }));
 
         try {
@@ -682,7 +720,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             });
             if (isUpdate) {
                 setRecords(prev => ({
-                    current: prev.current.filter(r => r.id !== editingId),
+                    current: prev.current,
                     pending: [...prev.pending.filter(r => r.id !== editingId), newRecord]
                 }));
             } else {
@@ -709,6 +747,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             contactnumber: r.contactNumber,
             address: r.address,
             modificationoption: r.modOption,
+            effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
             status: r.status === 'Approved' ? 'Active' : "0"
         }));
 
@@ -728,10 +767,19 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
 
     const fv = (k: keyof EmergencyContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value as any }));
 
+    if (isLoading) {
+        return (
+            <div className={styles.sectionCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', minHeight: '300px' }}>
+                <Loader2 className="animate-spin" size={32} style={{ color: '#3b82f6', marginBottom: '16px' }} />
+                <p style={{ color: 'var(--color-neutral-500)' }}>{t('profile.loading', 'Loading...')}</p>
+            </div>
+        );
+    }
+
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<Phone size={20} />} title={t('profile.tabs.emergency')} subtitle={t('profile.emergency.subtitle')}
-                action={(records.current.length + records.pending.length) < 2 ? <button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('common.addContact')}</button> : undefined} />
+                action={records.pending.length < 2 ? <button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('common.addContact')}</button> : undefined} />
 
             {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.emergency.noContact')} onAdd={openAdd} />
@@ -749,12 +797,14 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                             <tr key={r.id}>
                                                 <td><strong>{r.name}</strong></td>
                                                 <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
-                                                <td>{r.contactNumber}</td>
+                                                <td>{r.countryCode ? r.countryCode + ' ' : ''}{r.contactNumber}</td>
                                                 <td>{r.address}</td>
                                                 <td>
-                                                    <div className={styles.rowActions}>
+                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginRight: '8px', padding: '2px 6px', background: '#f3f4f6', borderRadius: '4px' }}>
+                                                            {r.modOption || 'New'}
+                                                        </span>
                                                         <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -778,11 +828,15 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                             <tr key={r.id} style={{ opacity: 0.85 }}>
                                                 <td><strong>{r.name}</strong></td>
                                                 <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
-                                                <td>{r.contactNumber}</td>
+                                                <td>{r.countryCode ? r.countryCode + ' ' : ''}{r.contactNumber}</td>
                                                 <td>{r.address}</td>
                                                 <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} /></td>
                                                 <td>
-                                                    <div className={styles.rowActions}>
+                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#eab308', marginRight: '8px', padding: '2px 6px', background: '#fef08a', borderRadius: '4px' }}>
+                                                            {r.modOption || 'New'}
+                                                        </span>
+                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
                                                         <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
                                                     </div>
                                                 </td>
@@ -812,10 +866,23 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                         </select>
                     </FormRow>
                     <FormRow label={`${t('profile.emergency.contactNumber')} *`}>
-                        <input className={styles.formInput} value={form.contactNumber} onChange={fv('contactNumber')} placeholder="09-xxx-xxx-xxx" />
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <select className={styles.formSelect} value={form.countryCode} onChange={fv('countryCode')} style={{ flex: 0.5 }}>
+                                {countryCodes.map((c: any) => <option key={c.syskey} value={c.code}>{c.code} ({c.name})</option>)}
+                            </select>
+                            <input className={styles.formInput} style={{ flex: 1 }} value={form.contactNumber} onChange={fv('contactNumber')} placeholder="09-xxx-xxx-xxx" />
+                        </div>
                     </FormRow>
                     <FormRow label={t('profile.emergency.address')}>
                         <textarea className={styles.formTextarea} value={form.address} onChange={fv('address')} placeholder={t('profile.emergency.fullAddress')} rows={2} />
+                    </FormRow>
+                    <FormRow label={`${t('profile.family.modOption', 'Modification Option')} *`}>
+                        <select className={styles.formSelect} value={form.modOption} onChange={e => setForm(prev => ({ ...prev, modOption: e.target.value, effectiveFrom: e.target.value === 'Correct' ? '' : prev.effectiveFrom }))}>
+                            {MOD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                    </FormRow>
+                    <FormRow label={`${t('profile.family.effectiveFrom', 'Effective Date')}${form.modOption !== 'Correct' ? ' *' : ''}`}>
+                        <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} disabled={form.modOption === 'Correct'} />
                     </FormRow>
                 </FormModal>
             )}
@@ -839,7 +906,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-    const { data: fetchedData } = useQuery({
+    const { data: fetchedData, isLoading } = useQuery({
         queryKey: ['experience', profile.userid, profile.eid],
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
@@ -995,6 +1062,15 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     };
     const f = (k: keyof WorkExperience) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
+    if (isLoading) {
+        return (
+            <div className={styles.sectionCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', minHeight: '300px' }}>
+                <Loader2 className="animate-spin" size={32} style={{ color: '#3b82f6', marginBottom: '16px' }} />
+                <p style={{ color: 'var(--color-neutral-500)' }}>{t('profile.loading', 'Loading...')}</p>
+            </div>
+        );
+    }
+
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<Building2 size={20} />} title={t('profile.tabs.experience')} subtitle={t('profile.experience.subtitle')}
@@ -1149,7 +1225,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         return `${y}-${m}-${d}`;
     };
 
-    const { data: fetchedData } = useQuery({
+    const { data: fetchedData, isLoading } = useQuery({
         queryKey: ['qualification', profile.userid, profile.eid],
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
@@ -1161,9 +1237,10 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             const processArr = (arr: any[]) => arr.map((item: any) => ({
                 id: item.syskey,
                 type: item.type || 'Education',
-                qualificationtype: item.qualificationtype || 'Education',
+                qualificationtype: item.qualificationtypesyskey || item.qualificationtype || 'Education',
                 description: item.description || '',
-                educationname: item.educationname || '',
+                educationname: item.educationnamesyskey || item.educationname || '',
+                _displayEduName: item.educationname || '',
                 university: item.university || '',
                 year: item.year || '',
                 country: item.country || '',
@@ -1332,6 +1409,15 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
     };
     const f = (k: keyof Qualification) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
+    if (isLoading) {
+        return (
+            <div className={styles.sectionCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', minHeight: '300px' }}>
+                <Loader2 className="animate-spin" size={32} style={{ color: '#3b82f6', marginBottom: '16px' }} />
+                <p style={{ color: 'var(--color-neutral-500)' }}>{t('profile.loading', 'Loading...')}</p>
+            </div>
+        );
+    }
+
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<BookOpen size={20} />} title={t('profile.tabs.qualification')} subtitle={t('profile.qualification.subtitle')}
@@ -1458,7 +1544,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                     </FormRow>
                     <div className={styles.formGrid2}>
                         <FormRow label={t('profile.qualification.year', 'Year')}>
-                            <input className={styles.formInput} value={form.year} onChange={f('year')} placeholder="e.g. 2024" />
+                            <input className={styles.formInput} value={form.year} onChange={f('year')} type='number' placeholder="e.g. 2024" />
                         </FormRow>
                         <FormRow label={t('profile.qualification.country', 'Country')}>
                             <select className={styles.formSelect} value={form.country} onChange={f('country')}>
@@ -1510,7 +1596,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-    const { data: fetchedData } = useQuery({
+    const { data: fetchedData, isLoading } = useQuery({
         queryKey: ['family', profile.userid, profile.eid],
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
@@ -1524,12 +1610,12 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                 id: item.syskey,
                 name: item.name,
                 gender: item.gender,
-                dob: item.dob,
+                dob: item.dob && item.dob.length === 8 ? `${item.dob.substring(0, 4)}-${item.dob.substring(4, 6)}-${item.dob.substring(6, 8)}` : (item.dob || ''),
                 relationship: item.relationship,
                 relationshipSyskey: item.relationshipsyskey || item.relationship || '',
                 taxEligible: (item.taxexeligibility || item.taxeligibility) ? 'Yes' : 'No',
                 modOption: item.modificationoption || 'New',
-                effectiveFrom: item.effectivedate,
+                effectiveFrom: item.effectivedate && item.effectivedate.length === 8 ? `${item.effectivedate.substring(0, 4)}-${item.effectivedate.substring(4, 6)}-${item.effectivedate.substring(6, 8)}` : (item.effectivedate || ''),
                 status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
                 attachment: item.signurl || item.attachment || ''
             })) as FamilyMember[];
@@ -1552,16 +1638,21 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const [form, setForm] = useState<FamilyMember>(blank());
 
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
-    const openEdit = (r: FamilyMember) => { setForm({ ...r }); setEditingId(r.id); setShowModal(true); };
+    const openEdit = (r: FamilyMember) => {
+        const isCurrent = records.current.some(c => c.id === r.id);
+        setForm({ ...r, modOption: isCurrent ? 'Update' : r.modOption });
+        setEditingId(r.id); setShowModal(true);
+    };
     const close = () => { setShowModal(false); setEditingId(null); };
     const save = async () => {
         if (!form.name) { toast.error(t('profile.family.reqName')); return; }
+        if (form.modOption !== 'Correct' && !form.effectiveFrom) { toast.error('Effective Date is required for New or Update'); return; }
 
         const isUpdate = !!editingId;
         const newRecord = { ...form };
+        newRecord.status = 'Pending';
         if (!isUpdate) {
             newRecord.id = Date.now().toString();
-            newRecord.status = 'Pending';
         }
 
         const allRecords = [...records.current, ...records.pending];
@@ -1580,7 +1671,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             modificationoption: r.modOption,
             effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
             familystatus: r.modOption === 'New' ? '1' : '0',
-            status: r.status === 'Approved' ? 'Active' : 0
+            status: r.status === 'Approved' ? "1" : "0"
         }));
 
         try {
@@ -1593,7 +1684,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             // Update local state by pushing to pending
             if (isUpdate) {
                 setRecords(prev => ({
-                    current: prev.current.filter(r => r.id !== editingId),
+                    current: prev.current,
                     pending: [...prev.pending.filter(r => r.id !== editingId), newRecord]
                 }));
             } else {
@@ -1639,6 +1730,15 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     };
     const fv = (k: keyof FamilyMember) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(prev => ({ ...prev, [k]: e.target.value as any }));
 
+    if (isLoading) {
+        return (
+            <div className={styles.sectionCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', minHeight: '300px' }}>
+                <Loader2 className="animate-spin" size={32} style={{ color: '#3b82f6', marginBottom: '16px' }} />
+                <p style={{ color: 'var(--color-neutral-500)' }}>{t('profile.loading', 'Loading...')}</p>
+            </div>
+        );
+    }
+
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<Users size={20} />} title={t('profile.tabs.family')} subtitle={t('profile.family.subtitle')}
@@ -1665,7 +1765,10 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
                                                 <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} /></td>
                                                 <td>
-                                                    <div className={styles.rowActions}>
+                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginRight: '8px', padding: '2px 6px', background: '#f3f4f6', borderRadius: '4px' }}>
+                                                            {r.modOption || 'New'}
+                                                        </span>
                                                         <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
                                                         <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
                                                     </div>
@@ -1696,7 +1799,11 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
                                                 <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} /></td>
                                                 <td>
-                                                    <div className={styles.rowActions}>
+                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#eab308', marginRight: '8px', padding: '2px 6px', background: '#fef08a', borderRadius: '4px' }}>
+                                                            {r.modOption || 'New'}
+                                                        </span>
+                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
                                                         <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
                                                     </div>
                                                 </td>
@@ -1745,13 +1852,13 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                         </FormRow>
                     </div>
                     <div className={styles.formGrid2}>
-                        <FormRow label={t('profile.family.modOption')}>
-                            <select className={styles.formSelect} value={form.modOption} onChange={fv('modOption')}>
-                                {MOD_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                        <FormRow label={`${t('profile.family.modOption')} *`}>
+                            <select className={styles.formSelect} value={form.modOption} onChange={e => setForm(prev => ({ ...prev, modOption: e.target.value as any, effectiveFrom: e.target.value === 'Correct' ? '' : prev.effectiveFrom }))}>
+                                {MOD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                             </select>
                         </FormRow>
-                        <FormRow label={t('profile.family.effectiveFrom')}>
-                            <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} />
+                        <FormRow label={`${t('profile.family.effectiveFrom')}${form.modOption !== 'Correct' ? ' *' : ''}`}>
+                            <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} disabled={form.modOption === 'Correct'} />
                         </FormRow>
                     </div>
                     <FormRow label={`${t('profile.family.attachment')} *`}>
@@ -1782,7 +1889,9 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
     const [contactDetails, setContactDetails] = useState({
         primaryEmail: '',
         secondaryEmail: '',
-        primaryMobile: ''
+        primaryMobile: '',
+        modOption: 'New',
+        effectiveFrom: ''
     });
 
     const [form, setForm] = useState<{ permanent: Address, temporary: Address }>({
@@ -1908,7 +2017,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
     });
 
 
-    const { data: fetchedData, refetch } = useQuery({
+    const { data: fetchedData, refetch, isLoading } = useQuery({
         queryKey: ['address', profile.userid, profile.eid],
         queryFn: async () => {
             const res = await mainClient.post(ADDRESS_COMPARE, {
@@ -1938,7 +2047,9 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                 status: item.status?.toString() || '0',
                 personalprimaryemail: item.personalprimaryemail || item.personalprimaymail || '',
                 personalsecondarymail: item.personalsecondarymail || '',
-                personalmobilephone: item.personalmobilephone || ''
+                personalmobilephone: item.personalmobilephone || '',
+                modificationoption: item.modificationoption || '',
+                effectivedate: item.effectivedate || ''
             })) as Address[];
 
             return {
@@ -1956,19 +2067,22 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
     }, [fetchedData]);
 
     const startEdit = () => {
-        const curPerm = records.current.find(a => a.addressstatus === 0) || records.pending.find(a => a.addressstatus === 0);
-        const curTemp = records.current.find(a => a.addressstatus === 1) || records.pending.find(a => a.addressstatus === 1);
+        const curPerm = records.pending.find(a => a.addressstatus === 0) || records.current.find(a => a.addressstatus === 0);
+        const curTemp = records.pending.find(a => a.addressstatus === 1) || records.current.find(a => a.addressstatus === 1);
 
         setForm({
             permanent: curPerm ? { ...curPerm } : { syskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 0, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '' },
             temporary: curTemp ? { ...curTemp } : { syskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 1, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '' }
         });
 
-        const contactRef = records.pending[0] || records.current[0] || {} as any;
+        const contactRef = (records.pending[0] || records.current[0] || {}) as any;
+        const isCurrent = !records.pending[0] && !!records.current[0];
         setContactDetails({
             primaryEmail: contactRef.personalprimaryemail || '',
             secondaryEmail: contactRef.personalsecondarymail || '',
-            primaryMobile: contactRef.personalmobilephone || ''
+            primaryMobile: contactRef.personalmobilephone || '',
+            modOption: isCurrent ? 'Update' : (contactRef.modificationoption || 'New'),
+            effectiveFrom: contactRef.effectivedate && contactRef.effectivedate.length === 8 ? `${contactRef.effectivedate.substring(0, 4)}-${contactRef.effectivedate.substring(4, 6)}-${contactRef.effectivedate.substring(6, 8)}` : (contactRef.effectivedate || '')
         });
 
         setIsEditing(true);
@@ -1977,6 +2091,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
     const cancel = () => setIsEditing(false);
 
     const save = async () => {
+        if (contactDetails.modOption !== 'Correct' && !contactDetails.effectiveFrom) { toast.error('Effective Date is required for New or Update'); return; }
         const toPayload = (addr: Address) => ({
             syskey: addr.syskey,
             employeeid: profile.eid,
@@ -1989,6 +2104,8 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
             ward: addr.wardsyskey || '',
             country: addr.countrysyskey || '',
             addressstatus: addr.addressstatus,
+            modificationoption: contactDetails.modOption,
+            effectivedate: contactDetails.effectiveFrom ? contactDetails.effectiveFrom.replace(/-/g, '') : '',
             status: '0'
         });
         const addressinfo = [toPayload(form.permanent), toPayload(form.temporary)];
@@ -2058,7 +2175,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
         });
     };
 
-    const updateContact = (field: keyof typeof contactDetails) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const updateContact = (field: keyof typeof contactDetails) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setContactDetails(prev => ({ ...prev, [field]: e.target.value }));
     };
 
@@ -2096,6 +2213,15 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
             </div>
         );
     };
+
+    if (isLoading) {
+        return (
+            <div className={styles.sectionCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', minHeight: '300px' }}>
+                <Loader2 className="animate-spin" size={32} style={{ color: '#3b82f6', marginBottom: '16px' }} />
+                <p style={{ color: 'var(--color-neutral-500)' }}>{t('profile.loading', 'Loading...')}</p>
+            </div>
+        );
+    }
 
     return (
         <div className={styles.sectionCard}>
@@ -2214,6 +2340,17 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                         <FormRow label={t('profile.contact.primaryMobile')}>
                             <input className={styles.formInput} type="tel" value={contactDetails.primaryMobile} onChange={updateContact('primaryMobile')} placeholder="09-xxx-xxx-xxx" />
                         </FormRow>
+
+                    </div>
+                    <div className={styles.formGrid2}>
+                        <FormRow label={`${t('profile.family.modOption', 'Modification Option')} *`}>
+                            <select className={styles.formSelect} value={contactDetails.modOption} onChange={e => setContactDetails(prev => ({ ...prev, modOption: e.target.value, effectiveFrom: e.target.value === 'Correct' ? '' : prev.effectiveFrom }))}>
+                                {MOD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label={`${t('profile.family.effectiveFrom', 'Effective Date')}${contactDetails.modOption !== 'Correct' ? ' *' : ''}`}>
+                            <input className={styles.formInput} type="date" value={contactDetails.effectiveFrom} onChange={updateContact('effectiveFrom')} disabled={contactDetails.modOption === 'Correct'} />
+                        </FormRow>
                     </div>
 
                     <div className={styles.formActions} style={{ marginTop: 'var(--space-8)' }}>
@@ -2300,7 +2437,12 @@ function UpdateHistoryTab({ profile }: { profile: ProfileData }) {
     });
 
     if (isLoading) {
-        return <div className={styles.loadingContainer}><Loader2 className="animate-spin" size={32} style={{ color: 'var(--color-primary-500)' }} /></div>;
+        return (
+            <div className={styles.sectionCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', minHeight: '300px' }}>
+                <Loader2 className="animate-spin" size={32} style={{ color: '#3b82f6', marginBottom: '16px' }} />
+                <p style={{ color: 'var(--color-neutral-500)' }}>{t('profile.loading', 'Loading...')}</p>
+            </div>
+        );
     }
 
     return (

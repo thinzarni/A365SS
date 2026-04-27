@@ -598,6 +598,14 @@
     border-color: var(--color-primary-400);
 }
 
+.formInput:disabled,
+.formSelect:disabled {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-400);
+    cursor: not-allowed;
+    border-color: var(--color-neutral-200);
+}
+
 .formTextarea {
     width: 100%;
     padding: var(--space-2) var(--space-3);
