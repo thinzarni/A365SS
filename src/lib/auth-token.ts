@@ -4,6 +4,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { appConfig } from '../config/app-config';
+import SHA512 from 'crypto-js/sha512';
 
 const APP_ID = appConfig.appId;
 const SECRET_KEY = import.meta.env.VITE_SECRET_KEY || 'jRxaPLUjcm210BiPDey7kMM7';
@@ -14,10 +15,15 @@ const SECRET_KEY = import.meta.env.VITE_SECRET_KEY || 'jRxaPLUjcm210BiPDey7kMM7'
  */
 export async function createSToken(dateTime: string, reqType: string, uuid: string): Promise<string> {
     const raw = uuid + APP_ID + dateTime + reqType + SECRET_KEY;
-    const data = new TextEncoder().encode(raw);
-    const hashBuffer = await crypto.subtle.digest('SHA-512', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+        const data = new TextEncoder().encode(raw);
+        const hashBuffer = await crypto.subtle.digest('SHA-512', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    } else {
+        return SHA512(raw).toString();
+    }
 }
 
 export async function makeSignInPayload(userId: string, reqType: number, password = '') {
@@ -58,7 +64,7 @@ function getOrCreateUUID(): string {
     const KEY = 'a365-device-uuid';
     let uuid = localStorage.getItem(KEY);
     if (!uuid) {
-        uuid = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        uuid = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : null) || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         localStorage.setItem(KEY, uuid);
     }
     return uuid;
