@@ -92,12 +92,15 @@ interface WorkExperience {
     id: string;
     organization: string;
     orgType: string;
+    orgTypeDesc?: string;
     industry: string;
+    industryDesc?: string;
     designation: string;
     fromdate: string;
     todate: string;
     salary: string;
     currency: string;
+    currencyDesc?: string;
     reasonForChange: string;
     status?: string;
     modOption?: string;
@@ -906,6 +909,36 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
+    const { data: orgTypes = [] } = useQuery({
+        queryKey: ['setup', 'org_type'],
+        queryFn: async () => {
+            const { domain } = useAuthStore.getState();
+            const res = await mainClient.post(GET_SETUP_LIST, { userid: profile.userid, domain: domain || 'demouat', tblname: 'org_type' });
+            return res.data?.datalist || [];
+        },
+        enabled: showModal
+    });
+
+    const { data: industries = [] } = useQuery({
+        queryKey: ['setup', 'industry'],
+        queryFn: async () => {
+            const { domain } = useAuthStore.getState();
+            const res = await mainClient.post(GET_SETUP_LIST, { userid: profile.userid, domain: domain || 'demouat', tblname: 'industry' });
+            return res.data?.datalist || [];
+        },
+        enabled: showModal
+    });
+
+    const { data: currencies = [] } = useQuery({
+        queryKey: ['setup', 'currency'],
+        queryFn: async () => {
+            const { domain } = useAuthStore.getState();
+            const res = await mainClient.post(GET_SETUP_LIST, { userid: profile.userid, domain: domain || 'demouat', tblname: 'currency' });
+            return res.data?.datalist || [];
+        },
+        enabled: showModal
+    });
+
     const { data: fetchedData, isLoading } = useQuery({
         queryKey: ['experience', profile.userid, profile.eid],
         queryFn: async () => {
@@ -919,10 +952,13 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                 if (!val) return '';
                 if (val.includes('/')) {
                     const parts = val.split('/');
-                    return parts.length === 3 ? `${parts[2]}-${parts[1]}` : val;
+                    return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : val;
                 }
-                if (val.length >= 6) { // Supports YYYYMMDD and YYYYMM
-                    return `${val.substring(0, 4)}-${val.substring(4, 6)}`;
+                if (val.length >= 8) {
+                    return `${val.substring(0, 4)}-${val.substring(4, 6)}-${val.substring(6, 8)}`;
+                }
+                if (val.length === 6) {
+                    return `${val.substring(0, 4)}-${val.substring(4, 6)}-01`;
                 }
                 return val;
             };
@@ -930,13 +966,16 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             const processArr = (arr: any[]) => arr.map((item: any) => ({
                 id: item.syskey,
                 organization: item.organization,
-                orgType: item.organizationtype || '',
-                industry: item.industry || '',
+                orgType: item.organizationtypesyskey || item.organizationtype || '',
+                orgTypeDesc: item.organizationtype || '',
+                industry: item.industrysyskey || item.industry || '',
+                industryDesc: item.industry || '',
                 designation: item.designation,
                 fromdate: parseExpDate(item.fromdate),
                 todate: parseExpDate(item.todate),
                 salary: item.previousmonthlysalary || '',
-                currency: item.currency || 'MMK',
+                currency: item.currencysyskey || item.currency || 'MMK',
+                currencyDesc: item.currency || 'MMK',
                 reasonForChange: item.reasonforchange || '',
                 status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
                 modOption: item.modificationoption || 'New'
@@ -954,8 +993,10 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         if (!val) return '';
         if (val.includes('-')) {
             const parts = val.split('-');
-            if (parts.length >= 2) {
-                // Return YYYY-MM as 01/MM/YYYY
+            if (parts.length === 3) {
+                return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+            if (parts.length === 2) {
                 return `01/${parts[1]}/${parts[0]}`;
             }
         }
@@ -972,7 +1013,12 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     const [form, setForm] = useState<WorkExperience>(blankExp());
 
     const openAdd = () => { setForm(blankExp()); setEditingId(null); setShowModal(true); };
-    const openEdit = (r: WorkExperience) => { setForm({ ...r }); setEditingId(r.id); setShowModal(true); };
+    const openEdit = (r: WorkExperience) => {
+        const isCurrent = records.current.some(c => c.id === r.id);
+        setForm({ ...r, modOption: isCurrent ? 'Update' : (r.modOption || 'New') });
+        setEditingId(r.id);
+        setShowModal(true);
+    };
     const closeExp = () => { setShowModal(false); setEditingId(null); };
 
     const saveExp = async () => {
@@ -984,20 +1030,34 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             newRecord.id = Date.now().toString();
             newRecord.status = 'Pending';
         }
+        if (orgTypes.length) {
+            const sel = orgTypes.find((o:any) => o.syskey === form.orgType);
+            if (sel) newRecord.orgTypeDesc = sel.description;
+        }
+        if (industries.length) {
+            const sel = industries.find((i:any) => i.syskey === form.industry);
+            if (sel) newRecord.industryDesc = sel.description;
+        }
+        if (currencies.length) {
+            const sel = currencies.find((c:any) => c.syskey === form.currency);
+            if (sel) newRecord.currencyDesc = sel.description;
+        }
 
-        const allRecords = [...records.current, ...records.pending];
-        const updatedRecords = isUpdate
-            ? allRecords.map(r => r.id === editingId ? newRecord : r)
-            : [...allRecords, newRecord];
+        const updatedPending = isUpdate
+            ? (records.pending.some(r => r.id === editingId) 
+                ? records.pending.map(r => r.id === editingId ? newRecord : r)
+                : [...records.pending, newRecord])
+            : [...records.pending, newRecord];
 
         const { domain } = useAuthStore.getState();
-        const experiencelist = updatedRecords.map(r => ({
+        const experiencelist = updatedPending.map(r => ({
+            syskey: r.id && r.id.length > 15 ? r.id : "",
             organization: r.organization,
             organizationtype: r.orgType || null,
             industry: r.industry || null,
             designation: r.designation,
-            fromdate: r.fromdate ? r.fromdate.replace('-', '') + '01' : '',
-            todate: r.todate ? r.todate.replace('-', '') + '01' : '',
+            fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
+            todate: r.todate ? r.todate.replace(/-/g, '') : '',
             previousmonthlysalary: r.salary ? r.salary.toString() : '',
             currency: r.currency || 'MMK',
             reasonforchange: r.reasonForChange || '',
@@ -1028,18 +1088,19 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     };
 
     const removeExp = async (id: string) => {
-        const updatedCurrent = records.current.filter(r => r.id !== id);
+        console.log(id);
+
         const updatedPending = records.pending.filter(r => r.id !== id);
-        const allRecords = [...updatedCurrent, ...updatedPending];
 
         const { domain } = useAuthStore.getState();
-        const experiencelist = allRecords.map(r => ({
+        const experiencelist = updatedPending.map(r => ({
+            syskey: r.id && r.id.length > 15 ? r.id : "",
             organization: r.organization,
             organizationtype: r.orgType || null,
             industry: r.industry || null,
             designation: r.designation,
-            fromdate: r.fromdate ? r.fromdate.replace('-', '') + '01' : '',
-            todate: r.todate ? r.todate.replace('-', '') + '01' : '',
+            fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
+            todate: r.todate ? r.todate.replace(/-/g, '') : '',
             previousmonthlysalary: r.salary ? r.salary.toString() : '',
             currency: r.currency || 'MMK',
             reasonforchange: r.reasonForChange || '',
@@ -1054,10 +1115,13 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                 employeeid: profile.eid,
                 experiencelist
             });
-            setRecords({ current: updatedCurrent, pending: updatedPending });
-            toast.success(t('profile.experience.removeSuccess'));
+            setRecords(prev => ({
+                ...prev,
+                pending: updatedPending
+            }));
+            toast.success(t('profile.experience.deleteSuccess', 'Pending record removed'));
         } catch (err) {
-            toast.error('Failed to remove experience');
+            toast.error('Failed to remove pending experience');
         }
     };
     const f = (k: keyof WorkExperience) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value }));
@@ -1094,15 +1158,14 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                         {records.current.map(r => (
                                             <tr key={r.id}>
                                                 <td><strong>{r.organization}</strong></td>
-                                                <td>{r.orgType}</td>
-                                                <td>{r.industry}</td>
+                                                <td>{r.orgTypeDesc || orgTypes.find((o:any)=>o.syskey===r.orgType)?.description || r.orgType}</td>
+                                                <td>{r.industryDesc || industries.find((i:any)=>i.syskey===r.industry)?.description || r.industry}</td>
                                                 <td>{r.designation}</td>
                                                 <td className={styles.noWrap}>{displayExpDate(r.fromdate)} → {displayExpDate(r.todate) || t('profile.experience.present')}</td>
-                                                <td className={styles.noWrap}>{r.salary} {r.currency}</td>
+                                                <td className={styles.noWrap}>{r.salary} {r.currencyDesc || currencies.find((c:any)=>c.syskey===r.currency)?.description || r.currency}</td>
                                                 <td>
                                                     <div className={styles.rowActions}>
                                                         <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1128,11 +1191,11 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                         {records.pending.map(r => (
                                             <tr key={r.id} style={{ opacity: 0.85 }}>
                                                 <td><strong>{r.organization}</strong></td>
-                                                <td>{r.orgType}</td>
-                                                <td>{r.industry}</td>
+                                                <td>{r.orgTypeDesc || orgTypes.find((o:any)=>o.syskey===r.orgType)?.description || r.orgType}</td>
+                                                <td>{r.industryDesc || industries.find((i:any)=>i.syskey===r.industry)?.description || r.industry}</td>
                                                 <td>{r.designation}</td>
                                                 <td className={styles.noWrap}>{displayExpDate(r.fromdate)} → {displayExpDate(r.todate) || t('profile.experience.present')}</td>
-                                                <td className={styles.noWrap}>{r.salary} {r.currency}</td>
+                                                <td className={styles.noWrap}>{r.salary} {r.currencyDesc || currencies.find((c:any)=>c.syskey===r.currency)?.description || r.currency}</td>
                                                 <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} /></td>
                                                 <td>
                                                     <div className={styles.rowActions}>
@@ -1158,13 +1221,13 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                         <FormRow label={t('profile.experience.orgType')}>
                             <select className={styles.formSelect} value={form.orgType} onChange={f('orgType')}>
                                 <option value="">{t('profile.experience.selectType')}</option>
-                                {ORG_TYPES.map(o => <option key={o}>{o}</option>)}
+                                {orgTypes.map((o:any) => <option key={o.syskey} value={o.syskey}>{o.description}</option>)}
                             </select>
                         </FormRow>
                         <FormRow label={t('profile.experience.industry')}>
                             <select className={styles.formSelect} value={form.industry} onChange={f('industry')}>
                                 <option value="">{t('profile.experience.selectIndustry')}</option>
-                                {INDUSTRIES.map(o => <option key={o}>{o}</option>)}
+                                {industries.map((o:any) => <option key={o.syskey} value={o.syskey}>{o.description}</option>)}
                             </select>
                         </FormRow>
                     </div>
@@ -1185,7 +1248,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                         </FormRow>
                         <FormRow label={t('profile.experience.currency')}>
                             <select className={styles.formSelect} value={form.currency} onChange={f('currency')}>
-                                {CURRENCIES.map(c => <option key={c}>{c}</option>)}
+                                {currencies.map((c:any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
                             </select>
                         </FormRow>
                     </div>
