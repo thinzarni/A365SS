@@ -475,7 +475,7 @@ export default function NewRequestPage() {
             const res = await apiClient.post(LEAVE_REASONS, payload);
             return res.data?.datalist || [];
         },
-        enabled: selectedType === 'leave' && flavor === 'prd',
+        enabled: selectedType === 'leave' && (flavor === 'prd' || flavor === 'mpt'),
     });
 
     const { data: claimTypeList = [] } = useQuery<TypesModel[]>({
@@ -756,7 +756,7 @@ export default function NewRequestPage() {
                             payload.requestsubtypedesc = selectedLt.description;
                         }
                     }
-                    if (flavor === 'prd' && leaveReason) {
+                    if ((flavor === 'prd' || flavor === 'mpt') && leaveReason) {
                         payload.leavereason = leaveReason;
                     }
                     payload.selectedHandovers = handovers.map((h) => ({ syskey: h.syskey, name: h.name }));
@@ -1011,7 +1011,7 @@ export default function NewRequestPage() {
                 toast.error('Please select a leave type');
                 return;
             }
-            if (flavor === 'prd' && !leaveReason) {
+            if ((flavor === 'prd' || flavor === 'mpt') && !leaveReason) {
                 toast.error('Please select a leave reason');
                 return;
             }
@@ -1055,7 +1055,7 @@ export default function NewRequestPage() {
                 toast.error('Amount must be greater than zero');
                 return;
             }
-            
+
             const selClaimType = claimTypeList.find(ct => ct.syskey === claimType);
             if (selClaimType) {
                 const maxAmount = Number(selClaimType.max_amount) || 0;
@@ -1607,7 +1607,7 @@ export default function NewRequestPage() {
                         )}
 
                         {/* ── Leave Reason ── */}
-                        {flavor === 'prd' && selectedType === 'leave' && (
+                        {(flavor === 'prd' || flavor === 'mpt') && selectedType === 'leave' && (
                             <div className={styles['new-request__full']} style={{ marginBottom: 'var(--space-4)' }}>
                                 <Select
                                     id="leaveReason"

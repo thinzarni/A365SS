@@ -401,7 +401,7 @@ export default function AppLayout() {
         }
 
         // 2. HTTP Verification (Once per day)
-        if (import.meta.env.VITE_FLAVOR === 'prd' && !pwdCheckRan.current) {
+        if ((import.meta.env.VITE_FLAVOR === 'prd' || import.meta.env.VITE_FLAVOR === 'mpt') && !pwdCheckRan.current) {
             pwdCheckRan.current = true;
             const checkPasswordExpiry = async () => {
                 try {

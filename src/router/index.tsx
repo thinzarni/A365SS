@@ -42,7 +42,7 @@ import ProfilePage from '../pages/ProfilePage/ProfilePage';
 import ProfilePagePrd from '../pages/ProfilePage/ProfilePagePrd';
 import NewAttendanceRequestPage from '../pages/AttendanceRequestPage/NewAttendanceRequestPage';
 import { flavor } from '../config/features';
-const ActiveProfilePage = flavor === 'prd' ? ProfilePagePrd : ProfilePage;
+const ActiveProfilePage = flavor === 'prd' || flavor === 'mpt' ? ProfilePagePrd : ProfilePage;
 
 export const router = createBrowserRouter([
     // ── Guest routes ──

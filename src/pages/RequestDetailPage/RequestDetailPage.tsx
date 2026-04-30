@@ -154,7 +154,7 @@ export default function RequestDetailPage() {
             const res = await apiClient.post(LEAVE_REASONS, payload);
             return res.data?.datalist || [];
         },
-        enabled: !!isLeave && flavor === 'prd',
+        enabled: !!isLeave && (flavor === 'prd' || flavor === 'mpt'),
     });
 
     const detail = detailData?.detail;
@@ -262,7 +262,7 @@ export default function RequestDetailPage() {
                             {(detail.starttime || detail.time) && <Field label="Start Time" value={detail.starttime || detail.time} />}
                             {detail.endtime && <Field label="End Time" value={detail.endtime} />}
                             {detail.duration && <Field label="Duration" value={detail.duration} />}
-                            {flavor === 'prd' && leaveReasonText && <Field label="Leave Reason" value={leaveReasonText} />}
+                            {(flavor === 'prd' || flavor === 'mpt') && leaveReasonText && <Field label="Leave Reason" value={leaveReasonText} />}
                             {detail.selectday && <Field label="Select Day" value={detail.selectday} />}
                             {detail.days && <Field label="Days" value={String(detail.days)} />}
                             {detail.hour && <Field label="Hours" value={detail.hour} />}

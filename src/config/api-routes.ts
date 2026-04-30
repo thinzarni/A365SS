@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════════════════ */
 import { flavor } from './features';
 
-const hxmPrefix = flavor === 'prd' ? 'api/hxm/' : 'hxm/';
+const hxmPrefix = flavor === 'prd' || flavor === 'mpt' ? 'api/hxm/' : 'hxm/';
 
 // ── Auth ──
 export const RENEW_TOKEN = 'generate/renew-token';
