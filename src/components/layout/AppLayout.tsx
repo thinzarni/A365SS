@@ -220,8 +220,8 @@ export default function AppLayout() {
                 const data = res.data;
                 if (data?.statuscode === 200 || data?.statuscode === 300) {
                     return {
-                        // datalist = sidebar menu; homemenulist = home screen cards
-                        datalist: (data.datalist ?? []) as ApiMenuItem[],
+                        // selfservicewebmenulist = sidebar menu; homemenulist = home screen cards
+                        datalist: (data.selfservicewebmenulist ?? []) as ApiMenuItem[],
                         homemenulist: (data.homemenulist ?? []) as ApiMenuItem[],
                     };
                 }
