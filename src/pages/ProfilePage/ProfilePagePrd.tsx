@@ -7,7 +7,7 @@ import {
     Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle,
 
     Building2, User, Phone, BookOpen, Users, MapPin, Plus, Trash2, Edit3,
-    ChevronRight, FileText, AlertCircle, Save
+    ChevronRight, FileText, AlertCircle, Save, RotateCcw
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
@@ -104,6 +104,7 @@ interface WorkExperience {
     reasonForChange: string;
     status?: string;
     modOption?: string;
+    isdelete?: boolean;
 }
 
 interface Qualification {
@@ -119,6 +120,8 @@ interface Qualification {
     todate: string;
     isheight: string;
     status: string;
+    modOption?: string;
+    isdelete?: boolean;
 }
 interface Address {
     syskey: string;
@@ -159,6 +162,7 @@ interface FamilyMember {
     effectiveFrom: string;
     status: string;
     attachment?: string;
+    isdelete?: boolean;
 }
 
 interface EmergencyContact {
@@ -169,9 +173,10 @@ interface EmergencyContact {
     contactNumber: string;
     countryCode?: string;
     address: string;
-    status?: string;
     modOption?: string;
     effectiveFrom?: string;
+    isdelete?: boolean;
+    status?: string;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -233,9 +238,6 @@ function useCountryCodes(isOpen: boolean) {
 }
 const NATIONALITIES = ['Myanmar', 'Chinese', 'Indian', 'Thai', 'Japanese', 'Korean', 'American', 'Other'];
 const ETHNICITIES = ['Bamar', 'Shan', 'Karen', 'Rakhine', 'Mon', 'Karenni', 'Chin', 'Kachin', 'Other'];
-const ORG_TYPES = ['Government', 'Private', 'NGO', 'INGO', 'Other'];
-const INDUSTRIES = ['IT', 'Banking', 'Finance', 'Healthcare', 'Education', 'Manufacturing', 'Retail', 'Telecom', 'Other'];
-const CURRENCIES = ['MMK', 'USD', 'THB', 'SGD', 'EUR'];
 const GENDERS = ['Male', 'Female', 'Other'];
 const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed'];
 const MOD_OPTIONS = ['New', 'Correct', 'Update'];
@@ -363,19 +365,21 @@ export default function ProfilePage() {
                                 : <span className={styles.avatarInitials}>{initials}</span>
                             }
                         </div>
-                        <h2 className={styles.userName}>{profile.name || '-'}</h2>
-                        <p className={styles.userRole}>{profile.rank || profile.role || user?.position || t('profile.employeeLabel')}</p>
-                        <div className={styles.contactChips}>
-                            <div className={styles.chip}>
-                                <Briefcase size={14} />
-                                <span>{profile.paycompany || user?.domainName || domain}</span>
-                            </div>
-                            {profile.userid && (
+                        <div className={styles.avatarInfo}>
+                            <h2 className={styles.userName}>{profile.name || '-'}</h2>
+                            <p className={styles.userRole}>{profile.rank || profile.role || user?.position || t('profile.employeeLabel')}</p>
+                            <div className={styles.contactChips}>
                                 <div className={styles.chip}>
-                                    <Mail size={14} />
-                                    <span>{profile.userid}</span>
+                                    <Briefcase size={14} />
+                                    <span>{profile.paycompany || user?.domainName || domain}</span>
                                 </div>
-                            )}
+                                {profile.userid && (
+                                    <div className={styles.chip}>
+                                        <Mail size={14} />
+                                        <span>{profile.userid}</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         {(isOwnProfile || hasHrAccess) && (
                             <div className={styles.settingsPanel}>
@@ -388,26 +392,25 @@ export default function ProfilePage() {
                             </div>
                         )}
                     </div>
-
-                    {/* Tab Navigation */}
-                    <nav className={styles.tabNav} aria-label="Profile sections">
-                        {TABS.map(tab => {
-                            const Icon = tab.icon;
-                            return (
-                                <button
-                                    key={tab.id}
-                                    id={`tab-${tab.id}`}
-                                    className={`${styles.tabBtn} ${activeTab === tab.id ? styles.tabBtn__active : ''}`}
-                                    onClick={() => setActiveTab(tab.id)}
-                                >
-                                    <Icon size={16} className={styles.tabIcon} />
-                                    <span>{tab.label}</span>
-                                    <ChevronRight size={14} className={styles.tabChevron} />
-                                </button>
-                            );
-                        })}
-                    </nav>
                 </div>
+
+                {/* Tab Navigation */}
+                <nav className={styles.tabNav} aria-label="Profile sections">
+                    {TABS.map(tab => {
+                        const Icon = tab.icon;
+                        return (
+                            <button
+                                key={tab.id}
+                                id={`tab-${tab.id}`}
+                                className={`${styles.tabBtn} ${activeTab === tab.id ? styles.tabBtn__active : ''}`}
+                                onClick={() => setActiveTab(tab.id)}
+                            >
+                                <Icon size={16} className={styles.tabIcon} />
+                                <span>{tab.label}</span>
+                            </button>
+                        );
+                    })}
+                </nav>
 
                 <div className={styles.tabContent}>
                     {activeTab === 'employment' && <EmploymentTab profile={profile} />}
@@ -639,7 +642,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                 employeeid: profile.eid
             });
             const processArr = (arr: any[]) => arr.map((item: any) => ({
-                id: item.syskey,
+                id: item.syskey || item.orgrecordsyskey,
                 name: item.name || '',
                 relationship: item.relationship || '',
                 relationshipSyskey: item.relationshipsyskey || item.relationship || '',
@@ -648,7 +651,8 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                 address: item.address || '',
                 status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
                 modOption: item.modificationoption || 'New',
-                effectiveFrom: item.effectivedate && item.effectivedate.length === 8 ? `${item.effectivedate.substring(0, 4)}-${item.effectivedate.substring(4, 6)}-${item.effectivedate.substring(6, 8)}` : (item.effectivedate || '')
+                effectiveFrom: item.effectivedate && item.effectivedate.length === 8 ? `${item.effectivedate.substring(0, 4)}-${item.effectivedate.substring(4, 6)}-${item.effectivedate.substring(6, 8)}` : (item.effectivedate || ''),
+                isdelete: !!item.isdelete
             })) as EmergencyContact[];
 
             return {
@@ -696,14 +700,16 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             newRecord.id = Date.now().toString();
         }
 
-        const allRecords = [...records.current, ...records.pending];
-        const updatedRecords = isUpdate
-            ? allRecords.map(r => r.id === editingId ? newRecord : r)
-            : [...allRecords, newRecord];
+        const updatedPending = isUpdate
+            ? (records.pending.some(r => r.id === editingId)
+                ? records.pending.map(r => r.id === editingId ? newRecord : r)
+                : [...records.pending, newRecord])
+            : [...records.pending, newRecord];
 
         const { domain } = useAuthStore.getState();
-        const emergencylist = updatedRecords.map(r => ({
-            syskey: r.id && r.id.length > 20 ? r.id : "",
+        const emergencylist = updatedPending.map(r => ({
+            syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
+            orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
             name: r.name,
             relationship: r.relationshipSyskey || r.relationship,
             countrycode: r.countryCode || '+95',
@@ -711,7 +717,8 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             address: r.address,
             modificationoption: r.modOption,
             effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
-            status: r.status === 'Approved' ? "1" : "0"
+            status: r.status === 'Approved' ? "1" : "0",
+            isdelete: !!r.isdelete
         }));
 
         try {
@@ -738,20 +745,33 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
 
     const remove = async (id?: string) => {
         if (!id) return;
-        const updatedCurrent = records.current.filter(r => r.id !== id);
-        const updatedPending = records.pending.filter(r => r.id !== id);
-        const allRecords = [...updatedCurrent, ...updatedPending];
+        const isCurrent = records.current.some(r => r.id === id);
+        const pendingRecord = records.pending.find(p => p.id === id);
+
+        const isReverting = !!pendingRecord;
+        let updatedPending: EmergencyContact[];
+        if (pendingRecord) {
+            updatedPending = records.pending.filter(r => r.id !== id);
+        } else if (isCurrent) {
+            const recordToDelete = records.current.find(r => r.id === id);
+            if (!recordToDelete) return;
+            updatedPending = [...records.pending, { ...recordToDelete, isdelete: true, modOption: 'Correct', status: 'Pending' }];
+        } else {
+            return;
+        }
 
         const { domain } = useAuthStore.getState();
-        const emergencylist = allRecords.map(r => ({
-            syskey: r.id && r.id.length > 20 ? r.id : "",
+        const emergencylist = updatedPending.map(r => ({
+            syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
+            orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
             name: r.name,
             relationship: r.relationshipSyskey || r.relationship,
             contactnumber: r.contactNumber,
             address: r.address,
             modificationoption: r.modOption,
             effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
-            status: r.status === 'Approved' ? 'Active' : "0"
+            status: r.status === 'Approved' ? '1' : "0",
+            isdelete: !!r.isdelete,
         }));
 
         try {
@@ -761,10 +781,13 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                 employeeid: profile.eid,
                 emergencylist
             });
-            setRecords({ current: updatedCurrent, pending: updatedPending });
-            toast.success('Removed emergency contact');
+            setRecords(prev => ({
+                current: prev.current,
+                pending: updatedPending
+            }));
+            toast.success(isReverting ? 'Reverted deletion' : 'Marked for deletion');
         } catch (err) {
-            toast.error('Failed to remove emergency contact');
+            toast.error('Failed to update record');
         }
     };
 
@@ -803,11 +826,25 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                                 <td>{r.countryCode ? r.countryCode + ' ' : ''}{r.contactNumber}</td>
                                                 <td>{r.address}</td>
                                                 <td>
-                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center' }}>
-                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginRight: '8px', padding: '2px 6px', background: '#f3f4f6', borderRadius: '4px' }}>
-                                                            {r.modOption || 'New'}
-                                                        </span>
-                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                            onClick={() => openEdit(r)}
+                                                            onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
+                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                            title={t('profile.personal.editHint')}
+                                                        >
+                                                            <Edit3 size={14} />
+                                                        </button>
+                                                        <button
+                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                            onClick={() => remove(r.id)}
+                                                            onMouseOver={e => (e.currentTarget.style.background = '#fef2f2')}
+                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                            title={t('request.delete')}
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -828,19 +865,66 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                     </thead>
                                     <tbody>
                                         {records.pending.map(r => (
-                                            <tr key={r.id} style={{ opacity: 0.85 }}>
-                                                <td><strong>{r.name}</strong></td>
-                                                <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
-                                                <td>{r.countryCode ? r.countryCode + ' ' : ''}{r.contactNumber}</td>
-                                                <td>{r.address}</td>
-                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} /></td>
+                                            <tr key={r.id} style={{
+                                                backgroundColor: r.isdelete ? '#fff1f2' : 'transparent',
+                                                borderLeft: r.isdelete ? '4px solid #f43f5e' : 'none',
+                                                transition: 'all 0.2s ease'
+                                            }}>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}><strong>{r.name}</strong></td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.countryCode ? r.countryCode + ' ' : ''}{r.contactNumber}</td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.address}</td>
+                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} /></td>
                                                 <td>
-                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center' }}>
-                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#eab308', marginRight: '8px', padding: '2px 6px', background: '#fef08a', borderRadius: '4px' }}>
-                                                            {r.modOption || 'New'}
-                                                        </span>
-                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-end' }}>
+                                                        {!r.isdelete && (
+                                                            <button
+                                                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                                onClick={() => openEdit(r)}
+                                                                onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
+                                                                onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                                title={t('profile.personal.editHint')}
+                                                            >
+                                                                <Edit3 size={14} />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => remove(r.id)}
+                                                            title={r.isdelete ? "Cancel delete request" : t('request.delete')}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '6px',
+                                                                padding: r.isdelete ? '6px 12px' : '8px',
+                                                                borderRadius: r.isdelete ? '9999px' : '50%',
+                                                                backgroundColor: r.isdelete ? '#ffffff' : 'transparent',
+                                                                color: r.isdelete ? '#475569' : '#ef4444',
+                                                                border: r.isdelete ? '1px solid #e2e8f0' : 'none',
+                                                                fontSize: '11px',
+                                                                fontWeight: 700,
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '0.025em',
+                                                                cursor: 'pointer',
+                                                                boxShadow: r.isdelete ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none',
+                                                                transition: 'all 0.2s',
+                                                                outline: 'none',
+                                                            }}
+                                                            onMouseOver={e => {
+                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#f8fafc';
+                                                                else e.currentTarget.style.backgroundColor = '#fef2f2';
+                                                            }}
+                                                            onMouseOut={e => {
+                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#ffffff';
+                                                                else e.currentTarget.style.backgroundColor = 'transparent';
+                                                            }}
+                                                        >
+                                                            {r.isdelete ? (
+                                                                <>
+                                                                    <RotateCcw size={14} />
+                                                                    <span>Revert</span>
+                                                                </>
+                                                            ) : <Trash2 size={14} />}
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -907,7 +991,6 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     const [records, setRecords] = useState<{ current: WorkExperience[], pending: WorkExperience[] }>({ current: [], pending: [] });
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
     const { data: orgTypes = [] } = useQuery({
         queryKey: ['setup', 'org_type'],
@@ -964,7 +1047,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             };
 
             const processArr = (arr: any[]) => arr.map((item: any) => ({
-                id: item.syskey,
+                id: item.syskey || item.orgrecordsyskey,
                 organization: item.organization,
                 orgType: item.organizationtypesyskey || item.organizationtype || '',
                 orgTypeDesc: item.organizationtype || '',
@@ -978,7 +1061,8 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                 currencyDesc: item.currency || 'MMK',
                 reasonForChange: item.reasonforchange || '',
                 status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
-                modOption: item.modificationoption || 'New'
+                modOption: item.modificationoption || 'New',
+                isdelete: !!item.isdelete
             })) as WorkExperience[];
 
             return {
@@ -1031,27 +1115,28 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             newRecord.status = 'Pending';
         }
         if (orgTypes.length) {
-            const sel = orgTypes.find((o:any) => o.syskey === form.orgType);
+            const sel = orgTypes.find((o: any) => o.syskey === form.orgType);
             if (sel) newRecord.orgTypeDesc = sel.description;
         }
         if (industries.length) {
-            const sel = industries.find((i:any) => i.syskey === form.industry);
+            const sel = industries.find((i: any) => i.syskey === form.industry);
             if (sel) newRecord.industryDesc = sel.description;
         }
         if (currencies.length) {
-            const sel = currencies.find((c:any) => c.syskey === form.currency);
+            const sel = currencies.find((c: any) => c.syskey === form.currency);
             if (sel) newRecord.currencyDesc = sel.description;
         }
 
         const updatedPending = isUpdate
-            ? (records.pending.some(r => r.id === editingId) 
+            ? (records.pending.some(r => r.id === editingId)
                 ? records.pending.map(r => r.id === editingId ? newRecord : r)
                 : [...records.pending, newRecord])
             : [...records.pending, newRecord];
 
         const { domain } = useAuthStore.getState();
         const experiencelist = updatedPending.map(r => ({
-            syskey: r.id && r.id.length > 15 ? r.id : "",
+            syskey: r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id) ? r.id : "",
+            orgrecordsyskey: r.id && r.id.length > 15 && records.current.some(c => c.id === r.id) ? r.id : "",
             organization: r.organization,
             organizationtype: r.orgType || null,
             industry: r.industry || null,
@@ -1062,7 +1147,8 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             currency: r.currency || 'MMK',
             reasonforchange: r.reasonForChange || '',
             modificationoption: r.modOption,
-            status: r.status === 'Approved' ? 'Active' : 0
+            status: r.status === 'Approved' ? '1' : 0,
+            isdelete: !!r.isdelete
         }));
 
         try {
@@ -1088,13 +1174,24 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     };
 
     const removeExp = async (id: string) => {
-        console.log(id);
+        const isCurrent = records.current.some(r => r.id === id);
+        const pendingRecord = records.pending.find(p => p.id === id);
 
-        const updatedPending = records.pending.filter(r => r.id !== id);
+        let updatedPending;
+        if (pendingRecord) {
+            updatedPending = records.pending.filter(r => r.id !== id);
+        } else if (isCurrent) {
+            const recordToDelete = records.current.find(r => r.id === id);
+            if (!recordToDelete) return;
+            updatedPending = [...records.pending, { ...recordToDelete, isdelete: true, modOption: 'Correct', status: 'Pending' }];
+        } else {
+            return;
+        }
 
         const { domain } = useAuthStore.getState();
         const experiencelist = updatedPending.map(r => ({
-            syskey: r.id && r.id.length > 15 ? r.id : "",
+            syskey: r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id) ? r.id : "",
+            orgrecordsyskey: r.id && r.id.length > 15 && records.current.some(c => c.id === r.id) ? r.id : "",
             organization: r.organization,
             organizationtype: r.orgType || null,
             industry: r.industry || null,
@@ -1105,7 +1202,8 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             currency: r.currency || 'MMK',
             reasonforchange: r.reasonForChange || '',
             modificationoption: r.modOption,
-            status: r.status === 'Approved' ? 'Active' : 0
+            status: r.status === 'Approved' ? '1' : 0,
+            isdelete: !!r.isdelete,
         }));
 
         try {
@@ -1116,10 +1214,10 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                 experiencelist
             });
             setRecords(prev => ({
-                ...prev,
+                current: prev.current,
                 pending: updatedPending
             }));
-            toast.success(t('profile.experience.deleteSuccess', 'Pending record removed'));
+            toast.success(t('profile.experience.deleteSuccess', 'Pending record updated'));
         } catch (err) {
             toast.error('Failed to remove pending experience');
         }
@@ -1158,14 +1256,31 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                         {records.current.map(r => (
                                             <tr key={r.id}>
                                                 <td><strong>{r.organization}</strong></td>
-                                                <td>{r.orgTypeDesc || orgTypes.find((o:any)=>o.syskey===r.orgType)?.description || r.orgType}</td>
-                                                <td>{r.industryDesc || industries.find((i:any)=>i.syskey===r.industry)?.description || r.industry}</td>
+                                                <td>{r.orgTypeDesc || orgTypes.find((o: any) => o.syskey === r.orgType)?.description || r.orgType}</td>
+                                                <td>{r.industryDesc || industries.find((i: any) => i.syskey === r.industry)?.description || r.industry}</td>
                                                 <td>{r.designation}</td>
                                                 <td className={styles.noWrap}>{displayExpDate(r.fromdate)} → {displayExpDate(r.todate) || t('profile.experience.present')}</td>
-                                                <td className={styles.noWrap}>{r.salary} {r.currencyDesc || currencies.find((c:any)=>c.syskey===r.currency)?.description || r.currency}</td>
+                                                <td className={styles.noWrap}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</td>
                                                 <td>
-                                                    <div className={styles.rowActions}>
-                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <button
+                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                            onClick={() => openEdit(r)}
+                                                            onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
+                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                            title={t('profile.personal.editHint')}
+                                                        >
+                                                            <Edit3 size={16} />
+                                                        </button>
+                                                        <button
+                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                            onClick={() => removeExp(r.id)}
+                                                            onMouseOver={e => (e.currentTarget.style.background = '#fef2f2')}
+                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                            title={t('request.delete')}
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1189,17 +1304,70 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                     </thead>
                                     <tbody>
                                         {records.pending.map(r => (
-                                            <tr key={r.id} style={{ opacity: 0.85 }}>
-                                                <td><strong>{r.organization}</strong></td>
-                                                <td>{r.orgTypeDesc || orgTypes.find((o:any)=>o.syskey===r.orgType)?.description || r.orgType}</td>
-                                                <td>{r.industryDesc || industries.find((i:any)=>i.syskey===r.industry)?.description || r.industry}</td>
-                                                <td>{r.designation}</td>
-                                                <td className={styles.noWrap}>{displayExpDate(r.fromdate)} → {displayExpDate(r.todate) || t('profile.experience.present')}</td>
-                                                <td className={styles.noWrap}>{r.salary} {r.currencyDesc || currencies.find((c:any)=>c.syskey===r.currency)?.description || r.currency}</td>
-                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} /></td>
+                                            <tr key={r.id} style={{
+                                                backgroundColor: r.isdelete ? '#fff1f2' : 'transparent',
+                                                borderLeft: r.isdelete ? '4px solid #f43f5e' : 'none',
+                                                transition: 'all 0.2s ease'
+                                            }}>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}><strong>{r.organization}</strong></td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.orgTypeDesc || orgTypes.find((o: any) => o.syskey === r.orgType)?.description || r.orgType}</td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.industryDesc || industries.find((i: any) => i.syskey === r.industry)?.description || r.industry}</td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.designation}</td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }} className={styles.noWrap}>{displayExpDate(r.fromdate)} → {displayExpDate(r.todate) || t('profile.experience.present')}</td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>
+                                                    <div className="flex items-center gap-1">{r.salary} <small className="text-neutral-500">{r.currencyDesc}</small></div>
+                                                </td>
+                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} /></td>
                                                 <td>
-                                                    <div className={styles.rowActions}>
-                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    <div className="flex gap-2 justify-end items-center">
+                                                        {!r.isdelete && (
+                                                            <button
+                                                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                                onClick={() => openEdit(r)}
+                                                                onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
+                                                                onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                                title={t('profile.personal.editHint')}
+                                                            >
+                                                                <Edit3 size={16} />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => removeExp(r.id)}
+                                                            title={r.isdelete ? "Cancel delete request" : t('request.delete')}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '6px',
+                                                                padding: r.isdelete ? '6px 12px' : '8px',
+                                                                borderRadius: r.isdelete ? '9999px' : '50%',
+                                                                backgroundColor: r.isdelete ? '#ffffff' : 'transparent',
+                                                                color: r.isdelete ? '#475569' : '#ef4444',
+                                                                border: r.isdelete ? '1px solid #e2e8f0' : 'none',
+                                                                fontSize: '11px',
+                                                                fontWeight: 700,
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '0.025em',
+                                                                cursor: 'pointer',
+                                                                boxShadow: r.isdelete ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none',
+                                                                transition: 'all 0.2s',
+                                                                outline: 'none',
+                                                            }}
+                                                            onMouseOver={e => {
+                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#f8fafc';
+                                                                else e.currentTarget.style.backgroundColor = '#fef2f2';
+                                                            }}
+                                                            onMouseOut={e => {
+                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#ffffff';
+                                                                else e.currentTarget.style.backgroundColor = 'transparent';
+                                                            }}
+                                                        >
+                                                            {r.isdelete ? (
+                                                                <>
+                                                                    <RotateCcw size={14} />
+                                                                    <span>Revert</span>
+                                                                </>
+                                                            ) : <Trash2 size={16} />}
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1221,13 +1389,13 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                         <FormRow label={t('profile.experience.orgType')}>
                             <select className={styles.formSelect} value={form.orgType} onChange={f('orgType')}>
                                 <option value="">{t('profile.experience.selectType')}</option>
-                                {orgTypes.map((o:any) => <option key={o.syskey} value={o.syskey}>{o.description}</option>)}
+                                {orgTypes.map((o: any) => <option key={o.syskey} value={o.syskey}>{o.description}</option>)}
                             </select>
                         </FormRow>
                         <FormRow label={t('profile.experience.industry')}>
                             <select className={styles.formSelect} value={form.industry} onChange={f('industry')}>
                                 <option value="">{t('profile.experience.selectIndustry')}</option>
-                                {industries.map((o:any) => <option key={o.syskey} value={o.syskey}>{o.description}</option>)}
+                                {industries.map((o: any) => <option key={o.syskey} value={o.syskey}>{o.description}</option>)}
                             </select>
                         </FormRow>
                     </div>
@@ -1248,7 +1416,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                         </FormRow>
                         <FormRow label={t('profile.experience.currency')}>
                             <select className={styles.formSelect} value={form.currency} onChange={f('currency')}>
-                                {currencies.map((c:any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
+                                {currencies.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
                             </select>
                         </FormRow>
                     </div>
@@ -1257,12 +1425,6 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                     </FormRow>
                 </FormModal>
             )}
-
-            <ConfirmModal
-                open={!!deleteTarget}
-                onClose={() => setDeleteTarget(null)}
-                onConfirm={() => { if (deleteTarget) { removeExp(deleteTarget); setDeleteTarget(null); } }}
-            />
         </div>
     );
 }
@@ -1276,7 +1438,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    const formatDateForApi = (dateStr: string) => {
+    const formatDateForDisplay = (dateStr: string) => {
         if (!dateStr) return '';
         const [y, m, d] = dateStr.split('-');
         return `${d}/${m}/${y}`;
@@ -1298,7 +1460,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                 employeeid: profile.eid
             });
             const processArr = (arr: any[]) => arr.map((item: any) => ({
-                id: item.syskey,
+                id: item.syskey || item.orgrecordsyskey,
                 type: item.type || 'Education',
                 qualificationtype: item.qualificationtypesyskey || item.qualificationtype || 'Education',
                 description: item.description || '',
@@ -1310,7 +1472,8 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                 fromdate: parseDateFromApi(item.fromdate),
                 todate: parseDateFromApi(item.todate),
                 isheight: item.isheight?.toString() === 'true' ? 'true' : 'false',
-                status: item.status?.toString() || '0'
+                status: item.status?.toString() || '0',
+                isdelete: !!item.isdelete
             })) as Qualification[];
 
             return {
@@ -1327,7 +1490,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blank = (): Qualification => ({ id: '', type: 'Education', qualificationtype: 'Education', description: '', educationname: '', university: '', year: '', country: '', fromdate: '', todate: '', isheight: 'false', status: '0' });
+    const blank = (): Qualification => ({ id: '', type: 'Education', qualificationtype: 'Education', description: '', educationname: '', university: '', year: '', country: '', fromdate: '', todate: '', isheight: 'false', status: '0', modOption: 'New' });
     const [form, setForm] = useState<Qualification>(blank());
     const [showModal, setShowModal] = useState(false);
 
@@ -1377,7 +1540,12 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
     });
 
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
-    const openEdit = (r: Qualification) => { setForm({ ...r }); setEditingId(r.id); setShowModal(true); };
+    const openEdit = (r: Qualification) => {
+        const isCurrent = records.current.some(c => c.id === r.id);
+        setForm({ ...r, modOption: isCurrent ? 'Update' : (r.modOption || 'New') });
+        setEditingId(r.id);
+        setShowModal(true);
+    };
     const close = () => { setShowModal(false); setEditingId(null); };
 
     const save = async () => {
@@ -1396,12 +1564,16 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             }
         }
 
-        const filtered = [...records.current, ...records.pending].filter(r => r.id !== editingId);
-        const allRecords = [...filtered, newRecord];
+        const updatedPending = isUpdate
+            ? (records.pending.some(r => r.id === editingId)
+                ? records.pending.map(r => r.id === editingId ? newRecord : r)
+                : [...records.pending, newRecord])
+            : [...records.pending, newRecord];
 
         const { domain } = useAuthStore.getState();
-        const qualificationlist = allRecords.map(r => ({
-            syskey: r.id.length < 20 ? '' : r.id, // Only send real syskeys
+        const qualificationlist = updatedPending.map(r => ({
+            syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
+            orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
             type: r.type,
             qualificationtype: r.qualificationtype,
             description: r.description,
@@ -1409,10 +1581,12 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             university: r.university,
             year: r.year,
             country: r.country,
-            fromdate: formatDateForApi(r.fromdate),
-            todate: formatDateForApi(r.todate),
+            fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
+            todate: r.todate ? r.todate.replace(/-/g, '') : '',
             ishighest: r.isheight,
-            status: r.id.length < 20 ? "0" : r.status
+            modificationoption: r.modOption,
+            status: r.id.length < 20 ? "0" : r.status,
+            isdelete: !!r.isdelete
         }));
 
         try {
@@ -1438,12 +1612,24 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
     };
 
     const remove = async (id: string) => {
-        const updatedCurrent = records.current.filter(r => r.id !== id);
-        const updatedPending = records.pending.filter(r => r.id !== id);
-        const allRecords = [...updatedCurrent, ...updatedPending];
+        const isCurrent = records.current.some(r => r.id === id);
+        const pendingRecord = records.pending.find(p => p.id === id);
+
+        let updatedPending;
+        if (pendingRecord) {
+            updatedPending = records.pending.filter(r => r.id !== id);
+        } else if (isCurrent) {
+            const recordToDelete = records.current.find(r => r.id === id);
+            if (!recordToDelete) return;
+            updatedPending = [...records.pending, { ...recordToDelete, isdelete: true, modOption: 'Correct', status: '0' }];
+        } else {
+            return;
+        }
+
         const { domain } = useAuthStore.getState();
-        const qualificationlist = allRecords.map(r => ({
-            syskey: r.id.length < 20 ? '' : r.id,
+        const qualificationlist = updatedPending.map(r => ({
+            syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
+            orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
             type: r.type,
             qualificationtype: r.qualificationtype,
             description: r.description,
@@ -1451,10 +1637,12 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             university: r.university,
             year: r.year,
             country: r.country,
-            fromdate: formatDateForApi(r.fromdate),
-            todate: formatDateForApi(r.todate),
+            fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
+            todate: r.todate ? r.todate.replace(/-/g, '') : '',
             isheight: r.isheight,
-            status: r.id.length < 20 ? "0" : r.status
+            modificationoption: r.modOption,
+            status: r.id.length < 20 ? "0" : r.status,
+            isdelete: !!r.isdelete,
         }));
 
         try {
@@ -1464,7 +1652,10 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                 employeeid: profile.eid,
                 qualificationlist
             });
-            setRecords({ current: updatedCurrent, pending: updatedPending });
+            setRecords(prev => ({
+                current: prev.current,
+                pending: updatedPending
+            }));
             toast.success(t('profile.experience.removeSuccess'));
         } catch (err) {
             toast.error('Failed to remove qualification');
@@ -1511,13 +1702,29 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                                 <td>{r.type}</td>
                                                 <td><strong>{r.description}</strong></td>
                                                 <td>{(r as any)._displayEduName || r.educationname} <br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.university}</small></td>
-                                                <td className={styles.noWrap}>{formatDateForApi(r.fromdate)} → {formatDateForApi(r.todate) || t('profile.experience.present')}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.year && `Class of ${r.year}`}</small></td>
+                                                <td className={styles.noWrap}>{formatDateForDisplay(r.fromdate)} → {formatDateForDisplay(r.todate) || t('profile.experience.present')}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.year && `Class of ${r.year}`}</small></td>
                                                 <td>{r.isheight === 'true' ? 'Yes' : 'No'}</td>
                                                 <td><StatusBadge status={r.status === '0' ? 'Pending' : 'Active'} /></td>
                                                 <td>
-                                                    <div className={styles.rowActions}>
-                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                            onClick={() => openEdit(r)}
+                                                            onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
+                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                            title={t('profile.personal.editHint')}
+                                                        >
+                                                            <Edit3 size={14} />
+                                                        </button>
+                                                        <button
+                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                            onClick={() => setDeleteTarget(r.id || null)}
+                                                            onMouseOver={e => (e.currentTarget.style.background = '#fef2f2')}
+                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                            title={t('request.delete')}
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1546,16 +1753,67 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                     </thead>
                                     <tbody>
                                         {records.pending.map(r => (
-                                            <tr key={r.id} style={{ opacity: 0.85 }}>
-                                                <td>{r.type}</td>
-                                                <td><strong>{r.description}</strong></td>
-                                                <td>{(r as any)._displayEduName || r.educationname} <br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.university}</small></td>
-                                                <td className={styles.noWrap}>{formatDateForApi(r.fromdate)} → {formatDateForApi(r.todate) || t('profile.experience.present')}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.year && `Class of ${r.year}`}</small></td>
-                                                <td>{r.isheight === 'true' ? 'Yes' : 'No'}</td>
-                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} /></td>
+                                            <tr key={r.id} style={{
+                                                backgroundColor: r.isdelete ? '#fff1f2' : 'transparent',
+                                                borderLeft: r.isdelete ? '4px solid #f43f5e' : 'none',
+                                                transition: 'all 0.2s ease'
+                                            }}>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.type}</td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}><strong>{r.description}</strong></td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{(r as any)._displayEduName || r.educationname} <br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.university}</small></td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }} className={styles.noWrap}>{formatDateForDisplay(r.fromdate)} → {formatDateForDisplay(r.todate) || t('profile.experience.present')}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.year && `Class of ${r.year}`}</small></td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.isheight === 'true' ? 'Yes' : 'No'}</td>
+                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} /></td>
                                                 <td>
-                                                    <div className={styles.rowActions}>
-                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-end' }}>
+                                                        {!r.isdelete && (
+                                                            <button
+                                                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                                onClick={() => openEdit(r)}
+                                                                onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
+                                                                onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                                title={t('profile.personal.editHint')}
+                                                            >
+                                                                <Edit3 size={14} />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => setDeleteTarget(r.id || null)}
+                                                            title={r.isdelete ? "Cancel delete request" : t('request.delete')}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '6px',
+                                                                padding: r.isdelete ? '6px 12px' : '8px',
+                                                                borderRadius: r.isdelete ? '9999px' : '50%',
+                                                                backgroundColor: r.isdelete ? '#ffffff' : 'transparent',
+                                                                color: r.isdelete ? '#475569' : '#ef4444',
+                                                                border: r.isdelete ? '1px solid #e2e8f0' : 'none',
+                                                                fontSize: '11px',
+                                                                fontWeight: 700,
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '0.025em',
+                                                                cursor: 'pointer',
+                                                                boxShadow: r.isdelete ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none',
+                                                                transition: 'all 0.2s',
+                                                                outline: 'none',
+                                                            }}
+                                                            onMouseOver={e => {
+                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#f8fafc';
+                                                                else e.currentTarget.style.backgroundColor = '#fef2f2';
+                                                            }}
+                                                            onMouseOut={e => {
+                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#ffffff';
+                                                                else e.currentTarget.style.backgroundColor = 'transparent';
+                                                            }}
+                                                        >
+                                                            {r.isdelete ? (
+                                                                <>
+                                                                    <RotateCcw size={14} />
+                                                                    <span>Revert</span>
+                                                                </>
+                                                            ) : <Trash2 size={14} />}
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1670,7 +1928,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             });
 
             const processArr = (arr: any[]) => arr.map((item: any) => ({
-                id: item.syskey,
+                id: item.syskey || item.orgrecordsyskey,
                 name: item.name,
                 gender: item.gender,
                 dob: item.dob && item.dob.length === 8 ? `${item.dob.substring(0, 4)}-${item.dob.substring(4, 6)}-${item.dob.substring(6, 8)}` : (item.dob || ''),
@@ -1680,7 +1938,8 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                 modOption: item.modificationoption || 'New',
                 effectiveFrom: item.effectivedate && item.effectivedate.length === 8 ? `${item.effectivedate.substring(0, 4)}-${item.effectivedate.substring(4, 6)}-${item.effectivedate.substring(6, 8)}` : (item.effectivedate || ''),
                 status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
-                attachment: item.signurl || item.attachment || ''
+                attachment: item.signurl || item.attachment || '',
+                isdelete: !!item.isdelete
             })) as FamilyMember[];
 
             return {
@@ -1718,13 +1977,16 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             newRecord.id = Date.now().toString();
         }
 
-        const allRecords = [...records.current, ...records.pending];
-        const updatedRecords = isUpdate
-            ? allRecords.map(r => r.id === editingId ? newRecord : r)
-            : [...allRecords, newRecord];
+        const updatedPending: FamilyMember[] = isUpdate
+            ? (records.pending.some(r => r.id === editingId)
+                ? records.pending.map(r => r.id === editingId ? newRecord : r)
+                : [...records.pending, newRecord])
+            : [...records.pending, newRecord];
 
         const { domain } = useAuthStore.getState();
-        const familylist = updatedRecords.map(r => ({
+        const familylist = updatedPending.map(r => ({
+            syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
+            orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
             name: r.name,
             gender: r.gender,
             dob: r.dob ? r.dob.replace(/-/g, '') : '',
@@ -1734,7 +1996,8 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             modificationoption: r.modOption,
             effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
             familystatus: r.modOption === 'New' ? '1' : '0',
-            status: r.status === 'Approved' ? "1" : "0"
+            status: r.status === 'Approved' ? '1' : '0',
+            isdelete: !!r.isdelete,
         }));
 
         try {
@@ -1760,12 +2023,22 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
         }
     };
     const remove = async (id: string) => {
-        const updatedCurrent = records.current.filter(r => r.id !== id);
-        const updatedPending = records.pending.filter(r => r.id !== id);
-        const allRecords = [...updatedCurrent, ...updatedPending];
+        const isCurrent = records.current.some(r => r.id === id);
+        const pendingRecord = records.pending.find(p => p.id === id);
+
+        let updatedPending: FamilyMember[];
+        if (pendingRecord) {
+            updatedPending = records.pending.filter(r => r.id !== id);
+        } else if (isCurrent) {
+            const recordToDelete = records.current.find(r => r.id === id);
+            if (!recordToDelete) return;
+            updatedPending = [...records.pending, { ...recordToDelete, isdelete: true, modOption: 'Correct', status: 'Pending' }];
+        } else {
+            return;
+        }
 
         const { domain } = useAuthStore.getState();
-        const familylist = allRecords.map(r => ({
+        const familylist = updatedPending.map(r => ({
             name: r.name,
             gender: r.gender,
             dob: r.dob ? r.dob.replace(/-/g, '') : '',
@@ -1775,7 +2048,8 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             modificationoption: r.modOption,
             effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
             familystatus: r.modOption === 'New' ? '1' : '0',
-            status: r.status === 'Approved' ? 'Active' : 0
+            status: r.status === 'Approved' ? '1' : '0',
+            isdelete: !!r.isdelete,
         }));
 
         try {
@@ -1785,10 +2059,13 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                 employeeid: profile.eid,
                 familylist
             });
-            setRecords({ current: updatedCurrent, pending: updatedPending });
-            toast.success(t('profile.experience.removeSuccess'));
+            setRecords(prev => ({
+                current: prev.current,
+                pending: updatedPending
+            }));
+            toast.success(pendingRecord ? 'Pending request removed' : 'Marked for deletion');
         } catch (err) {
-            toast.error('Failed to remove family information');
+            toast.error('Failed to update family information');
         }
     };
     const fv = (k: keyof FamilyMember) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(prev => ({ ...prev, [k]: e.target.value as any }));
@@ -1826,14 +2103,35 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td>{r.dob}</td>
                                                 <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
-                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} /></td>
                                                 <td>
-                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <div className="flex flex-col gap-1">
+                                                        <StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} />
+                                                        {r.isdelete && <span className="text-[10px] font-bold text-red-600 uppercase">Delete</span>}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                                                         <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginRight: '8px', padding: '2px 6px', background: '#f3f4f6', borderRadius: '4px' }}>
                                                             {r.modOption || 'New'}
                                                         </span>
-                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                        <button
+                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                            onClick={() => openEdit(r)}
+                                                            onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
+                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                            title={t('profile.personal.editHint')}
+                                                        >
+                                                            <Edit3 size={14} />
+                                                        </button>
+                                                        <button
+                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                            onClick={() => setDeleteTarget(r.id || null)}
+                                                            onMouseOver={e => (e.currentTarget.style.background = '#fef2f2')}
+                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                            title={t('request.delete')}
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1854,20 +2152,54 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                     </thead>
                                     <tbody>
                                         {records.pending.map(r => (
-                                            <tr key={r.id} style={{ opacity: 0.85 }}>
-                                                <td><strong>{r.name}</strong></td>
-                                                <td>{t(`profile.options.genders.${r.gender}` as any, r.gender)}</td>
-                                                <td>{r.dob}</td>
-                                                <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
-                                                <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
-                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} /></td>
+                                            <tr key={r.id} style={{
+                                                backgroundColor: r.isdelete ? '#fff1f2' : 'transparent',
+                                                borderLeft: r.isdelete ? '4px solid #f43f5e' : 'none',
+                                                transition: 'all 0.2s ease'
+                                            }}>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}><strong>{r.name}</strong></td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{t(`profile.options.genders.${r.gender}` as any, r.gender)}</td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.dob}</td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
+                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
+                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} isDelete={r.isdelete} /></td>
                                                 <td>
-                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                                                         <span style={{ fontSize: '11px', fontWeight: 600, color: '#eab308', marginRight: '8px', padding: '2px 6px', background: '#fef08a', borderRadius: '4px' }}>
                                                             {r.modOption || 'New'}
                                                         </span>
-                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                        <button className={styles.iconBtn} onClick={() => setDeleteTarget(r.id || null)} title={t('request.delete')} style={{ color: 'var(--color-danger-500)' }}><Trash2 size={14} /></button>
+                                                        {!r.isdelete && (
+                                                            <button
+                                                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                                onClick={() => openEdit(r)}
+                                                                onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
+                                                                onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                                title={t('profile.personal.editHint')}
+                                                            >
+                                                                <Edit3 size={14} />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => setDeleteTarget(r.id || null)}
+                                                            title={r.isdelete ? "Cancel delete request" : t('request.delete')}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                width: '32px',
+                                                                height: '32px',
+                                                                borderRadius: '50%',
+                                                                border: 'none',
+                                                                background: 'transparent',
+                                                                color: r.isdelete ? '#64748b' : '#ef4444',
+                                                                cursor: 'pointer',
+                                                                transition: 'background 0.2s'
+                                                            }}
+                                                            onMouseOver={e => (e.currentTarget.style.background = r.isdelete ? '#f1f5f9' : '#fef2f2')}
+                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                        >
+                                                            {r.isdelete ? <RotateCcw size={14} /> : <Trash2 size={14} />}
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -2090,7 +2422,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
             });
 
             const processArr = (arr: any[]) => (arr || []).map((item: any) => ({
-                syskey: item.syskey,
+                syskey: item.syskey || item.orgrecordsyskey,
                 employeeid: item.employeeid,
                 address: item.address,
                 postalcode: item.postalcode,
@@ -2623,7 +2955,7 @@ function EmptyState({ message, onAdd }: { message: string; onAdd: () => void }) 
     );
 }
 
-function StatusBadge({ status }: { status: string | number }) {
+function StatusBadge({ status, isDelete }: { status: string | number, isDelete?: boolean }) {
     const { t } = useTranslation();
     const s = status?.toString().toLowerCase();
     const isApproved = s === 'approved' || s === '1' || s === 'active';
@@ -2633,7 +2965,11 @@ function StatusBadge({ status }: { status: string | number }) {
     let icon = <Clock size={12} />;
     let label = t('profile.options.status.Pending');
 
-    if (isApproved) {
+    if (isDelete) {
+        className = styles.statusBadge__rejected;
+        icon = <AlertCircle size={12} />;
+        label = "Pending Delete";
+    } else if (isApproved) {
         className = styles.statusBadge__approved;
         icon = <CheckCircle2 size={12} />;
         label = t('profile.options.status.Approved');
@@ -2644,7 +2980,7 @@ function StatusBadge({ status }: { status: string | number }) {
     }
 
     return (
-        <span className={`${styles.statusBadge} ${className}`}>
+        <span className={`${styles.statusBadge} ${className}`} style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 10px', borderRadius: '9999px', fontWeight: 600, fontSize: '11px' }}>
             {icon}
             {label}
         </span>
