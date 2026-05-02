@@ -7,7 +7,7 @@ import {
     Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle,
 
     Building2, User, Phone, BookOpen, Users, MapPin, Plus, Trash2, Edit3,
-    ChevronRight, FileText, AlertCircle, Save, RotateCcw
+    FileText, AlertCircle, Save, RotateCcw
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
@@ -102,6 +102,8 @@ interface WorkExperience {
     currency: string;
     currencyDesc?: string;
     reasonForChange: string;
+    township?: string;
+    townshipSyskey?: string;
     status?: string;
     modOption?: string;
     isdelete?: boolean;
@@ -173,6 +175,22 @@ interface EmergencyContact {
     contactNumber: string;
     countryCode?: string;
     address: string;
+    state?: string;
+    stateSyskey?: string;
+    township?: string;
+    townshipSyskey?: string;
+    city?: string;
+    citySyskey?: string;
+    country?: string;
+    countrySyskey?: string;
+    postalCode?: string;
+    residentPhone?: string;
+    residentPhoneCountryCode?: string;
+    officePhone?: string;
+    officePhoneCountryCode?: string;
+    email?: string;
+    facebook?: string;
+    zip?: string;
     modOption?: string;
     effectiveFrom?: string;
     isdelete?: boolean;
@@ -275,6 +293,17 @@ export default function ProfilePage() {
 
     const { requirements, validatePassword } = usePasswordPolicy();
     const allMet = requirements.length === 0 || requirements.every(r => r.check(newPassword));
+
+    useEffect(() => {
+        if (showChangePwd) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [showChangePwd]);
 
     const b64 = (s: string) => btoa(unescape(encodeURIComponent(s)));
 
@@ -625,12 +654,73 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
 // ═══════════════════════════════════════════════════════════════════════
 function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
+    const { domain } = useAuthStore();
     const [records, setRecords] = useState<{ current: EmergencyContact[], pending: EmergencyContact[] }>({ current: [], pending: [] });
     const [showModal, setShowModal] = useState(false);
     const relationships = useRelationships(showModal);
     const countryCodes = useCountryCodes(showModal);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+    const blank = (): EmergencyContact => ({
+        id: '', name: '', relationship: '', relationshipSyskey: '', countryCode: '', contactNumber: '', address: '',
+        state: '', stateSyskey: '', township: '', townshipSyskey: '', city: '', citySyskey: '', country: '', countrySyskey: '',
+        postalCode: '', residentPhone: '', residentPhoneCountryCode: '', officePhone: '', officePhoneCountryCode: '',
+        email: '', facebook: '', zip: '',
+        status: 'Pending', modOption: 'New', effectiveFrom: ''
+    });
+    const [form, setForm] = useState<EmergencyContact>(blank());
+    const [focusedField, setFocusedField] = useState<'contact' | 'resident' | 'office' | null>(null);
+    const fv = (k: keyof EmergencyContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value as any }));
+
+
+    const { data: countries } = useQuery({
+        queryKey: ['countries', domain],
+        queryFn: async () => {
+            const res = await apiClient.get(`api/hxm/setup/getSetupList/country`, {
+                params: { userid: profile.userid, domain: domain || 'demouat' }
+            });
+            return res.data?.datalist || [];
+        }
+    });
+
+    const { data: states } = useQuery({
+        queryKey: ['states', domain],
+        queryFn: async () => {
+            const res = await apiClient.get(`api/hxm/setup/getSetupList/state`, {
+                params: { userid: profile.userid, domain: domain || 'demouat' }
+            });
+            return res.data?.datalist || [];
+        }
+    });
+
+    const { data: townships } = useQuery({
+        queryKey: ['townships', domain, form.stateSyskey],
+        queryFn: async () => {
+            const res = await apiClient.get(`api/hxm/setup/getSetupList/township`, {
+                params: {
+                    userid: profile.userid,
+                    domain: domain || 'demouat'
+                }
+            });
+            return res.data?.datalist || [];
+        }
+    });
+
+    const { data: cities } = useQuery({
+        queryKey: ['cities', domain, form.stateSyskey, form.townshipSyskey],
+        queryFn: async () => {
+            const res = await apiClient.get(`api/hxm/setup/getSetupList/city`, {
+                params: {
+                    userid: profile.userid,
+                    domain: domain || 'demouat',
+                    statesyskey: form.stateSyskey,
+                    townshipsyskey: form.townshipSyskey
+                }
+            });
+            return res.data?.datalist || [];
+        }
+    });
 
     const { data: fetchedData, isLoading } = useQuery({
         queryKey: ['emergency', profile.userid, profile.eid],
@@ -649,6 +739,22 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                 countryCode: item.countrycode || '+95',
                 contactNumber: item.contactnumber || '',
                 address: item.address || '',
+                state: item.state || '',
+                stateSyskey: item.statesyskey || item.state || '',
+                township: item.township || '',
+                townshipSyskey: item.townshipsyskey || item.township || '',
+                city: item.city || '',
+                citySyskey: item.citysyskey || item.city || '',
+                country: item.country || '',
+                countrySyskey: item.countrysyskey || item.country || '',
+                postalCode: item.zip || item.postalcode || '',
+                zip: item.zip || item.postalcode || '',
+                residentPhone: item.residentphone || '',
+                residentPhoneCountryCode: item.residentphonecountrycode || item.countrycode || '+95',
+                officePhone: item.officephone || '',
+                officePhoneCountryCode: item.officephonecountrycode || '+95',
+                email: item.email || '',
+                facebook: item.facebook || '',
                 status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
                 modOption: item.modificationoption || 'New',
                 effectiveFrom: item.effectivedate && item.effectivedate.length === 8 ? `${item.effectivedate.substring(0, 4)}-${item.effectivedate.substring(4, 6)}-${item.effectivedate.substring(6, 8)}` : (item.effectivedate || ''),
@@ -669,8 +775,6 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blank = (): EmergencyContact => ({ id: '', name: '', relationship: '', relationshipSyskey: '', countryCode: '+95', contactNumber: '', address: '', status: 'Pending', modOption: 'New', effectiveFrom: '' });
-    const [form, setForm] = useState<EmergencyContact>(blank());
 
     const openAdd = () => {
         if (records.pending.length >= 2) {
@@ -690,7 +794,14 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     const close = () => { setShowModal(false); setEditingId(null); };
 
     const save = async () => {
-        if (!form.name || !form.contactNumber) { toast.error('Name and Contact Number are required'); return; }
+        if (!form.name) { toast.error('Name is required'); return; }
+        if (!form.relationshipSyskey) { toast.error('Relative Type is required'); return; }
+        if (!form.countryCode) { toast.error('Mobile Country Code is required'); return; }
+        if (!form.contactNumber) { toast.error('Mobile (Contact Number) is required'); return; }
+        if (!form.stateSyskey) { toast.error('State is required'); return; }
+        if (!form.townshipSyskey) { toast.error('Township is required'); return; }
+        if (!form.citySyskey) { toast.error('City is required'); return; }
+        if (!form.countrySyskey) { toast.error('Country is required'); return; }
         if (form.modOption !== 'Correct' && !form.effectiveFrom) { toast.error('Effective Date is required for New or Update'); return; }
 
         const isUpdate = !!editingId;
@@ -715,6 +826,18 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             countrycode: r.countryCode || '+95',
             contactnumber: r.contactNumber,
             address: r.address,
+            state: r.stateSyskey || r.state,
+            township: r.townshipSyskey || r.township,
+            city: r.citySyskey || r.city,
+            country: r.countrySyskey || r.country,
+            postalcode: r.postalCode || r.zip,
+            zip: r.zip || r.postalCode,
+            residentphone: r.residentPhone,
+            residentphonecountrycode: r.residentPhoneCountryCode,
+            officephone: r.officePhone,
+            officephonecountrycode: r.officePhoneCountryCode,
+            email: r.email,
+            facebook: r.facebook,
             modificationoption: r.modOption,
             effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
             status: r.status === 'Approved' ? "1" : "0",
@@ -766,8 +889,21 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
             name: r.name,
             relationship: r.relationshipSyskey || r.relationship,
+            countrycode: r.countryCode || '+95',
             contactnumber: r.contactNumber,
             address: r.address,
+            state: r.stateSyskey || r.state,
+            township: r.townshipSyskey || r.township,
+            city: r.citySyskey || r.city,
+            country: r.countrySyskey || r.country,
+            postalcode: r.postalCode || r.zip,
+            zip: r.zip || r.postalCode,
+            residentphone: r.residentPhone,
+            residentphonecountrycode: r.residentPhoneCountryCode,
+            officephone: r.officePhone,
+            officephonecountrycode: r.officePhoneCountryCode,
+            email: r.email,
+            facebook: r.facebook,
             modificationoption: r.modOption,
             effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
             status: r.status === 'Approved' ? '1' : "0",
@@ -791,8 +927,6 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
         }
     };
 
-    const fv = (k: keyof EmergencyContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value as any }));
-
     if (isLoading) {
         return (
             <div className={styles.sectionCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', minHeight: '300px' }}>
@@ -812,125 +946,78 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                 : (
                     <>
                         {records.current.length > 0 && (
-                            <div className={styles.tableWrapper}>
-                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>{t('common.currentRecords')}</div>
-                                <table className={styles.table}>
-                                    <thead>
-                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.emergency.contactNumber')}</th><th>{t('profile.emergency.address')}</th><th></th></tr>
-                                    </thead>
-                                    <tbody>
-                                        {records.current.map(r => (
-                                            <tr key={r.id}>
-                                                <td><strong>{r.name}</strong></td>
-                                                <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
-                                                <td>{r.countryCode ? r.countryCode + ' ' : ''}{r.contactNumber}</td>
-                                                <td>{r.address}</td>
-                                                <td>
-                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                                                        <button
-                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                            onClick={() => openEdit(r)}
-                                                            onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
-                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                            title={t('profile.personal.editHint')}
-                                                        >
-                                                            <Edit3 size={14} />
-                                                        </button>
-                                                        <button
-                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                            onClick={() => remove(r.id)}
-                                                            onMouseOver={e => (e.currentTarget.style.background = '#fef2f2')}
-                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                            title={t('request.delete')}
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div style={{ marginBottom: '32px' }}>
+                                <div style={{ padding: '0 0 16px', fontWeight: 600, color: 'var(--color-neutral-800)', fontSize: '14px' }}>{t('common.currentRecords')}</div>
+                                <div className={styles.contactsGrid}>
+                                    {records.current.map(r => (
+                                        <div className={styles.contactPersonCard} key={r.id}>
+                                            <div className={styles.contactPersonHeader}>
+                                                <span className={styles.contactPersonLabel}>{t('profile.tabs.emergency')}</span>
+                                                <div className={styles.rowActions}>
+                                                    <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                    <button className={styles.iconBtn} onClick={() => remove(r.id)} title={t('request.delete')} style={{ color: '#ef4444' }}><Trash2 size={14} /></button>
+                                                </div>
+                                            </div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.name')}</span><span className={styles.contactFieldValue} style={{ fontWeight: 700 }}>{r.name}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.relationship')}</span><span className={styles.contactFieldValue}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.address')}</span><span className={styles.contactFieldValue}>{r.address || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.state')}</span><span className={styles.contactFieldValue}>{r.state || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.township')}</span><span className={styles.contactFieldValue}>{r.township || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.city')}</span><span className={styles.contactFieldValue}>{r.city || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.country')}</span><span className={styles.contactFieldValue}>{r.country || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.postalCode')}</span><span className={styles.contactFieldValue}>{r.postalCode || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.contactNumber')}</span><span className={styles.contactFieldValue}>{r.countryCode} {r.contactNumber}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.residentPhone')}</span><span className={styles.contactFieldValue}>{r.residentPhone || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.officePhone')}</span><span className={styles.contactFieldValue}>{r.officePhone || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.email')}</span><span className={styles.contactFieldValue}>{r.email || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.facebook')}</span><span className={styles.contactFieldValue}>{r.facebook || '-'}</span></div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
                         {records.pending.length > 0 && (
-                            <div className={styles.tableWrapper} style={{ marginTop: '24px', border: '1px solid var(--color-warning-200)' }}>
-                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ marginTop: '24px' }}>
+                                <div style={{ padding: '0 0 16px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
                                     {t('common.pendingHRApproval')}
                                 </div>
-                                <table className={styles.table}>
-                                    <thead style={{ background: 'var(--color-warning-50)' }}>
-                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.emergency.contactNumber')}</th><th>{t('profile.emergency.address')}</th><th>{t('common.status')}</th><th></th></tr>
-                                    </thead>
-                                    <tbody>
-                                        {records.pending.map(r => (
-                                            <tr key={r.id} style={{
-                                                backgroundColor: r.isdelete ? '#fff1f2' : 'transparent',
-                                                borderLeft: r.isdelete ? '4px solid #f43f5e' : 'none',
-                                                transition: 'all 0.2s ease'
-                                            }}>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}><strong>{r.name}</strong></td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.countryCode ? r.countryCode + ' ' : ''}{r.contactNumber}</td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.address}</td>
-                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} /></td>
-                                                <td>
-                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-end' }}>
-                                                        {!r.isdelete && (
-                                                            <button
-                                                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                                onClick={() => openEdit(r)}
-                                                                onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
-                                                                onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                                title={t('profile.personal.editHint')}
-                                                            >
-                                                                <Edit3 size={14} />
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => remove(r.id)}
-                                                            title={r.isdelete ? "Cancel delete request" : t('request.delete')}
-                                                            style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: '6px',
-                                                                padding: r.isdelete ? '6px 12px' : '8px',
-                                                                borderRadius: r.isdelete ? '9999px' : '50%',
-                                                                backgroundColor: r.isdelete ? '#ffffff' : 'transparent',
-                                                                color: r.isdelete ? '#475569' : '#ef4444',
-                                                                border: r.isdelete ? '1px solid #e2e8f0' : 'none',
-                                                                fontSize: '11px',
-                                                                fontWeight: 700,
-                                                                textTransform: 'uppercase',
-                                                                letterSpacing: '0.025em',
-                                                                cursor: 'pointer',
-                                                                boxShadow: r.isdelete ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none',
-                                                                transition: 'all 0.2s',
-                                                                outline: 'none',
-                                                            }}
-                                                            onMouseOver={e => {
-                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#f8fafc';
-                                                                else e.currentTarget.style.backgroundColor = '#fef2f2';
-                                                            }}
-                                                            onMouseOut={e => {
-                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#ffffff';
-                                                                else e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            {r.isdelete ? (
-                                                                <>
-                                                                    <RotateCcw size={14} />
-                                                                    <span>Revert</span>
-                                                                </>
-                                                            ) : <Trash2 size={14} />}
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                <div className={styles.contactsGrid}>
+                                    {records.pending.map(r => (
+                                        <div className={styles.contactPersonCard} key={r.id} style={{
+                                            backgroundColor: r.isdelete ? '#fff1f2' : '#fefce8',
+                                            borderLeft: r.isdelete ? '4px solid #f43f5e' : '4px solid #eab308'
+                                        }}>
+                                            <div className={styles.contactPersonHeader}>
+                                                <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>{t('profile.tabs.emergency')} (Pending)</span>
+                                                <div className={styles.rowActions}>
+                                                    {!r.isdelete && (
+                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                    )}
+                                                    <button className={styles.iconBtn} onClick={() => remove(r.id)} title={r.isdelete ? "Revert" : t('request.delete')} style={{ color: r.isdelete ? '#475569' : '#ef4444' }}>
+                                                        {r.isdelete ? <RotateCcw size={14} /> : <Trash2 size={14} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.name')}</span><span className={styles.contactFieldValue} style={{ fontWeight: 700, textDecoration: r.isdelete ? 'line-through' : 'none', opacity: r.isdelete ? 0.6 : 1 }}>{r.name}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.relationship')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.address')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.address || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.state')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.state || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.township')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.township || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.city')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.city || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.country')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.country || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.postalCode')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.postalCode || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.contactNumber')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.countryCode} {r.contactNumber}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.residentPhone')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.residentPhone || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.officePhone')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.officePhone || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.email')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.email || '-'}</span></div>
+                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.facebook')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.facebook || '-'}</span></div>
+                                            <div style={{ marginTop: '12px' }}>
+                                                <StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </>
@@ -938,39 +1025,152 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             }
 
             {showModal && (
-                <FormModal title={editingId ? 'Edit Emergency Contact' : 'Add Emergency Contact'} onClose={close} onSave={save}>
+                <FormModal title={editingId ? `${t('profile.emergency.edit')}` : `${t('profile.emergency.add')}`} onClose={close} onSave={save}>
                     <FormRow label={`${t('profile.emergency.name')} *`}>
                         <input className={styles.formInput} value={form.name} onChange={fv('name')} placeholder={t('profile.emergency.fullName')} />
                     </FormRow>
-                    <FormRow label={t('profile.emergency.relationship')}>
-                        <select className={styles.formSelect} value={form.relationshipSyskey || ''} onChange={e => {
-                            const syskey = e.target.value;
-                            const desc = relationships.find((r: any) => r.syskey === syskey)?.name || syskey;
-                            setForm(prev => ({ ...prev, relationshipSyskey: syskey, relationship: desc }));
-                        }}>
-                            <option value="">{t('profile.emergency.selectRelationship')}</option>
-                            {relationships.map((r: any) => <option key={r.syskey} value={r.syskey}>{r.name && r.name !== 'null' ? String(t(`profile.options.relationships.${r.name}` as any, r.name)) : String(r.name)}</option>)}
-                        </select>
-                    </FormRow>
-                    <FormRow label={`${t('profile.emergency.contactNumber')} *`}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <select className={styles.formSelect} value={form.countryCode} onChange={fv('countryCode')} style={{ flex: 0.5 }}>
-                                {countryCodes.map((c: any) => <option key={c.syskey} value={c.code}>{c.code} ({c.name})</option>)}
+                    <div className={styles.formGrid2}>
+                        <FormRow label={`${t('profile.emergency.relationship')} *`}>
+                            <select className={styles.formSelect} value={form.relationshipSyskey || ''} onChange={e => {
+                                const syskey = e.target.value;
+                                const desc = relationships.find((r: any) => r.syskey === syskey)?.name || syskey;
+                                setForm(prev => ({ ...prev, relationshipSyskey: syskey, relationship: desc }));
+                            }}>
+                                <option value="">{t('profile.emergency.selectRelationship')}</option>
+                                {relationships.map((r: any) => <option key={r.syskey} value={r.syskey}>{r.name && r.name !== 'null' ? String(t(`profile.options.relationships.${r.name}` as any, r.name)) : String(r.name)}</option>)}
                             </select>
-                            <input className={styles.formInput} style={{ flex: 1 }} value={form.contactNumber} onChange={fv('contactNumber')} placeholder="09-xxx-xxx-xxx" />
-                        </div>
-                    </FormRow>
+                        </FormRow>
+                        <FormRow label={`${t('profile.emergency.contactNumber')} *`}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <select
+                                    className={styles.formSelect}
+                                    value={form.countryCode}
+                                    onChange={fv('countryCode')}
+                                    onFocus={() => setFocusedField('contact')}
+                                    onBlur={() => setFocusedField(null)}
+                                    style={{ flex: 0.5 }}
+                                >
+                                    <option value="">-</option>
+                                    {countryCodes.map((c: any) => (
+                                        <option key={c.syskey} value={c.code}>
+                                            {focusedField === 'contact' ? `${c.code} (${c.name})` : c.code}
+                                        </option>
+                                    ))}
+                                </select>
+                                <input className={styles.formInput} style={{ flex: 1 }} value={form.contactNumber} onChange={fv('contactNumber')} placeholder="09-xxx-xxx-xxx" />
+                            </div>
+                        </FormRow>
+                    </div>
+
                     <FormRow label={t('profile.emergency.address')}>
                         <textarea className={styles.formTextarea} value={form.address} onChange={fv('address')} placeholder={t('profile.emergency.fullAddress')} rows={2} />
                     </FormRow>
-                    <FormRow label={`${t('profile.family.modOption', 'Modification Option')} *`}>
-                        <select className={styles.formSelect} value={form.modOption} onChange={e => setForm(prev => ({ ...prev, modOption: e.target.value, effectiveFrom: e.target.value === 'Correct' ? '' : prev.effectiveFrom }))}>
-                            {MOD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                    </FormRow>
-                    <FormRow label={`${t('profile.family.effectiveFrom', 'Effective Date')}${form.modOption !== 'Correct' ? ' *' : ''}`}>
-                        <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} disabled={form.modOption === 'Correct'} />
-                    </FormRow>
+
+                    <div className={styles.formGrid2}>
+                        <FormRow label={`${t('profile.emergency.state')} *`}>
+                            <select className={styles.formSelect} value={form.stateSyskey} onChange={e => {
+                                const syskey = e.target.value;
+                                const desc = states?.find((s: any) => s.syskey === syskey)?.description || syskey;
+                                setForm(prev => ({ ...prev, stateSyskey: syskey, state: desc, townshipSyskey: '', township: '', citySyskey: '', city: '' }));
+                            }}>
+                                <option value="">{t('profile.emergency.selectState')}</option>
+                                {states?.map((s: any) => <option key={s.syskey} value={s.syskey}>{s.description}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label={`${t('profile.emergency.country')} *`}>
+                            <select className={styles.formSelect} value={form.countrySyskey} onChange={e => {
+                                const syskey = e.target.value;
+                                const desc = countries?.find((c: any) => c.syskey === syskey)?.description || syskey;
+                                setForm(prev => ({ ...prev, countrySyskey: syskey, country: desc }));
+                            }}>
+                                <option value="">{t('profile.emergency.selectCountry')}</option>
+                                {countries?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label={`${t('profile.emergency.township')} *`}>
+                            <select className={styles.formSelect} value={form.townshipSyskey} onChange={e => {
+                                const syskey = e.target.value;
+                                const desc = townships?.find((t: any) => t.syskey === syskey)?.description || syskey;
+                                setForm(prev => ({ ...prev, townshipSyskey: syskey, township: desc, citySyskey: '', city: '' }));
+                            }}>
+                                <option value="">{t('profile.emergency.selectTownship')}</option>
+                                {townships?.map((t: any) => <option key={t.syskey} value={t.syskey}>{t.description}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label={`${t('profile.emergency.city')} *`}>
+                            <select className={styles.formSelect} value={form.citySyskey} onChange={e => {
+                                const syskey = e.target.value;
+                                const desc = cities?.find((c: any) => c.syskey === syskey)?.description || syskey;
+                                setForm(prev => ({ ...prev, citySyskey: syskey, city: desc }));
+                            }}>
+                                <option value="">{t('profile.emergency.selectCity')}</option>
+                                {cities?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label={t('profile.emergency.postalCode')}>
+                            <input className={styles.formInput} value={form.postalCode} onChange={e => {
+                                const val = e.target.value;
+                                setForm(prev => ({ ...prev, postalCode: val, zip: val }));
+                            }} placeholder="12345" />
+                        </FormRow>
+                        <FormRow label={t('profile.emergency.email')}>
+                            <input className={styles.formInput} type="email" value={form.email} onChange={fv('email')} placeholder="email@example.com" />
+                        </FormRow>
+                        <FormRow label={t('profile.emergency.residentPhone')}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <select
+                                    className={styles.formSelect}
+                                    value={form.residentPhoneCountryCode}
+                                    onChange={fv('residentPhoneCountryCode')}
+                                    onFocus={() => setFocusedField('resident')}
+                                    onBlur={() => setFocusedField(null)}
+                                    style={{ flex: 0.5 }}
+                                >
+                                    <option value="">-</option>
+                                    {countryCodes.map((c: any) => (
+                                        <option key={c.syskey} value={c.code}>
+                                            {focusedField === 'resident' ? `${c.code} (${c.name})` : c.code}
+                                        </option>
+                                    ))}
+                                </select>
+                                <input className={styles.formInput} style={{ flex: 1 }} value={form.residentPhone} onChange={fv('residentPhone')} placeholder="01-xxxxxx" />
+                            </div>
+                        </FormRow>
+                        <FormRow label={t('profile.emergency.officePhone')}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <select
+                                    className={styles.formSelect}
+                                    value={form.officePhoneCountryCode}
+                                    onChange={fv('officePhoneCountryCode')}
+                                    onFocus={() => setFocusedField('office')}
+                                    onBlur={() => setFocusedField(null)}
+                                    style={{ flex: 0.5 }}
+                                >
+                                    <option value="">-</option>
+                                    {countryCodes.map((c: any) => (
+                                        <option key={c.syskey} value={c.code}>
+                                            {focusedField === 'office' ? `${c.code} (${c.name})` : c.code}
+                                        </option>
+                                    ))}
+                                </select>
+                                <input className={styles.formInput} style={{ flex: 1 }} value={form.officePhone} onChange={fv('officePhone')} placeholder="01-xxxxxx" />
+                            </div>
+                        </FormRow>
+                        <FormRow label={t('profile.emergency.facebook')}>
+                            <input className={styles.formInput} value={form.facebook} onChange={fv('facebook')} placeholder="facebook.com/username" />
+                        </FormRow>
+                    </div>
+
+                    <div className={styles.formGrid2}>
+                        <FormRow label={`${t('profile.family.modOption', 'Modification Option')} *`}>
+                            <select className={styles.formSelect} value={form.modOption} onChange={e => setForm(prev => ({ ...prev, modOption: e.target.value, effectiveFrom: e.target.value === 'Correct' ? '' : prev.effectiveFrom }))}>
+                                {MOD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                        </FormRow>
+                        <FormRow label={`${t('profile.family.effectiveFrom', 'Effective Date')}${form.modOption !== 'Correct' ? ' *' : ''}`}>
+                            <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} disabled={form.modOption === 'Correct'} />
+                        </FormRow>
+                    </div>
                 </FormModal>
             )}
 
@@ -1022,6 +1222,16 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         enabled: showModal
     });
 
+    const { data: townships = [] } = useQuery({
+        queryKey: ['setup', 'township'],
+        queryFn: async () => {
+            const { domain } = useAuthStore.getState();
+            const res = await mainClient.post(GET_SETUP_LIST, { userid: profile.userid, domain: domain || 'demouat', tblname: 'township' });
+            return res.data?.datalist || [];
+        },
+        enabled: showModal
+    });
+
     const { data: fetchedData, isLoading } = useQuery({
         queryKey: ['experience', profile.userid, profile.eid],
         queryFn: async () => {
@@ -1060,6 +1270,8 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                 currency: item.currencysyskey || item.currency || 'MMK',
                 currencyDesc: item.currency || 'MMK',
                 reasonForChange: item.reasonforchange || '',
+                township: item.township || '',
+                townshipSyskey: item.townshipsyskey || '',
                 status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
                 modOption: item.modificationoption || 'New',
                 isdelete: !!item.isdelete
@@ -1093,7 +1305,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blankExp = (): WorkExperience => ({ id: '', organization: '', orgType: '', industry: '', designation: '', fromdate: '', todate: '', salary: '', currency: 'MMK', reasonForChange: '', status: 'Pending', modOption: 'New' });
+    const blankExp = (): WorkExperience => ({ id: '', organization: '', orgType: '', industry: '', designation: '', fromdate: '', todate: '', salary: '', currency: 'MMK', reasonForChange: '', township: '', status: 'Pending', modOption: 'New' });
     const [form, setForm] = useState<WorkExperience>(blankExp());
 
     const openAdd = () => { setForm(blankExp()); setEditingId(null); setShowModal(true); };
@@ -1146,6 +1358,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             previousmonthlysalary: r.salary ? r.salary.toString() : '',
             currency: r.currency || 'MMK',
             reasonforchange: r.reasonForChange || '',
+            township: r.townshipSyskey || r.township || '',
             modificationoption: r.modOption,
             status: r.status === 'Approved' ? '1' : 0,
             isdelete: !!r.isdelete
@@ -1201,6 +1414,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             previousmonthlysalary: r.salary ? r.salary.toString() : '',
             currency: r.currency || 'MMK',
             reasonforchange: r.reasonForChange || '',
+            township: r.townshipSyskey || r.township || '',
             modificationoption: r.modOption,
             status: r.status === 'Approved' ? '1' : 0,
             isdelete: !!r.isdelete,
@@ -1222,6 +1436,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             toast.error('Failed to remove pending experience');
         }
     };
+
     const f = (k: keyof WorkExperience) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
     if (isLoading) {
@@ -1241,144 +1456,93 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.experience.noData')} onAdd={openAdd} />
                 : (
-                    <>
+                    <div style={{ padding: '24px' }}>
+                        {/* Current Records Section */}
                         {records.current.length > 0 && (
-                            <div className={styles.tableWrapper}>
-                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>{t('common.currentRecords')}</div>
-                                <table className={styles.table}>
-                                    <thead>
-                                        <tr>
-                                            <th>{t('profile.experience.org')}</th><th>{t('profile.experience.orgType')}</th><th>{t('profile.experience.industry')}</th>
-                                            <th>{t('profile.experience.designation')}</th><th>{t('profile.experience.period')}</th><th>{t('profile.experience.salary')}</th><th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {records.current.map(r => (
-                                            <tr key={r.id}>
-                                                <td><strong>{r.organization}</strong></td>
-                                                <td>{r.orgTypeDesc || orgTypes.find((o: any) => o.syskey === r.orgType)?.description || r.orgType}</td>
-                                                <td>{r.industryDesc || industries.find((i: any) => i.syskey === r.industry)?.description || r.industry}</td>
-                                                <td>{r.designation}</td>
-                                                <td className={styles.noWrap}>{displayExpDate(r.fromdate)} → {displayExpDate(r.todate) || t('profile.experience.present')}</td>
-                                                <td className={styles.noWrap}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</td>
-                                                <td>
-                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <button
-                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                            onClick={() => openEdit(r)}
-                                                            onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
-                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                            title={t('profile.personal.editHint')}
-                                                        >
-                                                            <Edit3 size={16} />
-                                                        </button>
-                                                        <button
-                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                            onClick={() => removeExp(r.id)}
-                                                            onMouseOver={e => (e.currentTarget.style.background = '#fef2f2')}
-                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                            title={t('request.delete')}
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div style={{ marginBottom: '32px' }}>
+                                <div style={{ padding: '0 0 16px', fontWeight: 600, color: 'var(--color-neutral-800)', fontSize: '14px' }}>{t('common.currentRecords')}</div>
+                                <div className={styles.contactsGrid}>
+                                    {records.current.map(r => (
+                                        <div className={styles.contactPersonCard} key={r.id}>
+                                            <div className={styles.contactPersonHeader}>
+                                                <span className={styles.contactPersonLabel}>{t('profile.tabs.experience')}</span>
+                                                <div className={styles.rowActions}>
+                                                    <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                    <button className={styles.iconBtn} onClick={() => removeExp(r.id)} title={t('request.delete')} style={{ color: '#ef4444' }}><Trash2 size={14} /></button>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 32px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Job Description</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.designation}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Start Date</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{displayExpDate(r.fromdate)}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Township</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.township || '-'}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Position Held</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.designation}</span></div>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Salary</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>End Date</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{displayExpDate(r.todate) || 'Present'}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Company</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.organization}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Industry</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.industryDesc || industries.find((i: any) => i.syskey === r.industry)?.description || r.industry}</span></div>
+                                                </div>
+                                            </div>
+                                            <div style={{ marginTop: '16px' }}>
+                                                <StatusBadge status="Approved" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
+                        {/* Pending Records Section */}
                         {records.pending.length > 0 && (
-                            <div className={styles.tableWrapper} style={{ marginTop: '24px', border: '1px solid var(--color-warning-200)' }}>
-                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ marginTop: '24px' }}>
+                                <div style={{ padding: '0 0 16px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
                                     {t('common.pendingHRApproval')}
                                 </div>
-                                <table className={styles.table}>
-                                    <thead style={{ background: 'var(--color-warning-50)' }}>
-                                        <tr>
-                                            <th>{t('profile.experience.org')}</th><th>{t('profile.experience.orgType')}</th><th>{t('profile.experience.industry')}</th>
-                                            <th>{t('profile.experience.designation')}</th><th>{t('profile.experience.period')}</th><th>{t('profile.experience.salary')}</th><th>{t('common.status')}</th><th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {records.pending.map(r => (
-                                            <tr key={r.id} style={{
-                                                backgroundColor: r.isdelete ? '#fff1f2' : 'transparent',
-                                                borderLeft: r.isdelete ? '4px solid #f43f5e' : 'none',
-                                                transition: 'all 0.2s ease'
-                                            }}>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}><strong>{r.organization}</strong></td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.orgTypeDesc || orgTypes.find((o: any) => o.syskey === r.orgType)?.description || r.orgType}</td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.industryDesc || industries.find((i: any) => i.syskey === r.industry)?.description || r.industry}</td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.designation}</td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }} className={styles.noWrap}>{displayExpDate(r.fromdate)} → {displayExpDate(r.todate) || t('profile.experience.present')}</td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>
-                                                    <div className="flex items-center gap-1">{r.salary} <small className="text-neutral-500">{r.currencyDesc}</small></div>
-                                                </td>
-                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} /></td>
-                                                <td>
-                                                    <div className="flex gap-2 justify-end items-center">
-                                                        {!r.isdelete && (
-                                                            <button
-                                                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                                onClick={() => openEdit(r)}
-                                                                onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
-                                                                onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                                title={t('profile.personal.editHint')}
-                                                            >
-                                                                <Edit3 size={16} />
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => removeExp(r.id)}
-                                                            title={r.isdelete ? "Cancel delete request" : t('request.delete')}
-                                                            style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: '6px',
-                                                                padding: r.isdelete ? '6px 12px' : '8px',
-                                                                borderRadius: r.isdelete ? '9999px' : '50%',
-                                                                backgroundColor: r.isdelete ? '#ffffff' : 'transparent',
-                                                                color: r.isdelete ? '#475569' : '#ef4444',
-                                                                border: r.isdelete ? '1px solid #e2e8f0' : 'none',
-                                                                fontSize: '11px',
-                                                                fontWeight: 700,
-                                                                textTransform: 'uppercase',
-                                                                letterSpacing: '0.025em',
-                                                                cursor: 'pointer',
-                                                                boxShadow: r.isdelete ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none',
-                                                                transition: 'all 0.2s',
-                                                                outline: 'none',
-                                                            }}
-                                                            onMouseOver={e => {
-                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#f8fafc';
-                                                                else e.currentTarget.style.backgroundColor = '#fef2f2';
-                                                            }}
-                                                            onMouseOut={e => {
-                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#ffffff';
-                                                                else e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            {r.isdelete ? (
-                                                                <>
-                                                                    <RotateCcw size={14} />
-                                                                    <span>Revert</span>
-                                                                </>
-                                                            ) : <Trash2 size={16} />}
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                <div className={styles.contactsGrid}>
+                                    {records.pending.map(r => (
+                                        <div className={styles.contactPersonCard} key={r.id} style={{
+                                            backgroundColor: r.isdelete ? '#fff1f2' : '#fefce8',
+                                            borderLeft: r.isdelete ? '4px solid #f43f5e' : '4px solid #eab308'
+                                        }}>
+                                            <div className={styles.contactPersonHeader}>
+                                                <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>{t('profile.tabs.experience')} (Pending)</span>
+                                                <div className={styles.rowActions}>
+                                                    {!r.isdelete && (
+                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                    )}
+                                                    <button className={styles.iconBtn} onClick={() => removeExp(r.id)} title={r.isdelete ? "Revert" : t('request.delete')} style={{ color: r.isdelete ? '#475569' : '#ef4444' }}>
+                                                        {r.isdelete ? <RotateCcw size={14} /> : <Trash2 size={14} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 32px', opacity: r.isdelete ? 0.6 : 1 }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Job Description</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.designation}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Start Date</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{displayExpDate(r.fromdate)}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Township</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.township || '-'}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Position Held</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.designation}</span></div>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Salary</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>End Date</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{displayExpDate(r.todate) || 'Present'}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Company</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.organization}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Industry</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.industryDesc || industries.find((i: any) => i.syskey === r.industry)?.description || r.industry}</span></div>
+                                                </div>
+                                            </div>
+                                            <div style={{ marginTop: '16px' }}>
+                                                <StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
-                    </>
-                )
-            }
+                    </div>
+                )}
 
             {showModal && (
                 <FormModal title={editingId ? t('profile.experience.modalEdit') : t('profile.experience.modalAdd')} onClose={closeExp} onSave={saveExp}>
@@ -1420,6 +1584,12 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                             </select>
                         </FormRow>
                     </div>
+                    <FormRow label="Township">
+                        <select className={styles.formSelect} value={form.townshipSyskey || form.township} onChange={f('township')}>
+                            <option value="">Select Township</option>
+                            {townships.map((t: any) => <option key={t.syskey} value={t.syskey}>{t.description}</option>)}
+                        </select>
+                    </FormRow>
                     <FormRow label={t('profile.experience.reason')}>
                         <textarea className={styles.formTextarea} value={form.reasonForChange} onChange={f('reasonForChange')} placeholder={t('profile.experience.reasonPlaceholder')} rows={3} />
                     </FormRow>
@@ -2927,6 +3097,14 @@ function FormRow({ label, children, fullWidth }: { label: string; children: Reac
 
 function FormModal({ title, onClose, onSave, children }: { title: string; onClose: () => void; onSave: () => void; children: React.ReactNode }) {
     const { t } = useTranslation();
+
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, []);
+
     return (
         <div className={styles.modalBackdrop} onClick={onClose}>
             <div className={styles.modalCard} style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
