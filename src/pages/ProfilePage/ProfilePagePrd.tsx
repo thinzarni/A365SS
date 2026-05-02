@@ -90,6 +90,7 @@ interface ProfileData {
 
 interface WorkExperience {
     id: string;
+    orgrecordsyskey?: string;
     organization: string;
     orgType: string;
     orgTypeDesc?: string;
@@ -1258,6 +1259,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 
             const processArr = (arr: any[]) => arr.map((item: any) => ({
                 id: item.syskey || item.orgrecordsyskey,
+                orgrecordsyskey: item.orgrecordsyskey || '',
                 organization: item.organization,
                 orgType: item.organizationtypesyskey || item.organizationtype || '',
                 orgTypeDesc: item.organizationtype || '',
@@ -1305,7 +1307,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blankExp = (): WorkExperience => ({ id: '', organization: '', orgType: '', industry: '', designation: '', fromdate: '', todate: '', salary: '', currency: 'MMK', reasonForChange: '', township: '', status: 'Pending', modOption: 'New' });
+    const blankExp = (): WorkExperience => ({ id: '', orgrecordsyskey: '', organization: '', orgType: '', industry: '', designation: '', fromdate: '', todate: '', salary: '', currency: 'MMK', reasonForChange: '', township: '', status: 'Pending', modOption: 'New' });
     const [form, setForm] = useState<WorkExperience>(blankExp());
 
     const openAdd = () => { setForm(blankExp()); setEditingId(null); setShowModal(true); };
@@ -1347,8 +1349,8 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 
         const { domain } = useAuthStore.getState();
         const experiencelist = updatedPending.map(r => ({
-            syskey: r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id) ? r.id : "",
-            orgrecordsyskey: r.id && r.id.length > 15 && records.current.some(c => c.id === r.id) ? r.id : "",
+            syskey: (r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id)) ? r.id : "",
+            orgrecordsyskey: r.orgrecordsyskey || "",
             organization: r.organization,
             organizationtype: r.orgType || null,
             industry: r.industry || null,
@@ -1403,8 +1405,8 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 
         const { domain } = useAuthStore.getState();
         const experiencelist = updatedPending.map(r => ({
-            syskey: r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id) ? r.id : "",
-            orgrecordsyskey: r.id && r.id.length > 15 && records.current.some(c => c.id === r.id) ? r.id : "",
+            syskey: (r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id)) ? r.id : "",
+            orgrecordsyskey: r.orgrecordsyskey || "",
             organization: r.organization,
             organizationtype: r.orgType || null,
             industry: r.industry || null,
