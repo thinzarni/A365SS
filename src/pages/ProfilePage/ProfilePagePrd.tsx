@@ -170,6 +170,7 @@ interface FamilyMember {
 
 interface EmergencyContact {
     id?: string;
+    orgrecordsyskey?: string;
     name: string;
     relationship: string;
     relationshipSyskey?: string;
@@ -734,6 +735,8 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             });
             const processArr = (arr: any[]) => arr.map((item: any) => ({
                 id: item.syskey || item.orgrecordsyskey,
+                orgrecordsyskey: item.orgrecordsyskey || '',
+                syskey: item.syskey || '',
                 name: item.name || '',
                 relationship: item.relationship || '',
                 relationshipSyskey: item.relationshipsyskey || item.relationship || '',
@@ -772,6 +775,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
 
     useEffect(() => {
         if (fetchedData) {
+            console.log(fetchedData);
             setRecords(fetchedData);
         }
     }, [fetchedData]);
@@ -821,7 +825,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
         const { domain } = useAuthStore.getState();
         const emergencylist = updatedPending.map(r => ({
             syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
-            orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
+            orgrecordsyskey: r.orgrecordsyskey || (r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : ""),
             name: r.name,
             relationship: r.relationshipSyskey || r.relationship,
             countrycode: r.countryCode || '+95',
@@ -1058,7 +1062,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                         </option>
                                     ))}
                                 </select>
-                                <input className={styles.formInput} style={{ flex: 1 }} value={form.contactNumber} onChange={fv('contactNumber')} placeholder="09-xxx-xxx-xxx" />
+                                <input type="number" className={styles.formInput} style={{ flex: 1 }} value={form.contactNumber} onChange={fv('contactNumber')} placeholder="09-xxx-xxx-xxx" />
                             </div>
                         </FormRow>
                     </div>
@@ -1134,7 +1138,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                         </option>
                                     ))}
                                 </select>
-                                <input className={styles.formInput} style={{ flex: 1 }} value={form.residentPhone} onChange={fv('residentPhone')} placeholder="01-xxxxxx" />
+                                <input type="number" className={styles.formInput} style={{ flex: 1 }} value={form.residentPhone} onChange={fv('residentPhone')} placeholder="01-xxxxxx" />
                             </div>
                         </FormRow>
                         <FormRow label={t('profile.emergency.officePhone')}>
@@ -1154,7 +1158,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                         </option>
                                     ))}
                                 </select>
-                                <input className={styles.formInput} style={{ flex: 1 }} value={form.officePhone} onChange={fv('officePhone')} placeholder="01-xxxxxx" />
+                                <input type="number" className={styles.formInput} style={{ flex: 1 }} value={form.officePhone} onChange={fv('officePhone')} placeholder="01-xxxxxx" />
                             </div>
                         </FormRow>
                         <FormRow label={t('profile.emergency.facebook')}>
@@ -1307,7 +1311,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blankExp = (): WorkExperience => ({ id: '', orgrecordsyskey: '', organization: '', orgType: '', industry: '', designation: '', fromdate: '', todate: '', salary: '', currency: 'MMK', reasonForChange: '', township: '', status: 'Pending', modOption: 'New' });
+    const blankExp = (): WorkExperience => ({ id: '', orgrecordsyskey: '', organization: '', orgType: '', industry: '', designation: '', fromdate: '', todate: '', salary: '', currency: 'MMK', reasonForChange: '', township: '', townshipSyskey: '', status: 'Pending', modOption: 'New' });
     const [form, setForm] = useState<WorkExperience>(blankExp());
 
     const openAdd = () => { setForm(blankExp()); setEditingId(null); setShowModal(true); };
@@ -1320,10 +1324,14 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     const closeExp = () => { setShowModal(false); setEditingId(null); };
 
     const saveExp = async () => {
-        if (!form.organization) { toast.error(t('profile.experience.reqOrg')); return; }
+        const orgTrim = form.organization?.trim() || '';
+        if (!orgTrim) { toast.error(t('profile.experience.reqOrg')); return; }
+        if (!form.designation?.trim()) { toast.error(t('profile.experience.reqDesignation')); return; }
+        const tw = (form.townshipSyskey || form.township || '').toString().trim();
+        if (!tw) { toast.error(t('profile.experience.reqTownship')); return; }
 
         const isUpdate = !!editingId;
-        const newRecord = { ...form };
+        const newRecord = { ...form, organization: orgTrim, designation: form.designation.trim() };
         if (!isUpdate) {
             newRecord.id = Date.now().toString();
             newRecord.status = 'Pending';
@@ -1463,7 +1471,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                         {records.current.length > 0 && (
                             <div style={{ marginBottom: '32px' }}>
                                 <div style={{ padding: '0 0 16px', fontWeight: 600, color: 'var(--color-neutral-800)', fontSize: '14px' }}>{t('common.currentRecords')}</div>
-                                <div className={styles.contactsGrid}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     {records.current.map(r => (
                                         <div className={styles.contactPersonCard} key={r.id}>
                                             <div className={styles.contactPersonHeader}>
@@ -1480,12 +1488,15 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Start Date</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{displayExpDate(r.fromdate)}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Township</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.township || '-'}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Position Held</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.designation}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Salary</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</span></div>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Salary</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</span></div>
+                                                    
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>End Date</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{displayExpDate(r.todate) || 'Present'}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Company</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.organization}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Industry</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.industryDesc || industries.find((i: any) => i.syskey === r.industry)?.description || r.industry}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Organization Type</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.orgTypeDesc || orgTypes.find((o: any) => o.syskey === r.orgType)?.description || r.orgType}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Reason To Leave</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.reasonForChange || '-'}</span></div>
                                                 </div>
                                             </div>
                                             <div style={{ marginTop: '16px' }}>
@@ -1503,7 +1514,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                 <div style={{ padding: '0 0 16px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
                                     {t('common.pendingHRApproval')}
                                 </div>
-                                <div className={styles.contactsGrid}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     {records.pending.map(r => (
                                         <div className={styles.contactPersonCard} key={r.id} style={{
                                             backgroundColor: r.isdelete ? '#fff1f2' : '#fefce8',
@@ -1527,12 +1538,14 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Start Date</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{displayExpDate(r.fromdate)}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Township</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.township || '-'}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Position Held</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.designation}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Salary</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</span></div>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Salary</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>End Date</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{displayExpDate(r.todate) || 'Present'}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Company</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.organization}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Industry</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.industryDesc || industries.find((i: any) => i.syskey === r.industry)?.description || r.industry}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Organization Type</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.orgTypeDesc || orgTypes.find((o: any) => o.syskey === r.orgType)?.description || r.orgType}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Reason To Leave</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.reasonForChange || '-'}</span></div>
                                                 </div>
                                             </div>
                                             <div style={{ marginTop: '16px' }}>
@@ -1548,8 +1561,8 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 
             {showModal && (
                 <FormModal title={editingId ? t('profile.experience.modalEdit') : t('profile.experience.modalAdd')} onClose={closeExp} onSave={saveExp}>
-                    <FormRow label={t('profile.experience.org')}>
-                        <input className={styles.formInput} value={form.organization} onChange={f('organization')} placeholder={t('profile.experience.orgPlaceholder')} />
+                    <FormRow label={`${t('profile.experience.org')} *`}>
+                        <input className={styles.formInput} value={form.organization} onChange={f('organization')} placeholder={t('profile.experience.orgPlaceholder')} required aria-required />
                     </FormRow>
                     <div className={styles.formGrid2}>
                         <FormRow label={t('profile.experience.orgType')}>
@@ -1565,8 +1578,8 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                             </select>
                         </FormRow>
                     </div>
-                    <FormRow label={t('profile.experience.designation')}>
-                        <input className={styles.formInput} value={form.designation} onChange={f('designation')} placeholder={t('profile.experience.rolePlaceholder')} />
+                    <FormRow label={`${t('profile.experience.jobDescriptionPosition')} *`}>
+                        <input className={styles.formInput} value={form.designation} onChange={f('designation')} placeholder={t('profile.experience.jobDescriptionPositionPlaceholder')} required aria-required />
                     </FormRow>
                     <div className={styles.formGrid2}>
                         <FormRow label={t('profile.experience.fromDate')}>
@@ -1586,11 +1599,8 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                             </select>
                         </FormRow>
                     </div>
-                    <FormRow label="Township">
-                        <select className={styles.formSelect} value={form.townshipSyskey || form.township} onChange={f('township')}>
-                            <option value="">Select Township</option>
-                            {townships.map((t: any) => <option key={t.syskey} value={t.syskey}>{t.description}</option>)}
-                        </select>
+                    <FormRow label={`${t('profile.emergency.township')} *`}>
+                    <input className={styles.formInput} type="text" value={form.township} onChange={f('township')} />
                     </FormRow>
                     <FormRow label={t('profile.experience.reason')}>
                         <textarea className={styles.formTextarea} value={form.reasonForChange} onChange={f('reasonForChange')} placeholder={t('profile.experience.reasonPlaceholder')} rows={3} />
@@ -2905,7 +2915,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                             <input className={styles.formInput} type="email" value={contactDetails.secondaryEmail} onChange={updateContact('secondaryEmail')} placeholder="secondary@email.com" />
                         </FormRow>
                         <FormRow label={t('profile.contact.primaryMobile')}>
-                            <input className={styles.formInput} type="tel" value={contactDetails.primaryMobile} onChange={updateContact('primaryMobile')} placeholder="09-xxx-xxx-xxx" />
+                            <input className={styles.formInput} type="number" value={contactDetails.primaryMobile} onChange={updateContact('primaryMobile')} placeholder="09-xxx-xxx-xxx" />
                         </FormRow>
 
                     </div>

@@ -325,6 +325,8 @@
             "industry": "Industry",
             "selectIndustry": "Select industry",
             "designation": "Designation",
+            "jobDescriptionPosition": "Job description & position held",
+            "jobDescriptionPositionPlaceholder": "Describe the role / job title held at this employer",
             "rolePlaceholder": "Job title / Role",
             "period": "Period",
             "fromDate": "From Date",
@@ -337,7 +339,9 @@
             "saveSuccessAdd": "Work experience added.",
             "saveSuccessUpdate": "Work experience updated.",
             "removeSuccess": "Record removed.",
-            "reqOrg": "Organization is required."
+            "reqOrg": "Organization is required.",
+            "reqDesignation": "Job description / position held is required.",
+            "reqTownship": "Township is required."
         },
         "qualification": {
             "subtitle": "Educational background and certifications",
