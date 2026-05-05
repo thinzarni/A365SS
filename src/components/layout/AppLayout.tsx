@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, NavLink, Outlet, useNavigate, ScrollRestoration } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import {
     TreePalm,
     LogOut,
     Menu,
+    User,
     X,
     Globe,
     Users,
@@ -162,6 +163,8 @@ export default function AppLayout() {
     const [switchingDomainId, setSwitchingDomainId] = useState<string | null>(null);
     const [pwdExpiry, setPwdExpiry] = useState<{ message: string; daysLeft: number; isExpired: boolean } | null>(null);
     const [sidebarImgError, setSidebarImgError] = useState(false);
+    const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+    const avatarMenuRef = useRef<HTMLDivElement>(null);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
         return localStorage.getItem('sidebar-collapsed') === 'true';
     });
@@ -318,6 +321,17 @@ export default function AppLayout() {
         const handleClickOutside = (e: MouseEvent) => {
             if (!(e.target as Element).closest('.domain-switcher-container')) {
                 setShowDomainMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Close avatar dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (avatarMenuRef.current && !avatarMenuRef.current.contains(e.target as Node)) {
+                setShowAvatarMenu(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -636,58 +650,22 @@ export default function AppLayout() {
                 </nav>
 
                 <div className={`${styles.sidebar__user} domain-switcher-container`} style={{ position: 'relative' }}>
-                    <div className={styles.sidebar__user_meta}>
-                        <div
-                            className={styles.sidebar__avatar}
-                            style={{
-                                cursor: 'pointer',
-                                backgroundImage: profile?.profile && !sidebarImgError ? `url(${profile.profile})` : 'none',
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center',
-                            }}
-                            onClick={() => {
-                                if (sidebarOpen) setSidebarOpen(false);
-                                navigate('/profile');
-                            }}
-                            title="View Profile"
+                    {/* Domain Switcher */}
+                    {domains && domains.length > 1 && (
+                        <button
+                            className={styles['sidebar__domain-switch-btn']}
+                            onClick={() => setShowDomainMenu(!showDomainMenu)}
+                            title="Switch Domain"
+                            style={{ width: '100%', justifyContent: 'space-between' }}
                         >
-                            {(!profile?.profile || sidebarImgError) && userInitial}
-                            {profile?.profile && !sidebarImgError && (
-                                <img
-                                    src={profile.profile}
-                                    alt=""
-                                    style={{ display: 'none' }}
-                                    onError={() => setSidebarImgError(true)}
-                                />
-                            )}
-                        </div>
+                            <span className={styles['sidebar__user-role']} style={{ color: 'var(--color-neutral-300)' }}>
+                                {switchingDomainId ? 'Switching...' : (user?.domainName || user?.position || domain || 'Select Domain')}
+                            </span>
+                            <ChevronDown size={14} style={{ color: '#94a3b8' }} />
+                        </button>
+                    )}
 
-                        <div className={styles['sidebar__user-info']}>
-                            <div className={styles['sidebar__user-name']}>{user?.name || user?.userid || 'User'}</div>
-
-                            {domains && domains.length > 1 ? (
-                                <button
-                                    className={styles['sidebar__domain-switch-btn']}
-                                    onClick={() => setShowDomainMenu(!showDomainMenu)}
-                                    title="Switch Domain"
-                                >
-                                    <span className={styles['sidebar__user-role']}>
-                                        {switchingDomainId ? 'Switching...' : (user?.domainName || user?.position || domain || 'Select Domain')}
-                                    </span>
-                                    <ChevronDown size={14} style={{ color: '#94a3b8' }} />
-                                </button>
-                            ) : (
-                                <div className={styles['sidebar__user-role']}>{user?.domainName || user?.position || domain || ''}</div>
-                            )}
-                        </div>
-                    </div>
-
-                    <button className={styles.sidebar__logout} onClick={handleLogout}>
-                        <LogOut size={16} />
-                        <span>{t('auth.logout')}</span>
-                    </button>
-
-                    {/* Domain Dropdown Menu - Moved outside info but inside relative container */}
+                    {/* Domain Dropdown Menu */}
                     {showDomainMenu && domains && domains.length > 1 && (
                         <div className={styles.domainMenu}>
                             <div className={styles.domainMenuHeader}>Switch Organization</div>
@@ -758,6 +736,50 @@ export default function AppLayout() {
                             <Globe size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                             {i18n.language === 'en' ? 'English' : 'Myanmar'}
                         </button>
+
+                        {/* ── Avatar with dropdown ── */}
+                        <div className={styles['header__avatar-container']} ref={avatarMenuRef}>
+                            <button
+                                className={styles['header__avatar-btn']}
+                                onClick={() => setShowAvatarMenu(!showAvatarMenu)}
+                                title={user?.name || user?.userid || 'User'}
+                            >
+                                {profile?.profile && !sidebarImgError ? (
+                                    <img
+                                        src={profile.profile}
+                                        alt=""
+                                        className={styles['header__avatar-img']}
+                                        onError={() => setSidebarImgError(true)}
+                                    />
+                                ) : (
+                                    <span className={styles['header__avatar-initial']}>{userInitial}</span>
+                                )}
+                            </button>
+
+                            {showAvatarMenu && (
+                                <div className={styles['header__avatar-menu']}>
+                                    <div className={styles['header__avatar-menu-header']}>
+                                        <div className={styles['header__avatar-menu-name']}>{user?.name || user?.userid || 'User'}</div>
+                                        <div className={styles['header__avatar-menu-role']}>{user?.domainName || user?.position || domain || ''}</div>
+                                    </div>
+                                    <div className={styles['header__avatar-menu-divider']} />
+                                    <button
+                                        className={styles['header__avatar-menu-item']}
+                                        onClick={() => { setShowAvatarMenu(false); navigate('/profile'); }}
+                                    >
+                                        <User size={16} />
+                                        <span>{t('nav.profile', 'Profile')}</span>
+                                    </button>
+                                    <button
+                                        className={`${styles['header__avatar-menu-item']} ${styles['header__avatar-menu-item--danger']}`}
+                                        onClick={() => { setShowAvatarMenu(false); handleLogout(); }}
+                                    >
+                                        <LogOut size={16} />
+                                        <span>{t('auth.logout')}</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </header>
 

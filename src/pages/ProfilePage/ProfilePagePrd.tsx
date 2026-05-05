@@ -7,7 +7,7 @@ import {
     Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle,
 
     Building2, User, Phone, BookOpen, Users, MapPin, Plus, Trash2, Edit3,
-    FileText, AlertCircle, Save, RotateCcw
+    FileText, AlertCircle, Save
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
@@ -89,6 +89,7 @@ interface ProfileData {
 }
 
 interface WorkExperience {
+    effectiveFrom?: string;
     id: string;
     orgrecordsyskey?: string;
     organization: string;
@@ -111,6 +112,7 @@ interface WorkExperience {
 }
 
 interface Qualification {
+    effectiveFrom?: string;
     id: string;
     type: string;
     qualificationtype: string;
@@ -119,6 +121,7 @@ interface Qualification {
     university: string;
     year: string;
     country: string;
+    countrysyskey?: string;
     fromdate: string;
     todate: string;
     isheight: string;
@@ -208,7 +211,7 @@ const getTabs = (t: any) => [
     { id: 'qualification', label: t('profile.tabs.qualification'), icon: BookOpen },
     { id: 'family', label: t('profile.tabs.family'), icon: Users },
     { id: 'contact', label: t('profile.tabs.contact'), icon: MapPin },
-    { id: 'history', label: t('profile.tabs.history', 'Update History'), icon: Clock },
+    // { id: 'history', label: t('profile.tabs.history', 'Update History'), icon: Clock },
 ] as const;
 type TabId = ReturnType<typeof getTabs>[number]['id'];
 
@@ -434,7 +437,10 @@ export default function ProfilePage() {
                                 key={tab.id}
                                 id={`tab-${tab.id}`}
                                 className={`${styles.tabBtn} ${activeTab === tab.id ? styles.tabBtn__active : ''}`}
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={(e) => {
+                                    setActiveTab(tab.id);
+                                    e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                                }}
                             >
                                 <Icon size={16} className={styles.tabIcon} />
                                 <span>{tab.label}</span>
@@ -455,7 +461,7 @@ export default function ProfilePage() {
                     {activeTab === 'qualification' && <QualificationTab profile={profile} />}
                     {activeTab === 'family' && <FamilyInfoTab profile={profile} />}
                     {activeTab === 'contact' && <ContactInfoTab profile={profile} />}
-                    {activeTab === 'history' && <UpdateHistoryTab profile={profile} />}
+                    {/* {activeTab === 'history' && <UpdateHistoryTab profile={profile} />} */}
                 </div>
             </div>
 
@@ -656,7 +662,6 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
 // ═══════════════════════════════════════════════════════════════════════
 function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
-    const { domain } = useAuthStore();
     const [records, setRecords] = useState<{ current: EmergencyContact[], pending: EmergencyContact[] }>({ current: [], pending: [] });
     const [showModal, setShowModal] = useState(false);
     const relationships = useRelationships(showModal);
@@ -674,55 +679,6 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     const [form, setForm] = useState<EmergencyContact>(blank());
     const [focusedField, setFocusedField] = useState<'contact' | 'resident' | 'office' | null>(null);
     const fv = (k: keyof EmergencyContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value as any }));
-
-
-    const { data: countries } = useQuery({
-        queryKey: ['countries', domain],
-        queryFn: async () => {
-            const res = await apiClient.get(`api/hxm/setup/getSetupList/country`, {
-                params: { userid: profile.userid, domain: domain || 'demouat' }
-            });
-            return res.data?.datalist || [];
-        }
-    });
-
-    const { data: states } = useQuery({
-        queryKey: ['states', domain],
-        queryFn: async () => {
-            const res = await apiClient.get(`api/hxm/setup/getSetupList/state`, {
-                params: { userid: profile.userid, domain: domain || 'demouat' }
-            });
-            return res.data?.datalist || [];
-        }
-    });
-
-    const { data: townships } = useQuery({
-        queryKey: ['townships', domain, form.stateSyskey],
-        queryFn: async () => {
-            const res = await apiClient.get(`api/hxm/setup/getSetupList/township`, {
-                params: {
-                    userid: profile.userid,
-                    domain: domain || 'demouat'
-                }
-            });
-            return res.data?.datalist || [];
-        }
-    });
-
-    const { data: cities } = useQuery({
-        queryKey: ['cities', domain, form.stateSyskey, form.townshipSyskey],
-        queryFn: async () => {
-            const res = await apiClient.get(`api/hxm/setup/getSetupList/city`, {
-                params: {
-                    userid: profile.userid,
-                    domain: domain || 'demouat',
-                    statesyskey: form.stateSyskey,
-                    townshipsyskey: form.townshipSyskey
-                }
-            });
-            return res.data?.datalist || [];
-        }
-    });
 
     const { data: fetchedData, isLoading } = useQuery({
         queryKey: ['emergency', profile.userid, profile.eid],
@@ -765,6 +721,9 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                 isdelete: !!item.isdelete
             })) as EmergencyContact[];
 
+            console.log(res.data?.data?.update);
+
+
             return {
                 current: processArr(res.data?.data?.current || []),
                 pending: processArr(res.data?.data?.update || [])
@@ -792,29 +751,86 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     };
     const openEdit = (r: EmergencyContact) => {
         const isCurrent = records.current.some(c => c.id === r.id);
-        setForm({ ...r, modOption: isCurrent ? 'Update' : r.modOption });
+        setForm({ ...r, isdelete: r.isdelete || false, modOption: isCurrent ? 'Update' : (r.modOption || 'Correct') });
         setEditingId(r.id || null);
         setShowModal(true);
+    };
+
+    const cancelPending = async (id: string) => {
+        const updatedPending = records.pending.filter(r => r.id !== id);
+        const { domain } = useAuthStore.getState();
+        const emergencylist = updatedPending.map(r => ({
+            syskey: r.id && r.id.length > 20 ? r.id : "",
+            orgrecordsyskey: r.orgrecordsyskey || "",
+            name: r.name, relationship: r.relationshipSyskey || r.relationship,
+            countrycode: r.countryCode || '+95', contactnumber: r.contactNumber,
+            address: r.address, state: r.stateSyskey || r.state,
+            township: r.townshipSyskey || r.township, city: r.citySyskey || r.city,
+            country: r.countrySyskey || r.country, postalcode: r.postalCode || r.zip,
+            zip: r.zip || r.postalCode, residentphone: r.residentPhone,
+            residentphonecountrycode: r.residentPhoneCountryCode, officephone: r.officePhone,
+            officephonecountrycode: r.officePhoneCountryCode, email: r.email, facebook: r.facebook,
+            modificationoption: r.modOption, effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
+            status: r.status === 'Approved' ? '1' : '0', isdelete: !!r.isdelete,
+        }));
+        try {
+            await mainClient.post(EMERGENCY_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, emergencylist });
+            setRecords(prev => ({ current: prev.current, pending: updatedPending }));
+            close();
+            toast.success('Pending request cancelled');
+        } catch { toast.error('Failed to cancel pending request'); }
     };
     const close = () => { setShowModal(false); setEditingId(null); };
 
     const save = async () => {
+        // If marked for delete, handle deletion flow
+        if (form.isdelete && editingId) {
+            if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
+            const isCurrent = records.current.some(r => r.id === editingId);
+            const pendingRecord = records.pending.find(p => p.id === editingId);
+            let updatedPending: EmergencyContact[];
+            if (pendingRecord) {
+                updatedPending = records.pending.filter(r => r.id !== editingId);
+            } else if (isCurrent) {
+                const rec = records.current.find(r => r.id === editingId);
+                if (!rec) return;
+                updatedPending = [...records.pending, { ...rec, isdelete: true, modOption: form.modOption, effectiveFrom: form.effectiveFrom, status: 'Pending' }];
+            } else { return; }
+            const { domain } = useAuthStore.getState();
+            const emergencylist = updatedPending.map(r => ({
+                syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
+                orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
+                name: r.name, relationship: r.relationshipSyskey || r.relationship,
+                countrycode: r.countryCode || '+95', contactnumber: r.contactNumber,
+                address: r.address, state: r.stateSyskey || r.state,
+                township: r.townshipSyskey || r.township, city: r.citySyskey || r.city,
+                country: r.countrySyskey || r.country, postalcode: r.postalCode || r.zip,
+                zip: r.zip || r.postalCode, residentphone: r.residentPhone,
+                residentphonecountrycode: r.residentPhoneCountryCode, officephone: r.officePhone,
+                officephonecountrycode: r.officePhoneCountryCode, email: r.email, facebook: r.facebook,
+                modificationoption: r.modOption, effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
+                status: r.status === 'Approved' ? '1' : '0', isdelete: !!r.isdelete,
+            }));
+            try {
+                await mainClient.post(EMERGENCY_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, emergencylist });
+                setRecords(prev => ({ current: prev.current, pending: updatedPending }));
+                close();
+                toast.success('Marked for deletion');
+            } catch { toast.error('Failed to update record'); }
+            return;
+        }
+
         if (!form.name) { toast.error('Name is required'); return; }
         if (!form.relationshipSyskey) { toast.error('Relative Type is required'); return; }
         if (!form.countryCode) { toast.error('Mobile Country Code is required'); return; }
         if (!form.contactNumber) { toast.error('Mobile (Contact Number) is required'); return; }
-        if (!form.stateSyskey) { toast.error('State is required'); return; }
-        if (!form.townshipSyskey) { toast.error('Township is required'); return; }
-        if (!form.citySyskey) { toast.error('City is required'); return; }
-        if (!form.countrySyskey) { toast.error('Country is required'); return; }
-        if (form.modOption !== 'Correct' && !form.effectiveFrom) { toast.error('Effective Date is required for New or Update'); return; }
+
+        if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
 
         const isUpdate = !!editingId;
         const newRecord = { ...form };
         newRecord.status = 'Pending';
-        if (!isUpdate) {
-            newRecord.id = Date.now().toString();
-        }
+        if (!isUpdate) { newRecord.id = Date.now().toString(); }
 
         const updatedPending = isUpdate
             ? (records.pending.some(r => r.id === editingId)
@@ -826,41 +842,22 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
         const emergencylist = updatedPending.map(r => ({
             syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
             orgrecordsyskey: r.orgrecordsyskey || (r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : ""),
-            name: r.name,
-            relationship: r.relationshipSyskey || r.relationship,
-            countrycode: r.countryCode || '+95',
-            contactnumber: r.contactNumber,
-            address: r.address,
-            state: r.stateSyskey || r.state,
-            township: r.townshipSyskey || r.township,
-            city: r.citySyskey || r.city,
-            country: r.countrySyskey || r.country,
-            postalcode: r.postalCode || r.zip,
-            zip: r.zip || r.postalCode,
-            residentphone: r.residentPhone,
-            residentphonecountrycode: r.residentPhoneCountryCode,
-            officephone: r.officePhone,
-            officephonecountrycode: r.officePhoneCountryCode,
-            email: r.email,
-            facebook: r.facebook,
-            modificationoption: r.modOption,
-            effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
-            status: r.status === 'Approved' ? "1" : "0",
-            isdelete: !!r.isdelete
+            name: r.name, relationship: r.relationshipSyskey || r.relationship,
+            countrycode: r.countryCode || '+95', contactnumber: r.contactNumber,
+            address: r.address, state: r.stateSyskey || r.state,
+            township: r.townshipSyskey || r.township, city: r.citySyskey || r.city,
+            country: r.countrySyskey || r.country, postalcode: r.postalCode || r.zip,
+            zip: r.zip || r.postalCode, residentphone: r.residentPhone,
+            residentphonecountrycode: r.residentPhoneCountryCode, officephone: r.officePhone,
+            officephonecountrycode: r.officePhoneCountryCode, email: r.email, facebook: r.facebook,
+            modificationoption: r.modOption, effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
+            status: r.status === 'Approved' ? "1" : "0", isdelete: !!r.isdelete
         }));
 
         try {
-            await mainClient.post(EMERGENCY_UPDATE, {
-                userid: profile.userid,
-                domain: domain || 'demouat',
-                employeeid: profile.eid,
-                emergencylist
-            });
+            await mainClient.post(EMERGENCY_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, emergencylist });
             if (isUpdate) {
-                setRecords(prev => ({
-                    current: prev.current,
-                    pending: [...prev.pending.filter(r => r.id !== editingId), newRecord]
-                }));
+                setRecords(prev => ({ current: prev.current, pending: [...prev.pending.filter(r => r.id !== editingId), newRecord] }));
             } else {
                 setRecords(prev => ({ ...prev, pending: [...prev.pending, newRecord] }));
             }
@@ -958,24 +955,15 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                         <div className={styles.contactPersonCard} key={r.id}>
                                             <div className={styles.contactPersonHeader}>
                                                 <span className={styles.contactPersonLabel}>{t('profile.tabs.emergency')}</span>
-                                                <div className={styles.rowActions}>
-                                                    <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                    <button className={styles.iconBtn} onClick={() => remove(r.id)} title={t('request.delete')} style={{ color: '#ef4444' }}><Trash2 size={14} /></button>
-                                                </div>
+                                                <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
                                             </div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.name')}</span><span className={styles.contactFieldValue} style={{ fontWeight: 700 }}>{r.name}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.relationship')}</span><span className={styles.contactFieldValue}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.address')}</span><span className={styles.contactFieldValue}>{r.address || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.state')}</span><span className={styles.contactFieldValue}>{r.state || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.township')}</span><span className={styles.contactFieldValue}>{r.township || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.city')}</span><span className={styles.contactFieldValue}>{r.city || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.country')}</span><span className={styles.contactFieldValue}>{r.country || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.postalCode')}</span><span className={styles.contactFieldValue}>{r.postalCode || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.contactNumber')}</span><span className={styles.contactFieldValue}>{r.countryCode} {r.contactNumber}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.residentPhone')}</span><span className={styles.contactFieldValue}>{r.residentPhone || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.officePhone')}</span><span className={styles.contactFieldValue}>{r.officePhone || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.email')}</span><span className={styles.contactFieldValue}>{r.email || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.facebook')}</span><span className={styles.contactFieldValue}>{r.facebook || '-'}</span></div>
+                                            <div className={styles.cardFieldGrid}>
+                                                <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.name')}</span><span className={styles.cardFieldValue} style={{ fontWeight: 700 }}>{r.name}</span></div>
+                                                <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.contactNumber')}</span><span className={styles.cardFieldValue}>{r.countryCode} {r.contactNumber}</span></div>
+                                                <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.relationship')}</span><span className={styles.cardFieldValue}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</span></div>
+                                                <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.address')}</span><span className={styles.cardFieldValue}>{r.address || '-'}</span></div>
+                                            </div>
+                                            <div style={{ marginTop: '14px' }}><StatusBadge status="Approved" /></div>
                                         </div>
                                     ))}
                                 </div>
@@ -984,42 +972,25 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
 
                         {records.pending.length > 0 && (
                             <div style={{ marginTop: '24px' }}>
-                                <div style={{ padding: '0 0 16px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
-                                    {t('common.pendingHRApproval')}
-                                </div>
+                                <div style={{ padding: '0 0 16px', fontWeight: 600, color: '#b45309', fontSize: '14px' }}>{t('common.pendingHRApproval')}</div>
                                 <div className={styles.contactsGrid}>
                                     {records.pending.map(r => (
-                                        <div className={styles.contactPersonCard} key={r.id} style={{
-                                            backgroundColor: r.isdelete ? '#fff1f2' : '#fefce8',
-                                            borderLeft: r.isdelete ? '4px solid #f43f5e' : '4px solid #eab308'
-                                        }}>
+                                        <div className={styles.contactPersonCard} key={r.id} style={{ backgroundColor: r.isdelete ? '#fff1f2' : '#fefce8', borderLeft: r.isdelete ? '4px solid #f43f5e' : '4px solid #eab308' }}>
                                             <div className={styles.contactPersonHeader}>
-                                                <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>{t('profile.tabs.emergency')} (Pending)</span>
-                                                <div className={styles.rowActions}>
-                                                    {!r.isdelete && (
+                                                <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>{t('profile.tabs.emergency')} — Pending</span>
+                                                {
+                                                    r.status == 'Pending' && (
                                                         <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                    )}
-                                                    <button className={styles.iconBtn} onClick={() => remove(r.id)} title={r.isdelete ? "Revert" : t('request.delete')} style={{ color: r.isdelete ? '#475569' : '#ef4444' }}>
-                                                        {r.isdelete ? <RotateCcw size={14} /> : <Trash2 size={14} />}
-                                                    </button>
-                                                </div>
+                                                    )
+                                                }
                                             </div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.name')}</span><span className={styles.contactFieldValue} style={{ fontWeight: 700, textDecoration: r.isdelete ? 'line-through' : 'none', opacity: r.isdelete ? 0.6 : 1 }}>{r.name}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.relationship')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.address')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.address || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.state')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.state || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.township')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.township || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.city')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.city || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.country')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.country || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.postalCode')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.postalCode || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.contactNumber')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.countryCode} {r.contactNumber}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.residentPhone')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.residentPhone || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.officePhone')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.officePhone || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.email')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.email || '-'}</span></div>
-                                            <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.facebook')}</span><span className={styles.contactFieldValue} style={{ opacity: r.isdelete ? 0.6 : 1 }}>{r.facebook || '-'}</span></div>
-                                            <div style={{ marginTop: '12px' }}>
-                                                <StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} />
+                                            <div className={styles.cardFieldGrid} style={{ opacity: r.isdelete ? 0.7 : 1 }}>
+                                                <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.name')}</span><span className={styles.cardFieldValue} style={{ fontWeight: 700, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.name}</span></div>
+                                                <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.contactNumber')}</span><span className={styles.cardFieldValue}>{r.countryCode} {r.contactNumber}</span></div>
+                                                <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.relationship')}</span><span className={styles.cardFieldValue}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</span></div>
+                                                <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.address')}</span><span className={styles.cardFieldValue}>{r.address || '-'}</span></div>
                                             </div>
+                                            <div style={{ marginTop: '14px' }}><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} /></div>
                                         </div>
                                     ))}
                                 </div>
@@ -1071,111 +1042,66 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                         <textarea className={styles.formTextarea} value={form.address} onChange={fv('address')} placeholder={t('profile.emergency.fullAddress')} rows={2} />
                     </FormRow>
 
-                    <div className={styles.formGrid2}>
-                        <FormRow label={`${t('profile.emergency.state')} *`}>
-                            <select className={styles.formSelect} value={form.stateSyskey} onChange={e => {
-                                const syskey = e.target.value;
-                                const desc = states?.find((s: any) => s.syskey === syskey)?.description || syskey;
-                                setForm(prev => ({ ...prev, stateSyskey: syskey, state: desc, townshipSyskey: '', township: '', citySyskey: '', city: '' }));
-                            }}>
-                                <option value="">{t('profile.emergency.selectState')}</option>
-                                {states?.map((s: any) => <option key={s.syskey} value={s.syskey}>{s.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={`${t('profile.emergency.country')} *`}>
-                            <select className={styles.formSelect} value={form.countrySyskey} onChange={e => {
-                                const syskey = e.target.value;
-                                const desc = countries?.find((c: any) => c.syskey === syskey)?.description || syskey;
-                                setForm(prev => ({ ...prev, countrySyskey: syskey, country: desc }));
-                            }}>
-                                <option value="">{t('profile.emergency.selectCountry')}</option>
-                                {countries?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={`${t('profile.emergency.township')} *`}>
-                            <select className={styles.formSelect} value={form.townshipSyskey} onChange={e => {
-                                const syskey = e.target.value;
-                                const desc = townships?.find((t: any) => t.syskey === syskey)?.description || syskey;
-                                setForm(prev => ({ ...prev, townshipSyskey: syskey, township: desc, citySyskey: '', city: '' }));
-                            }}>
-                                <option value="">{t('profile.emergency.selectTownship')}</option>
-                                {townships?.map((t: any) => <option key={t.syskey} value={t.syskey}>{t.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={`${t('profile.emergency.city')} *`}>
-                            <select className={styles.formSelect} value={form.citySyskey} onChange={e => {
-                                const syskey = e.target.value;
-                                const desc = cities?.find((c: any) => c.syskey === syskey)?.description || syskey;
-                                setForm(prev => ({ ...prev, citySyskey: syskey, city: desc }));
-                            }}>
-                                <option value="">{t('profile.emergency.selectCity')}</option>
-                                {cities?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.emergency.postalCode')}>
-                            <input className={styles.formInput} value={form.postalCode} onChange={e => {
-                                const val = e.target.value;
-                                setForm(prev => ({ ...prev, postalCode: val, zip: val }));
-                            }} placeholder="12345" />
-                        </FormRow>
-                        <FormRow label={t('profile.emergency.email')}>
-                            <input className={styles.formInput} type="email" value={form.email} onChange={fv('email')} placeholder="email@example.com" />
-                        </FormRow>
-                        <FormRow label={t('profile.emergency.residentPhone')}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <select
-                                    className={styles.formSelect}
-                                    value={form.residentPhoneCountryCode}
-                                    onChange={fv('residentPhoneCountryCode')}
-                                    onFocus={() => setFocusedField('resident')}
-                                    onBlur={() => setFocusedField(null)}
-                                    style={{ flex: 0.5 }}
-                                >
-                                    <option value="">-</option>
-                                    {countryCodes.map((c: any) => (
-                                        <option key={c.syskey} value={c.code}>
-                                            {focusedField === 'resident' ? `${c.code} (${c.name})` : c.code}
-                                        </option>
-                                    ))}
-                                </select>
-                                <input type="number" className={styles.formInput} style={{ flex: 1 }} value={form.residentPhone} onChange={fv('residentPhone')} placeholder="01-xxxxxx" />
-                            </div>
-                        </FormRow>
-                        <FormRow label={t('profile.emergency.officePhone')}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <select
-                                    className={styles.formSelect}
-                                    value={form.officePhoneCountryCode}
-                                    onChange={fv('officePhoneCountryCode')}
-                                    onFocus={() => setFocusedField('office')}
-                                    onBlur={() => setFocusedField(null)}
-                                    style={{ flex: 0.5 }}
-                                >
-                                    <option value="">-</option>
-                                    {countryCodes.map((c: any) => (
-                                        <option key={c.syskey} value={c.code}>
-                                            {focusedField === 'office' ? `${c.code} (${c.name})` : c.code}
-                                        </option>
-                                    ))}
-                                </select>
-                                <input type="number" className={styles.formInput} style={{ flex: 1 }} value={form.officePhone} onChange={fv('officePhone')} placeholder="01-xxxxxx" />
-                            </div>
-                        </FormRow>
-                        <FormRow label={t('profile.emergency.facebook')}>
-                            <input className={styles.formInput} value={form.facebook} onChange={fv('facebook')} placeholder="facebook.com/username" />
-                        </FormRow>
-                    </div>
 
-                    <div className={styles.formGrid2}>
-                        <FormRow label={`${t('profile.family.modOption', 'Modification Option')} *`}>
-                            <select className={styles.formSelect} value={form.modOption} onChange={e => setForm(prev => ({ ...prev, modOption: e.target.value, effectiveFrom: e.target.value === 'Correct' ? '' : prev.effectiveFrom }))}>
-                                {MOD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={`${t('profile.family.effectiveFrom', 'Effective Date')}${form.modOption !== 'Correct' ? ' *' : ''}`}>
-                            <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} disabled={form.modOption === 'Correct'} />
-                        </FormRow>
-                    </div>
+                    {/* Modification Type — New badge for add, Update/Correct toggle for edit */}
+                    {!editingId && (
+                        <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 8px' }}>
+                                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Modification Type:</span>
+                                <span style={{ padding: '3px 12px', borderRadius: '9999px', fontSize: '12px', fontWeight: 700, background: '#dcfce7', color: '#16a34a' }}>New</span>
+                            </div>
+                            <FormRow label="Effective Date *">
+                                <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} />
+                            </FormRow>
+                        </>
+                    )}
+                    {editingId && (
+                        <>
+                            <div style={{ display: 'flex', gap: '8px', margin: '4px 0 8px' }}>
+                                {(['Update', 'Correct'] as const).map(opt => (
+                                    <button key={opt} type="button"
+                                        onClick={() => setForm(prev => ({ ...prev, modOption: opt, effectiveFrom: opt === 'Correct' ? '' : prev.effectiveFrom }))}
+                                        style={{ flex: 1, padding: '7px 0', borderRadius: '8px', border: `1.5px solid ${form.modOption === opt ? (opt === 'Correct' ? '#f59e0b' : '#3b82f6') : '#e2e8f0'}`, background: form.modOption === opt ? (opt === 'Correct' ? '#fef3c7' : '#dbeafe') : '#f8fafc', color: form.modOption === opt ? (opt === 'Correct' ? '#92400e' : '#1d4ed8') : '#64748b', fontWeight: form.modOption === opt ? 700 : 500, fontSize: '13px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                                        {opt}
+                                    </button>
+                                ))}
+                            </div>
+                            {form.modOption === 'Update' && (
+                                <FormRow label="Effective Date *">
+                                    <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} />
+                                </FormRow>
+                            )}
+                        </>
+                    )}
+
+                    {/* Delete toggle — only shown when editing an existing record */}
+                    {editingId && (
+                        <div style={{ marginTop: '8px', padding: '12px 16px', borderRadius: '10px', border: `1.5px solid ${form.isdelete ? '#f43f5e' : '#e2e8f0'}`, background: form.isdelete ? '#fff1f2' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Trash2 size={15} style={{ color: form.isdelete ? '#f43f5e' : '#94a3b8' }} />
+                                <div>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, color: form.isdelete ? '#f43f5e' : '#64748b' }}>Mark for Deletion</div>
+                                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>Submits a delete request pending HR approval</div>
+                                </div>
+                            </div>
+                            <button type="button"
+                                onClick={() => setForm(prev => ({ ...prev, isdelete: !prev.isdelete }))}
+                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0 }}
+                            >
+                                <span style={{ position: 'absolute', top: '3px', left: form.isdelete ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Cancel pending request — shown when editing a pending record */}
+                    {editingId && records.pending.some(p => p.id === editingId) && (
+                        <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                            <button type="button" onClick={() => cancelPending(editingId)}
+                                style={{ fontSize: '12px', color: '#ef4444', background: 'none', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 14px', cursor: 'pointer', fontWeight: 600 }}>
+                                Cancel Pending Request
+                            </button>
+                        </div>
+                    )}
                 </FormModal>
             )}
 
@@ -1222,16 +1148,6 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
             const res = await mainClient.post(GET_SETUP_LIST, { userid: profile.userid, domain: domain || 'demouat', tblname: 'currency' });
-            return res.data?.datalist || [];
-        },
-        enabled: showModal
-    });
-
-    const { data: townships = [] } = useQuery({
-        queryKey: ['setup', 'township'],
-        queryFn: async () => {
-            const { domain } = useAuthStore.getState();
-            const res = await mainClient.post(GET_SETUP_LIST, { userid: profile.userid, domain: domain || 'demouat', tblname: 'township' });
             return res.data?.datalist || [];
         },
         enabled: showModal
@@ -1311,24 +1227,80 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blankExp = (): WorkExperience => ({ id: '', orgrecordsyskey: '', organization: '', orgType: '', industry: '', designation: '', fromdate: '', todate: '', salary: '', currency: 'MMK', reasonForChange: '', township: '', townshipSyskey: '', status: 'Pending', modOption: 'New' });
+    const blankExp = (): WorkExperience => ({
+        id: '', orgrecordsyskey: '', organization: '', orgType: '', industry: '', designation: '', fromdate: '', todate: '', salary: '', currency: 'MMK', reasonForChange: '', township: '', townshipSyskey: '', status: 'Pending', modOption: 'New',
+        effectiveFrom: undefined
+    });
     const [form, setForm] = useState<WorkExperience>(blankExp());
 
     const openAdd = () => { setForm(blankExp()); setEditingId(null); setShowModal(true); };
     const openEdit = (r: WorkExperience) => {
         const isCurrent = records.current.some(c => c.id === r.id);
-        setForm({ ...r, modOption: isCurrent ? 'Update' : (r.modOption || 'New') });
+        setForm({ ...r, isdelete: r.isdelete || false, modOption: isCurrent ? 'Update' : (r.modOption || 'Correct') });
         setEditingId(r.id);
         setShowModal(true);
     };
     const closeExp = () => { setShowModal(false); setEditingId(null); };
 
+    const cancelPendingExp = async (id: string) => {
+        const updatedPending = records.pending.filter(r => r.id !== id);
+        const { domain } = useAuthStore.getState();
+        const experiencelist = updatedPending.map(r => ({
+            syskey: r.id && r.id.length > 15 ? r.id : "", orgrecordsyskey: r.orgrecordsyskey || "",
+            organization: r.organization, organizationtype: r.orgType || null, industry: r.industry || null,
+            designation: r.designation, fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
+            todate: r.todate ? r.todate.replace(/-/g, '') : '',
+            previousmonthlysalary: r.salary ? r.salary.toString() : '', currency: r.currency || 'MMK',
+            reasonforchange: r.reasonForChange || '', township: r.townshipSyskey || r.township || '',
+            modificationoption: r.modOption, status: r.status === 'Approved' ? '1' : 0, isdelete: !!r.isdelete,
+        }));
+        try {
+            await mainClient.post(EXPERIENCE_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, experiencelist });
+            setRecords(prev => ({ current: prev.current, pending: updatedPending }));
+            closeExp();
+            toast.success('Pending request cancelled');
+        } catch { toast.error('Failed to cancel pending request'); }
+    };
+
     const saveExp = async () => {
+        // Delete flow via form toggle
+        if (form.isdelete && editingId) {
+            if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
+            const isCurrent = records.current.some(r => r.id === editingId);
+            const pendingRecord = records.pending.find(p => p.id === editingId);
+            let updatedPending: WorkExperience[];
+            if (pendingRecord) {
+                updatedPending = records.pending.filter(r => r.id !== editingId);
+            } else if (isCurrent) {
+                const rec = records.current.find(r => r.id === editingId);
+                if (!rec) return;
+                updatedPending = [...records.pending, { ...rec, isdelete: true, modOption: form.modOption, effectiveFrom: form.effectiveFrom, status: 'Pending' }];
+            } else { return; }
+            const { domain } = useAuthStore.getState();
+            const experiencelist = updatedPending.map(r => ({
+                syskey: (r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id)) ? r.id : "",
+                orgrecordsyskey: r.orgrecordsyskey || "",
+                organization: r.organization, organizationtype: r.orgType || null, industry: r.industry || null,
+                designation: r.designation, fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
+                todate: r.todate ? r.todate.replace(/-/g, '') : '',
+                previousmonthlysalary: r.salary ? r.salary.toString() : '', currency: r.currency || 'MMK',
+                reasonforchange: r.reasonForChange || '', township: r.townshipSyskey || r.township || '',
+                modificationoption: r.modOption, status: r.status === 'Approved' ? '1' : 0, isdelete: !!r.isdelete,
+            }));
+            try {
+                await mainClient.post(EXPERIENCE_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, experiencelist });
+                setRecords(prev => ({ current: prev.current, pending: updatedPending }));
+                closeExp();
+                toast.success('Marked for deletion');
+            } catch { toast.error('Failed to remove pending experience'); }
+            return;
+        }
+
         const orgTrim = form.organization?.trim() || '';
         if (!orgTrim) { toast.error(t('profile.experience.reqOrg')); return; }
         if (!form.designation?.trim()) { toast.error(t('profile.experience.reqDesignation')); return; }
-        const tw = (form.townshipSyskey || form.township || '').toString().trim();
-        if (!tw) { toast.error(t('profile.experience.reqTownship')); return; }
+
+        if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
 
         const isUpdate = !!editingId;
         const newRecord = { ...form, organization: orgTrim, designation: form.designation.trim() };
@@ -1396,56 +1368,56 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         }
     };
 
-    const removeExp = async (id: string) => {
-        const isCurrent = records.current.some(r => r.id === id);
-        const pendingRecord = records.pending.find(p => p.id === id);
+    // const removeExp = async (id: string) => {
+    //     const isCurrent = records.current.some(r => r.id === id);
+    //     const pendingRecord = records.pending.find(p => p.id === id);
 
-        let updatedPending;
-        if (pendingRecord) {
-            updatedPending = records.pending.filter(r => r.id !== id);
-        } else if (isCurrent) {
-            const recordToDelete = records.current.find(r => r.id === id);
-            if (!recordToDelete) return;
-            updatedPending = [...records.pending, { ...recordToDelete, isdelete: true, modOption: 'Correct', status: 'Pending' }];
-        } else {
-            return;
-        }
+    //     let updatedPending;
+    //     if (pendingRecord) {
+    //         updatedPending = records.pending.filter(r => r.id !== id);
+    //     } else if (isCurrent) {
+    //         const recordToDelete = records.current.find(r => r.id === id);
+    //         if (!recordToDelete) return;
+    //         updatedPending = [...records.pending, { ...recordToDelete, isdelete: true, modOption: 'Correct', status: 'Pending' }];
+    //     } else {
+    //         return;
+    //     }
 
-        const { domain } = useAuthStore.getState();
-        const experiencelist = updatedPending.map(r => ({
-            syskey: (r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id)) ? r.id : "",
-            orgrecordsyskey: r.orgrecordsyskey || "",
-            organization: r.organization,
-            organizationtype: r.orgType || null,
-            industry: r.industry || null,
-            designation: r.designation,
-            fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
-            todate: r.todate ? r.todate.replace(/-/g, '') : '',
-            previousmonthlysalary: r.salary ? r.salary.toString() : '',
-            currency: r.currency || 'MMK',
-            reasonforchange: r.reasonForChange || '',
-            township: r.townshipSyskey || r.township || '',
-            modificationoption: r.modOption,
-            status: r.status === 'Approved' ? '1' : 0,
-            isdelete: !!r.isdelete,
-        }));
+    //     const { domain } = useAuthStore.getState();
+    //     const experiencelist = updatedPending.map(r => ({
+    //         syskey: (r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id)) ? r.id : "",
+    //         orgrecordsyskey: r.orgrecordsyskey || "",
+    //         organization: r.organization,
+    //         organizationtype: r.orgType || null,
+    //         industry: r.industry || null,
+    //         designation: r.designation,
+    //         fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
+    //         todate: r.todate ? r.todate.replace(/-/g, '') : '',
+    //         previousmonthlysalary: r.salary ? r.salary.toString() : '',
+    //         currency: r.currency || 'MMK',
+    //         reasonforchange: r.reasonForChange || '',
+    //         township: r.townshipSyskey || r.township || '',
+    //         modificationoption: r.modOption,
+    //         status: r.status === 'Approved' ? '1' : 0,
+    //         isdelete: !!r.isdelete,
+    //     }));
 
-        try {
-            await mainClient.post(EXPERIENCE_UPDATE, {
-                userid: profile.userid,
-                domain: domain || 'demouat',
-                employeeid: profile.eid,
-                experiencelist
-            });
-            setRecords(prev => ({
-                current: prev.current,
-                pending: updatedPending
-            }));
-            toast.success(t('profile.experience.deleteSuccess', 'Pending record updated'));
-        } catch (err) {
-            toast.error('Failed to remove pending experience');
-        }
-    };
+    //     try {
+    //         await mainClient.post(EXPERIENCE_UPDATE, {
+    //             userid: profile.userid,
+    //             domain: domain || 'demouat',
+    //             employeeid: profile.eid,
+    //             experiencelist
+    //         });
+    //         setRecords(prev => ({
+    //             current: prev.current,
+    //             pending: updatedPending
+    //         }));
+    //         toast.success(t('profile.experience.deleteSuccess', 'Pending record updated'));
+    //     } catch (err) {
+    //         toast.error('Failed to remove pending experience');
+    //     }
+    // };
 
     const f = (k: keyof WorkExperience) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
@@ -1478,7 +1450,6 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                                 <span className={styles.contactPersonLabel}>{t('profile.tabs.experience')}</span>
                                                 <div className={styles.rowActions}>
                                                     <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                    <button className={styles.iconBtn} onClick={() => removeExp(r.id)} title={t('request.delete')} style={{ color: '#ef4444' }}><Trash2 size={14} /></button>
                                                 </div>
                                             </div>
 
@@ -1491,7 +1462,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Salary</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</span></div>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                    
+
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>End Date</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{displayExpDate(r.todate) || 'Present'}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Company</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.organization}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Industry</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.industryDesc || industries.find((i: any) => i.syskey === r.industry)?.description || r.industry}</span></div>
@@ -1522,21 +1493,21 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                         }}>
                                             <div className={styles.contactPersonHeader}>
                                                 <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>{t('profile.tabs.experience')} (Pending)</span>
-                                                <div className={styles.rowActions}>
-                                                    {!r.isdelete && (
-                                                        <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                    )}
-                                                    <button className={styles.iconBtn} onClick={() => removeExp(r.id)} title={r.isdelete ? "Revert" : t('request.delete')} style={{ color: r.isdelete ? '#475569' : '#ef4444' }}>
-                                                        {r.isdelete ? <RotateCcw size={14} /> : <Trash2 size={14} />}
-                                                    </button>
-                                                </div>
+                                                {
+                                                    r.status === 'Pending' && (
+                                                        <div className={styles.rowActions}>
+                                                            {!r.isdelete && (
+                                                                <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                }
                                             </div>
 
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 32px', opacity: r.isdelete ? 0.6 : 1 }}>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Job Description</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.designation}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Start Date</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{displayExpDate(r.fromdate)}</span></div>
-                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Township</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.township || '-'}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Position Held</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.designation}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Salary</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</span></div>
                                                 </div>
@@ -1599,12 +1570,70 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                             </select>
                         </FormRow>
                     </div>
-                    <FormRow label={`${t('profile.emergency.township')} *`}>
-                    <input className={styles.formInput} type="text" value={form.township} onChange={f('township')} />
-                    </FormRow>
+
                     <FormRow label={t('profile.experience.reason')}>
                         <textarea className={styles.formTextarea} value={form.reasonForChange} onChange={f('reasonForChange')} placeholder={t('profile.experience.reasonPlaceholder')} rows={3} />
                     </FormRow>
+
+                    {/* Modification Type — New badge for add, Update/Correct toggle for edit */}
+                    {!editingId && (
+                        <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 8px' }}>
+                                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Modification Type:</span>
+                                <span style={{ padding: '3px 12px', borderRadius: '9999px', fontSize: '12px', fontWeight: 700, background: '#dcfce7', color: '#16a34a' }}>New</span>
+                            </div>
+                            <FormRow label="Effective Date *">
+                                <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={f('effectiveFrom')} />
+                            </FormRow>
+                        </>
+                    )}
+                    {editingId && (
+                        <>
+                            <div style={{ display: 'flex', gap: '8px', margin: '4px 0 8px' }}>
+                                {(['Update', 'Correct'] as const).map(opt => (
+                                    <button key={opt} type="button"
+                                        onClick={() => setForm(prev => ({ ...prev, modOption: opt, effectiveFrom: opt === 'Correct' ? '' : prev.effectiveFrom }))}
+                                        style={{ flex: 1, padding: '7px 0', borderRadius: '8px', border: `1.5px solid ${form.modOption === opt ? (opt === 'Correct' ? '#f59e0b' : '#3b82f6') : '#e2e8f0'}`, background: form.modOption === opt ? (opt === 'Correct' ? '#fef3c7' : '#dbeafe') : '#f8fafc', color: form.modOption === opt ? (opt === 'Correct' ? '#92400e' : '#1d4ed8') : '#64748b', fontWeight: form.modOption === opt ? 700 : 500, fontSize: '13px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                                        {opt}
+                                    </button>
+                                ))}
+                            </div>
+                            {form.modOption === 'Update' && (
+                                <FormRow label="Effective Date *">
+                                    <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={f('effectiveFrom')} />
+                                </FormRow>
+                            )}
+                        </>
+                    )}
+
+                    {/* Delete toggle — only shown when editing */}
+                    {editingId && (
+                        <div style={{ marginTop: '8px', padding: '12px 16px', borderRadius: '10px', border: `1.5px solid ${form.isdelete ? '#f43f5e' : '#e2e8f0'}`, background: form.isdelete ? '#fff1f2' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Trash2 size={15} style={{ color: form.isdelete ? '#f43f5e' : '#94a3b8' }} />
+                                <div>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, color: form.isdelete ? '#f43f5e' : '#64748b' }}>Mark for Deletion</div>
+                                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>Submits a delete request pending HR approval</div>
+                                </div>
+                            </div>
+                            <button type="button"
+                                onClick={() => setForm(prev => ({ ...prev, isdelete: !prev.isdelete }))}
+                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0 }}
+                            >
+                                <span style={{ position: 'absolute', top: '3px', left: form.isdelete ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Cancel pending request */}
+                    {editingId && records.pending.some(p => p.id === editingId) && (
+                        <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                            <button type="button" onClick={() => cancelPendingExp(editingId)}
+                                style={{ fontSize: '12px', color: '#ef4444', background: 'none', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 14px', cursor: 'pointer', fontWeight: 600 }}>
+                                Cancel Pending Request
+                            </button>
+                        </div>
+                    )}
                 </FormModal>
             )}
         </div>
@@ -1626,10 +1655,19 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         return `${d}/${m}/${y}`;
     };
 
-    const parseDateFromApi = (dateStr: string) => {
-        if (!dateStr) return '';
-        const [d, m, y] = dateStr.split('/');
-        return `${y}-${m}-${d}`;
+    const parseDateFromApi = (val: string) => {
+        if (!val) return '';
+        if (val.includes('/')) {
+            const parts = val.split('/');
+            return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : val;
+        }
+        if (val.length >= 8) {
+            return `${val.substring(0, 4)}-${val.substring(4, 6)}-${val.substring(6, 8)}`;
+        }
+        if (val.length === 6) {
+            return `${val.substring(0, 4)}-${val.substring(4, 6)}-01`;
+        }
+        return val;
     };
 
     const { data: fetchedData, isLoading } = useQuery({
@@ -1648,7 +1686,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                 description: item.description || '',
                 educationname: item.educationnamesyskey || item.educationname || '',
                 _displayEduName: item.educationname || '',
-                university: item.university || '',
+                university: item.institution || '',
                 year: item.year || '',
                 country: item.country || '',
                 fromdate: parseDateFromApi(item.fromdate),
@@ -1672,7 +1710,10 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blank = (): Qualification => ({ id: '', type: 'Education', qualificationtype: 'Education', description: '', educationname: '', university: '', year: '', country: '', fromdate: '', todate: '', isheight: 'false', status: '0', modOption: 'New' });
+    const blank = (): Qualification => ({
+        id: '', type: 'Education', qualificationtype: 'Education', description: '', educationname: '', university: '', year: '', country: '', fromdate: '', todate: '', isheight: 'false', status: '0', modOption: 'New',
+        effectiveFrom: undefined
+    });
     const [form, setForm] = useState<Qualification>(blank());
     const [showModal, setShowModal] = useState(false);
 
@@ -1724,14 +1765,66 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
     const openEdit = (r: Qualification) => {
         const isCurrent = records.current.some(c => c.id === r.id);
-        setForm({ ...r, modOption: isCurrent ? 'Update' : (r.modOption || 'New') });
+        setForm({ ...r, isdelete: r.isdelete || false, modOption: isCurrent ? 'Update' : (r.modOption || 'Correct') });
         setEditingId(r.id);
         setShowModal(true);
     };
     const close = () => { setShowModal(false); setEditingId(null); };
 
+    const cancelPendingQual = async (id: string) => {
+        const updatedPending = records.pending.filter(r => r.id !== id);
+        const { domain } = useAuthStore.getState();
+        const qualificationlist = updatedPending.map(r => ({
+            syskey: r.id && r.id.length > 20 ? r.id : "", orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
+            countrysyskey: r.countrysyskey || '', type: r.type, qualificationtype: r.qualificationtype,
+            description: r.description, educationname: r.educationname, university: r.university,
+            year: r.year, country: r.country, fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
+            todate: r.todate ? r.todate.replace(/-/g, '') : '', ishighest: r.isheight,
+            modificationoption: r.modOption, status: r.id.length < 20 ? "0" : r.status, isdelete: !!r.isdelete,
+        }));
+        try {
+            await mainClient.post(QUALIFICATION_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, qualificationlist });
+            setRecords(prev => ({ current: prev.current, pending: updatedPending }));
+            close();
+            toast.success('Pending request cancelled');
+        } catch { toast.error('Failed to cancel pending request'); }
+    };
+
     const save = async () => {
+        // Delete flow via form toggle
+        if (form.isdelete && editingId) {
+            if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
+            const isCurrent = records.current.some(r => r.id === editingId);
+            const pendingRecord = records.pending.find(p => p.id === editingId);
+            let updatedPending: Qualification[];
+            if (pendingRecord) {
+                updatedPending = records.pending.filter(r => r.id !== editingId);
+            } else if (isCurrent) {
+                const rec = records.current.find(r => r.id === editingId);
+                if (!rec) return;
+                updatedPending = [...records.pending, { ...rec, isdelete: true, modOption: form.modOption, effectiveFrom: form.effectiveFrom, status: '0' }];
+            } else { return; }
+            const { domain } = useAuthStore.getState();
+            const qualificationlist = updatedPending.map(r => ({
+                syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
+                orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
+                countrysyskey: r.countrysyskey || '', type: r.type, qualificationtype: r.qualificationtype,
+                description: r.description, educationname: r.educationname, university: r.university,
+                year: r.year, country: r.country, fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
+                todate: r.todate ? r.todate.replace(/-/g, '') : '', ishighest: r.isheight,
+                modificationoption: r.modOption, status: r.id.length < 20 ? "0" : r.status, isdelete: !!r.isdelete,
+            }));
+            try {
+                await mainClient.post(QUALIFICATION_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, qualificationlist });
+                setRecords(prev => ({ current: prev.current, pending: updatedPending }));
+                close();
+                toast.success('Marked for deletion');
+            } catch { toast.error('Failed to remove qualification'); }
+            return;
+        }
+
         if (!form.description) { toast.error(t('profile.qualification.reqDegree', 'Description is required')); return; }
+        if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
 
         const isUpdate = !!editingId;
         const newRecord: Qualification & { _displayEduName?: string } = { ...form };
@@ -1756,6 +1849,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         const qualificationlist = updatedPending.map(r => ({
             syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
             orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
+            countrysyskey: r.countrysyskey || '',
             type: r.type,
             qualificationtype: r.qualificationtype,
             description: r.description,
@@ -1812,6 +1906,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         const qualificationlist = updatedPending.map(r => ({
             syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
             orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
+            countrysyskey: r.countrysyskey || '',
             type: r.type,
             qualificationtype: r.qualificationtype,
             description: r.description,
@@ -1862,149 +1957,91 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.qualification.noData')} onAdd={openAdd} />
                 : (
-                    <>
+                    <div style={{ padding: '24px' }}>
+                        {/* Current Records Section */}
                         {records.current.length > 0 && (
-                            <div className={styles.tableWrapper}>
-                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>{t('common.currentRecords')}</div>
-                                <table className={styles.table}>
-                                    <thead>
-                                        <tr>
-                                            <th>{t('profile.qualification.type')}</th>
-                                            <th>{t('profile.qualification.description')}</th>
-                                            <th>{t('profile.qualification.institution')}</th>
-                                            <th>{t('profile.qualification.periodYear')}</th>
-                                            <th>{t('profile.qualification.highest')}</th>
-                                            <th>{t('common.status')}</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {records.current.map(r => (
-                                            <tr key={r.id}>
-                                                <td>{r.type}</td>
-                                                <td><strong>{r.description}</strong></td>
-                                                <td>{(r as any)._displayEduName || r.educationname} <br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.university}</small></td>
-                                                <td className={styles.noWrap}>{formatDateForDisplay(r.fromdate)} → {formatDateForDisplay(r.todate) || t('profile.experience.present')}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.year && `Class of ${r.year}`}</small></td>
-                                                <td>{r.isheight === 'true' ? 'Yes' : 'No'}</td>
-                                                <td><StatusBadge status={r.status === '0' ? 'Pending' : 'Active'} /></td>
-                                                <td>
-                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                                                        <button
-                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                            onClick={() => openEdit(r)}
-                                                            onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
-                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                            title={t('profile.personal.editHint')}
-                                                        >
-                                                            <Edit3 size={14} />
-                                                        </button>
-                                                        <button
-                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                            onClick={() => setDeleteTarget(r.id || null)}
-                                                            onMouseOver={e => (e.currentTarget.style.background = '#fef2f2')}
-                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                            title={t('request.delete')}
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div style={{ marginBottom: '32px' }}>
+                                <div style={{ padding: '0 0 16px', fontWeight: 600, color: 'var(--color-neutral-800)', fontSize: '14px' }}>{t('common.currentRecords')}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    {records.current.map(r => (
+                                        <div className={styles.contactPersonCard} key={r.id}>
+                                            <div className={styles.contactPersonHeader}>
+                                                <span className={styles.contactPersonLabel}>{t('profile.tabs.qualification')}</span>
+                                                <div className={styles.rowActions}>
+                                                    <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 50px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.type')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.type}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.description')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.description}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.fromDate')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{formatDateForDisplay(r.fromdate)}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.year')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.year || '-'}</span></div>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.educationName')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{(r as any)._displayEduName || r.educationname || '-'}</span></div>
+                                                    <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.universityOrInstitution')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.university || '-'}</span></div>
+                                                    <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.toDate')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{formatDateForDisplay(r.todate) || t('profile.experience.present')}</span></div>
+                                                    <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.highestQualification')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.isheight === 'true' ? 'Yes' : 'No'}</span></div>
+                                                </div>
+                                            </div>
+                                            <div style={{ marginTop: '16px' }}>
+                                                <StatusBadge status={r.status === '0' ? 'Pending' : 'Active'} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
+                        {/* Pending Records Section */}
                         {records.pending.length > 0 && (
-                            <div className={styles.tableWrapper} style={{ marginTop: '24px', border: '1px solid var(--color-warning-200)' }}>
-                                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ marginTop: '24px' }}>
+                                <div style={{ padding: '0 0 16px', fontWeight: 600, color: 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
                                     {t('common.pendingHRApproval')}
                                 </div>
-                                <table className={styles.table}>
-                                    <thead style={{ background: 'var(--color-warning-50)' }}>
-                                        <tr>
-                                            <th>{t('profile.qualification.type')}</th>
-                                            <th>{t('profile.qualification.description')}</th>
-                                            <th>{t('profile.qualification.institution')}</th>
-                                            <th>{t('profile.qualification.periodYear')}</th>
-                                            <th>{t('profile.qualification.highest')}</th>
-                                            <th>{t('common.status')}</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {records.pending.map(r => (
-                                            <tr key={r.id} style={{
-                                                backgroundColor: r.isdelete ? '#fff1f2' : 'transparent',
-                                                borderLeft: r.isdelete ? '4px solid #f43f5e' : 'none',
-                                                transition: 'all 0.2s ease'
-                                            }}>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.type}</td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}><strong>{r.description}</strong></td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{(r as any)._displayEduName || r.educationname} <br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.university}</small></td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }} className={styles.noWrap}>{formatDateForDisplay(r.fromdate)} → {formatDateForDisplay(r.todate) || t('profile.experience.present')}<br /><small style={{ color: 'var(--color-neutral-500)' }}>{r.year && `Class of ${r.year}`}</small></td>
-                                                <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.isheight === 'true' ? 'Yes' : 'No'}</td>
-                                                <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} /></td>
-                                                <td>
-                                                    <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-end' }}>
-                                                        {!r.isdelete && (
-                                                            <button
-                                                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                                onClick={() => openEdit(r)}
-                                                                onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
-                                                                onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                                title={t('profile.personal.editHint')}
-                                                            >
-                                                                <Edit3 size={14} />
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => setDeleteTarget(r.id || null)}
-                                                            title={r.isdelete ? "Cancel delete request" : t('request.delete')}
-                                                            style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: '6px',
-                                                                padding: r.isdelete ? '6px 12px' : '8px',
-                                                                borderRadius: r.isdelete ? '9999px' : '50%',
-                                                                backgroundColor: r.isdelete ? '#ffffff' : 'transparent',
-                                                                color: r.isdelete ? '#475569' : '#ef4444',
-                                                                border: r.isdelete ? '1px solid #e2e8f0' : 'none',
-                                                                fontSize: '11px',
-                                                                fontWeight: 700,
-                                                                textTransform: 'uppercase',
-                                                                letterSpacing: '0.025em',
-                                                                cursor: 'pointer',
-                                                                boxShadow: r.isdelete ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none',
-                                                                transition: 'all 0.2s',
-                                                                outline: 'none',
-                                                            }}
-                                                            onMouseOver={e => {
-                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#f8fafc';
-                                                                else e.currentTarget.style.backgroundColor = '#fef2f2';
-                                                            }}
-                                                            onMouseOut={e => {
-                                                                if (r.isdelete) e.currentTarget.style.backgroundColor = '#ffffff';
-                                                                else e.currentTarget.style.backgroundColor = 'transparent';
-                                                            }}
-                                                        >
-                                                            {r.isdelete ? (
-                                                                <>
-                                                                    <RotateCcw size={14} />
-                                                                    <span>Revert</span>
-                                                                </>
-                                                            ) : <Trash2 size={14} />}
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    {records.pending.map(r => (
+                                        <div className={styles.contactPersonCard} key={r.id} style={{
+                                            backgroundColor: r.isdelete ? '#fff1f2' : '#fefce8',
+                                            borderLeft: r.isdelete ? '4px solid #f43f5e' : '4px solid #eab308'
+                                        }}>
+                                            <div className={styles.contactPersonHeader}>
+                                                <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>{t('profile.tabs.qualification')} (Pending)</span>
+                                                {
+                                                    r.status === 'Pending' && (
+                                                        <div className={styles.rowActions}>
+                                                            <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
+                                                        </div>
+                                                    )
+                                                }
+
+                                            </div>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 32px', opacity: r.isdelete ? 0.6 : 1 }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.type')}</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.type}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.description')}</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.description}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.fromDate')}</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{formatDateForDisplay(r.fromdate)}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.year')}</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.year || '-'}</span></div>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.educationName')}</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{(r as any)._displayEduName || r.educationname || '-'}</span></div>
+                                                    <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.universityOrInstitution')}</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.university || '-'}</span></div>
+                                                    <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.toDate')}</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{formatDateForDisplay(r.todate) || t('profile.experience.present')}</span></div>
+                                                    <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.highestQualification')}</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.isheight === 'true' ? 'Yes' : 'No'}</span></div>
+                                                </div>
+                                            </div>
+                                            <div style={{ marginTop: '16px' }}>
+                                                <StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
-                    </>
+                    </div>
                 )
             }
 
@@ -2050,10 +2087,10 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                             <input className={styles.formInput} value={form.year} onChange={f('year')} type='number' placeholder="e.g. 2024" />
                         </FormRow>
                         <FormRow label={t('profile.qualification.country', 'Country')}>
-                            <select className={styles.formSelect} value={form.country} onChange={f('country')}>
+                            <select className={styles.formSelect} value={form.countrysyskey} onChange={f('countrysyskey')}>
                                 <option value="">{t('profile.qualification.selectCountry', 'Select Country...')}</option>
                                 {countries.map((c: any) => (
-                                    <option key={c.syskey} value={c.code}>{c.description}</option>
+                                    <option key={c.syskey} value={c.syskey}>{c.description}</option>
                                 ))}
                             </select>
                         </FormRow>
@@ -2076,6 +2113,66 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                             </select>
                         </FormRow>
                     </div>
+
+                    {/* Modification Type — 3-state */}
+                    {!editingId && (
+                        <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 8px' }}>
+                                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Modification Type:</span>
+                                <span style={{ padding: '3px 12px', borderRadius: '9999px', fontSize: '12px', fontWeight: 700, background: '#dcfce7', color: '#16a34a' }}>New</span>
+                            </div>
+                            <FormRow label="Effective Date *">
+                                <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={f('effectiveFrom')} />
+                            </FormRow>
+                        </>
+                    )}
+                    {editingId && (
+                        <>
+                            <div style={{ display: 'flex', gap: '8px', margin: '4px 0 8px' }}>
+                                {(['Update', 'Correct'] as const).map(opt => (
+                                    <button key={opt} type="button"
+                                        onClick={() => setForm(prev => ({ ...prev, modOption: opt, effectiveFrom: opt === 'Correct' ? '' : prev.effectiveFrom }))}
+                                        style={{ flex: 1, padding: '7px 0', borderRadius: '8px', border: `1.5px solid ${form.modOption === opt ? (opt === 'Correct' ? '#f59e0b' : '#3b82f6') : '#e2e8f0'}`, background: form.modOption === opt ? (opt === 'Correct' ? '#fef3c7' : '#dbeafe') : '#f8fafc', color: form.modOption === opt ? (opt === 'Correct' ? '#92400e' : '#1d4ed8') : '#64748b', fontWeight: form.modOption === opt ? 700 : 500, fontSize: '13px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                                        {opt}
+                                    </button>
+                                ))}
+                            </div>
+                            {form.modOption === 'Update' && (
+                                <FormRow label="Effective Date *">
+                                    <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={f('effectiveFrom')} />
+                                </FormRow>
+                            )}
+                        </>
+                    )}
+
+                    {/* Delete toggle — only shown when editing */}
+                    {editingId && (
+                        <div style={{ marginTop: '8px', padding: '12px 16px', borderRadius: '10px', border: `1.5px solid ${form.isdelete ? '#f43f5e' : '#e2e8f0'}`, background: form.isdelete ? '#fff1f2' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Trash2 size={15} style={{ color: form.isdelete ? '#f43f5e' : '#94a3b8' }} />
+                                <div>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, color: form.isdelete ? '#f43f5e' : '#64748b' }}>Mark for Deletion</div>
+                                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>Submits a delete request pending HR approval</div>
+                                </div>
+                            </div>
+                            <button type="button"
+                                onClick={() => setForm(prev => ({ ...prev, isdelete: !prev.isdelete }))}
+                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0 }}
+                            >
+                                <span style={{ position: 'absolute', top: '3px', left: form.isdelete ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Cancel pending request */}
+                    {editingId && records.pending.some(p => p.id === editingId) && (
+                        <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                            <button type="button" onClick={() => cancelPendingQual(editingId)}
+                                style={{ fontSize: '12px', color: '#ef4444', background: 'none', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 14px', cursor: 'pointer', fontWeight: 600 }}>
+                                Cancel Pending Request
+                            </button>
+                        </div>
+                    )}
                 </FormModal>
             )}
 
@@ -2144,13 +2241,68 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
     const openEdit = (r: FamilyMember) => {
         const isCurrent = records.current.some(c => c.id === r.id);
-        setForm({ ...r, modOption: isCurrent ? 'Update' : r.modOption });
+        setForm({ ...r, isdelete: r.isdelete || false, modOption: isCurrent ? 'Update' : (r.modOption || 'Correct') });
         setEditingId(r.id); setShowModal(true);
     };
     const close = () => { setShowModal(false); setEditingId(null); };
+
+    const cancelPendingFamily = async (id: string) => {
+        const updatedPending = records.pending.filter(r => r.id !== id);
+        const { domain } = useAuthStore.getState();
+        const familylist = updatedPending.map(r => ({
+            syskey: r.id && r.id.length > 20 ? r.id : "", orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
+            name: r.name, gender: r.gender, dob: r.dob ? r.dob.replace(/-/g, '') : '',
+            relationship: r.relationshipSyskey || r.relationship, taxexeligibility: r.taxEligible === 'Yes',
+            attachment: r.attachment || null, modificationoption: r.modOption,
+            effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
+            familystatus: r.modOption === 'New' ? '1' : '0', status: r.status === 'Approved' ? '1' : '0',
+            isdelete: !!r.isdelete,
+        }));
+        try {
+            await mainClient.post(FAMILY_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, familylist });
+            setRecords(prev => ({ current: prev.current, pending: updatedPending }));
+            close();
+            toast.success('Pending request cancelled');
+        } catch { toast.error('Failed to cancel pending request'); }
+    };
     const save = async () => {
+        // Delete flow via form toggle
+        if (form.isdelete && editingId) {
+            console.log(form);
+
+            if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
+            const isCurrent = records.current.some(r => r.id === editingId);
+            const pendingRecord = records.pending.find(p => p.id === editingId);
+            let updatedPending: FamilyMember[];
+            if (pendingRecord) {
+                updatedPending = records.pending.filter(r => r.id !== editingId);
+            } else if (isCurrent) {
+                const rec = records.current.find(r => r.id === editingId);
+                if (!rec) return;
+                updatedPending = [...records.pending, { ...rec, isdelete: true, modOption: form.modOption, effectiveFrom: form.effectiveFrom, status: 'Pending' }];
+            } else { return; }
+            const { domain } = useAuthStore.getState();
+            const familylist = updatedPending.map(r => ({
+                syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
+                orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
+                name: r.name, gender: r.gender, dob: r.dob ? r.dob.replace(/-/g, '') : '',
+                relationship: r.relationshipSyskey || r.relationship, taxexeligibility: r.taxEligible === 'Yes',
+                attachment: r.attachment || null, modificationoption: r.modOption,
+                effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
+                familystatus: r.modOption === 'New' ? '1' : '0', status: r.status === 'Approved' ? '1' : '0',
+                isdelete: !!r.isdelete,
+            }));
+            try {
+                await mainClient.post(FAMILY_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, familylist });
+                setRecords(prev => ({ current: prev.current, pending: updatedPending }));
+                close();
+                toast.success('Marked for deletion');
+            } catch { toast.error('Failed to update family information'); }
+            return;
+        }
+
         if (!form.name) { toast.error(t('profile.family.reqName')); return; }
-        if (form.modOption !== 'Correct' && !form.effectiveFrom) { toast.error('Effective Date is required for New or Update'); return; }
+        if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
 
         const isUpdate = !!editingId;
         const newRecord = { ...form };
@@ -2305,15 +2457,6 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                         >
                                                             <Edit3 size={14} />
                                                         </button>
-                                                        <button
-                                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                            onClick={() => setDeleteTarget(r.id || null)}
-                                                            onMouseOver={e => (e.currentTarget.style.background = '#fef2f2')}
-                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                            title={t('request.delete')}
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -2350,38 +2493,18 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                         <span style={{ fontSize: '11px', fontWeight: 600, color: '#eab308', marginRight: '8px', padding: '2px 6px', background: '#fef08a', borderRadius: '4px' }}>
                                                             {r.modOption || 'New'}
                                                         </span>
-                                                        {!r.isdelete && (
-                                                            <button
-                                                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                                onClick={() => openEdit(r)}
-                                                                onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
-                                                                onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                                title={t('profile.personal.editHint')}
-                                                            >
-                                                                <Edit3 size={14} />
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => setDeleteTarget(r.id || null)}
-                                                            title={r.isdelete ? "Cancel delete request" : t('request.delete')}
-                                                            style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                width: '32px',
-                                                                height: '32px',
-                                                                borderRadius: '50%',
-                                                                border: 'none',
-                                                                background: 'transparent',
-                                                                color: r.isdelete ? '#64748b' : '#ef4444',
-                                                                cursor: 'pointer',
-                                                                transition: 'background 0.2s'
-                                                            }}
-                                                            onMouseOver={e => (e.currentTarget.style.background = r.isdelete ? '#f1f5f9' : '#fef2f2')}
-                                                            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-                                                        >
-                                                            {r.isdelete ? <RotateCcw size={14} /> : <Trash2 size={14} />}
-                                                        </button>
+                                                        {
+                                                            r.status === 'Pending' && (
+                                                                <button
+                                                                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                                    onClick={() => openEdit(r)}
+                                                                    onMouseOver={e => (e.currentTarget.style.background = '#eff6ff')}
+                                                                    onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                                                                    title={t('profile.personal.editHint')}
+                                                                >
+                                                                    <Edit3 size={14} />
+                                                                </button>
+                                                            )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -2428,20 +2551,69 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                             </select>
                         </FormRow>
                     </div>
-                    <div className={styles.formGrid2}>
-                        <FormRow label={`${t('profile.family.modOption')} *`}>
-                            <select className={styles.formSelect} value={form.modOption} onChange={e => setForm(prev => ({ ...prev, modOption: e.target.value as any, effectiveFrom: e.target.value === 'Correct' ? '' : prev.effectiveFrom }))}>
-                                {MOD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={`${t('profile.family.effectiveFrom')}${form.modOption !== 'Correct' ? ' *' : ''}`}>
-                            <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} disabled={form.modOption === 'Correct'} />
-                        </FormRow>
-                    </div>
+                    {/* Modification Type — 3-state */}
+                    {!editingId && (
+                        <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 8px' }}>
+                                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Modification Type:</span>
+                                <span style={{ padding: '3px 12px', borderRadius: '9999px', fontSize: '12px', fontWeight: 700, background: '#dcfce7', color: '#16a34a' }}>New</span>
+                            </div>
+                            <FormRow label="Effective Date *">
+                                <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} />
+                            </FormRow>
+                        </>
+                    )}
+                    {editingId && (
+                        <>
+                            <div style={{ display: 'flex', gap: '8px', margin: '4px 0 8px' }}>
+                                {(['Update', 'Correct'] as const).map(opt => (
+                                    <button key={opt} type="button"
+                                        onClick={() => setForm(prev => ({ ...prev, modOption: opt, effectiveFrom: opt === 'Correct' ? '' : prev.effectiveFrom }))}
+                                        style={{ flex: 1, padding: '7px 0', borderRadius: '8px', border: `1.5px solid ${form.modOption === opt ? (opt === 'Correct' ? '#f59e0b' : '#3b82f6') : '#e2e8f0'}`, background: form.modOption === opt ? (opt === 'Correct' ? '#fef3c7' : '#dbeafe') : '#f8fafc', color: form.modOption === opt ? (opt === 'Correct' ? '#92400e' : '#1d4ed8') : '#64748b', fontWeight: form.modOption === opt ? 700 : 500, fontSize: '13px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                                        {opt}
+                                    </button>
+                                ))}
+                            </div>
+                            {form.modOption === 'Update' && (
+                                <FormRow label="Effective Date *">
+                                    <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} />
+                                </FormRow>
+                            )}
+                        </>
+                    )}
                     <FormRow label={`${t('profile.family.attachment')} *`}>
                         <input className={styles.formInput} type="file" accept=".pdf,.docx,.jpg,.png" onChange={e => setForm(prev => ({ ...prev, attachment: e.target.files?.[0]?.name || '' }))} />
                         {form.attachment && <p className={styles.fileHint}>Selected: {form.attachment}</p>}
                     </FormRow>
+
+                    {/* Delete toggle — only shown when editing */}
+                    {editingId && (
+                        <div style={{ marginTop: '8px', padding: '12px 16px', borderRadius: '10px', border: `1.5px solid ${form.isdelete ? '#f43f5e' : '#e2e8f0'}`, background: form.isdelete ? '#fff1f2' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Trash2 size={15} style={{ color: form.isdelete ? '#f43f5e' : '#94a3b8' }} />
+                                <div>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, color: form.isdelete ? '#f43f5e' : '#64748b' }}>Mark for Deletion</div>
+                                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>Submits a delete request pending HR approval</div>
+                                </div>
+                            </div>
+                            <button type="button"
+                                onClick={() => setForm(prev => ({ ...prev, isdelete: !prev.isdelete }))}
+                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0 }}
+                            >
+                                <span style={{ position: 'absolute', top: '3px', left: form.isdelete ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Cancel pending request */}
+                    {editingId && records.pending.some(p => p.id === editingId) && (
+                        <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                            <button type="button" onClick={() => cancelPendingFamily(editingId)}
+                                style={{ fontSize: '12px', color: '#ef4444', background: 'none', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 14px', cursor: 'pointer', fontWeight: 600 }}>
+                                Cancel Pending Request
+                            </button>
+                        </div>
+                    )}
                 </FormModal>
             )}
 
@@ -2668,7 +2840,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
     const cancel = () => setIsEditing(false);
 
     const save = async () => {
-        if (contactDetails.modOption !== 'Correct' && !contactDetails.effectiveFrom) { toast.error('Effective Date is required for New or Update'); return; }
+        if ((contactDetails.modOption === 'Update' || contactDetails.modOption === 'New') && !contactDetails.effectiveFrom) { toast.error('Effective Date is required'); return; }
         const toPayload = (addr: Address) => ({
             syskey: addr.syskey,
             employeeid: profile.eid,
@@ -2969,97 +3141,97 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
     );
 }
 
-function UpdateHistoryTab({ profile }: { profile: ProfileData }) {
-    const { t } = useTranslation();
-    const { domain } = useAuthStore();
+// function UpdateHistoryTab({ profile }: { profile: ProfileData }) {
+//     const { t } = useTranslation();
+//     const { domain } = useAuthStore();
 
-    const { data: updates = [], isLoading } = useQuery({
-        queryKey: ['profile-updates', profile.userid],
-        queryFn: async () => {
-            const endpoints = [
-                { id: 'family', url: FAMILY_COMPARE, label: t('profile.history.familyInfo') },
-                { id: 'experience', url: EXPERIENCE_COMPARE, label: t('profile.history.workExperience') },
-                { id: 'emergency', url: EMERGENCY_COMPARE, label: t('profile.history.emergencyContacts') },
-                { id: 'qualification', url: QUALIFICATION_COMPARE, label: t('profile.history.qualification') },
-                { id: 'address', url: ADDRESS_COMPARE, label: t('profile.history.addressContact') }
-            ];
+//     const { data: updates = [], isLoading } = useQuery({
+//         queryKey: ['profile-updates', profile.userid],
+//         queryFn: async () => {
+//             const endpoints = [
+//                 { id: 'family', url: FAMILY_COMPARE, label: t('profile.history.familyInfo') },
+//                 { id: 'experience', url: EXPERIENCE_COMPARE, label: t('profile.history.workExperience') },
+//                 { id: 'emergency', url: EMERGENCY_COMPARE, label: t('profile.history.emergencyContacts') },
+//                 { id: 'qualification', url: QUALIFICATION_COMPARE, label: t('profile.history.qualification') },
+//                 { id: 'address', url: ADDRESS_COMPARE, label: t('profile.history.addressContact') }
+//             ];
 
-            const allUpdates: any[] = [];
+//             const allUpdates: any[] = [];
 
-            await Promise.all(endpoints.map(async (ep) => {
-                try {
-                    const res = await mainClient.post(ep.url, {
-                        userid: profile.userid,
-                        domain: domain || 'dev',
-                        employeeid: profile.eid
-                    });
-                    const pending = res.data?.data?.update || [];
-                    pending.forEach((p: any) => {
-                        console.log(p);
+//             await Promise.all(endpoints.map(async (ep) => {
+//                 try {
+//                     const res = await mainClient.post(ep.url, {
+//                         userid: profile.userid,
+//                         domain: domain || 'dev',
+//                         employeeid: profile.eid
+//                     });
+//                     const pending = res.data?.data?.update || [];
+//                     pending.forEach((p: any) => {
+//                         console.log(p);
 
-                        allUpdates.push({
-                            ...p,
-                            category: ep.label,
-                            categoryId: ep.id,
-                            displayName: p.name || p.organization || p.educationname || p.address || 'Update'
-                        });
-                    });
-                } catch (err) {
-                    console.error(`Failed to fetch ${ep.label} updates`, err);
-                }
-            }));
+//                         allUpdates.push({
+//                             ...p,
+//                             category: ep.label,
+//                             categoryId: ep.id,
+//                             displayName: p.name || p.organization || p.educationname || p.address || 'Update'
+//                         });
+//                     });
+//                 } catch (err) {
+//                     console.error(`Failed to fetch ${ep.label} updates`, err);
+//                 }
+//             }));
 
-            return allUpdates.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
-        }
-    });
+//             return allUpdates.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+//         }
+//     });
 
-    if (isLoading) {
-        return (
-            <div className={styles.sectionCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', minHeight: '300px' }}>
-                <Loader2 className="animate-spin" size={32} style={{ color: '#3b82f6', marginBottom: '16px' }} />
-                <p style={{ color: 'var(--color-neutral-500)' }}>{t('profile.loading', 'Loading...')}</p>
-            </div>
-        );
-    }
+//     if (isLoading) {
+//         return (
+//             <div className={styles.sectionCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', minHeight: '300px' }}>
+//                 <Loader2 className="animate-spin" size={32} style={{ color: '#3b82f6', marginBottom: '16px' }} />
+//                 <p style={{ color: 'var(--color-neutral-500)' }}>{t('profile.loading', 'Loading...')}</p>
+//             </div>
+//         );
+//     }
 
-    return (
-        <div className={styles.sectionCard}>
-            <SectionHeader
-                icon={<Clock size={20} />}
-                title={t('profile.tabs.history')}
-                subtitle={t('profile.history.subtitle')}
-            />
+//     return (
+//         <div className={styles.sectionCard}>
+//             <SectionHeader
+//                 icon={<Clock size={20} />}
+//                 title={t('profile.tabs.history')}
+//                 subtitle={t('profile.history.subtitle')}
+//             />
 
-            {updates.length === 0 ? (
-                <div className={styles.emptyState}>
-                    <AlertCircle size={36} className={styles.emptyStateIcon} />
-                    <p>{t('profile.history.noData')}</p>
-                </div>
-            ) : (
-                <div className={styles.tableWrapper}>
-                    <table className={styles.table}>
-                        <thead>
-                            <tr>
-                                <th>{t('profile.history.category')}</th>
-                                <th>{t('profile.history.description')}</th>
-                                <th>{t('profile.history.status')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {updates.map((up: any, idx: number) => (
-                                <tr key={idx}>
-                                    <td><span className={styles.badgeGray}>{up.category}</span></td>
-                                    <td><strong>{up.displayName}</strong></td>
-                                    <td><StatusBadge status={up.status} /></td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-        </div>
-    );
-}
+//             {updates.length === 0 ? (
+//                 <div className={styles.emptyState}>
+//                     <AlertCircle size={36} className={styles.emptyStateIcon} />
+//                     <p>{t('profile.history.noData')}</p>
+//                 </div>
+//             ) : (
+//                 <div className={styles.tableWrapper}>
+//                     <table className={styles.table}>
+//                         <thead>
+//                             <tr>
+//                                 <th>{t('profile.history.category')}</th>
+//                                 <th>{t('profile.history.description')}</th>
+//                                 <th>{t('profile.history.status')}</th>
+//                             </tr>
+//                         </thead>
+//                         <tbody>
+//                             {updates.map((up: any, idx: number) => (
+//                                 <tr key={idx}>
+//                                     <td><span className={styles.badgeGray}>{up.category}</span></td>
+//                                     <td><strong>{up.displayName}</strong></td>
+//                                     <td><StatusBadge status={up.status} /></td>
+//                                 </tr>
+//                             ))}
+//                         </tbody>
+//                     </table>
+//                 </div>
+//             )}
+//         </div>
+//     );
+// }
 
 
 

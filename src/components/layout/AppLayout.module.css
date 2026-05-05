@@ -627,6 +627,127 @@
     letter-spacing: -0.3px;
 }
 
+/* ── Header Avatar Dropdown ── */
+.header__avatar-container {
+    position: relative;
+}
+
+.header__avatar-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    border: 2px solid transparent;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    flex-shrink: 0;
+}
+
+.header__avatar-btn:hover {
+    border-color: var(--color-primary-300);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.header__avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--radius-full);
+}
+
+.header__avatar-initial {
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+    color: #fff;
+    line-height: 1;
+}
+
+.header__avatar-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 220px;
+    background: var(--color-neutral-0);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--color-neutral-200);
+    z-index: 200;
+    overflow: hidden;
+    animation: avatarMenuIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    transform-origin: top right;
+}
+
+@keyframes avatarMenuIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.header__avatar-menu-header {
+    padding: 14px 16px;
+    background: var(--color-neutral-50);
+    border-bottom: 1px solid var(--color-neutral-100);
+}
+
+.header__avatar-menu-name {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-neutral-900);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.header__avatar-menu-role {
+    font-size: var(--text-xs);
+    color: var(--color-neutral-500);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.header__avatar-menu-divider {
+    height: 1px;
+    background: var(--color-neutral-100);
+}
+
+.header__avatar-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: var(--color-neutral-700);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    text-align: left;
+}
+
+.header__avatar-menu-item:hover {
+    background: var(--color-neutral-50);
+    color: var(--color-neutral-900);
+}
+
+.header__avatar-menu-item--danger:hover {
+    background: rgba(239, 68, 68, 0.06);
+    color: #ef4444;
+}
+
 .main__content {
     flex: 1;
     padding: var(--space-6);
