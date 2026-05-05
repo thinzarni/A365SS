@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
     Mail, Calendar, Briefcase, Award, CreditCard, Clock, Activity,
@@ -131,6 +131,7 @@ interface Qualification {
 }
 interface Address {
     syskey: string;
+    orgrecordsyskey?: string;
     employeeid: string;
     address: string;
     postalcode: string;
@@ -148,9 +149,9 @@ interface Address {
     countrysyskey: string;
     addressstatus: number;
     status: string;
-    personalprimaryemail?: string;
-    personalsecondarymail?: string;
-    personalmobilephone?: string;
+    personalprimaryemail: string;
+    personalsecondarymail: string;
+    personalmobilephone: string;
     modificationoption?: string;
     effectivedate?: string;
 }
@@ -285,6 +286,39 @@ export default function ProfilePage() {
     const TABS = getTabs(t);
     const isOwnProfile = !urlUserId || urlUserId === user?.userid;
 
+    const queryClient = useQueryClient();
+
+    const { data: profile, isLoading, error } = useQuery<ProfileData | null>({
+        queryKey: ['employee-profile', urlUserId || user?.usersyskey],
+        queryFn: async () => {
+            try {
+                const endpoint = urlUserId ? USER_PROFILE_BY_ID : USER_PROFILE;
+                const res = await mainClient.post(endpoint, {
+                    userid: urlUserId || user?.userid
+                });
+                return res.data?.data ?? res.data ?? null;
+            } catch (err) { console.error('Failed to fetch profile', err); return null; }
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    useEffect(() => {
+        if (!profile?.userid || !profile?.eid) return;
+
+        // Force refetch comparison queries on tab change
+        const compareKeys = [
+            ['address', profile.userid, profile.eid],
+            ['emergency', profile.userid, profile.eid],
+            ['experience', profile.userid, profile.eid],
+            ['qualification', profile.userid, profile.eid],
+            ['family', profile.userid, profile.eid]
+        ];
+
+        compareKeys.forEach(key => {
+            queryClient.invalidateQueries({ queryKey: key });
+        });
+    }, [activeTab, queryClient, profile?.userid, profile?.eid]);
+
     // Change password state
     const [showChangePwd, setShowChangePwd] = useState(false);
     const [imgError, setImgError] = useState(false);
@@ -341,19 +375,6 @@ export default function ProfilePage() {
         } finally { setPwdLoading(false); }
     };
 
-    const { data: profile, isLoading, error } = useQuery<ProfileData | null>({
-        queryKey: ['employee-profile', urlUserId || user?.usersyskey],
-        queryFn: async () => {
-            try {
-                const endpoint = urlUserId ? USER_PROFILE_BY_ID : USER_PROFILE;
-                const res = await mainClient.post(endpoint, {
-                    userid: urlUserId || user?.userid
-                });
-                return res.data?.data ?? res.data ?? null;
-            } catch (err) { console.error('Failed to fetch profile', err); return null; }
-        },
-        staleTime: 5 * 60 * 1000,
-    });
 
     if (isLoading) {
         return (
@@ -963,7 +984,6 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                                 <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.relationship')}</span><span className={styles.cardFieldValue}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</span></div>
                                                 <div className={styles.contactField}><span className={styles.contactFieldLabel}>{t('profile.emergency.address')}</span><span className={styles.cardFieldValue}>{r.address || '-'}</span></div>
                                             </div>
-                                            <div style={{ marginTop: '14px' }}><StatusBadge status="Approved" /></div>
                                         </div>
                                     ))}
                                 </div>
@@ -977,7 +997,9 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                     {records.pending.map(r => (
                                         <div className={styles.contactPersonCard} key={r.id} style={{ backgroundColor: r.isdelete ? '#fff1f2' : '#fefce8', borderLeft: r.isdelete ? '4px solid #f43f5e' : '4px solid #eab308' }}>
                                             <div className={styles.contactPersonHeader}>
-                                                <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>{t('profile.tabs.emergency')} — Pending</span>
+                                                <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>
+                                                    {t('profile.tabs.emergency')} — {r.isdelete ? (r.status === 'Approved' ? 'Delete Approved' : r.status === 'Rejected' ? 'Delete Rejected' : 'Pending Delete') : r.status}
+                                                </span>
                                                 {
                                                     r.status == 'Pending' && (
                                                         <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
@@ -1470,9 +1492,6 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Reason To Leave</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.reasonForChange || '-'}</span></div>
                                                 </div>
                                             </div>
-                                            <div style={{ marginTop: '16px' }}>
-                                                <StatusBadge status="Approved" />
-                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -1492,7 +1511,9 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                             borderLeft: r.isdelete ? '4px solid #f43f5e' : '4px solid #eab308'
                                         }}>
                                             <div className={styles.contactPersonHeader}>
-                                                <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>{t('profile.tabs.experience')} (Pending)</span>
+                                                <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>
+                                                    {t('profile.tabs.experience')} — {r.isdelete ? (r.status === 'Approved' ? 'Delete Approved' : r.status === 'Rejected' ? 'Delete Rejected' : 'Pending Delete') : r.status}
+                                                </span>
                                                 {
                                                     r.status === 'Pending' && (
                                                         <div className={styles.rowActions}>
@@ -1670,6 +1691,36 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         return val;
     };
 
+    const mapQualificationPayload = (list: Qualification[]) => {
+        return list.map(r => ({
+            syskey:
+                r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id)
+                    ? r.id
+                    : "",
+            orgrecordsyskey:
+                r.id && r.id.length > 20 && records.current.some(c => c.id === r.id)
+                    ? r.id
+                    : "",
+            countrysyskey: r.countrysyskey || '',
+            type: r.type,
+            qualificationtype: r.qualificationtype,
+            description: r.description,
+            educationname: r.educationname,
+            university: r.university,
+            year: r.year,
+            country: r.country,
+            fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
+            todate: r.todate ? r.todate.replace(/-/g, '') : '',
+            ishighest: r.isheight,
+            modificationoption: r.modOption,
+            status: r.id.length < 20 ? "0" : r.status,
+            isdelete: !!r.isdelete,
+            effectivedate: r.effectiveFrom
+                ? r.effectiveFrom.replace(/-/g, '')
+                : ''
+        }));
+    };
+
     const { data: fetchedData, isLoading } = useQuery({
         queryKey: ['qualification', profile.userid, profile.eid],
         queryFn: async () => {
@@ -1774,14 +1825,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
     const cancelPendingQual = async (id: string) => {
         const updatedPending = records.pending.filter(r => r.id !== id);
         const { domain } = useAuthStore.getState();
-        const qualificationlist = updatedPending.map(r => ({
-            syskey: r.id && r.id.length > 20 ? r.id : "", orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
-            countrysyskey: r.countrysyskey || '', type: r.type, qualificationtype: r.qualificationtype,
-            description: r.description, educationname: r.educationname, university: r.university,
-            year: r.year, country: r.country, fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
-            todate: r.todate ? r.todate.replace(/-/g, '') : '', ishighest: r.isheight,
-            modificationoption: r.modOption, status: r.id.length < 20 ? "0" : r.status, isdelete: !!r.isdelete,
-        }));
+        const qualificationlist = mapQualificationPayload(updatedPending);
         try {
             await mainClient.post(QUALIFICATION_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, qualificationlist });
             setRecords(prev => ({ current: prev.current, pending: updatedPending }));
@@ -1805,15 +1849,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                 updatedPending = [...records.pending, { ...rec, isdelete: true, modOption: form.modOption, effectiveFrom: form.effectiveFrom, status: '0' }];
             } else { return; }
             const { domain } = useAuthStore.getState();
-            const qualificationlist = updatedPending.map(r => ({
-                syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
-                orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
-                countrysyskey: r.countrysyskey || '', type: r.type, qualificationtype: r.qualificationtype,
-                description: r.description, educationname: r.educationname, university: r.university,
-                year: r.year, country: r.country, fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
-                todate: r.todate ? r.todate.replace(/-/g, '') : '', ishighest: r.isheight,
-                modificationoption: r.modOption, status: r.id.length < 20 ? "0" : r.status, isdelete: !!r.isdelete,
-            }));
+            const qualificationlist = mapQualificationPayload(updatedPending);
             try {
                 await mainClient.post(QUALIFICATION_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, qualificationlist });
                 setRecords(prev => ({ current: prev.current, pending: updatedPending }));
@@ -1846,24 +1882,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             : [...records.pending, newRecord];
 
         const { domain } = useAuthStore.getState();
-        const qualificationlist = updatedPending.map(r => ({
-            syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
-            orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
-            countrysyskey: r.countrysyskey || '',
-            type: r.type,
-            qualificationtype: r.qualificationtype,
-            description: r.description,
-            educationname: r.educationname,
-            university: r.university,
-            year: r.year,
-            country: r.country,
-            fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
-            todate: r.todate ? r.todate.replace(/-/g, '') : '',
-            ishighest: r.isheight,
-            modificationoption: r.modOption,
-            status: r.id.length < 20 ? "0" : r.status,
-            isdelete: !!r.isdelete
-        }));
+        const qualificationlist = mapQualificationPayload(updatedPending);
 
         try {
             await mainClient.post(QUALIFICATION_UPDATE, {
@@ -1897,30 +1916,14 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         } else if (isCurrent) {
             const recordToDelete = records.current.find(r => r.id === id);
             if (!recordToDelete) return;
-            updatedPending = [...records.pending, { ...recordToDelete, isdelete: true, modOption: 'Correct', status: '0' }];
+            updatedPending = [...records.pending, { ...recordToDelete, isdelete: true, status: '0' }];
         } else {
             return;
         }
 
         const { domain } = useAuthStore.getState();
-        const qualificationlist = updatedPending.map(r => ({
-            syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
-            orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
-            countrysyskey: r.countrysyskey || '',
-            type: r.type,
-            qualificationtype: r.qualificationtype,
-            description: r.description,
-            educationname: r.educationname,
-            university: r.university,
-            year: r.year,
-            country: r.country,
-            fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
-            todate: r.todate ? r.todate.replace(/-/g, '') : '',
-            isheight: r.isheight,
-            modificationoption: r.modOption,
-            status: r.id.length < 20 ? "0" : r.status,
-            isdelete: !!r.isdelete,
-        }));
+
+        const qualificationlist = mapQualificationPayload(updatedPending);
 
         try {
             await mainClient.post(QUALIFICATION_UPDATE, {
@@ -1986,9 +1989,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                                     <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.highestQualification')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.isheight === 'true' ? 'Yes' : 'No'}</span></div>
                                                 </div>
                                             </div>
-                                            <div style={{ marginTop: '16px' }}>
-                                                <StatusBadge status={r.status === '0' ? 'Pending' : 'Active'} />
-                                            </div>
+
                                         </div>
                                     ))}
                                 </div>
@@ -2008,9 +2009,11 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                             borderLeft: r.isdelete ? '4px solid #f43f5e' : '4px solid #eab308'
                                         }}>
                                             <div className={styles.contactPersonHeader}>
-                                                <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>{t('profile.tabs.qualification')} (Pending)</span>
+                                                <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>
+                                                    {t('profile.tabs.qualification')} — {r.isdelete ? (r.status === 'Approved' ? 'Delete Approved' : r.status === 'Rejected' ? 'Delete Rejected' : 'Pending Delete') : r.status}
+                                                </span>
                                                 {
-                                                    r.status === 'Pending' && (
+                                                    r.status === 'Pending' || r.status == '0' && (
                                                         <div className={styles.rowActions}>
                                                             <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
                                                         </div>
@@ -2427,7 +2430,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                 <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>{t('common.currentRecords')}</div>
                                 <table className={styles.table}>
                                     <thead>
-                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.personal.gender')}</th><th>{t('profile.personal.dob')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.family.taxEligible')}</th><th>{t('profile.family.status')}</th><th></th></tr>
+                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.personal.gender')}</th><th>{t('profile.personal.dob')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.family.taxEligible')}</th><th></th></tr>
                                     </thead>
                                     <tbody>
                                         {records.current.map(r => (
@@ -2438,16 +2441,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
                                                 <td>
-                                                    <div className="flex flex-col gap-1">
-                                                        <StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} />
-                                                        {r.isdelete && <span className="text-[10px] font-bold text-red-600 uppercase">Delete</span>}
-                                                    </div>
-                                                </td>
-                                                <td>
                                                     <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginRight: '8px', padding: '2px 6px', background: '#f3f4f6', borderRadius: '4px' }}>
-                                                            {r.modOption || 'New'}
-                                                        </span>
                                                         <button
                                                             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'transparent', color: '#3b82f6', cursor: 'pointer', transition: 'background 0.2s' }}
                                                             onClick={() => openEdit(r)}
@@ -2645,13 +2639,16 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
 
     const [form, setForm] = useState<{ permanent: Address, temporary: Address }>({
         permanent: {
-            syskey: '', employeeid: '', address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 0, status: '0',
+            syskey: '', orgrecordsyskey: '', employeeid: '', address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 0, status: '0',
             statesyskey: '',
             districtsyskey: '',
             townshipsyskey: '',
             citysyskey: '',
             wardsyskey: '',
-            countrysyskey: ''
+            countrysyskey: '',
+            personalprimaryemail: '',
+            personalsecondarymail: '',
+            personalmobilephone: ''
         },
         temporary: {
             syskey: '', employeeid: '', address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 1, status: '0',
@@ -2660,7 +2657,10 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
             townshipsyskey: '',
             citysyskey: '',
             wardsyskey: '',
-            countrysyskey: ''
+            countrysyskey: '',
+            personalprimaryemail: '',
+            personalsecondarymail: '',
+            personalmobilephone: ''
         }
     });
 
@@ -2776,7 +2776,8 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
             });
 
             const processArr = (arr: any[]) => (arr || []).map((item: any) => ({
-                syskey: item.syskey || item.orgrecordsyskey,
+                syskey: item.syskey || '',
+                orgrecordsyskey: item.orgrecordsyskey || '',
                 employeeid: item.employeeid,
                 address: item.address,
                 postalcode: item.postalcode,
@@ -2820,8 +2821,8 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
         const curTemp = records.pending.find(a => a.addressstatus === 1) || records.current.find(a => a.addressstatus === 1);
 
         setForm({
-            permanent: curPerm ? { ...curPerm } : { syskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 0, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '' },
-            temporary: curTemp ? { ...curTemp } : { syskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 1, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '' }
+            permanent: curPerm ? { ...curPerm } : { syskey: '', orgrecordsyskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 0, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '', personalprimaryemail: '', personalsecondarymail: '', personalmobilephone: '' },
+            temporary: curTemp ? { ...curTemp } : { syskey: '', orgrecordsyskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 1, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '', personalprimaryemail: '', personalsecondarymail: '', personalmobilephone: '' }
         });
 
         const contactRef = (records.pending[0] || records.current[0] || {}) as any;
@@ -2843,6 +2844,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
         if ((contactDetails.modOption === 'Update' || contactDetails.modOption === 'New') && !contactDetails.effectiveFrom) { toast.error('Effective Date is required'); return; }
         const toPayload = (addr: Address) => ({
             syskey: addr.syskey,
+            orgrecordsyskey: addr.orgrecordsyskey || (records.current.find(c => c.addressstatus === addr.addressstatus)?.syskey || ''),
             employeeid: profile.eid,
             address: addr.address,
             postalcode: addr.postalcode,
@@ -3328,9 +3330,19 @@ function StatusBadge({ status, isDelete }: { status: string | number, isDelete?:
     let label = t('profile.options.status.Pending');
 
     if (isDelete) {
-        className = styles.statusBadge__rejected;
-        icon = <AlertCircle size={12} />;
-        label = "Pending Delete";
+        if (isApproved) {
+            className = styles.statusBadge__approved;
+            icon = <CheckCircle2 size={12} />;
+            label = "Delete Approved";
+        } else if (isRejected) {
+            className = styles.statusBadge__rejected;
+            icon = <X size={12} />;
+            label = "Delete Rejected";
+        } else {
+            className = styles.statusBadge__rejected;
+            icon = <AlertCircle size={12} />;
+            label = "Pending Delete";
+        }
     } else if (isApproved) {
         className = styles.statusBadge__approved;
         icon = <CheckCircle2 size={12} />;
