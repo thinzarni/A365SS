@@ -495,7 +495,7 @@
     },
     "supervisedAttendance": {
         "title": "Attendance",
-        "subtitle": "Shows attendance records for your direct reports and supervised members.",
+        "subtitle": "Shows attendance records for self, your direct reports and supervised members.",
         "dateRange": "Date Range",
         "searchKeyword": "Search Keyword",
         "searchPlaceholder": "Employee name or details...",

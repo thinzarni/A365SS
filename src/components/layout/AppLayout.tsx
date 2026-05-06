@@ -25,12 +25,21 @@ import {
     Clock,
     Briefcase,
     ShieldCheck,
-    UserCheck,
     KeyRound,
     MapPin,
     Bell,
     ChevronLeft,
     ChevronRight,
+    Fingerprint,
+    Contact,
+    UserMinus,
+    UserX,
+    Eye,
+    Cpu,
+    BookOpen,
+    ScanSearch,
+    Building2,
+    ListTodo,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import { useChatStore } from '../../stores/chat-store';
@@ -61,16 +70,16 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/approval': CheckSquare,
     '/approvals': CheckSquare,
     '/attendanceapproval': ShieldCheck,
-    '/attendancerequest': UserCheck,
+    '/attendancerequest': Fingerprint,
     '/locationapproval': MapPin,
-    '/supervised-attendance': UserCheck,
+    '/supervised-attendance': ListTodo,
     // Leave
     '/leave': TreePalm,
     '/leave-summary': Palmtree,
-    '/separation-leave-authorize': UserCheck,
-    '/separation-attendance-authorize': UserCheck,
-    '/separationLeaveAuthorize': UserCheck,
-    '/separationAttendanceAuthorize': UserCheck,
+    '/separation-leave-authorize': UserMinus,
+    '/separation-attendance-authorize': UserX,
+    '/separationLeaveAuthorize': UserMinus,
+    '/separationAttendanceAuthorize': UserX,
     '/holiday': CalendarDays,
     '/holidays': CalendarDays,
     // Finance
@@ -82,18 +91,19 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/reservations': Calendar,
     // People
     '/team': Users,
-    '/hrview': Users,
+    '/hrview': Building2,
     // Comms
     '/chat': MessageSquare,
     // Admin
     '/admin': Briefcase,
     // Catch-all
-    '/visionai': LayoutList,
-    '/customai': LayoutList,
-    '/rulesandreg': LayoutList,
-    '/objectdetection': LayoutList,
+    '/visionai': Eye,
+    '/customai': Cpu,
+    '/rulesandreg': BookOpen,
+    '/objectdetection': ScanSearch,
     // Social Post
     '/socialpost': Globe,
+    '/profile': Contact,
 };
 
 // ── Router → i18n translation key mapping ──
