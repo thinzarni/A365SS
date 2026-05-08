@@ -25,12 +25,22 @@ import {
     Users,
     MapPin,
     X,
-    FileText,
     ChevronRight,
     ImageIcon,
+    BarChart3,
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
+import { ADMIN_ATTENDANCE_COUNTS, ADMIN_ATTENDANCE_LIST } from '../../config/api-routes';
 import styles from './DashboardPage.module.css';
 
 /* ── Types ── */
@@ -170,22 +180,50 @@ export default function DashboardPage() {
     const { t, i18n } = useTranslation();
     const { user, userId, domain } = useAuthStore();
     const [now, setNow] = useState(new Date());
+    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+    const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
     const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
 
-    // Lock background scroll when modal is open
-    useEffect(() => {
-        document.body.style.overflow = selectedRecord ? 'hidden' : '';
-        return () => { document.body.style.overflow = ''; };
-    }, [selectedRecord]);
+    // ── Fetch admin card data ──
+    const { data: adminCardData, isLoading: adminLoading } = useQuery({
+        queryKey: ['admin-card-data'],
+        queryFn: async () => {
+            try {
+                const res = await mainClient.post(ADMIN_ATTENDANCE_COUNTS);
+                return res.data?.data ?? res.data ?? null;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 60_000,
+    });
 
-    // Live clock
-    useEffect(() => {
-        const id = setInterval(() => setNow(new Date()), 1000);
-        return () => clearInterval(id);
-    }, []);
+    // Chart data derived from API
+    const employeeStatusData = useMemo(() => {
+        if (!adminCardData) {
+            // Fallback data
+            return [
+                { name: t('dashboard.presentEmployees'), value: 24, color: '#16a34a' },
+                { name: t('dashboard.onLeave'), value: 5, color: '#d97706' },
+                { name: t('dashboard.absentEmployees'), value: 3, color: '#dc2626' },
+                { name: t('dashboard.remoteWorking'), value: 8, color: '#0891b2' },
+            ];
+        }
 
-    const greeting = getGreeting(now.getHours());
-    const { time: liveTime, ampm } = formatLiveTime(now);
+        return [
+            { name: t('dashboard.presentEmployees'), value: Number(adminCardData.presentEmployees) || 0, color: '#16a34a' },
+            { name: t('dashboard.onLeave'), value: Number(adminCardData.leaveCount) || 0, color: '#d97706' },
+            { name: t('dashboard.absentEmployees'), value: Number(adminCardData.absentEmployees) || 0, color: '#dc2626' },
+            { name: t('dashboard.remoteWorking'), value: Number(adminCardData.workFromHomeCount) || 0, color: '#0891b2' },
+            { name: t('dashboard.lateEmployees'), value: Number(adminCardData.lateEmployees) || 0, color: '#f59e0b' },
+            { name: t('dashboard.earlyOutEmployees'), value: Number(adminCardData.earlyOutEmployees) || 0, color: '#8b5cf6' },
+        ];
+    }, [adminCardData, t]);
+
+    
+    
+    const greeting = getGreeting(new Date().getHours());
+    const { time: liveTime, ampm } = formatLiveTime(new Date());
     const dateDisplay = now.toLocaleDateString(i18n.language === 'my' ? 'my-MM' : 'en-US', {
         weekday: 'long',
         year: 'numeric',
@@ -225,6 +263,29 @@ export default function DashboardPage() {
         staleTime: 30_000,
     });
 
+    // ── Fetch employees data ──
+    const { data: employees, isLoading: employeesLoading } = useQuery({
+        queryKey: ['dashboard-employees', todayStr, userId, domain],
+        queryFn: async () => {
+            try {
+                const res = await mainClient.post(ADMIN_ATTENDANCE_LIST, {
+                    date: todayStr,
+                    status: '0', // All employees
+                    searchVal: '',
+                    page: 1,
+                    limit: 20,
+                    type: 0,
+                    userid: userId,
+                    domain: domain
+                });
+                return res.data?.data ?? res.data ?? [];
+            } catch {
+                return [];
+            }
+        },
+        staleTime: 60_000,
+    });
+
     // ── Derived data ──
     const records: AttendanceRecord[] = useMemo(() => {
         const list = Array.isArray(homeData)
@@ -238,8 +299,50 @@ export default function DashboardPage() {
     const timeOut = useMemo(() => records.find(r => r.type === 602), [records]);
     const workingHours = useMemo(() => calcWorkingHours(records), [records]);
 
-    const monthName = now.toLocaleDateString(i18n.language === 'my' ? 'my-MM' : 'en-US', { month: 'long', year: 'numeric' });
-    const isLoading = summaryLoading || homeLoading;
+    const monthName = now.toLocaleDateString(i18n.language === 'my-MM' ? 'my-MM' : 'en-US', { month: 'long', year: 'numeric' });
+    const isLoading = summaryLoading || homeLoading || adminLoading || employeesLoading;
+
+    // Handle bar click to fetch specific employee data
+    const handleBarClick = async (data: any) => {
+        try {
+            // Convert status names to match API expectations (matching admin attendance page)
+            let statusValue = '0'; // Default to all
+            const statusName = data.name.toLowerCase();
+            
+            if (statusName.includes('present')) {
+                statusValue = '1'; // Present
+            } else if (statusName.includes('leave')) {
+                statusValue = '2'; // Leave
+            } else if (statusName.includes('absent')) {
+                statusValue = '4'; // Absent (Note: '4' not '3')
+            } else if (statusName.includes('remote') || statusName.includes('work from home')) {
+                statusValue = '4'; // Remote work uses same as absent
+            } else if (statusName.includes('late')) {
+                statusValue = '5'; // Late In
+            } else if (statusName.includes('early')) {
+                statusValue = '6'; // Early Out
+            }
+            
+            setSelectedStatus(data.name);
+            
+            // Call API to get filtered employees using the same endpoint as admin attendance
+            const res = await mainClient.post(ADMIN_ATTENDANCE_LIST, {
+                date: todayStr,
+                status: statusValue,
+                searchVal: '',
+                page: 1,
+                limit: 50,
+                type: 0,
+                userid: userId,
+                domain: domain
+            });
+            
+            setFilteredEmployees(res.data?.data || []);
+        } catch (error) {
+            console.error('Error fetching filtered employees:', error);
+            setFilteredEmployees([]);
+        }
+    };
 
     // ── Loading state ──
     if (isLoading) {
@@ -253,6 +356,9 @@ export default function DashboardPage() {
                 </div>
                 <div className={styles.statsRow}>
                     {[1, 2, 3, 4].map(i => <div key={i} className={`${styles.skeleton} ${styles.skeletonStat}`} />)}
+                </div>
+                <div className={styles.chartsGrid}>
+                    {[1, 2].map(i => <div key={i} className={`${styles.skeleton} ${styles.skeletonInsight}`} />)}
                 </div>
                 <div className={styles.recordsGrid}>
                     {[1, 2, 3, 4].map(i => <div key={i} className={`${styles.skeleton} ${styles.skeletonRecord}`} />)}
@@ -376,6 +482,11 @@ export default function DashboardPage() {
                 </div>
             </section>
 
+
+    
+    {/* Spacer between sections */}
+    <div style={{ marginBottom: '2rem' }} />
+
             {/* ── Today Record ── */}
             <section>
                 <div className={styles.sectionHeader}>
@@ -459,6 +570,383 @@ export default function DashboardPage() {
                 </div>
             </section>
 
+    {/* Spacer between sections */}
+    <div style={{ marginBottom: '2rem' }} />
+
+            {/* ───────────────── ADMIN INSIGHTS SECTION ───────────────── */}
+
+            <section>
+                <div className={styles.sectionHeader}>
+                    <h2 className={styles.sectionTitle}>
+                        <BarChart3 size={20} style={{ color: '#2563eb' }} />
+                        Workforce Analytics
+                    </h2>
+                </div>
+
+    {/* ───────────────── ANALYTICS CARD ───────────────── */}
+    <div className={styles.analyticsCard} style={{ width: '60%' }}>
+
+        {/* CARD SUBTITLE */}
+        <div className={styles.cardHeader}>
+            <div>
+                <p className={styles.cardSubtitle}>
+                    Employee attendance overview
+                </p>
+            </div>
+        </div>
+        {/* CHART */}
+        <div className={styles.chartContainer}>
+            <ResponsiveContainer width="100%" height={200}>
+                <BarChart
+                    data={employeeStatusData}
+                    margin={{
+                        top: 35,
+                        right: 20,
+                        left: 10,
+                        bottom: 35
+                    }}
+                    barCategoryGap="28%"
+                >
+
+                    {/* GRID */}
+                    <CartesianGrid
+                        strokeDasharray="3 10"
+                        stroke="rgba(148,163,184,0.12)"
+                        vertical={false}
+                    />
+
+                    {/* X AXIS */}
+                    <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        interval={0}
+                        height={50}
+                        tickMargin={14}
+                        tick={{
+                            fill: '#64748b',
+                            fontSize: 13,
+                            fontWeight: 700
+                        }}
+                    />
+
+                    {/* Y AXIS */}
+                    <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        width={35}
+                        tick={{
+                            fill: '#94a3b8',
+                            fontSize: 12,
+                            fontWeight: 600
+                        }}
+                    />
+
+                    {/* TOOLTIP */}
+                    <Tooltip
+                        cursor={{
+                            fill: 'rgba(99,102,241,0.04)'
+                        }}
+                        contentStyle={{
+                            background: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '12px',
+                            color: '#1e293b',
+                            padding: '12px 16px',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                        }}
+                    />
+
+                    {/* BARS */}
+                    <Bar
+                        dataKey="value"
+                        maxBarSize={42}
+                        animationDuration={1200}
+                        // onClick={(data: any) => {
+                        //     handleBarClick(data);
+                        // }}
+                        shape={(props: any) => {
+
+                            const {
+                                x,
+                                y,
+                                width,
+                                height,
+                                value,
+                                index
+                            } = props;
+
+                            const item = employeeStatusData[index];
+                            const depth = 10;
+                            const isHovered = props.isHovered;
+
+                            if (!value || value <= 0) {
+                                return (
+                                    <g>
+                                        {/* BASE */}
+                                        <rect
+                                            x={x + 4}
+                                            y={y + height + 8}
+                                            width={width - 6}
+                                            height={4}
+                                            rx={4}
+                                            fill="rgba(148,163,184,0.18)"
+                                        />
+
+                                        {/* VALUE */}
+                                        <text
+                                            x={x + width / 2}
+                                            y={y - 10}
+                                            textAnchor="middle"
+                                            fill="#cbd5e1"
+                                            fontSize={13}
+                                            fontWeight={700}
+                                        >
+                                            0
+                                        </text>
+                                    </g>
+                                );
+                            }
+                            return (
+                                <g>
+                                    {/* SHADOW */}
+                                    <ellipse
+                                        cx={x + width / 2 + 4}
+                                        cy={y + height + 12}
+                                        rx={width / 1.6}
+                                        ry={6}
+                                        fill={isHovered ? "rgba(15,23,42,0.18)" : "rgba(15,23,42,0.12)"}
+                                    />
+                                    {/* RIGHT FACE */}
+                                    <path
+                                        d={`
+                                            M ${x + width} ${y}
+                                            L ${x + width + depth} ${y - depth}
+                                            L ${x + width + depth} ${y + height - depth}
+                                            L ${x + width} ${y + height}
+                                            Z
+                                        `}
+                                        fill={item.color}
+                                        opacity={0.65}
+                                    />
+
+                                    {/* TOP FACE */}
+                                    <path
+                                        d={`
+                                            M ${x} ${y}
+                                            L ${x + depth} ${y - depth}
+                                            L ${x + width + depth} ${y - depth}
+                                            L ${x + width} ${y}
+                                            Z
+                                        `}
+                                        fill={item.color}
+                                        opacity={0.85}
+                                    />
+
+                                    {/* MAIN FACE */}
+                                    <rect
+                                        x={x}
+                                        y={y}
+                                        width={width}
+                                        height={height}
+                                        fill={item.color}
+                                        opacity={isHovered ? 0.9 : 1}
+                                    />
+
+                                    {/* MAIN GRADIENT OVERLAY */}
+                                    <defs>
+                                        <linearGradient id={`barGradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
+                                            <stop offset="30%" stopColor="rgba(255,255,255,0.15)" />
+                                            <stop offset="70%" stopColor="rgba(0,0,0,0.1)" />
+                                            <stop offset="100%" stopColor="rgba(0,0,0,0.2)" />
+                                        </linearGradient>
+                                    </defs>
+                                    <rect
+                                        x={x}
+                                        y={y}
+                                        width={width}
+                                        height={height}
+                                        fill={`url(#barGradient-${index})`}
+                                        opacity={isHovered ? 0.8 : 0.6}
+                                    />
+
+                                    {/* LEFT SIDE GLOSS */}
+                                    <rect
+                                        x={x + 2}
+                                        y={y + 8}
+                                        width={width * 0.08}
+                                        height={height - 16}
+                                        fill="rgba(255,255,255,0.6)"
+                                        rx={2}
+                                    />
+
+                                    
+                                    
+                                    {/* BOTTOM SHADOW */}
+                                    <rect
+                                        x={x + 2}
+                                        y={y + height - 8}
+                                        width={width - 4}
+                                        height={6}
+                                        fill="rgba(0,0,0,0.15)"
+                                        rx={3}
+                                    />
+
+                                    
+                                    {/* HOVER EFFECTS */}
+                                    {isHovered && (
+                                        <>
+                                            {/* ENHANCED RIGHT FACE */}
+                                            <path
+                                                d={`
+                                                    M ${x + width} ${y}
+                                                    L ${x + width + depth} ${y - depth}
+                                                    L ${x + width + depth} ${y + height - depth}
+                                                    L ${x + width} ${y + height}
+                                                    Z
+                                                `}
+                                                fill={item.color}
+                                                opacity={0.8}
+                                            />
+
+                                            {/* ENHANCED TOP FACE */}
+                                            <path
+                                                d={`
+                                                    M ${x} ${y}
+                                                    L ${x + depth} ${y - depth}
+                                                    L ${x + width + depth} ${y - depth}
+                                                    L ${x + width} ${y}
+                                                    Z
+                                                `}
+                                                fill={item.color}
+                                                opacity={0.9}
+                                            />
+
+                                            {/* ENHANCED MAIN FACE */}
+                                            <rect
+                                                x={x}
+                                                y={y}
+                                                width={width}
+                                                height={height}
+                                                fill={item.color}
+                                                opacity={0.95}
+                                            />
+
+                                            {/* ENHANCED GLOSS EFFECTS */}
+                                            <defs>
+                                                <linearGradient id={`hoverGradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                                    <stop offset="0%" stopColor="rgba(255,255,255,0.7)" />
+                                                    <stop offset="40%" stopColor="rgba(255,255,255,0.3)" />
+                                                    <stop offset="80%" stopColor="rgba(0,0,0,0.05)" />
+                                                    <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
+                                                </linearGradient>
+                                            </defs>
+                                            <rect
+                                                x={x}
+                                                y={y}
+                                                width={width}
+                                                height={height}
+                                                fill={`url(#hoverGradient-${index})`}
+                                                opacity={0.9}
+                                            />
+
+                                            {/* BRIGHT LEFT GLOSS */}
+                                            <rect
+                                                x={x + 2}
+                                                y={y + 6}
+                                                width={width * 0.1}
+                                                height={height - 12}
+                                                fill="rgba(255,255,255,0.8)"
+                                                rx={2}
+                                            />
+
+                                            
+                                            
+                                                                                    </>
+                                    )}
+
+                                    {/* VALUE */}
+                                    <text
+                                        x={x + width / 2 + 8}
+                                        y={y - 12}
+                                        textAnchor="middle"
+                                        fill={item.color}
+                                        fontSize={14}
+                                        fontWeight={800}
+                                    >
+                                        {value}
+                                    </text>
+                                </g>
+                            );
+                        }}
+                    />
+                </BarChart>
+            </ResponsiveContainer>
+        </div>
+    </div>
+
+    {/* ───────────────── RIGHT : EMPLOYEE CARD ───────────────── - COMMENTED OUT */}
+    {/* <div className={styles.activityCard}>
+
+
+        // HEADER
+        <div className={styles.cardHeader}>
+            <div>
+                <h2 className={styles.cardTitle}>
+                    Employee Attendance {selectedStatus && `- ${selectedStatus}`}
+                </h2>
+
+
+                <p className={styles.cardSubtitle}>
+                    {selectedStatus ? `${selectedStatus} employees` : 'Latest attendance records'}
+                </p>
+            </div>
+
+            {selectedStatus && (
+                <button 
+                    className={styles.resetBtn}
+                    onClick={() => {
+                        setSelectedStatus(null);
+                        setFilteredEmployees([]);
+                    }}
+                >
+                    <X size={16} />
+                    All
+                </button>
+            )}
+        </div>
+
+        // EMPLOYEE LIST - COMMENTED OUT
+        // <div className={styles.employeeList}>
+        //     {selectedStatus ? (
+        //         // SHOW FILTERED EMPLOYEES WHEN BAR IS CLICKED
+        //         filteredEmployees.map((employee: any, index: number) => (
+        //             <UserCard
+        //                 key={index}
+        //                 user={employee}
+        //                 onCardTap={() => {}}
+        //             />
+        //         ))
+        //     ) : (
+        //         // SHOW DEFAULT EMPLOYEES
+        //         employees?.slice(0, 6).map((employee: any, index: number) => (
+        //             <UserCard
+        //                 key={index}
+        //                 user={employee}
+        //                 onCardTap={() => {}}
+        //             />
+        //         ))
+        //     )}
+        // </div>
+    // </div> */}
+</section>
+
+    {/* Spacer between sections */}
+    <div style={{ marginBottom: '2rem' }} />
+
             {/* ── Quick Actions ── */}
             <section>
                 <div className={styles.sectionHeader}>
@@ -488,223 +976,6 @@ export default function DashboardPage() {
                     })}
                 </div>
             </section>
-
-            {/* ── Attendance Record Detail Modal ── */}
-            {selectedRecord && (() => {
-                const meta = getAttTypeName(selectedRecord.type);
-                const isRejected = selectedRecord.remoteapproval === 3 || selectedRecord.backdateapproval === 3;
-                const isPending = selectedRecord.remoteapproval === 1 || selectedRecord.backdateapproval === 1;
-                const statusLabel = isRejected ? 'Rejected' : isPending ? 'Pending' : 'Synced';
-                const statusColor = isRejected ? '#dc2626' : isPending ? '#d97706' : '#16a34a';
-                const statusBg = isRejected ? '#fee2e2' : isPending ? '#fef3c7' : '#dcfce7';
-                const displayTime = selectedRecord.type === 603
-                    ? `${selectedRecord.starttime || '--'} – ${selectedRecord.endtime || '--'}`
-                    : selectedRecord.time || '--:--';
-                const formattedDate = (() => {
-                    const d = selectedRecord.date;
-                    if (d?.length === 8) {
-                        const dt = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
-                        return dt.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                    }
-                    return d || '';
-                })();
-
-                return (
-                    <>
-                        {/* Backdrop */}
-                        <div
-                            onClick={() => setSelectedRecord(null)}
-                            style={{
-                                position: 'fixed', inset: 0,
-                                background: 'rgba(15,23,42,0.5)',
-                                zIndex: 200,
-                                backdropFilter: 'blur(4px)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}
-                        >
-                            {/* Modal card — stop click bubbling to backdrop */}
-                            <div
-                                onClick={e => e.stopPropagation()}
-                                style={{
-                                    background: 'var(--color-surface, #fff)',
-                                    borderRadius: 20,
-                                    boxShadow: '0 24px 80px rgba(0,0,0,0.25)',
-                                    width: '92%',
-                                    maxWidth: 420,
-                                    overflow: 'hidden',
-                                    animation: 'modalIn 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-                                }}
-                            >
-                                {/* Colored header banner */}
-                                <div style={{
-                                    background: `linear-gradient(135deg, ${meta.color}22, ${meta.color}44)`,
-                                    borderBottom: `3px solid ${meta.color}33`,
-                                    padding: '20px 20px 16px',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                                        <div style={{
-                                            width: 52, height: 52, borderRadius: '50%',
-                                            background: meta.color + '22',
-                                            border: `2px solid ${meta.color}44`,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            color: meta.color,
-                                        }}>
-                                            {selectedRecord.type === 601 ? <LogIn size={24} /> :
-                                                selectedRecord.type === 602 ? <LogOut size={24} /> :
-                                                    selectedRecord.type === 603 ? <Activity size={24} /> :
-                                                        <Clock size={24} />}
-                                        </div>
-                                        <div>
-                                            <div style={{ fontWeight: 800, fontSize: 17, color: meta.color, letterSpacing: '-0.01em' }}>
-                                                {meta.label}
-                                            </div>
-                                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                                                Attendance Record
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => setSelectedRecord(null)}
-                                        style={{
-                                            background: 'rgba(100,116,139,0.1)', border: 'none',
-                                            cursor: 'pointer', width: 32, height: 32,
-                                            borderRadius: '50%', display: 'flex',
-                                            alignItems: 'center', justifyContent: 'center',
-                                            color: '#64748b',
-                                        }}
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                </div>
-
-                                {/* Detail rows */}
-                                <div style={{ padding: '18px 20px 8px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-
-                                    {/* Time */}
-                                    <DetailRow icon={<Clock size={15} />} label="Time" value={displayTime} />
-
-                                    {/* Date */}
-                                    {formattedDate && <DetailRow icon={<CalendarDays size={15} />} label="Date" value={formattedDate} />}
-
-                                    {/* Status badge */}
-                                    <div style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-                                        <span style={{ color: '#94a3b8', flexShrink: 0, display: 'flex' }}><UserCheck size={15} /></span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
-                                            <span style={{ fontSize: 13, color: '#475569', minWidth: 80 }}>Status</span>
-                                            <span style={{
-                                                padding: '3px 12px', borderRadius: 20,
-                                                fontSize: 12, fontWeight: 700,
-                                                background: statusBg, color: statusColor,
-                                            }}>
-                                                {statusLabel}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Location */}
-                                    {(selectedRecord.location) && (
-                                        <DetailRow icon={<MapPin size={15} />} label="Location" value={selectedRecord.location} />
-                                    )}
-
-                                    {/* Activity / CheckIn type */}
-                                    {(selectedRecord.activityType || selectedRecord.checkInType || selectedRecord.attType) && (
-                                        <DetailRow
-                                            icon={<FileText size={15} />}
-                                            label="Type"
-                                            value={selectedRecord.activityType || selectedRecord.checkInType || selectedRecord.attType || ''}
-                                        />
-                                    )}
-
-                                    {/* Description */}
-                                    {selectedRecord.description && (
-                                        <div style={{ padding: '12px 0 4px' }}>
-                                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-                                                <span style={{ color: '#94a3b8', display: 'flex' }}><FileText size={15} /></span>
-                                                <span style={{ fontSize: 13, color: '#475569', fontWeight: 500 }}>Description</span>
-                                            </div>
-                                            <div style={{
-                                                background: '#f8fafc',
-                                                border: '1px solid #e2e8f0',
-                                                borderRadius: 10,
-                                                padding: '10px 14px',
-                                                fontSize: 13,
-                                                color: '#334155',
-                                                lineHeight: 1.6,
-                                                whiteSpace: 'pre-wrap',
-                                            }}>
-                                                {selectedRecord.description}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Images */}
-                                    {selectedRecord.images && selectedRecord.images.length > 0 && (
-                                        <div style={{ padding: '12px 0 4px' }}>
-                                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-                                                <span style={{ color: '#94a3b8', display: 'flex' }}><ImageIcon size={15} /></span>
-                                                <span style={{ fontSize: 13, color: '#475569', fontWeight: 500 }}>Photos ({selectedRecord.images.length})</span>
-                                            </div>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                                {selectedRecord.images.map((img, i) => (
-                                                    <a key={i} href={img.content} target="_blank" rel="noopener noreferrer">
-                                                        <img
-                                                            src={img.content}
-                                                            alt={img.name}
-                                                            style={{
-                                                                width: 80, height: 80, objectFit: 'cover',
-                                                                borderRadius: 10, border: '1px solid #e2e8f0',
-                                                                cursor: 'pointer',
-                                                            }}
-                                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                                                        />
-                                                    </a>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Footer close button */}
-                                <div style={{ padding: '12px 20px 20px' }}>
-                                    <button
-                                        onClick={() => setSelectedRecord(null)}
-                                        style={{
-                                            width: '100%', padding: '11px',
-                                            background: meta.color, color: '#fff',
-                                            border: 'none', borderRadius: 12,
-                                            fontSize: 14, fontWeight: 700,
-                                            cursor: 'pointer', letterSpacing: '0.02em',
-                                        }}
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <style>{`
-                            @keyframes modalIn {
-                                from { opacity: 0; transform: scale(0.88); }
-                                to   { opacity: 1; transform: scale(1); }
-                            }
-                        `}</style>
-                    </>
-                );
-            })()}
-        </div>
-    );
-}
-
-/** Reusable detail row inside the modal */
-function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-    return (
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-            <span style={{ color: '#94a3b8', flexShrink: 0, display: 'flex' }}>{icon}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 13, color: '#475569', flexShrink: 0, minWidth: 80 }}>{label}</span>
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</span>
-            </div>
         </div>
     );
 }

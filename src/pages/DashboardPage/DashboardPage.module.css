@@ -502,7 +502,7 @@
 }
 
 .skeletonClock {
-    height: 110px;
+    height: 80px;
 }
 
 .skeletonStat {
@@ -574,5 +574,360 @@
 
     .statsRow {
         grid-template-columns: repeat(2, 1fr);
+    }
+}
+/* ───────────────── SECTION ───────────────── */
+
+.insightsSection {
+    display: grid;
+    grid-template-columns: 1.5fr 0.85fr;
+    gap: 24px;
+    margin-top: 28px;
+}
+
+/* ───────────────── CARDS ───────────────── */
+
+.analyticsCard,
+.activityCard {
+    position: relative;
+    overflow: hidden;
+    background: #ffffff;
+    border-radius: 32px;
+    padding: 20px;
+    border: 1px solid rgba(226,232,240,0.8);
+    box-shadow:
+        0 20px 50px rgba(15,23,42,0.06),
+        0 2px 8px rgba(15,23,42,0.03);
+}
+
+/* SOFT BACKGROUND EFFECT */
+
+.analyticsCard::before,
+.activityCard::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(99,102,241,0.06),
+            transparent 35%
+        );
+    pointer-events: none;
+}
+
+/* ───────────────── HEADER ───────────────── */
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.cardTitle {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+}
+
+.cardSubtitle {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* ───────────────── LIVE STATUS ───────────────── */
+
+.liveStatus {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #ecfdf5;
+    color: #059669;
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.livePulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: pulse 1.4s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.6);
+        opacity: 0.5;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ───────────────── STATS ───────────────── */
+
+.statsGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 28px;
+}
+
+.statCard {
+    position: relative;
+    overflow: hidden;
+    background: #f8fafc;
+    border-radius: 22px;
+    padding: 20px;
+    min-height: 110px;
+    border: 1px solid rgba(226,232,240,0.7);
+}
+
+.statGlow {
+    position: absolute;
+    top: -20px;
+    right: -20px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    opacity: 0.14;
+    filter: blur(10px);
+}
+
+.statContent h3 {
+    font-size: 34px;
+    font-weight: 800;
+    margin-bottom: 10px;
+}
+
+.statContent span {
+    font-size: 14px;
+    color: #64748b;
+    font-weight: 600;
+}
+
+/* ───────────────── CHART ───────────────── */
+
+.chartContainer {
+    margin-top: 24px;
+    padding-top: 10px;
+}
+
+/* Remove focus outline from chart elements */
+.chartContainer:focus,
+.chartContainer:focus-visible,
+.chartContainer *:focus,
+.chartContainer *:focus-visible {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove selection and active states from chart bars */
+.recharts-bar-rectangle,
+.recharts-bar {
+    cursor: pointer !important;
+}
+
+.recharts-bar-rectangle:active,
+.recharts-bar:active.selected,
+.recharts-bar-rectangle.selected,
+.recharts-bar.selected {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove any selection highlight */
+.recharts-wrapper {
+    user-select: none !important;
+}
+
+.recharts-tooltip-wrapper {
+    pointer-events: none !important;
+}
+
+/* ───────────────── EMPLOYEE LIST ───────────────── */
+
+.employeeList {
+    margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.employeeRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    border-radius: 22px;
+    padding: 16px;
+    transition: all 0.25s ease;
+    border: 1px solid transparent;
+}
+
+.employeeRow:hover {
+    transform: translateY(-2px);
+    border-color: rgba(99,102,241,0.15);
+    background: white;
+    box-shadow:
+        0 10px 24px rgba(15,23,42,0.06);
+}
+
+.employeeLeft {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.employeeAvatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    background: linear-gradient(
+        135deg,
+        #6366f1,
+        #8b5cf6
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 16px;
+    font-weight: 800;
+    box-shadow:
+        0 10px 20px rgba(99,102,241,0.24);
+}
+
+.employeeMeta h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+}
+
+.employeeMeta span {
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* ───────────────── BADGES ───────────────── */
+
+.badgePresent,
+.badgeLate {
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.badgePresent {
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.badgeLate {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+/* ───────────────── FOOTER ───────────────── */
+
+.activityFooter {
+    margin-top: 24px;
+}
+
+.resetBtn {
+    background: linear-gradient(135deg, #392cef, #4e31f4);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(68, 88, 239, 0.15);
+}
+
+.resetBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(68, 71, 239, 0.25);
+    background: linear-gradient(135deg, #2f26dc, #1c36b9);
+}
+
+.viewAllBtn {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: linear-gradient(
+        135deg,
+        #6366f1,
+        #8b5cf6
+    );
+    color: white;
+    height: 54px;
+    border-radius: 18px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.3s ease;
+    box-shadow:
+        0 12px 24px rgba(99,102,241,0.24);
+}
+
+.viewAllBtn:hover {
+    transform: translateY(-2px);
+}
+
+/* ───────────────── RESPONSIVE ───────────────── */
+
+@media (max-width: 1200px) {
+
+    .insightsSection {
+        grid-template-columns: 1fr;
+    }
+
+    .statsGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+
+    .analyticsCard,
+    .activityCard {
+        padding: 22px;
+        border-radius: 26px;
+    }
+
+    .statsGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .cardTitle {
+        font-size: 16px;
+    }
+
+    .employeeRow {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
     }
 }
