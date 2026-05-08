@@ -41,6 +41,7 @@ import {
     Building2,
     ListTodo,
     CalendarRange,
+    LogIn,
 } from 'lucide-react';
 
 import { useAuthStore } from '../../stores/auth-store';
@@ -74,7 +75,7 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/approval': CheckSquare,
     '/approvals': CheckSquare,
     '/attendanceapproval': ShieldCheck,
-    '/attendancerequest': Fingerprint,
+    '/attendancerequest': LogIn,
     '/locationapproval': MapPin,
     '/supervised-attendance': ListTodo,
     '/calendarshift': CalendarRange,

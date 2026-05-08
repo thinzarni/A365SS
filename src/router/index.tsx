@@ -34,6 +34,9 @@ import AttendancePage from '../pages/AttendancePage/AttendancePage';
 import SeparationLeaveAuthorizePage from '../pages/SeparationLeaveAuthorizePage/SeparationLeaveAuthorizePage';
 import SeparationAttendanceAuthorizePage from '../pages/SeparationAttendanceAuthorizePage/SeparationAttendanceAuthorizePage';
 import SupervisedAttendancePage from '../pages/SupervisedAttendancePage/SupervisedAttendancePage';
+import WorkPolicyChangePage from '../pages/WorkPolicyChangePage/WorkPolicyChangePage';
+import WorkPolicyCreatePage from '../pages/WorkPolicyCreatePage/WorkPolicyCreatePage';
+
 
 // ── Flavor-based profile page ──
 // prd  → 7-tab ESS profile (Employment, Personal, Emergency Contacts, Work Experience, etc.)
@@ -132,6 +135,10 @@ export const router = createBrowserRouter([
                     { path: '/separationLeaveAuthorize', element: <SeparationLeaveAuthorizePage /> },
                     { path: '/separationAttendanceAuthorize', element: <SeparationAttendanceAuthorizePage /> },
                     { path: '/attendancelist', element: <SupervisedAttendancePage /> },
+                    { path: '/calendarshift', element: <WorkPolicyChangePage /> },
+                    { path: '/calendarshift/new', element: <WorkPolicyCreatePage /> },
+                    { path: '/calendarshift/edit/:syskey', element: <WorkPolicyCreatePage /> },
+
 
                     // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──
                     { path: '*', element: <ComingSoonPage /> },

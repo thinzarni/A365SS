@@ -297,7 +297,7 @@ export default function RequestListPage() {
                 else if (st === '4') statusText = 'Draft';
 
                 const typeDesc = req.requesttypedesc || req.requesttype || '—';
-                
+
                 let details = '—';
                 const typeStr = typeDesc.toLowerCase();
                 if (typeStr.includes('early out') || typeStr.includes('late')) {
@@ -366,7 +366,7 @@ export default function RequestListPage() {
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        {isAttendancePage && (
+                        {/* {isAttendancePage && (
                             <Button
                                 onClick={() => setImportModalOpen(true)}
                                 variant="ghost"
@@ -375,10 +375,10 @@ export default function RequestListPage() {
                                 <Download size={16} />
                                 Import / Export
                             </Button>
-                        )}
+                        )} */}
                         <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')}>
                             <Plus size={16} />
-                            {isSubtypeView ? pathTypeCfg!.newLabel : t('request.newRequest')}
+                            {t('request.newRequest')}
                         </Button>
                     </div>
                 </div>
