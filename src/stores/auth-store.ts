@@ -7,6 +7,7 @@ interface AuthState {
     token: string | null;
     refreshToken: string | null;
     userId: string | null;
+    employeeId: string | null;
     domain: string | null;
     domains: any[];
     menuList: MenuListItem[];
@@ -16,7 +17,7 @@ interface AuthState {
     loginType: 'normal' | 'azure' | null;
 
     // Actions
-    login: (data: { token: string; refreshToken?: string; userId: string; domain?: string; domains?: any[]; menuList?: MenuListItem[]; loginType?: 'normal' | 'azure' }) => void;
+    login: (data: { token: string; refreshToken?: string; userId: string; employeeId?: string; domain?: string; domains?: any[]; menuList?: MenuListItem[]; loginType?: 'normal' | 'azure' }) => void;
     setUser: (user: UserProfile) => void;
     setLanguage: (lang: 'en' | 'my') => void;
     switchDomain: (domainId: string, domainName: string) => Promise<void>;
@@ -30,6 +31,7 @@ export const useAuthStore = create<AuthState>()(
             token: null,
             refreshToken: null,
             userId: null,
+            employeeId: null,
             domain: null,
             domains: [],
             menuList: [],
@@ -43,6 +45,7 @@ export const useAuthStore = create<AuthState>()(
                     token: data.token,
                     refreshToken: data.refreshToken || null,
                     userId: data.userId,
+                    employeeId: data.employeeId || data.userId,
                     domain: data.domain || null,
                     domains: data.domains || [],
                     menuList: data.menuList || [],
@@ -143,6 +146,7 @@ export const useAuthStore = create<AuthState>()(
                 token: state.token,
                 refreshToken: state.refreshToken,
                 userId: state.userId,
+                employeeId: state.employeeId,
                 domain: state.domain,
                 domains: state.domains,
                 menuList: state.menuList,
