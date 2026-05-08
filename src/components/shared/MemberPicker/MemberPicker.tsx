@@ -11,10 +11,16 @@ import styles from './MemberPicker.module.css';
 export interface MemberItem {
     syskey: string;
     employeeid?: string;
+    eid?: string;
+    userid?: string;
     name: string;
     department?: string;
     position?: string;
+    profilestatus?: number;
+    profile?: string;
+    attendancevalidation?: boolean;
 }
+
 
 interface MemberPickerProps {
     label: string;
@@ -56,9 +62,9 @@ export default function MemberPicker({
                 const s3 = e.userid ? String(e.userid) : null;
                 const s4 = e.employee_id ? String(e.employee_id) : null;
                 return !excludeSet.has(s1) &&
-                       (!s2 || !excludeSet.has(s2)) &&
-                       (!s3 || !excludeSet.has(s3)) &&
-                       (!s4 || !excludeSet.has(s4));
+                    (!s2 || !excludeSet.has(s2)) &&
+                    (!s3 || !excludeSet.has(s3)) &&
+                    (!s4 || !excludeSet.has(s4));
             });
         }
         if (!search.trim()) return list;

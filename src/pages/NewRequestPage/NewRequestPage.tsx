@@ -700,10 +700,10 @@ export default function NewRequestPage() {
                 selectedApprovers: approvers.map((a) => ({
                     syskey: a.syskey,
                     name: a.name,
-                    userid: '',
-                    profilestatus: 0,
-                    profile: '',
-                    eid: a.employeeid || '',
+                    userid: (a as any).userid || '',      // userrole.userid — socket notification target
+                    profilestatus: (a as any).profilestatus || 0,
+                    profile: (a as any).profile || '',
+                    eid: (a as any).eid || a.employeeid || '',  // e.eid from getMemberList
                     signedURL: '',
                     status: '4',
                     pickupplace: '',
@@ -711,7 +711,7 @@ export default function NewRequestPage() {
                     leaveDateRange: '',
                     timeintime: '',
                     timeouttime: '',
-                    attendancevalidation: true,
+                    attendancevalidation: (a as any).attendancevalidation ?? true,
                     timeinoffset: '',
                     timeoutoffset: '',
                 })),

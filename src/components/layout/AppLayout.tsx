@@ -40,7 +40,9 @@ import {
     ScanSearch,
     Building2,
     ListTodo,
+    CalendarRange,
 } from 'lucide-react';
+
 import { useAuthStore } from '../../stores/auth-store';
 import { useChatStore } from '../../stores/chat-store';
 import { useMsal } from '@azure/msal-react';
@@ -55,6 +57,8 @@ import { chatSocket } from '../../lib/chat-socket';
 // import { appSocket } from '../../lib/app-socket';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
+// import { useSocket } from '../../hooks/useSocket';
+// import { useQueryClient } from '@tanstack/react-query';
 
 
 // ── Router → Lucide icon mapping — keyed by actual API router values ──
@@ -73,6 +77,8 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/attendancerequest': Fingerprint,
     '/locationapproval': MapPin,
     '/supervised-attendance': ListTodo,
+    '/calendarshift': CalendarRange,
+
     // Leave
     '/leave': TreePalm,
     '/leave-summary': Palmtree,
@@ -120,6 +126,8 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/attendancerequest': 'nav.attendanceRequest',
     '/locationapproval': 'nav.locationApproval',
     '/supervised-attendance': 'nav.supervisedAttendance',
+    '/calendarshift': 'nav.calendarShift',
+
     '/leave': 'nav.leave',
     '/leave-summary': 'nav.leaveSummary',
     '/separation-leave-authorize': 'nav.separationLeaveAuthorize',
@@ -166,6 +174,62 @@ export default function AppLayout() {
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
     // const queryClient = useQueryClient();
+    // const { on, off } = useSocket();
+
+    // useEffect(() => {
+    //     const handleApprovalUpdate = (data: any) => {
+    //         console.log('🔔 [Global Socket] Approval update received:', data);
+
+    //         // 1. Refresh supervised attendance if the user is on that page or just to keep data fresh
+    //         queryClient.invalidateQueries({ queryKey: ['supervisedAttendances'] });
+
+    //         // 2. Refresh general attendance
+    //         queryClient.invalidateQueries({ queryKey: ['attendance'] });
+
+    //         // 3. Refresh profile comparison data
+    //         queryClient.invalidateQueries({ queryKey: ['profileCompare'] });
+    //         queryClient.invalidateQueries({ queryKey: ['emergencyCompare'] });
+    //         queryClient.invalidateQueries({ queryKey: ['experienceCompare'] });
+    //         queryClient.invalidateQueries({ queryKey: ['qualificationCompare'] });
+    //         queryClient.invalidateQueries({ queryKey: ['familyCompare'] });
+    //         queryClient.invalidateQueries({ queryKey: ['addressCompare'] });
+
+    //         // 4. Show global toast
+    //         const message = data.message || (
+    //             data.status === 2 ? 'Request Approved' :
+    //             data.status === 3 ? 'Request Rejected' :
+    //             data.status === 1 ? 'New Request Submitted' :
+    //             'Request Updated'
+    //         );
+
+    //         toast.success(message, {
+    //             id: `socket-noti-${data.syskey}-${data.status}`, // Deduplicate
+    //             icon: data.status === 2 ? '✅' : (data.status === 3 ? '❌' : '🔔'),
+    //             position: 'top-right',
+    //             duration: 5000
+    //         });
+    //     };
+
+    //     const handleQrMessage = (data: any) => {
+    //         if (data === 'refresh_attendance' || data?.type === 'attendance') {
+    //             queryClient.invalidateQueries({ queryKey: ['attendance'] });
+    //         }
+    //     };
+
+    //     const handleWelcome = (data: any) => {
+    //         console.log('👋 [Socket] Welcome message received:', data);
+    //     };
+
+    //     on('welcome', handleWelcome);
+    //     on('approval_update', handleApprovalUpdate);
+    //     on('qrMessage', handleQrMessage);
+
+    //     return () => {
+    //         off('welcome', handleWelcome);
+    //         off('approval_update', handleApprovalUpdate);
+    //         off('qrMessage', handleQrMessage);
+    //     };
+    // }, [on, off, queryClient]);
     const { instance } = useMsal();
     const { user, domain, domains, token, userId, login, setUser, logout, menuList, setLanguage, language, loginType } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);

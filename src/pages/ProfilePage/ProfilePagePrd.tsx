@@ -15,7 +15,6 @@ import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
 import { Button, Input, ConfirmModal } from '../../components/ui';
-import { toast } from 'react-hot-toast';
 import {
     MENU_ITEMS,
     FAMILY_UPDATE, FAMILY_COMPARE,
@@ -33,6 +32,7 @@ import {
 } from '../../config/api-routes';
 import styles from './ProfilePagePrd.module.css';
 import mainClient from '../../lib/main-client';
+import toast from 'react-hot-toast';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 

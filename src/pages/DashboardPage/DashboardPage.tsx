@@ -100,7 +100,7 @@ function getAttTypeName(type: number): { label: string; color: string; dot: stri
         case 601: return { label: 'TIME IN', color: '#22c55e', dot: 'green' };
         case 602: return { label: 'TIME OUT', color: '#ef4444', dot: 'red' };
         case 603: return { label: 'ACTIVITY', color: '#8b5cf6', dot: 'purple' };
-        case 604: return { label: 'CHECK IN', color: '#3b82f6', dot: 'blue' };
+        case 604: return { label: 'CHECK IN', color: 'var(--color-primary-500)', dot: 'blue' };
         default: return { label: 'RECORD', color: '#64748b', dot: 'blue' };
     }
 }
@@ -157,7 +157,7 @@ function parseTimeStr(t: string): Date | null {
 const quickActions = [
     { path: '/leave', icon: TreePalm, label: 'Leave', bg: '#fef3c7', color: '#d97706' },
     { path: '/claims', icon: Receipt, label: 'Claims', bg: '#fce7f3', color: '#db2777' },
-    { path: '/holidays', icon: CalendarDays, label: 'Holidays', bg: '#dbeafe', color: '#2563eb' },
+    { path: '/holidays', icon: CalendarDays, label: 'Holidays', bg: 'var(--color-primary-100)', color: 'var(--color-primary-600)' },
     { path: '/approvals', icon: CheckSquare, label: 'Approvals', bg: '#dcfce7', color: '#16a34a' },
     { path: '/requests', icon: ClipboardList, label: 'Requests', bg: '#f3e8ff', color: '#7c3aed' },
     { path: '/reservations', icon: Calendar, label: 'Reservations', bg: '#e0e7ff', color: '#4338ca' },
@@ -329,7 +329,7 @@ export default function DashboardPage() {
                 <div className={styles.statsRow}>
                     <div
                         className={styles.statCard}
-                        style={{ '--stat-color': '#2563eb', '--stat-bg': '#eff6ff' } as React.CSSProperties}
+                        style={{ '--stat-color': 'var(--color-primary-600)', '--stat-bg': 'var(--color-primary-50)' } as React.CSSProperties}
                     >
                         <div className={styles.statIcon}><UserCheck size={20} /></div>
                         <div className={styles.statValue}>
@@ -380,7 +380,7 @@ export default function DashboardPage() {
             <section>
                 <div className={styles.sectionHeader}>
                     <h2 className={styles.sectionTitle}>
-                        <Activity size={20} style={{ color: '#2563eb' }} />
+                        <Activity size={20} style={{ color: 'var(--color-primary-600)' }} />
                         {t('dashboard.todayRecord')}
                         {records.length > 0 && (
                             <span className={styles.sectionBadge}>{records.length}</span>
