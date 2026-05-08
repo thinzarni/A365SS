@@ -145,6 +145,11 @@ export const HOLIDAYS = 'api/checkin/holidays';
 export const MONTHLY_SUMMARY = 'api/checkin/monthly-summary';
 export const ACTIVITY_TYPES = 'api/activity-type';
 export const SAVE_CHECKIN = 'api/checkin';
+
+// ── Admin Attendance ──
+export const ADMIN_ATTENDANCE_LIST = 'api/checkin/members';
+export const ADMIN_ATTENDANCE_COUNTS = 'api/checkin/counts';
+export const ADMIN_CARD_DATA = `${hxmPrefix}integration/getadmincarddata`;
 // ── Chat (uses chatUrl) ──
 export const CHAT_CREATE = 'chat-new/create';
 export const CHAT_SEARCH = 'chat-new/search';
