@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -97,6 +97,13 @@ function Field({ label, value }: { label: string; value: string | number | undef
 
 /* ══════════════════════════════════════════════════════════════ */
 
+const CLAIM_PROCESS_STATUS_OPTIONS = [
+    { code: '', description: '-' },
+    { code: '1', description: 'Review By EB Team' },
+    { code: '2', description: 'Review By Third Party Assessor' },
+    { code: '3', description: 'Completed' },
+];
+
 export default function ApprovalDetailPage() {
     const { id: syskey, type: urlType } = useParams();
     const { t } = useTranslation();
@@ -106,6 +113,7 @@ export default function ApprovalDetailPage() {
     const [comment, setComment] = useState('');
     const [confirmedAmount, setConfirmedAmount] = useState('');
     const [reasonType, setReasonType] = useState<number>(1);
+    const [processStatus, setProcessStatus] = useState<string>('');
     const location = useLocation();
     const isAttendance = location.pathname.startsWith('/attendanceapproval');
 
@@ -203,6 +211,14 @@ export default function ApprovalDetailPage() {
         staleTime: 5 * 60 * 1000,
     });
 
+    // Sync processStatus from loaded data
+    useEffect(() => {
+        if (detail) {
+            const dl = detail.datalist as Record<string, unknown>;
+            setProcessStatus(String(dl?.claimProcessStatus || ''));
+        }
+    }, [detail]);
+
     const data = detail?.datalist || ({} as Record<string, unknown>);
     const approverList = ((data as Record<string, unknown>)?.approverList || (data as Record<string, unknown>)?.selectedApprovers) as Array<{ syskey: string; name: string }> | undefined;
 
@@ -233,6 +249,7 @@ export default function ApprovalDetailPage() {
                 comment,
                 confirmed_amount: parseFloat(confirmedAmount),
                 selectedApprovers: approverList || [],
+                claimProcessStatus: processStatus,
             };
             const res = await apiClient.post(SAVE_APPROVAL, payload);
             return res.data;
@@ -246,6 +263,25 @@ export default function ApprovalDetailPage() {
             queryClient.invalidateQueries({ queryKey: ['approvals'], exact: false });
             queryClient.invalidateQueries({ queryKey: ['approval-detail', syskey] });
             navigate(isAttendance ? '/attendanceapproval' : '/approvals');
+        },
+        onError: () => toast.error(t('common.error')),
+    });
+
+    const processStatusMutation = useMutation({
+        mutationFn: async (statusCode: string) => {
+            const payload = {
+                syskey,
+                status: '1',
+                claimProcessStatus: statusCode,
+                comment: '',
+                selectedApprovers: approverList || [],
+            };
+            const res = await apiClient.post(SAVE_APPROVAL, payload);
+            return res.data;
+        },
+        onSuccess: () => {
+            toast.success('Process status updated successfully');
+            queryClient.invalidateQueries({ queryKey: ['approval-detail', syskey] });
         },
         onError: () => toast.error(t('common.error')),
     });
@@ -324,6 +360,14 @@ export default function ApprovalDetailPage() {
             resolvedSubtype = d.requestsubtype;
         }
     }
+
+    const isClaim = requestTypeString.includes('claim') || requestTypeString.includes('advance');
+    const hasMaxAmount = isClaim && d.max_amount !== undefined && Number(d.max_amount) !== 0;
+
+    const isClaimWithMax = isClaim && hasMaxAmount;
+    const canApproveReject = isClaimWithMax
+        ? (!isPending || processStatus === '3' || processStatus.trim() === '')
+        : true;
 
     /* ═══════════════════════════ Render ═════════════════════════ */
 
@@ -470,8 +514,7 @@ export default function ApprovalDetailPage() {
                     )}
 
                     {/* Claim / Cash Advance fields */}
-                    {(requestTypeString.includes('claim') || requestTypeString.includes('advance')) && (d.amount || d.currencytype) && (() => {
-                        const hasMaxAmount = d.max_amount && Number(d.max_amount) !== 0;
+                    {isClaim && (d.amount || d.currencytype) && (() => {
                         return (
                             <div className={styles['approval-detail__section']}>
                                 <h4 className={styles['approval-detail__section-title']}>Claim / Advance</h4>
@@ -746,10 +789,59 @@ export default function ApprovalDetailPage() {
                                 placeholder="Add your comment (required for rejection)…"
                                 rows={3}
                             />
+
+                            {hasMaxAmount && (
+                                <div style={{ marginTop: 12 }}>
+                                    <label
+                                        style={{
+                                            display: 'block',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: 'var(--color-neutral-700)',
+                                            marginBottom: 6,
+                                        }}
+                                    >
+                                        Process Status
+                                    </label>
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <select
+                                            value={processStatus}
+                                            onChange={(e) => setProcessStatus(e.target.value)}
+                                            disabled={!isPending || processStatusMutation.isPending}
+                                            style={{
+                                                flex: 1,
+                                                padding: '8px 12px',
+                                                fontSize: '14px',
+                                                border: '1.5px solid var(--color-neutral-200)',
+                                                borderRadius: 8,
+                                                background: !isPending ? 'var(--color-neutral-50)' : 'var(--color-neutral-0, #fff)',
+                                                color: 'var(--color-neutral-900)',
+                                                cursor: !isPending ? 'not-allowed' : 'pointer',
+                                                outline: 'none',
+                                                transition: 'border-color 0.2s',
+                                                boxSizing: 'border-box',
+                                                height: 40,
+                                            }}
+                                        >
+                                            {CLAIM_PROCESS_STATUS_OPTIONS.map(opt => (
+                                                <option key={opt.code} value={opt.code}>{opt.description}</option>
+                                            ))}
+                                        </select>
+                                        <Button
+                                            variant="primary"
+                                            onClick={() => processStatusMutation.mutate(processStatus)}
+                                            loading={processStatusMutation.isPending}
+                                            disabled={!isPending}
+                                        >
+                                            Update
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className={styles['approval-detail__action-row']}>
-                            {(isPending || isRejected) && (
+                            {canApproveReject && (isPending || isRejected) && (
                                 <Button
                                     variant="success"
                                     onClick={() => handleAction('approve')}
@@ -760,7 +852,7 @@ export default function ApprovalDetailPage() {
                                 </Button>
                             )}
 
-                            {(isPending || isApproved) && (
+                            {canApproveReject && (isPending || isApproved) && (
                                 <Button
                                     variant="danger"
                                     onClick={() => handleAction('reject')}

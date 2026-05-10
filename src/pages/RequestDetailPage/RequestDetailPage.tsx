@@ -31,6 +31,13 @@ import type { TypesModel } from '../../types/models';
 import styles from './RequestDetailPage.module.css';
 import { displayDate } from '../../lib/date-utils';
 
+const CLAIM_PROCESS_STATUS_OPTIONS = [
+    { code: '', description: '-' },
+    { code: '1', description: 'Review By EB Team' },
+    { code: '2', description: 'Review By Third Party Assessor' },
+    { code: '3', description: 'Completed' },
+];
+
 function getTypeVisual(desc: string) {
     const d = desc?.toLowerCase() || '';
     if (d.includes('leave')) return { Icon: Palmtree, bg: '#f0fdf4', color: '#16a34a' };
@@ -162,6 +169,8 @@ export default function RequestDetailPage() {
     const memberList = detailData?.memberList || [];
     const accompanyPersonList = detailData?.accompanyPersonList || [];
 
+    const isClaim = detail?.requesttypedesc?.toLowerCase().includes('claim') || detail?.requesttypedesc?.toLowerCase().includes('advance');
+    const hasMaxAmount = detail && detail.max_amount !== undefined && Number(detail.max_amount) !== 0;
 
 
     const deleteMutation = useMutation({
@@ -354,7 +363,6 @@ export default function RequestDetailPage() {
 
                     {/* Financial */}
                     {((detail.amount || 0) > 0 || (detail.estimatedbudget || 0) > 0 || detail.remaining_balance !== undefined || detail.max_amount !== undefined) && (() => {
-                        const hasMaxAmount = detail.max_amount !== undefined && Number(detail.max_amount) !== 0;
                         return (
                             <div className={styles['request-detail__section']}>
                                 <h4 className={styles['request-detail__section-title']}>Financial</h4>
@@ -477,6 +485,12 @@ export default function RequestDetailPage() {
                                 <h4 className={styles['request-detail__section-title']}>Approver Comment</h4>
                                 <div className={styles['request-detail__grid']}>
                                     <Field label="Comment" value={detail.comment} />
+                                    {hasMaxAmount && (
+                                        <Field
+                                            label="Process Status"
+                                            value={CLAIM_PROCESS_STATUS_OPTIONS.find(opt => opt.code === String((detail as any).processstatus || (detail as any).claimProcessStatus || ''))?.description || '-'}
+                                        />
+                                    )}
                                 </div>
                             </div>
                         )}
