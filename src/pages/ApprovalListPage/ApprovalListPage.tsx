@@ -147,7 +147,7 @@ export default function ApprovalListPage() {
                     fromdate: fromDate,
                     todate: toDate,
                     type: attType,
-                    status: '', // Fetch all for steady summary counts
+                    status: activeStatus === RequestStatus.All ? '' : String(activeStatus),
                 });
                 const list = res.data?.data || res.data?.datalist || (Array.isArray(res.data) ? res.data : []);
                 return list.map((item: any) => ({

@@ -91,6 +91,7 @@ export const router = createBrowserRouter([
                     // ── Plural routes (canonical) ──
                     { path: '/requests', element: <RequestListPage /> },
                     { path: '/requests/new', element: <NewRequestPage /> },
+                    { path: '/requests/edit/:id', element: <NewRequestPage /> },
                     { path: '/requests/:id', element: <RequestDetailPage /> },
                     { path: '/approvals', element: <ApprovalListPage /> },
                     { path: '/approvals/:id', element: <ApprovalDetailPage /> },
@@ -103,6 +104,7 @@ export const router = createBrowserRouter([
                     // ── Singular aliases — API datalist returns these router values ──
                     { path: '/request', element: <RequestListPage /> },
                     { path: '/request/new', element: <NewRequestPage /> },
+                    { path: '/request/edit/:id', element: <NewRequestPage /> },
                     { path: '/request/:id', element: <RequestDetailPage /> },
                     { path: '/approval', element: <ApprovalListPage /> },
                     { path: '/approval/:id', element: <ApprovalDetailPage /> },
@@ -127,9 +129,10 @@ export const router = createBrowserRouter([
                     // ── Attendance subtypes — use existing approval pages ──
                     { path: '/attendanceapproval', element: <ApprovalListPage /> },
                     { path: '/attendanceapproval/:id/:type', element: <ApprovalDetailPage /> },
-                    { path: '/attendancerequest', element: <RequestListPage /> },
-                    { path: '/attendancerequest/new', element: <NewAttendanceRequestPage /> },
-                    { path: '/attendancerequest/:id', element: <RequestDetailPage /> },
+                    {path: '/attendancerequest', element: <RequestListPage />},
+                    {path: '/attendancerequest/new', element: <NewAttendanceRequestPage />},
+                    {path: '/attendancerequest/edit/:id', element: <NewAttendanceRequestPage />},
+                    {path: '/attendancerequest/:id', element: <RequestDetailPage />},
                     { path: '/locationapproval', element: <ApprovalListPage /> },
                     // ── Other ──
                     { path: '/leave', element: <LeavePage /> },

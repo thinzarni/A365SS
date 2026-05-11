@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build --mode prd",
     "build:a365": "tsc -b && vite build --mode a365",
     "prd": "vite build --mode prd && vite preview --host",
+    "a365": "vite build --mode a365 && vite preview --host",
     "lint": "eslint .",
     "preview": "vite preview --host"
   },
