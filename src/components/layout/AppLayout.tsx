@@ -30,7 +30,6 @@ import {
     Bell,
     ChevronLeft,
     ChevronRight,
-    Fingerprint,
     Contact,
     UserMinus,
     UserX,
@@ -78,7 +77,7 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/attendancerequest': LogIn,
     '/locationapproval': MapPin,
     '/supervised-attendance': ListTodo,
-    '/calendarshift': CalendarRange,
+    '/employeeworkpolicy': CalendarRange,
 
     // Leave
     '/leave': TreePalm,
@@ -127,7 +126,7 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/attendancerequest': 'nav.attendanceRequest',
     '/locationapproval': 'nav.locationApproval',
     '/supervised-attendance': 'nav.supervisedAttendance',
-    '/calendarshift': 'nav.calendarShift',
+    '/employeeworkpolicy': 'nav.employeeworkpolicy',
 
     '/leave': 'nav.leave',
     '/leave-summary': 'nav.leaveSummary',
@@ -198,9 +197,9 @@ export default function AppLayout() {
     //         // 4. Show global toast
     //         const message = data.message || (
     //             data.status === 2 ? 'Request Approved' :
-    //             data.status === 3 ? 'Request Rejected' :
-    //             data.status === 1 ? 'New Request Submitted' :
-    //             'Request Updated'
+    //                 data.status === 3 ? 'Request Rejected' :
+    //                     data.status === 1 ? 'New Request Submitted' :
+    //                         'Request Updated'
     //         );
 
     //         toast.success(message, {
@@ -239,6 +238,7 @@ export default function AppLayout() {
     const [pwdExpiry, setPwdExpiry] = useState<{ message: string; daysLeft: number; isExpired: boolean } | null>(null);
     const [sidebarImgError, setSidebarImgError] = useState(false);
     const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const avatarMenuRef = useRef<HTMLDivElement>(null);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
         return localStorage.getItem('sidebar-collapsed') === 'true';
@@ -292,24 +292,43 @@ export default function AppLayout() {
     const { data: menuItemsData } = useQuery({
         queryKey: ['menu-items', userId, domain],
         queryFn: async () => {
-            if (!token) return null;
+            if (!token || !userId) return null;
+            const storageKey = `a365_menu_items_${userId}_${domain}`;
             try {
                 const res = await apiClient.get(MENU_ITEMS);
                 const data = res.data;
                 if (data?.statuscode === 200 || data?.statuscode === 300) {
-                    return {
+                    const parsedData = {
                         // selfservicewebmenulist = sidebar menu; homemenulist = home screen cards
                         datalist: (data.selfservicewebmenulist ?? []) as ApiMenuItem[],
                         homemenulist: (data.homemenulist ?? []) as ApiMenuItem[],
                     };
+                    localStorage.setItem(storageKey, JSON.stringify(parsedData));
+                    return parsedData;
                 }
+                // Fallback to local storage if API returns an error code
+                const cached = localStorage.getItem(storageKey);
+                if (cached) return JSON.parse(cached);
                 return null;
-            } catch {
+            } catch (error) {
+                // Fallback to local storage on network error
+                const cached = localStorage.getItem(storageKey);
+                if (cached) return JSON.parse(cached);
                 return null;
             }
         },
         staleTime: 5 * 60 * 1000,
         enabled: !!token && !!userId,
+        initialData: () => {
+            if (!userId) return undefined;
+            const storageKey = `a365_menu_items_${userId}_${domain}`;
+            const cached = localStorage.getItem(storageKey);
+            if (cached) {
+                try { return JSON.parse(cached); } catch { return undefined; }
+            }
+            return undefined;
+        },
+        initialDataUpdatedAt: 0, // Forces immediate background fetch to update any changes
     });
 
     // ── Fetch Checkin Config for extras like Social tab ──
@@ -338,7 +357,7 @@ export default function AppLayout() {
         if (menuItemsData?.datalist && menuItemsData.datalist.length > 0) {
             // All items from API, excluding dashboard (rendered separately)
             items = [...menuItemsData.datalist.filter(
-                item => item.router && item.router !== '/' && item.router !== '/dashboard' && item.router !== '/team'
+                (item: ApiMenuItem) => item.router && item.router !== '/' && item.router !== '/dashboard' && item.router !== '/team'
             )];
         } else if (menuList.length > 0) {
             items = menuList
@@ -847,7 +866,7 @@ export default function AppLayout() {
                                     </button>
                                     <button
                                         className={`${styles['header__avatar-menu-item']} ${styles['header__avatar-menu-item--danger']}`}
-                                        onClick={() => { setShowAvatarMenu(false); handleLogout(); }}
+                                        onClick={() => { setShowAvatarMenu(false); setShowLogoutConfirm(true); }}
                                     >
                                         <LogOut size={16} />
                                         <span>{t('auth.logout')}</span>
@@ -975,6 +994,79 @@ export default function AppLayout() {
                     </div>
                 );
             })()}
+
+            {/* ── Logout Confirmation Modal ── */}
+            {showLogoutConfirm && (
+                <div
+                    onClick={() => setShowLogoutConfirm(false)}
+                    style={{
+                        position: 'fixed', inset: 0,
+                        background: 'rgba(15,23,42,0.55)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 9999,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            background: '#fff',
+                            borderRadius: 20,
+                            boxShadow: '0 24px 80px rgba(0,0,0,0.22)',
+                            width: '92%', maxWidth: 360,
+                            overflow: 'hidden',
+                            animation: 'pwdModalIn 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                        }}
+                    >
+                        <div style={{
+                            padding: '24px 24px 16px',
+                            textAlign: 'center',
+                        }}>
+                            <div style={{
+                                width: 56, height: 56, borderRadius: '50%',
+                                background: '#fef2f2', border: '2px solid #fca5a5',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                margin: '0 auto 16px',
+                            }}>
+                                <LogOut size={24} style={{ color: '#dc2626' }} />
+                            </div>
+                            <div style={{ fontWeight: 800, fontSize: 18, color: '#0f172a', marginBottom: 8 }}>
+                                {t('auth.logoutConfirmTitle', 'Sign Out')}
+                            </div>
+                            <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.5, margin: 0 }}>
+                                {t('auth.logoutConfirmMessage', 'Are you sure you want to sign out of your account?')}
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 12, padding: '16px 24px 24px' }}>
+                            <button
+                                onClick={() => setShowLogoutConfirm(false)}
+                                style={{
+                                    flex: 1, padding: '11px',
+                                    background: '#f1f5f9', color: '#475569',
+                                    border: '1px solid #e2e8f0', borderRadius: 12,
+                                    fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                                }}
+                            >
+                                {t('common.cancel', 'Cancel')}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowLogoutConfirm(false);
+                                    handleLogout();
+                                }}
+                                style={{
+                                    flex: 1, padding: '11px',
+                                    background: '#ef4444', color: '#fff',
+                                    border: 'none', borderRadius: 12,
+                                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                                }}
+                            >
+                                {t('auth.logout', 'Sign Out')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

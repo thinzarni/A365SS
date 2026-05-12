@@ -220,6 +220,24 @@
     background-color: #fee2e2;
 }
 
+.headerDeleteBtn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.headerDeleteBtn:hover {
+    background-color: #dc2626;
+}
+
 .tabs {
     display: flex;
     border-bottom: 1px solid var(--color-neutral-200, #e5e7eb);

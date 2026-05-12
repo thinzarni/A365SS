@@ -1086,6 +1086,7 @@ export default function NewRequestPage() {
             if (selectedMemberSyskey !== '__SELF__') {
                 endpoint = SAVE_LEAVE_HR; // "request/saverequesthr" supports ALL request types for subordinates
             }
+            payload.fromRequest = 'self_service';
 
             if (isEdit) {
                 endpoint = `${endpoint}/${id}`;

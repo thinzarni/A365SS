@@ -1,18 +1,20 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Save, X, List, Plus, Trash2, Search, Check } from 'lucide-react';
+import { Save, X, List, Plus, Trash2, Search, Check, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
 import {
     WORKPOLICY_INSERT,
+    WORKPOLICY_DELETE,
     SETUP_WORKPOLICY,
     SETUP_CALENDAR,
     SUPERVISE_USER_LIST,
     SUPERVISE_WORKPOLICY_LIST,
-    WORKPOLICY_PERSONALIZE,
-    SETUP_ROSTER
+    SETUP_ROSTER,
+    CALENDAR_DETAIL
 } from '../../config/api-routes';
 import Modal from '../../components/ui/Modal/Modal';
 import Input from '../../components/ui/Input/Input';
@@ -59,6 +61,7 @@ export default function WorkPolicyCreatePage() {
     const navigate = useNavigate();
     const { syskey } = useParams<{ syskey: string }>();
     const { userId, domain } = useAuthStore();
+    const { t } = useTranslation();
 
     // ── Form State ──
     const [code, setCode] = useState('TBA');
@@ -76,6 +79,9 @@ export default function WorkPolicyCreatePage() {
 
     const [employeeList, setEmployeeList] = useState<EmployeeItem[]>([]);
     const [isEditLoading, setIsEditLoading] = useState(!!syskey);
+    // In edit mode, start as view-only; for new, start as editing
+    const [isEditing, setIsEditing] = useState(!syskey);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
     // ── Setup Lists ──
     const { data: workPolicies = [] } = useQuery<SelectOption[]>({
@@ -247,19 +253,31 @@ export default function WorkPolicyCreatePage() {
     const handleCalendarChange = async (selectedSyskey: string) => {
         setCalendarId(selectedSyskey);
 
-        // Skip calling the calendar detail API if we are creating a new policy
-        if (!selectedSyskey || !syskey) return;
+        // Skip calling the calendar detail API if no syskey is selected
+        if (!selectedSyskey) return;
 
         try {
-            const calRes = await apiClient.post('api/hxm/calendar/detail', { syskey: selectedSyskey });
-            const detail = calRes.data?.datalist?.[0];
+            const calRes = await apiClient.post(CALENDAR_DETAIL, { syskey: selectedSyskey });
+            console.log('📅 [Calendar Detail] API Response:', calRes.data);
+
+            const detail = calRes.data?.datalist?.[0] || calRes.data?.data?.[0] || calRes.data?.[0];
+
             if (detail) {
-                if (detail.calendarObj) {
-                    if (detail.calendarObj.fromdate && !startDate) setStartDate(formatFromApiDate(detail.calendarObj.fromdate));
-                    if (detail.calendarObj.todate && !endDate) setEndDate(formatFromApiDate(detail.calendarObj.todate));
+                // Support both lowercase and camelCase just in case
+                const calObj = detail.calendarObj || detail.calendarobj;
+                if (calObj) {
+                    const from = calObj.fromdate || calObj.fromDate;
+                    const to = calObj.todate || calObj.toDate;
+
+                    if (from) setStartDate(formatFromApiDate(String(from)));
+                    if (to) setEndDate(formatFromApiDate(String(to)));
+
+                    console.log('✅ [Calendar Detail] Dates Bound:', { from, to });
                 }
-                if (detail.calendarShiftObj) {
-                    setCalendarShiftData(detail.calendarShiftObj);
+
+                const shiftData = detail.calendarShiftObj || detail.calendarshiftobj;
+                if (shiftData) {
+                    setCalendarShiftData(shiftData);
                 }
             }
         } catch (err) {
@@ -330,24 +348,39 @@ export default function WorkPolicyCreatePage() {
         loadEditData();
     }, [syskey, userId, domain]);
 
+    const handleDelete = async () => {
+        if (!syskey) return;
+        setIsDeleteConfirmOpen(false);
+        try {
+            await apiClient.get(`${WORKPOLICY_DELETE}/${syskey}`, {
+                params: { userid: userId || '', domain: domain || '' }
+            });
+            toast.success(t('workPolicy.deleteSuccess'));
+            navigate('/employeeworkpolicy');
+        } catch (error) {
+            console.error('Error deleting work policy:', error);
+            toast.error(t('workPolicy.deleteFail'));
+        }
+    };
+
     const handleSave = async () => {
         if (!code || !description || !startDate || !endDate || !workPolicyId) {
-            toast.error('Please fill in all required fields.');
+            toast.error(t('workPolicy.validationFull'));
             return;
         }
 
         if (type === 0 && !rosterId) {
-            toast.error('Please select a Roster.');
+            toast.error(t('workPolicy.validationRoster'));
             return;
         }
 
         if (type === 1 && !calendarId) {
-            toast.error('Please select a Calendar.');
+            toast.error(t('workPolicy.validationCalendar'));
             return;
         }
 
         if (employeeList.length === 0) {
-            toast.error('Please add at least one employee.');
+            toast.error(t('workPolicy.validationEmployee'));
             return;
         }
 
@@ -359,30 +392,40 @@ export default function WorkPolicyCreatePage() {
             startdate: formatPayloadDate(startDate),
             enddate: formatPayloadDate(endDate),
             type,
-            calendar: type === 1 ? calendarId : "",
+            calendar: type === 1 ? calendarId : null,
             roster: type === 0 ? rosterId : null,
             workpolicy: workPolicyId,
-            employeeList: employeeList.map((emp, index) => ({
-                ...emp,
-                rownum: String(index + 1)
+            employeeList: employeeList.map(emp => ({
+                syskey: emp.syskey,
+                eid: emp.eid,
+                name: emp.name,
+                rank: emp.rank || null,
+                department: emp.department || null,
+                branch: emp.branch || null,
+                section: emp.section || null,
+                company: emp.company || null,
+                calendersyskey: emp.calendersyskey || null,
+                calenderdescription: null,
+                defaultcalendar: null
             })),
             shiftData: type === 1 ? calendarShiftData : [],
             userid: userId || '',
             domain: domain || ''
         };
 
-        if (syskey) {
-            payload.syskey = syskey;
-        }
-
         try {
-            const apiEndpoint = syskey ? WORKPOLICY_PERSONALIZE : WORKPOLICY_INSERT;
-            await apiClient.post(apiEndpoint, payload);
-            toast.success(syskey ? 'Work policy updated successfully!' : 'Work policy created successfully!');
-            navigate('/calendarshift');
+            // For edit: PUT to WORKPOLICY_INSERT/{syskey}
+            // For create: POST to WORKPOLICY_INSERT
+            if (syskey) {
+                await apiClient.put(`${WORKPOLICY_INSERT}/${syskey}`, payload);
+            } else {
+                await apiClient.post(WORKPOLICY_INSERT, payload);
+            }
+            toast.success(syskey ? t('workPolicy.updateSuccess') : t('workPolicy.saveSuccess'));
+            navigate('/employeeworkpolicy');
         } catch (error) {
-            console.error('Error creating work policy:', error);
-            toast.error('Failed to create work policy.');
+            console.error('Error saving work policy:', error);
+            toast.error(t('workPolicy.saveFail'));
         }
     };
 
@@ -390,28 +433,44 @@ export default function WorkPolicyCreatePage() {
         <div className={styles.page}>
             {/* ── Header ── */}
             <div className={styles.pageHeader}>
-                <h1 className={styles.title}>{syskey ? 'Edit Work Policy' : 'New Work Policy'}</h1>
+                <h1 className={styles.title}>{syskey ? t('workPolicy.detailTitle') : t('workPolicy.newTitle')}</h1>
                 <div className={styles.headerActions}>
-                    <button className={styles.saveBtn} onClick={handleSave}>
-                        <Save size={16} /> Save
-                    </button>
-                    <button className={styles.cancelBtn} onClick={() => navigate('/calendarshift')}>
-                        <X size={16} /> Cancel
-                    </button>
-                    <button className={styles.listBtn} onClick={() => navigate('/calendarshift')}>
-                        <List size={16} /> List
+                    {/* Save — only visible when editing */}
+                    {isEditing && (
+                        <>
+                            <button className={styles.saveBtn} onClick={handleSave}>
+                                <Save size={16} /> {t('workPolicy.save')}
+                            </button>
+                            <button className={styles.cancelBtn} onClick={() => setIsEditing(false)}>
+                                <X size={16} /> {t('workPolicy.cancel')}
+                            </button>
+                        </>
+                    )}
+                    {/* Edit — only visible in view mode (existing record) */}
+                    {syskey && !isEditing && (
+                        <button className={styles.saveBtn} onClick={() => setIsEditing(true)}>
+                            <Pencil size={16} /> {t('workPolicy.edit')}
+                        </button>
+                    )}
+                    {syskey && !isEditing && (
+                        <button className={styles.headerDeleteBtn} onClick={() => setIsDeleteConfirmOpen(true)}>
+                            <Trash2 size={16} /> {t('workPolicy.delete')}
+                        </button>
+                    )}
+                    <button className={styles.listBtn} onClick={() => navigate('/employeeworkpolicy')}>
+                        <List size={16} /> {t('workPolicy.list')}
                     </button>
                 </div>
             </div>
 
             {/* ── Form Card ── */}
             {isEditLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>Loading policy data...</div>
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>{t('workPolicy.loading')}</div>
             ) : (
                 <div className={styles.card}>
                     <div className={styles.formGrid}>
                         <div className={styles.formGroup}>
-                            <label>Ref No.<span>*</span></label>
+                            <label>{t('workPolicy.refNo')}<span>*</span></label>
                             <input className={styles.input} value="TBA" disabled />
                         </div>
 
@@ -421,108 +480,61 @@ export default function WorkPolicyCreatePage() {
                                     type="checkbox"
                                     checked={countingPublicHoliday}
                                     onChange={e => setCountingPublicHoliday(e.target.checked)}
+                                    disabled={!isEditing}
                                 />
-                                Counting Public Holiday
+                                {t('workPolicy.countingPublicHoliday')}
                             </label>
                         </div>
 
                         <div className={styles.formGroup}>
-                            <label>Code<span>*</span></label>
-                            <input
-                                className={styles.input}
-                                value={code}
-                                onChange={e => setCode(e.target.value)}
-                                disabled
-                            />
+                            <label>{t('workPolicy.code')}<span>*</span></label>
+                            <input className={styles.input} value={code} onChange={e => setCode(e.target.value)} disabled />
                         </div>
 
                         <div className={styles.formGroup}>
-                            <label>Description<span>*</span></label>
-                            <input
-                                className={styles.input}
-                                value={description}
-                                onChange={e => setDescription(e.target.value)}
-                                disabled
-                            />
+                            <label>{t('workPolicy.description')}<span>*</span></label>
+                            <input className={styles.input} value={description} onChange={e => setDescription(e.target.value)} disabled />
                         </div>
 
                         <div className={styles.formGroup}>
-                            <label>Date<span>*</span></label>
+                            <label>{t('workPolicy.date')}<span>*</span></label>
                             <div className={styles.dateRange}>
-                                <input
-                                    type="date"
-                                    className={styles.input}
-                                    value={startDate}
-                                    onChange={e => setStartDate(e.target.value)}
-                                />
+                                <input type="date" className={styles.input} value={startDate} onChange={e => setStartDate(e.target.value)} disabled />
                                 <span>-</span>
-                                <input
-                                    type="date"
-                                    className={styles.input}
-                                    value={endDate}
-                                    onChange={e => setEndDate(e.target.value)}
-                                />
+                                <input type="date" className={styles.input} value={endDate} onChange={e => setEndDate(e.target.value)} disabled />
                             </div>
                         </div>
 
                         <div className={styles.formGroup}>
-                            <label>Roster / Calendar<span>*</span></label>
+                            <label>{t('workPolicy.rosterCalendar')}<span>*</span></label>
                             <div className={styles.radioGroup}>
                                 <label className={styles.radioLabel}>
-                                    <input
-                                        type="radio"
-                                        name="type"
-                                        checked={type === 0}
-                                        onChange={() => setType(0)}
-                                    />
-                                    Roster
+                                    <input type="radio" name="type" checked={type === 0} onChange={() => setType(0)} disabled={!isEditing} />
+                                    {t('workPolicy.roster')}
                                 </label>
                                 <label className={styles.radioLabel}>
-                                    <input
-                                        type="radio"
-                                        name="type"
-                                        checked={type === 1}
-                                        onChange={() => setType(1)}
-                                    />
-                                    Calendar
+                                    <input type="radio" name="type" checked={type === 1} onChange={() => setType(1)} disabled={!isEditing} />
+                                    {t('workPolicy.calendar')}
                                 </label>
                             </div>
                             {type === 0 ? (
-                                <select
-                                    className={styles.select}
-                                    value={rosterId}
-                                    onChange={e => setRosterId(e.target.value)}
-                                >
-                                    <option value="">Select Roster</option>
-                                    {rosters.map(r => (
-                                        <option key={r.syskey} value={r.syskey}>{r.description || r.name}</option>
-                                    ))}
+                                <select className={styles.select} value={rosterId} onChange={e => setRosterId(e.target.value)} disabled={!isEditing}>
+                                    <option value="">{t('workPolicy.selectRoster')}</option>
+                                    {rosters.map(r => <option key={r.syskey} value={r.syskey}>{r.description || r.name}</option>)}
                                 </select>
                             ) : (
-                                <select
-                                    className={styles.select}
-                                    value={calendarId}
-                                    onChange={e => handleCalendarChange(e.target.value)}
-                                >
-                                    <option value="">Select Calendar</option>
-                                    {calendars.map(c => (
-                                        <option key={c.syskey} value={c.syskey}>{c.description || c.name}</option>
-                                    ))}
+                                <select className={styles.select} value={calendarId} onChange={e => handleCalendarChange(e.target.value)} disabled={!isEditing}>
+                                    <option value="">{t('workPolicy.selectCalendar')}</option>
+                                    {calendars.map(c => <option key={c.syskey} value={c.syskey}>{c.description || c.name}</option>)}
                                 </select>
                             )}
                         </div>
 
                         <div className={styles.formGroup}>
-                            <label>Work Policy<span>*</span></label>
-                            <select
-                                className={styles.select}
-                                value={workPolicyId}
-                                onChange={e => setWorkPolicyId(e.target.value)}
-                            >
-                                <option value="">Select Work Policy</option>
-                                {workPolicies.map(w => (
-                                    <option key={w.syskey} value={w.syskey}>{w.description || w.name}</option>
-                                ))}
+                            <label>{t('workPolicy.workPolicy')}<span>*</span></label>
+                            <select className={styles.select} value={workPolicyId} onChange={e => setWorkPolicyId(e.target.value)} disabled={!isEditing}>
+                                <option value="">{t('workPolicy.selectWorkPolicy')}</option>
+                                {workPolicies.map(w => <option key={w.syskey} value={w.syskey}>{w.description || w.name}</option>)}
                             </select>
                         </div>
                     </div>
@@ -554,17 +566,19 @@ export default function WorkPolicyCreatePage() {
                             <thead>
                                 <tr>
                                     <th style={{ width: 40, textAlign: 'center' }}>
-                                        <button className={styles.addBtn} onClick={() => setIsEmpModalOpen(true)}>
-                                            <Plus size={16} />
-                                        </button>
+                                        {isEditing && (
+                                            <button className={styles.addBtn} onClick={() => setIsEmpModalOpen(true)}>
+                                                <Plus size={16} />
+                                            </button>
+                                        )}
                                     </th>
-                                    <th>No.</th>
-                                    <th>Employee</th>
-                                    <th>Rank</th>
-                                    <th>Department</th>
-                                    <th>Branch</th>
-                                    <th>Section</th>
-                                    <th>Company</th>
+                                    <th>{t('workPolicy.no')}</th>
+                                    <th>{t('workPolicy.employee')}</th>
+                                    <th>{t('workPolicy.rank')}</th>
+                                    <th>{t('workPolicy.department')}</th>
+                                    <th>{t('workPolicy.branch')}</th>
+                                    <th>{t('workPolicy.section')}</th>
+                                    <th>{t('workPolicy.company')}</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -572,7 +586,7 @@ export default function WorkPolicyCreatePage() {
                                 {employeeList.length === 0 ? (
                                     <tr>
                                         <td colSpan={9} style={{ textAlign: 'center', padding: '30px', color: '#6b7280' }}>
-                                            No employees selected. Click the + button to add.
+                                            {t('workPolicy.noEmployees')}
                                         </td>
                                     </tr>
                                 ) : (
@@ -590,12 +604,14 @@ export default function WorkPolicyCreatePage() {
                                             <td>{emp.section || '-'}</td>
                                             <td>{emp.company}</td>
                                             <td>
-                                                <button
-                                                    className={styles.deleteBtn}
-                                                    onClick={() => handleRemoveEmployee(emp.syskey)}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                {isEditing && (
+                                                    <button
+                                                        className={styles.deleteBtn}
+                                                        onClick={() => handleRemoveEmployee(emp.syskey)}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))
@@ -614,16 +630,16 @@ export default function WorkPolicyCreatePage() {
             <Modal
                 open={isEmpModalOpen}
                 onClose={() => { setIsEmpModalOpen(false); setEmpSearch(''); }}
-                title="Select Employees"
+                title={t('workPolicy.selectEmployees')}
                 footer={
                     <Button variant="secondary" onClick={() => { setIsEmpModalOpen(false); setEmpSearch(''); }}>
-                        Done ({employeeList.length} selected)
+                        {t('workPolicy.done', { count: employeeList.length })}
                     </Button>
                 }
             >
                 <div style={{ marginBottom: 16 }}>
                     <Input
-                        placeholder="Search by name or ID…"
+                        placeholder={t('workPolicy.searchEmployee')}
                         value={empSearch}
                         onChange={(e) => setEmpSearch(e.target.value)}
                         icon={<Search size={18} />}
@@ -633,9 +649,9 @@ export default function WorkPolicyCreatePage() {
 
                 <div style={{ maxHeight: 400, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {isLoadingEmps ? (
-                        <div style={{ padding: 20, textAlign: 'center', color: '#6b7280' }}>Loading employees…</div>
+                        <div style={{ padding: 20, textAlign: 'center', color: '#6b7280' }}>{t('common.loading')}</div>
                     ) : filteredEmployees.length === 0 ? (
-                        <div style={{ padding: 20, textAlign: 'center', color: '#6b7280' }}>No employees found</div>
+                        <div style={{ padding: 20, textAlign: 'center', color: '#6b7280' }}>{t('workPolicy.noEmployeesFound')}</div>
                     ) : (
                         filteredEmployees.map((emp) => {
                             const isSelected = employeeList.some(e => e.syskey === emp.employee_syskey);
@@ -672,6 +688,36 @@ export default function WorkPolicyCreatePage() {
                             );
                         })
                     )}
+                </div>
+            </Modal>
+
+            {/* ── Delete Confirmation Modal ── */}
+            <Modal
+                open={isDeleteConfirmOpen}
+                onClose={() => setIsDeleteConfirmOpen(false)}
+                title={t('workPolicy.confirmDelete')}
+                footer={
+                    <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                        <button className={styles.cancelBtn} onClick={() => setIsDeleteConfirmOpen(false)}>
+                            <X size={16} /> {t('workPolicy.cancel')}
+                        </button>
+                        <button className={styles.headerDeleteBtn} onClick={handleDelete}>
+                            <Trash2 size={16} /> {t('workPolicy.delete')}
+                        </button>
+                    </div>
+                }
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '8px 0' }}>
+                    <p style={{ margin: 0, fontSize: 15, color: '#111827' }}>
+                        {t('workPolicy.confirmDeleteMsg')}
+                    </p>
+                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px' }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: '#991b1b' }}>{code}</div>
+                        <div style={{ fontSize: 13, color: '#b91c1c', marginTop: 2 }}>{description}</div>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>
+                        {t('workPolicy.cannotUndo')}
+                    </p>
                 </div>
             </Modal>
         </div>

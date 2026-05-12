@@ -4,7 +4,7 @@
              attendance records, quick-action tiles
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -24,23 +24,22 @@ import {
     Calendar,
     Users,
     MapPin,
-    X,
     ChevronRight,
     ImageIcon,
     BarChart3,
 } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer
 } from 'recharts';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
-import { ADMIN_ATTENDANCE_COUNTS, ADMIN_ATTENDANCE_LIST } from '../../config/api-routes';
+import { ADMIN_ATTENDANCE_COUNTS } from '../../config/api-routes';
 import styles from './DashboardPage.module.css';
 
 /* ── Types ── */
@@ -180,10 +179,10 @@ const quickActions = [
 export default function DashboardPage() {
     const { t, i18n } = useTranslation();
     const { user, userId, domain } = useAuthStore();
-    const [now, setNow] = useState(new Date());
-    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
-    const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
-    const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+    const [now] = useState(new Date());
+    // const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+    // const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
+    const [, setSelectedRecord] = useState<AttendanceRecord | null>(null);
 
     // ── Fetch admin card data ──
     const { data: adminCardData, isLoading: adminLoading } = useQuery({
@@ -221,8 +220,8 @@ export default function DashboardPage() {
         ];
     }, [adminCardData, t]);
 
-    
-    
+
+
     const greeting = getGreeting(new Date().getHours());
     const { time: liveTime, ampm } = formatLiveTime(new Date());
     const dateDisplay = now.toLocaleDateString(i18n.language === 'my' ? 'my-MM' : 'en-US', {
@@ -265,27 +264,27 @@ export default function DashboardPage() {
     });
 
     // ── Fetch employees data ──
-    const { data: employees, isLoading: employeesLoading } = useQuery({
-        queryKey: ['dashboard-employees', todayStr, userId, domain],
-        queryFn: async () => {
-            try {
-                const res = await mainClient.post(ADMIN_ATTENDANCE_LIST, {
-                    date: todayStr,
-                    status: '0', // All employees
-                    searchVal: '',
-                    page: 1,
-                    limit: 20,
-                    type: 0,
-                    userid: userId,
-                    domain: domain
-                });
-                return res.data?.data ?? res.data ?? [];
-            } catch {
-                return [];
-            }
-        },
-        staleTime: 60_000,
-    });
+    // const { data: employees, isLoading: employeesLoading } = useQuery({
+    //     queryKey: ['dashboard-employees', todayStr, userId, domain],
+    //     queryFn: async () => {
+    //         try {
+    //             const res = await mainClient.post(ADMIN_ATTENDANCE_LIST, {
+    //                 date: todayStr,
+    //                 status: '0', // All employees
+    //                 searchVal: '',
+    //                 page: 1,
+    //                 limit: 20,
+    //                 type: 0,
+    //                 userid: userId,
+    //                 domain: domain
+    //             });
+    //             return res.data?.data ?? res.data ?? [];
+    //         } catch {
+    //             return [];
+    //         }
+    //     },
+    //     staleTime: 60_000,
+    // });
 
     // ── Derived data ──
     const records: AttendanceRecord[] = useMemo(() => {
@@ -301,15 +300,16 @@ export default function DashboardPage() {
     const workingHours = useMemo(() => calcWorkingHours(records), [records]);
 
     const monthName = now.toLocaleDateString(i18n.language === 'my-MM' ? 'my-MM' : 'en-US', { month: 'long', year: 'numeric' });
-    const isLoading = summaryLoading || homeLoading || adminLoading || employeesLoading;
+    const isLoading = summaryLoading || homeLoading || adminLoading;
 
     // Handle bar click to fetch specific employee data
+    /*
     const handleBarClick = async (data: any) => {
         try {
             // Convert status names to match API expectations (matching admin attendance page)
             let statusValue = '0'; // Default to all
             const statusName = data.name.toLowerCase();
-            
+
             if (statusName.includes('present')) {
                 statusValue = '1'; // Present
             } else if (statusName.includes('leave')) {
@@ -323,9 +323,9 @@ export default function DashboardPage() {
             } else if (statusName.includes('early')) {
                 statusValue = '6'; // Early Out
             }
-            
+
             setSelectedStatus(data.name);
-            
+
             // Call API to get filtered employees using the same endpoint as admin attendance
             const res = await mainClient.post(ADMIN_ATTENDANCE_LIST, {
                 date: todayStr,
@@ -337,13 +337,14 @@ export default function DashboardPage() {
                 userid: userId,
                 domain: domain
             });
-            
+
             setFilteredEmployees(res.data?.data || []);
         } catch (error) {
             console.error('Error fetching filtered employees:', error);
             setFilteredEmployees([]);
         }
     };
+    */
 
     // ── Loading state ──
     if (isLoading) {
@@ -484,9 +485,9 @@ export default function DashboardPage() {
             </section>
 
 
-    
-    {/* Spacer between sections */}
-    <div style={{ marginBottom: '2rem' }} />
+
+            {/* Spacer between sections */}
+            <div style={{ marginBottom: '2rem' }} />
 
             {/* ── Today Record ── */}
             <section>
@@ -571,8 +572,8 @@ export default function DashboardPage() {
                 </div>
             </section>
 
-    {/* Spacer between sections */}
-    <div style={{ marginBottom: '2rem' }} />
+            {/* Spacer between sections */}
+            <div style={{ marginBottom: '2rem' }} />
 
             {/* ───────────────── ADMIN INSIGHTS SECTION ───────────────── */}
 
@@ -584,313 +585,313 @@ export default function DashboardPage() {
                     </h2>
                 </div>
 
-    {/* ───────────────── ANALYTICS CARD ───────────────── */}
-    <div className={styles.analyticsCard} style={{ width: '60%' }}>
+                {/* ───────────────── ANALYTICS CARD ───────────────── */}
+                <div className={styles.analyticsCard} style={{ width: '60%' }}>
 
-        {/* CARD SUBTITLE */}
-        <div className={styles.cardHeader}>
-            <div>
-                <p className={styles.cardSubtitle}>
-                    Employee attendance overview
-                </p>
-            </div>
-        </div>
-        {/* CHART */}
-        <div className={styles.chartContainer}>
-            <ResponsiveContainer width="100%" height={200}>
-                <BarChart
-                    data={employeeStatusData}
-                    margin={{
-                        top: 35,
-                        right: 20,
-                        left: 10,
-                        bottom: 35
-                    }}
-                    barCategoryGap="28%"
-                >
+                    {/* CARD SUBTITLE */}
+                    <div className={styles.cardHeader}>
+                        <div>
+                            <p className={styles.cardSubtitle}>
+                                Employee attendance overview
+                            </p>
+                        </div>
+                    </div>
+                    {/* CHART */}
+                    <div className={styles.chartContainer}>
+                        <ResponsiveContainer width="100%" height={200}>
+                            <BarChart
+                                data={employeeStatusData}
+                                margin={{
+                                    top: 35,
+                                    right: 20,
+                                    left: 10,
+                                    bottom: 35
+                                }}
+                                barCategoryGap="28%"
+                            >
 
-                    {/* GRID */}
-                    <CartesianGrid
-                        strokeDasharray="3 10"
-                        stroke="rgba(148,163,184,0.12)"
-                        vertical={false}
-                    />
+                                {/* GRID */}
+                                <CartesianGrid
+                                    strokeDasharray="3 10"
+                                    stroke="rgba(148,163,184,0.12)"
+                                    vertical={false}
+                                />
 
-                    {/* X AXIS */}
-                    <XAxis
-                        dataKey="name"
-                        axisLine={false}
-                        tickLine={false}
-                        interval={0}
-                        height={50}
-                        tickMargin={14}
-                        tick={{
-                            fill: '#64748b',
-                            fontSize: 13,
-                            fontWeight: 700
-                        }}
-                    />
+                                {/* X AXIS */}
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    interval={0}
+                                    height={50}
+                                    tickMargin={14}
+                                    tick={{
+                                        fill: '#64748b',
+                                        fontSize: 13,
+                                        fontWeight: 700
+                                    }}
+                                />
 
-                    {/* Y AXIS */}
-                    <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        width={35}
-                        tick={{
-                            fill: '#94a3b8',
-                            fontSize: 12,
-                            fontWeight: 600
-                        }}
-                    />
+                                {/* Y AXIS */}
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={35}
+                                    tick={{
+                                        fill: '#94a3b8',
+                                        fontSize: 12,
+                                        fontWeight: 600
+                                    }}
+                                />
 
-                    {/* TOOLTIP */}
-                    <Tooltip
-                        cursor={{
-                            fill: 'rgba(99,102,241,0.04)'
-                        }}
-                        contentStyle={{
-                            background: '#ffffff',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '12px',
-                            color: '#1e293b',
-                            padding: '12px 16px',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-                        }}
-                    />
+                                {/* TOOLTIP */}
+                                <Tooltip
+                                    cursor={{
+                                        fill: 'rgba(99,102,241,0.04)'
+                                    }}
+                                    contentStyle={{
+                                        background: '#ffffff',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '12px',
+                                        color: '#1e293b',
+                                        padding: '12px 16px',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                                    }}
+                                />
 
-                    {/* BARS */}
-                    <Bar
-                        dataKey="value"
-                        maxBarSize={42}
-                        animationDuration={1200}
-                        // onClick={(data: any) => {
-                        //     handleBarClick(data);
-                        // }}
-                        shape={(props: any) => {
+                                {/* BARS */}
+                                <Bar
+                                    dataKey="value"
+                                    maxBarSize={42}
+                                    animationDuration={1200}
+                                    // onClick={(data: any) => {
+                                    //     handleBarClick(data);
+                                    // }}
+                                    shape={(props: any) => {
 
-                            const {
-                                x,
-                                y,
-                                width,
-                                height,
-                                value,
-                                index
-                            } = props;
+                                        const {
+                                            x,
+                                            y,
+                                            width,
+                                            height,
+                                            value,
+                                            index
+                                        } = props;
 
-                            const item = employeeStatusData[index];
-                            const depth = 10;
-                            const isHovered = props.isHovered;
+                                        const item = employeeStatusData[index];
+                                        const depth = 10;
+                                        const isHovered = props.isHovered;
 
-                            if (!value || value <= 0) {
-                                return (
-                                    <g>
-                                        {/* BASE */}
-                                        <rect
-                                            x={x + 4}
-                                            y={y + height + 8}
-                                            width={width - 6}
-                                            height={4}
-                                            rx={4}
-                                            fill="rgba(148,163,184,0.18)"
-                                        />
+                                        if (!value || value <= 0) {
+                                            return (
+                                                <g>
+                                                    {/* BASE */}
+                                                    <rect
+                                                        x={x + 4}
+                                                        y={y + height + 8}
+                                                        width={width - 6}
+                                                        height={4}
+                                                        rx={4}
+                                                        fill="rgba(148,163,184,0.18)"
+                                                    />
 
-                                        {/* VALUE */}
-                                        <text
-                                            x={x + width / 2}
-                                            y={y - 10}
-                                            textAnchor="middle"
-                                            fill="#cbd5e1"
-                                            fontSize={13}
-                                            fontWeight={700}
-                                        >
-                                            0
-                                        </text>
-                                    </g>
-                                );
-                            }
-                            return (
-                                <g>
-                                    {/* SHADOW */}
-                                    <ellipse
-                                        cx={x + width / 2 + 4}
-                                        cy={y + height + 12}
-                                        rx={width / 1.6}
-                                        ry={6}
-                                        fill={isHovered ? "rgba(15,23,42,0.18)" : "rgba(15,23,42,0.12)"}
-                                    />
-                                    {/* RIGHT FACE */}
-                                    <path
-                                        d={`
+                                                    {/* VALUE */}
+                                                    <text
+                                                        x={x + width / 2}
+                                                        y={y - 10}
+                                                        textAnchor="middle"
+                                                        fill="#cbd5e1"
+                                                        fontSize={13}
+                                                        fontWeight={700}
+                                                    >
+                                                        0
+                                                    </text>
+                                                </g>
+                                            );
+                                        }
+                                        return (
+                                            <g>
+                                                {/* SHADOW */}
+                                                <ellipse
+                                                    cx={x + width / 2 + 4}
+                                                    cy={y + height + 12}
+                                                    rx={width / 1.6}
+                                                    ry={6}
+                                                    fill={isHovered ? "rgba(15,23,42,0.18)" : "rgba(15,23,42,0.12)"}
+                                                />
+                                                {/* RIGHT FACE */}
+                                                <path
+                                                    d={`
                                             M ${x + width} ${y}
                                             L ${x + width + depth} ${y - depth}
                                             L ${x + width + depth} ${y + height - depth}
                                             L ${x + width} ${y + height}
                                             Z
                                         `}
-                                        fill={item.color}
-                                        opacity={0.65}
-                                    />
+                                                    fill={item.color}
+                                                    opacity={0.65}
+                                                />
 
-                                    {/* TOP FACE */}
-                                    <path
-                                        d={`
+                                                {/* TOP FACE */}
+                                                <path
+                                                    d={`
                                             M ${x} ${y}
                                             L ${x + depth} ${y - depth}
                                             L ${x + width + depth} ${y - depth}
                                             L ${x + width} ${y}
                                             Z
                                         `}
-                                        fill={item.color}
-                                        opacity={0.85}
-                                    />
+                                                    fill={item.color}
+                                                    opacity={0.85}
+                                                />
 
-                                    {/* MAIN FACE */}
-                                    <rect
-                                        x={x}
-                                        y={y}
-                                        width={width}
-                                        height={height}
-                                        fill={item.color}
-                                        opacity={isHovered ? 0.9 : 1}
-                                    />
+                                                {/* MAIN FACE */}
+                                                <rect
+                                                    x={x}
+                                                    y={y}
+                                                    width={width}
+                                                    height={height}
+                                                    fill={item.color}
+                                                    opacity={isHovered ? 0.9 : 1}
+                                                />
 
-                                    {/* MAIN GRADIENT OVERLAY */}
-                                    <defs>
-                                        <linearGradient id={`barGradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                                            <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
-                                            <stop offset="30%" stopColor="rgba(255,255,255,0.15)" />
-                                            <stop offset="70%" stopColor="rgba(0,0,0,0.1)" />
-                                            <stop offset="100%" stopColor="rgba(0,0,0,0.2)" />
-                                        </linearGradient>
-                                    </defs>
-                                    <rect
-                                        x={x}
-                                        y={y}
-                                        width={width}
-                                        height={height}
-                                        fill={`url(#barGradient-${index})`}
-                                        opacity={isHovered ? 0.8 : 0.6}
-                                    />
+                                                {/* MAIN GRADIENT OVERLAY */}
+                                                <defs>
+                                                    <linearGradient id={`barGradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                                        <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
+                                                        <stop offset="30%" stopColor="rgba(255,255,255,0.15)" />
+                                                        <stop offset="70%" stopColor="rgba(0,0,0,0.1)" />
+                                                        <stop offset="100%" stopColor="rgba(0,0,0,0.2)" />
+                                                    </linearGradient>
+                                                </defs>
+                                                <rect
+                                                    x={x}
+                                                    y={y}
+                                                    width={width}
+                                                    height={height}
+                                                    fill={`url(#barGradient-${index})`}
+                                                    opacity={isHovered ? 0.8 : 0.6}
+                                                />
 
-                                    {/* LEFT SIDE GLOSS */}
-                                    <rect
-                                        x={x + 2}
-                                        y={y + 8}
-                                        width={width * 0.08}
-                                        height={height - 16}
-                                        fill="rgba(255,255,255,0.6)"
-                                        rx={2}
-                                    />
+                                                {/* LEFT SIDE GLOSS */}
+                                                <rect
+                                                    x={x + 2}
+                                                    y={y + 8}
+                                                    width={width * 0.08}
+                                                    height={height - 16}
+                                                    fill="rgba(255,255,255,0.6)"
+                                                    rx={2}
+                                                />
 
-                                    
-                                    
-                                    {/* BOTTOM SHADOW */}
-                                    <rect
-                                        x={x + 2}
-                                        y={y + height - 8}
-                                        width={width - 4}
-                                        height={6}
-                                        fill="rgba(0,0,0,0.15)"
-                                        rx={3}
-                                    />
 
-                                    
-                                    {/* HOVER EFFECTS */}
-                                    {isHovered && (
-                                        <>
-                                            {/* ENHANCED RIGHT FACE */}
-                                            <path
-                                                d={`
+
+                                                {/* BOTTOM SHADOW */}
+                                                <rect
+                                                    x={x + 2}
+                                                    y={y + height - 8}
+                                                    width={width - 4}
+                                                    height={6}
+                                                    fill="rgba(0,0,0,0.15)"
+                                                    rx={3}
+                                                />
+
+
+                                                {/* HOVER EFFECTS */}
+                                                {isHovered && (
+                                                    <>
+                                                        {/* ENHANCED RIGHT FACE */}
+                                                        <path
+                                                            d={`
                                                     M ${x + width} ${y}
                                                     L ${x + width + depth} ${y - depth}
                                                     L ${x + width + depth} ${y + height - depth}
                                                     L ${x + width} ${y + height}
                                                     Z
                                                 `}
-                                                fill={item.color}
-                                                opacity={0.8}
-                                            />
+                                                            fill={item.color}
+                                                            opacity={0.8}
+                                                        />
 
-                                            {/* ENHANCED TOP FACE */}
-                                            <path
-                                                d={`
+                                                        {/* ENHANCED TOP FACE */}
+                                                        <path
+                                                            d={`
                                                     M ${x} ${y}
                                                     L ${x + depth} ${y - depth}
                                                     L ${x + width + depth} ${y - depth}
                                                     L ${x + width} ${y}
                                                     Z
                                                 `}
-                                                fill={item.color}
-                                                opacity={0.9}
-                                            />
+                                                            fill={item.color}
+                                                            opacity={0.9}
+                                                        />
 
-                                            {/* ENHANCED MAIN FACE */}
-                                            <rect
-                                                x={x}
-                                                y={y}
-                                                width={width}
-                                                height={height}
-                                                fill={item.color}
-                                                opacity={0.95}
-                                            />
+                                                        {/* ENHANCED MAIN FACE */}
+                                                        <rect
+                                                            x={x}
+                                                            y={y}
+                                                            width={width}
+                                                            height={height}
+                                                            fill={item.color}
+                                                            opacity={0.95}
+                                                        />
 
-                                            {/* ENHANCED GLOSS EFFECTS */}
-                                            <defs>
-                                                <linearGradient id={`hoverGradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                                                    <stop offset="0%" stopColor="rgba(255,255,255,0.7)" />
-                                                    <stop offset="40%" stopColor="rgba(255,255,255,0.3)" />
-                                                    <stop offset="80%" stopColor="rgba(0,0,0,0.05)" />
-                                                    <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
-                                                </linearGradient>
-                                            </defs>
-                                            <rect
-                                                x={x}
-                                                y={y}
-                                                width={width}
-                                                height={height}
-                                                fill={`url(#hoverGradient-${index})`}
-                                                opacity={0.9}
-                                            />
+                                                        {/* ENHANCED GLOSS EFFECTS */}
+                                                        <defs>
+                                                            <linearGradient id={`hoverGradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                                                <stop offset="0%" stopColor="rgba(255,255,255,0.7)" />
+                                                                <stop offset="40%" stopColor="rgba(255,255,255,0.3)" />
+                                                                <stop offset="80%" stopColor="rgba(0,0,0,0.05)" />
+                                                                <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <rect
+                                                            x={x}
+                                                            y={y}
+                                                            width={width}
+                                                            height={height}
+                                                            fill={`url(#hoverGradient-${index})`}
+                                                            opacity={0.9}
+                                                        />
 
-                                            {/* BRIGHT LEFT GLOSS */}
-                                            <rect
-                                                x={x + 2}
-                                                y={y + 6}
-                                                width={width * 0.1}
-                                                height={height - 12}
-                                                fill="rgba(255,255,255,0.8)"
-                                                rx={2}
-                                            />
+                                                        {/* BRIGHT LEFT GLOSS */}
+                                                        <rect
+                                                            x={x + 2}
+                                                            y={y + 6}
+                                                            width={width * 0.1}
+                                                            height={height - 12}
+                                                            fill="rgba(255,255,255,0.8)"
+                                                            rx={2}
+                                                        />
 
-                                            
-                                            
-                                                                                    </>
-                                    )}
 
-                                    {/* VALUE */}
-                                    <text
-                                        x={x + width / 2 + 8}
-                                        y={y - 12}
-                                        textAnchor="middle"
-                                        fill={item.color}
-                                        fontSize={14}
-                                        fontWeight={800}
-                                    >
-                                        {value}
-                                    </text>
-                                </g>
-                            );
-                        }}
-                    />
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
-    </div>
 
-    {/* ───────────────── RIGHT : EMPLOYEE CARD ───────────────── - COMMENTED OUT */}
-    {/* <div className={styles.activityCard}>
+                                                    </>
+                                                )}
+
+                                                {/* VALUE */}
+                                                <text
+                                                    x={x + width / 2 + 8}
+                                                    y={y - 12}
+                                                    textAnchor="middle"
+                                                    fill={item.color}
+                                                    fontSize={14}
+                                                    fontWeight={800}
+                                                >
+                                                    {value}
+                                                </text>
+                                            </g>
+                                        );
+                                    }}
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* ───────────────── RIGHT : EMPLOYEE CARD ───────────────── - COMMENTED OUT */}
+                {/* <div className={styles.activityCard}>
 
 
         // HEADER
@@ -943,10 +944,10 @@ export default function DashboardPage() {
         //     )}
         // </div>
     // </div> */}
-</section>
+            </section>
 
-    {/* Spacer between sections */}
-    <div style={{ marginBottom: '2rem' }} />
+            {/* Spacer between sections */}
+            <div style={{ marginBottom: '2rem' }} />
 
             {/* ── Quick Actions ── */}
             <section>
