@@ -23,7 +23,6 @@ import { Textarea } from '../../components/ui/Input/Input';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus, type ApprovalDetailModel, type TypesModel, type Approver } from '../../types/models';
 import apiClient from '../../lib/api-client';
-import { useAuthStore } from '../../stores/auth-store';
 import {
     APPROVAL_DETAIL,
     SAVE_APPROVAL,
@@ -33,12 +32,7 @@ import {
     DRIVERS_LIST,
     CLAIM_TYPES,
     TRANSPORTATION_TYPES,
-    GET_ATTENDANCE_APPROVAL_LIST,
-    SAVE_ATTENDANCE_APPROVAL,
-    GET_ATTENDANCE_REASON,
 } from '../../config/api-routes';
-import mainClient from '../../lib/main-client';
-import { useLocation } from 'react-router-dom';
 import styles from './ApprovalDetailPage.module.css';
 
 /** Convert "yyyymmdd" → "dd/mm/yyyy" for display */
@@ -107,68 +101,19 @@ const CLAIM_PROCESS_STATUS_OPTIONS = [
 ];
 
 export default function ApprovalDetailPage() {
-    const { id: syskey, type: urlType } = useParams();
+    const { id: syskey } = useParams();
     const { t } = useTranslation();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
     const [comment, setComment] = useState('');
     const [confirmedAmount, setConfirmedAmount] = useState('');
-    const [reasonType, setReasonType] = useState<number>(1);
     const [processStatus, setProcessStatus] = useState<string>('');
-    const location = useLocation();
-    const isAttendance = location.pathname.startsWith('/attendanceapproval');
-    const { userId, domain } = useAuthStore();
-
-    // ── Attendance Reasons Query ──
-    const { data: attendanceReasons = [] } = useQuery({
-        queryKey: ['attendance-reasons', userId, domain],
-        queryFn: async () => {
-            const res = await mainClient.post(GET_ATTENDANCE_REASON, {
-                userid: userId,
-                domain: domain,
-            });
-            return res.data?.data || [];
-        },
-        enabled: isAttendance && !!userId,
-    });
 
     // Data fetching setup
     const { data: detail, isLoading } = useQuery<ApprovalDetailModel>({
-        queryKey: ['approval-detail', syskey, isAttendance],
+        queryKey: ['approval-detail', syskey],
         queryFn: async () => {
-            if (isAttendance) {
-                // For attendance, we might need to fetch the list or use a specialized detail API if available.
-                // Mobile uses getapproval with syskey filter.
-                const res = await mainClient.post(GET_ATTENDANCE_APPROVAL_LIST, { syskey });
-                const list = res.data?.data || res.data?.datalist || (Array.isArray(res.data) ? res.data : []);
-                const item = list.find((it: any) => String(it.syskey) === syskey) || list[0];
-                if (!item) throw new Error('Attendance approval not found');
-
-                if (item.reasonType) setReasonType(Number(item.reasonType));
-
-                // Map AttendanceApprovalModel to a structure compatible with the detail page
-                return {
-                    statuscode: 300,
-                    datalist: {
-                        ...item,
-                        employee_id: item.employee_id,
-                        name: item.name,
-                        requesttype: urlType || item.atttype || item.type || item.requesttype,
-                        requesttypedesc: item.approvetype || (urlType === '1' || item.atttype === '1' ? 'Remote Time in' : urlType === '2' || item.atttype === '2' ? 'Backdate Time in' : (item.type === '601' ? 'Time In' : item.type === '602' ? 'Time Out' : 'Attendance')),
-                        requeststatus: item.status ?? '1',
-                        reasonType: item.reasonType || 1,
-                        attendancereason: item.attendancereason,
-                        date: item.date,
-                        starttime: item.time,
-                        remark: item.description,
-                        location: item.location,
-                        approvedby: item.approvedby,
-                        approveddate: item.approveddate,
-                        punchtype: item.type, // "Time In" or "Time Out"
-                    }
-                } as any;
-            }
             const res = await apiClient.post(APPROVAL_DETAIL, { syskey });
             const payloadData = res.data;
             if (payloadData?.statuscode === 300) return payloadData;
@@ -246,23 +191,6 @@ export default function ApprovalDetailPage() {
     const actionMutation = useMutation({
         mutationFn: async (status: 'approve' | 'reject') => {
             const statusCode = status === 'approve' ? '2' : '3';
-
-            if (isAttendance) {
-                const payload = {
-                    syskey: syskey,
-                    type: d.requesttype,
-                    status: statusCode,
-                    date: d.date,
-                    reasonType: d.reasonType || 1,
-                };
-                const res = await mainClient.post(SAVE_ATTENDANCE_APPROVAL, payload);
-                if (res.data?.status !== 201 && res.data?.statuscode !== 200 && res.data?.message_code !== "203") {
-                    throw new Error(res.data?.message || t('common.error'));
-                }
-                return res.data;
-            }
-
-
             const payload = {
                 syskey: syskey,
                 status: statusCode,
@@ -282,7 +210,7 @@ export default function ApprovalDetailPage() {
             toast.success(messages[status]);
             queryClient.invalidateQueries({ queryKey: ['approvals'], exact: false });
             queryClient.invalidateQueries({ queryKey: ['approval-detail', syskey] });
-            navigate(isAttendance ? '/attendanceapproval' : '/approvals');
+            navigate('/approvals');
         },
         onError: () => toast.error(t('common.error')),
     });
@@ -363,18 +291,6 @@ export default function ApprovalDetailPage() {
     const isRejected = String(d.requeststatus) === RequestStatus.Rejected;
     const showActionBar = isPending || isApproved || isRejected;
 
-    // Resolve Attendance Reason Label
-    const resolvedAttendanceReason = (() => {
-        if (!isAttendance || !d.attendancereason) return null;
-        const reason = attendanceReasons.find((r: any) => String(r.syskey) === String(d.attendancereason));
-        if (reason) return reason.description || reason.code;
-        // Fallbacks for common codes
-        const code = String(d.attendancereason).toUpperCase();
-        if (code === 'NON') return 'NON';
-        if (code === 'FORGOTTEN') return 'Forgotten';
-        return d.attendancereason;
-    })();
-
     // Dictionary Mappings
     const currencyName = currencyList.find(c => c.syskey === d.currencytype)?.description || d.currencytype || '';
     const carTypeName = carTypesList.find(c => c.syskey === d.cartype)?.description || d.cartype || '';
@@ -405,7 +321,7 @@ export default function ApprovalDetailPage() {
 
     return (
         <div className={styles['approval-detail']}>
-            <button className={styles['approval-detail__back']} onClick={() => navigate(isAttendance ? '/attendanceapproval' : '/approvals')}>
+            <button className={styles['approval-detail__back']} onClick={() => navigate('/approvals')}>
                 <ArrowLeft size={16} />
                 {t('common.back')}
             </button>
@@ -455,10 +371,10 @@ export default function ApprovalDetailPage() {
                         <h4 className={styles['approval-detail__section-title']}>Date & Time</h4>
                         <div className={styles['approval-detail__grid']}>
                             <Field label="Start Date" value={displayDate(d.startdate || d.date || d.selectday)} />
-                            {!isAttendance && !requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
+                            {!requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
                             <Field label="Start Time" value={String(d.starttime || d.time || '')} />
-                            {!isAttendance && !requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
-                            {!isAttendance && !requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
+                            {!requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
+                            {!requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
                         </div>
                     </div>
 
@@ -594,23 +510,6 @@ export default function ApprovalDetailPage() {
                         </div>
                     )}
 
-                    {/* Attendance Details */}
-                    {isAttendance && (
-                        <div className={styles['approval-detail__section']}>
-                            <h4 className={styles['approval-detail__section-title']}>Attendance Details</h4>
-                            <div className={styles['approval-detail__grid']}>
-                                <Field label="Attendance Type" value={d.reasonType === 1 ? 'Remote' : d.reasonType === 2 ? 'Backdate' : 'Normal'} />
-                                <Field label="Type" value={String(d.punchtype || d.type || '')} />
-                                <Field label="Location" value={String(d.location || '')} />
-                                {d.latitude && d.latitude !== '0.0' && d.longitude && d.longitude !== '0.0' && (
-                                    <Field label="Coordinates" value={`${d.latitude}, ${d.longitude}`} />
-                                )}
-                                {d.approvedby && (
-                                    <Field label="Approved By" value={`${d.approvedby}${d.approveddate ? ` (${displayDate(d.approveddate)})` : ''}`} />
-                                )}
-                            </div>
-                        </div>
-                    )}
 
                     {/* Work From Home */}
                     {(requestTypeString.includes('workfromhome') || requestTypeString.includes('wfh')) && (
@@ -664,24 +563,14 @@ export default function ApprovalDetailPage() {
                         </div>
                     )}
 
-                    {/* Remarks */}
-                    {(d.remark || d.comment || d.reason || d.description || (isAttendance && d.attendancereasondesc)) && (
+                    {/* Remarks — hidden for attendance (description used as remark in that flow) */}
+                    {(d.remark || d.comment || d.reason || d.description) && (
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>Remarks</h4>
                             <div className={styles['approval-detail__remark-container']}>
-                                {(d.remark || d.comment || d.reason || d.description) && (
-                                    <p className={styles['approval-detail__remark']} style={{ whiteSpace: 'pre-wrap' }}>
-                                        {String(d.remark || d.comment || d.reason || d.description)}
-                                    </p>
-                                )}
-                                {isAttendance && (resolvedAttendanceReason || d.attendancereasondesc || d.requestsubtypedesc || d.attendancereason) && (
-                                    <div className={styles['approval-detail__reason-type-label']} style={{ marginTop: 8 }}>
-                                        <span style={{ fontSize: '12px', color: 'var(--color-neutral-500)', fontWeight: 500 }}>Reason Type: </span>
-                                        <span style={{ fontSize: '13px', color: 'var(--color-primary-600)', fontWeight: 600 }}>
-                                            {String(resolvedAttendanceReason || d.attendancereasondesc || d.requestsubtypedesc || d.attendancereason)}
-                                        </span>
-                                    </div>
-                                )}
+                                <p className={styles['approval-detail__remark']} style={{ whiteSpace: 'pre-wrap' }}>
+                                    {String(d.remark || d.comment || d.reason || d.description)}
+                                </p>
                             </div>
                         </div>
                     )}
