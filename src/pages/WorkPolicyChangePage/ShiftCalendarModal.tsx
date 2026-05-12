@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Calendar as CalendarIcon, Save, RefreshCw } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/auth-store';
-import mainClient from '../../lib/main-client';
-import { CALENDAR_DETAIL, SHIFT_TIME, WORKPOLICY_PERSONALIZE } from '../../config/api-routes';
+import { CALENDAR_DETAIL, WORKPOLICY_PERSONALIZE } from '../../config/api-routes';
 import toast from 'react-hot-toast';
 import styles from './ShiftCalendarModal.module.css';
 import apiClient from '../../lib/api-client';
+import { useTranslation } from 'react-i18next';
 
 interface ShiftCalendarModalProps {
     isOpen: boolean;
@@ -31,6 +30,7 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function ShiftCalendarModal({ isOpen, onClose, employee }: ShiftCalendarModalProps) {
+    const { t } = useTranslation();
     const { userId, domain } = useAuthStore();
 
     const [loading, setLoading] = useState(false);
@@ -40,7 +40,7 @@ export default function ShiftCalendarModal({ isOpen, onClose, employee }: ShiftC
     const [shiftData, setShiftData] = useState<ShiftData[]>([]);
 
     // Calendar state
-    const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+    // const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
 
     useEffect(() => {
         if (!isOpen || !employee) return;
@@ -74,18 +74,18 @@ export default function ShiftCalendarModal({ isOpen, onClose, employee }: ShiftC
                     setShiftData(dataObj.calendarShiftObj);
                     if (dataObj.calendarShiftObj.length > 0) {
                         // Set current month to the start date of the calendar
-                        const firstDateStr = dataObj.calendarShiftObj[0].date;
-                        if (firstDateStr && firstDateStr.length === 8) {
-                            const y = parseInt(firstDateStr.slice(0, 4));
-                            const m = parseInt(firstDateStr.slice(4, 6)) - 1;
-                            setCurrentMonth(new Date());
-                        }
+                        // const firstDateStr = dataObj.calendarShiftObj[0].date;
+                        // if (firstDateStr && firstDateStr.length === 8) {
+                        //     const y = parseInt(firstDateStr.slice(0, 4));
+                        //     const m = parseInt(firstDateStr.slice(4, 6)) - 1;
+                        //     setCurrentMonth(new Date());
+                        // }
                     }
                 }
             }
         } catch (error) {
             console.error('Error fetching calendar details:', error);
-            toast.error('Failed to load calendar details');
+            toast.error(t('common.error'));
         } finally {
             setLoading(false);
         }
@@ -110,11 +110,11 @@ export default function ShiftCalendarModal({ isOpen, onClose, employee }: ShiftC
             };
 
             await apiClient.post(WORKPOLICY_PERSONALIZE, payload);
-            toast.success('Work policy shifts updated successfully');
+            toast.success(t('workPolicy.updateSuccess'));
             onClose();
         } catch (error) {
             console.error('Error saving shifts:', error);
-            toast.error('Failed to save shifts');
+            toast.error(t('workPolicy.saveFail'));
         } finally {
             setSaving(false);
         }
@@ -122,8 +122,8 @@ export default function ShiftCalendarModal({ isOpen, onClose, employee }: ShiftC
 
     const getShiftLabel = (syskey: string) => {
         const opt = shiftOptions.find(s => s.syskey === syskey);
-        if (!opt) return 'Off Day / None';
-        if (!opt.syskey) return opt.description || opt.name || 'Off Day / None';
+        if (!opt) return t('workPolicy.offDayNone');
+        if (!opt.syskey) return opt.description || opt.name || t('workPolicy.offDayNone');
         const baseName = opt.name || opt.description || 'Unknown Shift';
         if (opt.starttime) {
             return `${baseName} (${opt.starttime.replace(/ (AM|PM)/i, '')})`;
@@ -144,7 +144,7 @@ export default function ShiftCalendarModal({ isOpen, onClose, employee }: ShiftC
 
     // Prepare calendar grid cells for continuous period
     const renderCalendarGrid = () => {
-        if (shiftData.length === 0) return <div style={{ textAlign: 'center', padding: 20 }}>No shift data available</div>;
+        if (shiftData.length === 0) return <div style={{ textAlign: 'center', padding: 20 }}>{t('workPolicy.noShiftData')}</div>;
 
         const cells = [];
         const firstDate = parseDateStr(shiftData[0].date);
@@ -208,7 +208,7 @@ export default function ShiftCalendarModal({ isOpen, onClose, employee }: ShiftC
                             <CalendarIcon size={20} />
                         </div>
                         <div>
-                            <h2 className={styles.title}>Edit Shift Calendar</h2>
+                            <h2 className={styles.title}>{t('workPolicy.editShiftCalendar')}</h2>
                             <p className={styles.subtitle}>{employee?.name} - {employee?.description}</p>
                         </div>
                     </div>
@@ -221,7 +221,7 @@ export default function ShiftCalendarModal({ isOpen, onClose, employee }: ShiftC
                     {loading ? (
                         <div className={styles.loader}>
                             <div className={styles.spinner} />
-                            <span>Loading calendar details...</span>
+                            <span>{t('workPolicy.loading')}</span>
                         </div>
                     ) : (
                         renderCalendarGrid()
@@ -230,11 +230,11 @@ export default function ShiftCalendarModal({ isOpen, onClose, employee }: ShiftC
 
                 <div className={styles.footer}>
                     <button className={styles.cancelBtn} onClick={onClose} disabled={saving}>
-                        Cancel
+                        {t('workPolicy.cancel')}
                     </button>
                     <button className={styles.saveBtn} onClick={handleSave} disabled={saving || loading}>
                         {saving ? <RefreshCw size={16} className={styles.spinner} style={{ border: 'none' }} /> : <Save size={16} />}
-                        Save Changes
+                        {t('workPolicy.saveChanges')}
                     </button>
                 </div>
             </div>

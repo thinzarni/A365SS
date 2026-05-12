@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { RequireAuth, GuestOnly } from '../components/auth/AuthGuard';
 import AppLayout from '../components/layout/AppLayout';
@@ -150,9 +150,9 @@ export const router = createBrowserRouter([
                     { path: '/separationLeaveAuthorize', element: <SeparationLeaveAuthorizePage /> },
                     { path: '/separationAttendanceAuthorize', element: <SeparationAttendanceAuthorizePage /> },
                     { path: '/attendancelist', element: <SupervisedAttendancePage /> },
-                    { path: '/calendarshift', element: <WorkPolicyChangePage /> },
-                    { path: '/calendarshift/new', element: <WorkPolicyCreatePage /> },
-                    { path: '/calendarshift/edit/:syskey', element: <WorkPolicyCreatePage /> },
+                    { path: '/employeeworkpolicy', element: <WorkPolicyChangePage /> },
+                    { path: '/employeeworkpolicy/new', element: <WorkPolicyCreatePage /> },
+                    { path: '/employeeworkpolicy/edit/:syskey', element: <WorkPolicyCreatePage /> },
 
 
                     // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──
