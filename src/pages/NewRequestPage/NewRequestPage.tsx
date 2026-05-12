@@ -959,6 +959,7 @@ export default function NewRequestPage() {
             if (selectedMemberSyskey !== '__SELF__') {
                 endpoint = SAVE_LEAVE_HR; // "request/saverequesthr" supports ALL request types for subordinates
             }
+            payload.fromRequest = 'self_service';
 
             const res = await apiClient.post(endpoint, payload);
             // Flutter: Neocode.statusIsOk(statuscode) == (status === 300)

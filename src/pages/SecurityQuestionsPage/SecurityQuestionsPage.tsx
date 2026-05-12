@@ -45,7 +45,7 @@ export default function SecurityQuestionsPage() {
         const fetchQuestions = async () => {
             setFetching(true);
             try {
-                const res = await authClient.get('securityQues/019', {
+                const res = await authClient.get('securityQues/005', {
                     headers: { Authorization: `Bearer ${tempToken}` },
                 });
                 const data = res.data;

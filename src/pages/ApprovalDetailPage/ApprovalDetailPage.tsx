@@ -233,6 +233,8 @@ export default function ApprovalDetailPage() {
                 comment,
                 confirmed_amount: parseFloat(confirmedAmount),
                 selectedApprovers: approverList || [],
+                fromRequest: 'self_service'
+
             };
             const res = await apiClient.post(SAVE_APPROVAL, payload);
             return res.data;

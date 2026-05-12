@@ -11,6 +11,7 @@ export const GENERATE_QR = 'generate/qr';
 export const QR_SUCCESS = 'qr-success';
 export const CHECK_PASSWORD_EXPIRY = 'check/password-expried';
 export const DOMAIN_LIST = `${hxmPrefix}payroll/domainlist`;
+export const PAYROLL_PERIOD = `${hxmPrefix}payroll/payperiod`;
 export const USER_PROFILE = flavor == 'prd' ? 'api/employees/extended-profile' : 'api/employees/profile';
 export const USER_PROFILE_UPDATE = 'api/employees/profile/update';
 export const GET_FAMILY = 'api/employees/getfamily';
@@ -211,3 +212,13 @@ export const SETUP_WORKPOLICY = `${hxmPrefix}setup/getSetupList/workpolicy`;
 export const SETUP_ROSTER = `${hxmPrefix}setup/getSetupList/roster`;
 export const SETUP_CALENDAR = `${hxmPrefix}setup/getSetupList/calendar`;
 
+// ── Work Policy Import ──
+export const WORKPOLICY_DELETE = `${hxmPrefix}workpolicyconfig/delete`;
+export const WORKPOLICY_EXPORT_TEMPLATE = `${hxmPrefix}workpolicyconfig/workpolicy/exporttemplate`;
+export const WORKPOLICY_EXPORT = `${hxmPrefix}workpolicyconfig/workpolicy/export`;
+export const WORKPOLICY_PREPARE_IMPORT = `${hxmPrefix}workpolicyconfig/prepareimportdata`;
+export const WORKPOLICY_PREVIEW_DB = `${hxmPrefix}workpolicyconfig/previewdb`;
+export const WORKPOLICY_PREVIEW_IMPORT = `${hxmPrefix}workpolicyconfig/previewlist`;
+export const WORKPOLICY_CONFIRM_IMPORT = `${hxmPrefix}workpolicyconfig/import`;
+export const WORKPOLICY_CLEAR_IMPORT = `${hxmPrefix}workpolicyconfig/clear`;
+export const WORKPOLICY_CHECK_IMPORT_STATUS = `${hxmPrefix}workpolicyconfig/checkinputstatus`;
