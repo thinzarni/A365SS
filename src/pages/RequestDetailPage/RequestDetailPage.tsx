@@ -317,7 +317,7 @@ export default function RequestDetailPage() {
 
     // Resolve attendancereason syskey -> label (e.g. "NON" or "Forgotten")
     const attendanceReasonKey = String((detail as any)?.attendancereason || '');
-    const resolvedAttendanceReason = attendanceReasonsList.find(r => r.syskey === attendanceReasonKey)?.label
+    const resolvedAttendanceReason = attendanceReasonsList.find((r: any) => r.syskey === attendanceReasonKey)?.label
         || (detail as any)?.attendancereasondesc
         || (attendanceReasonKey === '1' ? 'NON' : attendanceReasonKey === '2' ? 'Forgotten' : attendanceReasonKey) || '';
 

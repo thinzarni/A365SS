@@ -32,7 +32,6 @@ import {
     ATTENDANCE_SHIFT_DATA,
     MULTI_SAVE_APPROVAL
 } from '../../config/api-routes';
-import { useLocation } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../stores/auth-store';
 import toast from 'react-hot-toast';
@@ -103,7 +102,6 @@ export default function ApprovalListPage() {
     const [fromDate, setFromDate] = useState(defaultFromDate);
     const [toDate, setToDate] = useState(defaultToDate);
     const [didInitDates, setDidInitDates] = useState(false);
-    const location = useLocation();
     const { userId, domain } = useAuthStore();
     const queryClient = useQueryClient();
 

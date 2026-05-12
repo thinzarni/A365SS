@@ -5,9 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Clock, CheckCircle, XCircle, FileText, MapPin } from 'lucide-react';
 import { Button } from '../../components/ui';
-import { Textarea } from '../../components/ui/Input/Input';
-import { StatusBadge } from '../../components/ui/Badge/Badge';
-import { RequestStatus } from '../../types/models';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
 import {
@@ -69,7 +66,6 @@ export default function AttendanceApprovalDetailPage() {
         return undefined;
     }, [queryClient, location.state, syskey]);
 
-    const [comment, setComment] = useState<string>('');
     const [selectedReason, setSelectedReason] = useState<string>(() => {
         const val = stateItem?.attendancereason ?? stateItem?.attendancereasontype;
         return val ? String(val) : '';
@@ -223,8 +219,6 @@ export default function AttendanceApprovalDetailPage() {
                 : 'Attendance');
 
     const reqName = String(item.name || item.employee_id || 'Employee');
-
-    const processStatus = PROCESS_STATUS_MAP[statusCode];
 
     const resolvedReasonLabel = (() => {
         if (!selectedReason && !item.attendancereason) return null;

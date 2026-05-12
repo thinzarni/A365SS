@@ -1,5 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -53,7 +52,6 @@ function defaultToDate(): string {
 }
 
 export default function AttendanceApprovalListPage() {
-    const { t } = useTranslation();
     const navigate = useNavigate();
     const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.All);
     const [showFilter, setShowFilter] = useState(false);

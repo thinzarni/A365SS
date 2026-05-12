@@ -353,7 +353,7 @@ export default function NewRequestPage() {
     const [files, setFiles] = useState<File[]>([]);
 
     // ── Edit Mode: Fetch existing request details ──
-    const { data: editData, isLoading: isEditLoading } = useQuery({
+    const { data: editData } = useQuery({
         queryKey: ['requestDetail', id],
         queryFn: async () => {
             if (!id) return null;
