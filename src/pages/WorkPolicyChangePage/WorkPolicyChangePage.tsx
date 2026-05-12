@@ -9,7 +9,6 @@ import styles from './WorkPolicyChangePage.module.css';
 import ShiftCalendarModal from './ShiftCalendarModal';
 import WorkPolicyImportModal from './WorkPolicyImportModal';
 import WorkPolicyExportModal from './WorkPolicyExportModal';
-import { useAuthStore } from '../../stores/auth-store';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface WorkPolicyRow {

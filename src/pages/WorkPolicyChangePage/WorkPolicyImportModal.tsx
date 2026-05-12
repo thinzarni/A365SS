@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Upload, X, Check, AlertCircle, Loader2, List } from 'lucide-react';
+import { Upload, Check, AlertCircle, Loader2, List } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../lib/api-client';
@@ -12,10 +12,8 @@ import {
     WORKPOLICY_PREVIEW_DB,
     WORKPOLICY_CHECK_IMPORT_STATUS
 } from '../../config/api-routes';
-import { useAuthStore } from '../../stores/auth-store';
 import Modal from '../../components/ui/Modal/Modal';
 import { Button } from '../../components/ui';
-import { useQuery } from '@tanstack/react-query';
 import styles from './WorkPolicyImportModal.module.css';
 
 interface ImportModalProps {
@@ -28,8 +26,6 @@ export default function WorkPolicyImportModal({ isOpen, onClose, onSuccess }: Im
     const { t } = useTranslation();
     const [step, setStep] = useState<'upload' | 'preview'>('upload');
     const [importType, setImportType] = useState<0 | 1>(0); // 0 = Roster, 1 = Calendar
-    const [selectedPeriod, setSelectedPeriod] = useState('');
-    const [isExporting, setIsExporting] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [importBatchId, setImportBatchId] = useState<string | null>(null);
@@ -215,7 +211,6 @@ export default function WorkPolicyImportModal({ isOpen, onClose, onSuccess }: Im
         setInvalidData([]);
         setHeaderColumns([]);
         setUploadedFileName(null);
-        setSelectedPeriod('');
         onClose();
     };
 
