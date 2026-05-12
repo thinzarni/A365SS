@@ -528,7 +528,7 @@ export default function RequestListPage() {
                         <p className="empty-state__desc">
                             Submit your first HR request to get started.
                         </p>
-                        <Button onClick={() => navigate('/requests/new')} style={{ marginTop: '0.5rem' }}>
+                        <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')} style={{ marginTop: '0.5rem' }}>
                             <Plus size={16} />
                             {t('request.newRequest')}
                         </Button>
@@ -555,14 +555,14 @@ export default function RequestListPage() {
                                     return (
                                         <tr key={req.syskey || i} onClick={() => {
                                             if (isAttendancePage) {
-                                                navigate(`/attendancerequest/${req.syskey}`);
+                                                navigate(`/attendancerequest/${req.syskey}`, { state: { refIndex: i + 1 } });
                                             } else {
                                                 navigate(`/requests/${req.syskey}`);
                                             }
                                         }}>
                                             <td>{req.eid || '—'}</td>
                                             <td>{req.name || '—'}</td>
-                                            <td>{req.refno || '—'}</td>
+                                            <td>{isAttendancePage ? `#${i + 1}` : (req.refno || '—')}</td>
                                             <td className={styles['requests-table__dates']}>
                                                 {displayDate(req.startdate || req.date) || '—'}
                                                 {req.enddate && req.enddate !== req.startdate ? ` → ${displayDate(req.enddate)}` : ''}

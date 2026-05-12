@@ -24,6 +24,8 @@ const NewRequestPage = Loadable(lazy(() => import('../pages/NewRequestPage/NewRe
 const RequestDetailPage = Loadable(lazy(() => import('../pages/RequestDetailPage/RequestDetailPage')));
 const ApprovalListPage = Loadable(lazy(() => import('../pages/ApprovalListPage/ApprovalListPage')));
 const ApprovalDetailPage = Loadable(lazy(() => import('../pages/ApprovalDetailPage/ApprovalDetailPage')));
+const AttendanceApprovalListPage = Loadable(lazy(() => import('../pages/AttendanceApprovalListPage/AttendanceApprovalListPage')));
+const AttendanceApprovalDetailPage = Loadable(lazy(() => import('../pages/AttendanceApprovalDetailPage/AttendanceApprovalDetailPage')));
 const ReservationsPage = Loadable(lazy(() => import('../pages/ReservationsPage/ReservationsPage')));
 const ClaimsPage = Loadable(lazy(() => import('../pages/ClaimsPage/ClaimsPage')));
 const NewClaimPage = Loadable(lazy(() => import('../pages/ClaimsPage/NewClaimPage')));
@@ -91,6 +93,7 @@ export const router = createBrowserRouter([
                     // ── Plural routes (canonical) ──
                     { path: '/requests', element: <RequestListPage /> },
                     { path: '/requests/new', element: <NewRequestPage /> },
+                    { path: '/requests/edit/:id', element: <NewRequestPage /> },
                     { path: '/requests/:id', element: <RequestDetailPage /> },
                     { path: '/approvals', element: <ApprovalListPage /> },
                     { path: '/approvals/:id', element: <ApprovalDetailPage /> },
@@ -103,6 +106,7 @@ export const router = createBrowserRouter([
                     // ── Singular aliases — API datalist returns these router values ──
                     { path: '/request', element: <RequestListPage /> },
                     { path: '/request/new', element: <NewRequestPage /> },
+                    { path: '/request/edit/:id', element: <NewRequestPage /> },
                     { path: '/request/:id', element: <RequestDetailPage /> },
                     { path: '/approval', element: <ApprovalListPage /> },
                     { path: '/approval/:id', element: <ApprovalDetailPage /> },
@@ -125,11 +129,12 @@ export const router = createBrowserRouter([
                     { path: '/offinlieu', element: <RequestListPage /> },
                     { path: '/offinlieu/new', element: <NewRequestPage /> },
                     // ── Attendance subtypes — use existing approval pages ──
-                    { path: '/attendanceapproval', element: <ApprovalListPage /> },
-                    { path: '/attendanceapproval/:id/:type', element: <ApprovalDetailPage /> },
-                    { path: '/attendancerequest', element: <RequestListPage /> },
-                    { path: '/attendancerequest/new', element: <NewAttendanceRequestPage /> },
-                    { path: '/attendancerequest/:id', element: <RequestDetailPage /> },
+                    { path: '/attendanceapproval', element: <AttendanceApprovalListPage /> },
+                    { path: '/attendanceapproval/:id/:type', element: <AttendanceApprovalDetailPage /> },
+                    {path: '/attendancerequest', element: <RequestListPage />},
+                    {path: '/attendancerequest/new', element: <NewAttendanceRequestPage />},
+                    {path: '/attendancerequest/edit/:id', element: <NewAttendanceRequestPage />},
+                    {path: '/attendancerequest/:id', element: <RequestDetailPage />},
                     { path: '/locationapproval', element: <ApprovalListPage /> },
                     // ── Other ──
                     { path: '/leave', element: <LeavePage /> },

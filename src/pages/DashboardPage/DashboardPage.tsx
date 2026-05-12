@@ -172,6 +172,7 @@ const quickActions = [
     { path: '/reservations', icon: Calendar, label: 'Reservations', bg: '#e0e7ff', color: '#4338ca' },
     { path: '/leave-summary', icon: TreePalm, label: 'Leave Summary', bg: '#ccfbf1', color: '#0d9488' },
     { path: '/team', icon: Users, label: 'Team', bg: '#fef9c3', color: '#ca8a04' },
+    { path: '/attendanceapproval', icon: UserCheck, label: 'Attendance Approval', bg: '#ecfeff', color: '#0891b2' },
 ];
 
 /* ── Component ── */
@@ -963,7 +964,8 @@ export default function DashboardPage() {
                             'Requests': 'nav.myRequests',
                             'Reservations': 'nav.reservations',
                             'Leave Summary': 'nav.leaveSummary',
-                            'Team': 'nav.team'
+                            'Team': 'nav.team',
+                            'Attendance Approval': 'nav.attendanceApproval'
                         };
                         const key = labelKeyMap[label] || label;
                         return (

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -21,7 +21,7 @@ import {
 import { Button } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
-import type { ApprovalDetailModel, TypesModel, Approver } from '../../types/models';
+import { RequestStatus, type ApprovalDetailModel, type TypesModel, type Approver } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import {
     APPROVAL_DETAIL,
@@ -32,11 +32,7 @@ import {
     DRIVERS_LIST,
     CLAIM_TYPES,
     TRANSPORTATION_TYPES,
-    GET_ATTENDANCE_APPROVAL_LIST,
-    SAVE_ATTENDANCE_APPROVAL,
 } from '../../config/api-routes';
-import mainClient from '../../lib/main-client';
-import { useLocation } from 'react-router-dom';
 import styles from './ApprovalDetailPage.module.css';
 
 /** Convert "yyyymmdd" → "dd/mm/yyyy" for display */
@@ -97,50 +93,27 @@ function Field({ label, value }: { label: string; value: string | number | undef
 
 /* ══════════════════════════════════════════════════════════════ */
 
+const CLAIM_PROCESS_STATUS_OPTIONS = [
+    { code: '', description: '-' },
+    { code: '1', description: 'Review By EB Team' },
+    { code: '2', description: 'Review By Third Party Assessor' },
+    { code: '3', description: 'Completed' },
+];
+
 export default function ApprovalDetailPage() {
-    const { id: syskey, type: urlType } = useParams();
+    const { id: syskey } = useParams();
     const { t } = useTranslation();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
     const [comment, setComment] = useState('');
     const [confirmedAmount, setConfirmedAmount] = useState('');
-    const [reasonType, setReasonType] = useState<number>(1);
-    const location = useLocation();
-    const isAttendance = location.pathname.startsWith('/attendanceapproval');
+    const [processStatus, setProcessStatus] = useState<string>('');
 
     // Data fetching setup
     const { data: detail, isLoading } = useQuery<ApprovalDetailModel>({
-        queryKey: ['approval-detail', syskey, isAttendance],
+        queryKey: ['approval-detail', syskey],
         queryFn: async () => {
-            if (isAttendance) {
-                // For attendance, we might need to fetch the list or use a specialized detail API if available.
-                // Mobile uses getapproval with syskey filter.
-                const res = await mainClient.post(GET_ATTENDANCE_APPROVAL_LIST, { syskey });
-                const list = res.data?.data || res.data?.datalist || (Array.isArray(res.data) ? res.data : []);
-                const item = list.find((it: any) => String(it.syskey) === syskey) || list[0];
-                if (!item) throw new Error('Attendance approval not found');
-
-                if (item.reasonType) setReasonType(Number(item.reasonType));
-
-                // Map AttendanceApprovalModel to a structure compatible with the detail page
-                return {
-                    statuscode: 300,
-                    datalist: {
-                        ...item,
-                        employee_id: item.employee_id,
-                        name: item.name,
-                        requesttype: urlType || item.atttype || item.type, // Prioritize type from URL
-                        requesttypedesc: (urlType === '1' || item.atttype === '1') ? 'Remote Time in' : (urlType === '2' || item.atttype === '2') ? 'Backdate Time in' : (item.type === '601' ? 'Time In' : item.type === '602' ? 'Time Out' : 'Attendance'),
-                        requeststatus: item.status ?? '1',
-                        reasonType: item.reasonType || 1,
-                        date: item.date,
-                        starttime: item.time,
-                        remark: item.description,
-                        location: item.location,
-                    }
-                } as any;
-            }
             const res = await apiClient.post(APPROVAL_DETAIL, { syskey });
             const payloadData = res.data;
             if (payloadData?.statuscode === 300) return payloadData;
@@ -203,6 +176,14 @@ export default function ApprovalDetailPage() {
         staleTime: 5 * 60 * 1000,
     });
 
+    // Sync processStatus from loaded data
+    useEffect(() => {
+        if (detail) {
+            const dl = detail.datalist as Record<string, unknown>;
+            setProcessStatus(String(dl?.processstatus || dl?.claimProcessStatus || ''));
+        }
+    }, [detail]);
+
     const data = detail?.datalist || ({} as Record<string, unknown>);
     const approverList = ((data as Record<string, unknown>)?.approverList || (data as Record<string, unknown>)?.selectedApprovers) as Array<{ syskey: string; name: string }> | undefined;
 
@@ -210,31 +191,13 @@ export default function ApprovalDetailPage() {
     const actionMutation = useMutation({
         mutationFn: async (status: 'approve' | 'reject') => {
             const statusCode = status === 'approve' ? '2' : '3';
-
-            if (isAttendance) {
-                const payload = {
-                    syskey: syskey,
-                    type: d.requesttype,
-                    status: statusCode,
-                    date: d.date,
-                    reasonType: d.reasonType || 1,
-                };
-                const res = await mainClient.post(SAVE_ATTENDANCE_APPROVAL, payload);
-                if (res.data?.status !== 201 && res.data?.statuscode !== 200 && res.data?.message_code !== "203") {
-                    throw new Error(res.data?.message || t('common.error'));
-                }
-                return res.data;
-            }
-
-
             const payload = {
                 syskey: syskey,
                 status: statusCode,
                 comment,
                 confirmed_amount: parseFloat(confirmedAmount),
                 selectedApprovers: approverList || [],
-                fromRequest: 'self_service'
-
+                processstatus: processStatus,
             };
             const res = await apiClient.post(SAVE_APPROVAL, payload);
             return res.data;
@@ -247,7 +210,26 @@ export default function ApprovalDetailPage() {
             toast.success(messages[status]);
             queryClient.invalidateQueries({ queryKey: ['approvals'], exact: false });
             queryClient.invalidateQueries({ queryKey: ['approval-detail', syskey] });
-            navigate(isAttendance ? '/attendanceapproval' : '/approvals');
+            navigate('/approvals');
+        },
+        onError: () => toast.error(t('common.error')),
+    });
+
+    const processStatusMutation = useMutation({
+        mutationFn: async (statusCode: string) => {
+            const payload = {
+                syskey,
+                status: '1',
+                processstatus: statusCode,
+                comment: '',
+                selectedApprovers: approverList || [],
+            };
+            const res = await apiClient.post(SAVE_APPROVAL, payload);
+            return res.data;
+        },
+        onSuccess: () => {
+            toast.success('Process status updated successfully');
+            queryClient.invalidateQueries({ queryKey: ['approval-detail', syskey] });
         },
         onError: () => toast.error(t('common.error')),
     });
@@ -304,9 +286,9 @@ export default function ApprovalDetailPage() {
     const { Icon, bg, color } = getTypeVisual(d);
     const reqName = String(d.name || d.eid || 'Employee');
     const requestTypeString = String(d.requesttypedesc || d.requesttype || '').toLowerCase();
-    const isPending = String(d.requeststatus) === '1';
-    const isApproved = String(d.requeststatus) === '2';
-    const isRejected = String(d.requeststatus) === '3';
+    const isPending = String(d.requeststatus) === RequestStatus.Pending;
+    const isApproved = String(d.requeststatus) === RequestStatus.Approved;
+    const isRejected = String(d.requeststatus) === RequestStatus.Rejected;
     const showActionBar = isPending || isApproved || isRejected;
 
     // Dictionary Mappings
@@ -327,11 +309,19 @@ export default function ApprovalDetailPage() {
         }
     }
 
+    const isClaim = requestTypeString.includes('claim') || requestTypeString.includes('advance');
+    const hasMaxAmount = isClaim && d.max_amount !== undefined && Number(d.max_amount) !== 0;
+
+    const isClaimWithMax = isClaim && hasMaxAmount;
+    const canApproveReject = isClaimWithMax
+        ? (!isPending || processStatus === '3' || processStatus.trim() === '')
+        : true;
+
     /* ═══════════════════════════ Render ═════════════════════════ */
 
     return (
         <div className={styles['approval-detail']}>
-            <button className={styles['approval-detail__back']} onClick={() => navigate(isAttendance ? '/attendanceapproval' : '/approvals')}>
+            <button className={styles['approval-detail__back']} onClick={() => navigate('/approvals')}>
                 <ArrowLeft size={16} />
                 {t('common.back')}
             </button>
@@ -382,7 +372,7 @@ export default function ApprovalDetailPage() {
                         <div className={styles['approval-detail__grid']}>
                             <Field label="Start Date" value={displayDate(d.startdate || d.date || d.selectday)} />
                             {!requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
-                            {!requestTypeString.includes('claim') && <Field label="Start Time" value={String(d.starttime || d.time || '')} />}
+                            <Field label="Start Time" value={String(d.starttime || d.time || '')} />
                             {!requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
                             {!requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
                         </div>
@@ -472,8 +462,7 @@ export default function ApprovalDetailPage() {
                     )}
 
                     {/* Claim / Cash Advance fields */}
-                    {(requestTypeString.includes('claim') || requestTypeString.includes('advance')) && (d.amount || d.currencytype) && (() => {
-                        const hasMaxAmount = d.max_amount && Number(d.max_amount) !== 0;
+                    {isClaim && (d.amount || d.currencytype) && (() => {
                         return (
                             <div className={styles['approval-detail__section']}>
                                 <h4 className={styles['approval-detail__section-title']}>Claim / Advance</h4>
@@ -521,44 +510,6 @@ export default function ApprovalDetailPage() {
                         </div>
                     )}
 
-                    {/* Attendance Details */}
-                    {isAttendance && (
-                        <div className={styles['approval-detail__section']}>
-                            <h4 className={styles['approval-detail__section-title']}>Attendance Details</h4>
-                            <div className={styles['approval-detail__grid']}>
-                                <Field label="Location" value={String(d.location || '')} />
-                                <div className={styles['approval-detail__field']}>
-                                    <span className={styles['approval-detail__field-label']}>Reason Type</span>
-                                    <div className={styles['approval-detail__reason-group']}>
-                                        <label className={`${styles['approval-detail__reason-option']} ${reasonType === 1 ? styles['approval-detail__reason-option--active'] : ''}`}>
-                                            <input
-                                                type="radio"
-                                                name="reasonType"
-                                                value="1"
-                                                checked={reasonType === 1}
-                                                onChange={() => setReasonType(1)}
-                                                disabled={!isPending}
-                                            />
-                                            NON
-                                        </label>
-                                        <label className={`${styles['approval-detail__reason-option']} ${reasonType === 2 ? styles['approval-detail__reason-option--active'] : ''}`}>
-                                            <input
-                                                type="radio"
-                                                name="reasonType"
-                                                value="2"
-                                                checked={reasonType === 2}
-                                                onChange={() => setReasonType(2)}
-                                                disabled={!isPending}
-                                            />
-                                            Forgotten
-                                        </label>
-                                    </div>
-                                </div>
-                                {d.latitude && d.latitude !== '0.0' && <Field label="Latitude" value={String(d.latitude)} />}
-                                {d.longitude && d.longitude !== '0.0' && <Field label="Longitude" value={String(d.longitude)} />}
-                            </div>
-                        </div>
-                    )}
 
                     {/* Work From Home */}
                     {(requestTypeString.includes('workfromhome') || requestTypeString.includes('wfh')) && (
@@ -612,13 +563,15 @@ export default function ApprovalDetailPage() {
                         </div>
                     )}
 
-                    {/* Remarks */}
+                    {/* Remarks — hidden for attendance (description used as remark in that flow) */}
                     {(d.remark || d.comment || d.reason || d.description) && (
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>Remarks</h4>
-                            <p className={styles['approval-detail__remark']} style={{ whiteSpace: 'pre-wrap' }}>
-                                {String(d.remark || d.comment || d.reason || d.description)}
-                            </p>
+                            <div className={styles['approval-detail__remark-container']}>
+                                <p className={styles['approval-detail__remark']} style={{ whiteSpace: 'pre-wrap' }}>
+                                    {String(d.remark || d.comment || d.reason || d.description)}
+                                </p>
+                            </div>
                         </div>
                     )}
 
@@ -740,33 +693,86 @@ export default function ApprovalDetailPage() {
                                 </div>
                             )}
 
-                            <Textarea
-                                id="approvalComment"
-                                label={t('approval.comment')}
-                                value={comment}
-                                onChange={(e) => setComment(e.target.value)}
-                                placeholder="Add your comment (required for rejection)…"
-                                rows={3}
-                            />
+                            {isPending && (
+                                <Textarea
+                                    id="approvalComment"
+                                    label={t('approval.comment')}
+                                    value={comment}
+                                    onChange={(e) => setComment(e.target.value)}
+                                    placeholder="Add your comment (required for rejection)…"
+                                    rows={3}
+                                />
+                            )}
+
+                            {isPending && hasMaxAmount && (
+                                <div style={{ marginTop: 12 }}>
+                                    <label
+                                        style={{
+                                            display: 'block',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: 'var(--color-neutral-700)',
+                                            marginBottom: 6,
+                                        }}
+                                    >
+                                        Process Status
+                                    </label>
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <select
+                                            value={processStatus}
+                                            onChange={(e) => setProcessStatus(e.target.value)}
+                                            disabled={!isPending || processStatusMutation.isPending}
+                                            style={{
+                                                flex: 1,
+                                                padding: '8px 12px',
+                                                fontSize: '14px',
+                                                border: '1.5px solid var(--color-neutral-200)',
+                                                borderRadius: 8,
+                                                background: !isPending ? 'var(--color-neutral-50)' : 'var(--color-neutral-0, #fff)',
+                                                color: 'var(--color-neutral-900)',
+                                                cursor: !isPending ? 'not-allowed' : 'pointer',
+                                                outline: 'none',
+                                                transition: 'border-color 0.2s',
+                                                boxSizing: 'border-box',
+                                                height: 40,
+                                            }}
+                                        >
+                                            {CLAIM_PROCESS_STATUS_OPTIONS.map(opt => (
+                                                <option key={opt.code} value={opt.code}>{opt.description}</option>
+                                            ))}
+                                        </select>
+                                        <Button
+                                            variant="primary"
+                                            onClick={() => processStatusMutation.mutate(processStatus)}
+                                            loading={processStatusMutation.isPending}
+                                            disabled={!isPending}
+                                        >
+                                            Update
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className={styles['approval-detail__action-row']}>
-                            {(isPending || isRejected) && (
+                            {canApproveReject && (isPending || isApproved) && (
                                 <Button
                                     variant="success"
                                     onClick={() => handleAction('approve')}
                                     loading={actionMutation.isPending && actionMutation.variables === 'approve'}
+                                    disabled={isApproved}
                                 >
                                     <CheckCircle size={16} />
                                     {t('request.approve')}
                                 </Button>
                             )}
 
-                            {(isPending || isApproved) && (
+                            {canApproveReject && (isPending || isRejected) && (
                                 <Button
                                     variant="danger"
                                     onClick={() => handleAction('reject')}
                                     loading={actionMutation.isPending && actionMutation.variables === 'reject'}
+                                    disabled={isRejected}
                                 >
                                     <XCircle size={16} />
                                     {t('request.reject')}

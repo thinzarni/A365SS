@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -41,6 +41,7 @@ import {
     ORG_UNIT_LIST,
     TEAM_LIST,
     SAVE_LEAVE_HR,
+    GET_REQUEST_DETAIL,
 } from '../../config/api-routes';
 import type { LeaveType, TeamMember } from '../../types/models';
 import { formatAmount, unformatAmount } from '../../lib/format-utils';
@@ -136,6 +137,9 @@ export default function NewRequestPage() {
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const queryClient = useQueryClient();
+
+    const { id } = useParams<{ id: string }>();
+    const isEdit = !!id;
 
     // Derive preset type from URL path (most reliable) then fall back to ?type= query param.
     // e.g. /transportation/new → 'transportation', /claim/new → 'claim'
@@ -347,6 +351,128 @@ export default function NewRequestPage() {
     const [accompanyPersons, setAccompanyPersons] = useState<MemberItem[]>([]);
     const [handovers, setHandovers] = useState<MemberItem[]>([]);
     const [files, setFiles] = useState<File[]>([]);
+
+    // ── Edit Mode: Fetch existing request details ──
+    const { data: editData, isLoading: isEditLoading } = useQuery({
+        queryKey: ['requestDetail', id],
+        queryFn: async () => {
+            if (!id) return null;
+            const res = await apiClient.post(GET_REQUEST_DETAIL, { syskey: id });
+            return res.data || null;
+        },
+        enabled: isEdit,
+    });
+
+    // ── Edit Mode: Populate state from editData ──
+    useEffect(() => {
+        if (!editData) return;
+
+        const d = editData.datalist || {};
+        const typeKey = DESC_TO_KEY[(d.requesttypedesc || '').trim().toLowerCase()] || 'other';
+        setSelectedType(typeKey);
+        setSubType(d.requestsubtype || '');
+        setRemark(d.remark || d.description || d.reason || '');
+
+        // Dates & Times
+        const fmtDate = (dateStr: string) => {
+            if (!dateStr) return todayStr();
+            if (dateStr.length === 8) {
+                return `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+            }
+            return dateStr;
+        };
+        const fmtTime = (timeStr: string) => {
+            if (!timeStr) return nowTimeStr();
+            // Handle "hh:mm AM/PM" -> "HH:mm"
+            if (timeStr.includes('AM') || timeStr.includes('PM')) {
+                const [time, period] = timeStr.split(' ');
+                let [h, m] = time.split(':').map(Number);
+                if (period === 'PM' && h < 12) h += 12;
+                if (period === 'AM' && h === 12) h = 0;
+                return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+            }
+            return timeStr;
+        };
+
+        setStartDate(fmtDate(d.startdate || d.date || d.selectday));
+        setEndDate(fmtDate(d.enddate || d.startdate || d.date || d.selectday));
+        setStartTime(fmtTime(d.starttime || d.time || ''));
+        setEndTime(fmtTime(d.endtime || ''));
+
+        // Specific fields
+        if (typeKey === 'leave') {
+            setLeaveType(d.requestsubtype || '');
+            setStartPeriod(d.starttime || 'AM');
+            setEndPeriod(d.endtime || 'AM');
+            setDuration(String(d.duration || '1'));
+            setLeaveReason(d.leavereason || '');
+        } else if (typeKey === 'wfh') {
+            setLocationName(d.locationname || '');
+        } else if (typeKey === 'transportation') {
+            setTransToPlace(d.toplace || '');
+            setTransTripType(d.triptype || '0');
+            setTransGroupType(d.isgroup === 0 ? 'group' : 'individual');
+            if (d.triptype === '0') {
+                setTransOneWayStart(d.pickupplace || '');
+                setTransOneWayEnd(d.dropoffplace || '');
+                setTransOneWayStartTime(fmtTime(d.gobackarrivaltime));
+                setTransOneWayEndTime(fmtTime(d.gobackreturntime));
+            } else {
+                setTransDepartureStart(d.pickupplace || '');
+                setTransDepartureEnd(d.dropoffplace || '');
+                setTransDepartureStartTime(fmtTime(d.gobackarrivaltime));
+                setTransDepartureEndTime(fmtTime(d.gobackreturntime));
+                setTransArrivalStart(d.arrivalstartlocation || '');
+                setTransArrivalEnd(d.arrivalendlocation || '');
+                setTransArrivalStartTime(fmtTime(d.arrivalstarttime));
+                setTransArrivalEndTime(fmtTime(d.arrivalendtime));
+            }
+        } else if (typeKey === 'reservation') {
+            setRoom(d.rooms || '');
+            setMaxPeople(String(d.maxpeople || ''));
+        } else if (typeKey === 'travel') {
+            setTravelPurpose(d.travelpurpose || '');
+            setEstimatedBudget(String(d.estimatedbudget || ''));
+            setDepartureDate(fmtDate(d.startdate));
+            setArrivalDate(fmtDate(d.enddate));
+            setTravelDepartureTime(fmtTime(d.starttime));
+            setTravelReturnTime(fmtTime(d.endtime));
+        } else if (typeKey === 'claim' || typeKey === 'cashadvance') {
+            setAmount(String(d.amount || ''));
+            setCurrencyType(d.currencytype || '');
+            if (typeKey === 'claim') {
+                setClaimType(d.requestsubtype || '');
+                setClaimFromPlace(d.fromPlace || '');
+                setClaimToPlace(d.toPlace || '');
+            }
+        }
+
+        // Approvers & Handovers
+        const mapToMember = (list: any[]): MemberItem[] => {
+            if (!Array.isArray(list)) return [];
+            return list.map(m => ({
+                syskey: m.syskey || '',
+                name: m.name || '',
+                employeeid: m.eid || m.employeeid || '',
+                position: m.position || '',
+                photo: m.profile || '',
+                userid: m.userid || '',
+            }));
+        };
+
+        const approverList = editData.approverList || d.selectedApprovers || d.approverList || [];
+        const handoversList = editData.selectedHandovers || d.selectedHandovers || [];
+        const accompanyList = editData.selectedAcconpanyPersons || d.selectedAcconpanyPersons || [];
+
+        setApprovers(mapToMember(approverList));
+        setHandovers(mapToMember(handoversList));
+        setAccompanyPersons(mapToMember(accompanyList));
+
+        // On-behalf-of check
+        if (d.employee_syskey && String(d.employee_syskey) !== String(user?.syskey || user?.usersyskey)) {
+            setSelectedMemberSyskey(String(d.employee_syskey));
+        }
+    }, [editData, user]);
 
     // ── API Queries for lookups ──
     const { data: requestTypes = [] } = useQuery<TypesModel[]>({
@@ -676,6 +802,7 @@ export default function NewRequestPage() {
 
             /* ── Base payload (matches Flutter RequestModel.toJson) ── */
             const payload: Record<string, unknown> = {
+                syskey: id || "0",
                 requesttype: typeSyskey,
                 requesttypedesc: typeDesc,
                 requestsubtype: subType,        // addIfEmpty — always sent
@@ -960,6 +1087,10 @@ export default function NewRequestPage() {
                 endpoint = SAVE_LEAVE_HR; // "request/saverequesthr" supports ALL request types for subordinates
             }
             payload.fromRequest = 'self_service';
+
+            if (isEdit) {
+                endpoint = `${endpoint}/${id}`;
+            }
 
             const res = await apiClient.post(endpoint, payload);
             // Flutter: Neocode.statusIsOk(statuscode) == (status === 300)

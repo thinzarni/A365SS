@@ -30,8 +30,6 @@ import mainClient from '../../lib/main-client';
 import {
     APPROVAL_LIST,
     ATTENDANCE_SHIFT_DATA,
-    GET_ATTENDANCE_APPROVAL_LIST,
-    MULTI_APPROVE_REJECT,
     MULTI_SAVE_APPROVAL
 } from '../../config/api-routes';
 import { useLocation } from 'react-router-dom';
@@ -47,11 +45,7 @@ const statusTabs = [
     { key: RequestStatus.Rejected, label: 'status.rejected' },
 ];
 
-/* ── Attendance sub-type filter ── */
-const attendanceTypes = [
-    { key: '1', label: 'Remote Time in' },
-    { key: '2', label: 'Backdate Time in' },
-];
+
 
 /* ── Date helpers ── */
 function formatYYYYMMDD(d: Date): string {
@@ -109,9 +103,7 @@ export default function ApprovalListPage() {
     const [fromDate, setFromDate] = useState(defaultFromDate);
     const [toDate, setToDate] = useState(defaultToDate);
     const [didInitDates, setDidInitDates] = useState(false);
-    const [attType, setAttType] = useState('1'); // Changed default to '0' for 'All Types'
     const location = useLocation();
-    const isAttendance = location.pathname === '/attendanceapproval';
     const { userId, domain } = useAuthStore();
     const queryClient = useQueryClient();
 
@@ -140,33 +132,9 @@ export default function ApprovalListPage() {
     }, [shiftData, shiftLoading, didInitDates]);
 
     const { data: allApprovals = [], isLoading: approvalsLoading } = useQuery<RequestModel[]>({
-        queryKey: ['approvals', fromDate, toDate, attType, activeStatus, isAttendance],
+        queryKey: ['approvals', fromDate, toDate, activeStatus],
         queryFn: async () => {
-            if (isAttendance) {
-                const res = await mainClient.post(GET_ATTENDANCE_APPROVAL_LIST, {
-                    fromdate: fromDate,
-                    todate: toDate,
-                    type: attType,
-                    status: '', // Fetch all for steady summary counts
-                });
-                const list = res.data?.data || res.data?.datalist || (Array.isArray(res.data) ? res.data : []);
-                return list.map((item: any) => ({
-                    syskey: item.syskey,
-                    eid: item.employee_id,
-                    name: item.name,
-                    refno: item.syskey,
-                    date: item.date,
-                    startdate: item.date,
-                    requesttype: attType,
-                    requesttypedesc: (attType === '1' || item.atttype === '1') ? 'Remote Time in' : (attType === '2' || item.atttype === '2') ? 'Backdate Time in' : (item.type === '601' ? 'Time In' : item.type === '602' ? 'Time Out' : 'Attendance'),
-                    requeststatus: String(item.status ?? '1'),
-                    requestsubtypedesc: item.time || '',
-                    remark: item.description,
-                    location: item.location,
-                    latitude: item.latitude,
-                    longitude: item.longitude,
-                }));
-            }
+
 
             const body: Record<string, unknown> = {
                 fromdate: fromDate,
@@ -186,10 +154,9 @@ export default function ApprovalListPage() {
 
     // For attendance, filter locally so we can have stable summary counts across status tabs
     const displayRequests = useMemo(() => {
-        if (!isAttendance) return allApprovals;
         if (activeStatus === RequestStatus.All) return allApprovals;
         return allApprovals.filter(req => String(req.requeststatus) === String(activeStatus));
-    }, [allApprovals, activeStatus, isAttendance]);
+    }, [allApprovals, activeStatus]);
 
     const filteredApprovals = displayRequests;
 
@@ -220,34 +187,18 @@ export default function ApprovalListPage() {
 
     const multiApproveMutation = useMutation({
         mutationFn: async ({ status }: { status: '2' | '3' }) => {
-            if (isAttendance) {
-                const selectedList = Array.from(selectedKeys).map(key => {
-                    const req = pendingRequests.find(r => String(r.syskey) === key);
-                    return req;
-                });
-                const payload = {
-                    userid: userId || '',
-                    domain: domain || 'dev',
-                    type: attType, // 1 for remote, 2 for backdate
-                    status,       // 2 for approved, 3 for rejected
-                    selectedRequestList: selectedList
-                };
-                const res = await mainClient.post(MULTI_APPROVE_REJECT, payload);
-                return res.data;
-            } else {
-                const selectedList = Array.from(selectedKeys).map(key => {
-                    const req = pendingRequests.find(r => String(r.syskey) === key);
-                    return req;
-                });
-                const payload = {
-                    userid: userId || '',
-                    domain: domain || 'dev',
-                    status: Number(status),
-                    selectedRequestList: selectedList
-                };
-                const res = await apiClient.post(MULTI_SAVE_APPROVAL, payload);
-                return res.data;
-            }
+            const selectedList = Array.from(selectedKeys).map(key => {
+                const req = pendingRequests.find(r => String(r.syskey) === key);
+                return req;
+            });
+            const payload = {
+                userid: userId || '',
+                domain: domain || 'dev',
+                status: Number(status),
+                selectedRequestList: selectedList
+            };
+            const res = await apiClient.post(MULTI_SAVE_APPROVAL, payload);
+            return res.data;
         },
         onSuccess: (_, variables) => {
             const action = variables.status === '2' ? 'approved' : 'rejected';
@@ -262,7 +213,7 @@ export default function ApprovalListPage() {
 
     useEffect(() => {
         setSelectedKeys(new Set());
-    }, [activeStatus, attType]);
+    }, [activeStatus]);
 
 
     /* Count by status for tab badges / summary header using all category-specific data */
@@ -357,20 +308,7 @@ export default function ApprovalListPage() {
                     ))}
                 </div>
 
-                {isAttendance && (
-                    <div className={styles['approval-page__att-types']}>
-                        {attendanceTypes.map((type) => (
-                            <button
-                                key={type.key}
-                                className={`${styles['approval-page__att-type-btn']} ${attType === type.key ? styles['approval-page__att-type-btn--active'] : ''
-                                    }`}
-                                onClick={() => setAttType(type.key)}
-                            >
-                                {type.label}
-                            </button>
-                        ))}
-                    </div>
-                )}
+
             </div>
 
             {/* ── List ── */}
@@ -416,7 +354,10 @@ export default function ApprovalListPage() {
                                 key={req.syskey || i}
                                 className={`${styles['approval-page__card']} ${selectedKeys.has(String(req.syskey)) ? styles['approval-page__card--selected'] : ''}`}
                                 style={{ animationDelay: `${i * 40}ms` }}
-                                onClick={() => navigate(isAttendance ? `/attendanceapproval/${req.syskey}/${req.requesttype}` : `/approvals/${req.syskey}`)}
+                                onClick={() => navigate(
+                                    `/approvals/${req.syskey}`,
+                                    { state: { item: req } }
+                                )}
                             >
                                 {activeStatus === RequestStatus.Pending && (
                                     <div className={styles['checkbox-wrapper']} onClick={(e) => toggleSelect(String(req.syskey), e)}>
@@ -467,11 +408,11 @@ export default function ApprovalListPage() {
 
                                 <div className={styles['approval-page__card-right']}>
                                     <StatusBadge status={req.requeststatus} />
-                                    {req.refno && (
+                                    {req.refno ? (
                                         <span className={styles['approval-page__card-ref']}>
                                             #{req.refno}
                                         </span>
-                                    )}
+                                    ) : null}
                                 </div>
                             </div>
                         );
