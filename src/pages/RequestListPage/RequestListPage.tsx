@@ -18,6 +18,8 @@ import {
     Filter,
     Loader2,
     FileSpreadsheet,
+    ArrowDown,
+    ArrowUp,
 } from 'lucide-react';
 import { Button, Input, Select } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
@@ -66,8 +68,8 @@ const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: s
 
 /* ── Attendance sub-type filter ── */
 const attendanceTypes = [
-    { key: '1', label: 'Remote Time in' },
-    { key: '2', label: 'Backdate Time in' },
+    { key: '1', label: 'Remote' },
+    { key: '2', label: 'Backdate' },
 ];
 
 /* ── Type display helpers ── */
@@ -126,6 +128,8 @@ export default function RequestListPage() {
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [showExportConfirm, setShowExportConfirm] = useState(false);
+    const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+    const [sortColumn, setSortColumn] = useState<'date' | 'time'>('date');
 
     // Fetch shift data for transition dates
     const { data: shiftData, isLoading: shiftLoading } = useQuery({
@@ -190,9 +194,11 @@ export default function RequestListPage() {
                     date: item.date,
                     startdate: item.date,
                     requesttype: item.atttype || item.type,
-                    requesttypedesc: (attType === '1' || item.atttype === '1') ? 'Remote Time in' : (attType === '2' || item.atttype === '2') ? 'Backdate Time in' : (item.type === '601' ? 'Time In' : item.type === '602' ? 'Time Out' : 'Attendance'),
-                    requeststatus: String(item.status ?? '1'),
+                    requesttypedesc: item.type === '601' ? 'Time In' : item.type === '602' ? 'Time Out' : (attType === '1' || item.atttype === '1') ? 'Remote Time in' : (attType === '2' || item.atttype === '2') ? 'Backdate Time in' : 'Attendance',
+                    requeststatus: String(item.status || '1'),
                     requestsubtypedesc: `${item.intime || ''}${item.intime && item.outtime ? ' - ' : ''}${item.outtime || ''}`,
+                    intime: item.intime,
+                    outtime: item.outtime,
                     remark: item.description,
                 }));
             }
@@ -220,9 +226,46 @@ export default function RequestListPage() {
     });
 
     const displayRequests = useMemo(() => {
-        // Since we are fetching exactly what the tab requested, just return allRequests
-        return allRequests;
-    }, [allRequests]);
+        // Sort by date and time
+        return [...allRequests].sort((a, b) => {
+            const orderFactor = sortOrder === 'desc' ? 1 : -1;
+
+            const dateA = a.date || a.startdate || (a as any).createddate || '';
+            const dateB = b.date || b.startdate || (b as any).createddate || '';
+
+            const timeA = (a as any).intime || (a as any).outtime || a.starttime || a.time || (a as any).createdtime || '';
+            const timeB = (b as any).intime || (b as any).outtime || b.starttime || b.time || (b as any).createdtime || '';
+
+            const typeA = String((a as any).requesttype || '');
+            const typeB = String((b as any).requesttype || '');
+
+            const parseTime = (t: string) => {
+                if (!t) return 0;
+                const match = t.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+                if (!match) return 0;
+                let [, h, m, ampm] = match;
+                let hours = parseInt(h, 10);
+                if (ampm) {
+                    if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
+                    if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+                }
+                return hours * 60 + parseInt(m, 10);
+            };
+
+            const tA = parseTime(timeA);
+            const tB = parseTime(timeB);
+
+            if (sortColumn === 'time') {
+                if (tA !== tB) return (tB - tA) * orderFactor;
+                if (dateA !== dateB) return dateB.localeCompare(dateA) * orderFactor;
+                return typeB.localeCompare(typeA) * orderFactor;
+            } else {
+                if (dateA !== dateB) return dateB.localeCompare(dateA) * orderFactor;
+                if (typeA !== typeB) return typeB.localeCompare(typeA) * orderFactor;
+                return (tB - tA) * orderFactor;
+            }
+        });
+    }, [allRequests, sortOrder, sortColumn]);
 
     const isLoading = shiftLoading || !didInitDates || requestsLoading;
 
@@ -241,7 +284,7 @@ export default function RequestListPage() {
                 });
                 const list = res.data?.data || res.data?.datalist || [];
                 return list.map((item: any) => ({
-                    requeststatus: String(item.status ?? '1'),
+                    requeststatus: String(item.status || '1'),
                 }));
             }
 
@@ -541,9 +584,36 @@ export default function RequestListPage() {
                                     <th>Employee ID</th>
                                     <th>Employee Name</th>
                                     <th>Ref #</th>
-                                    <th>Date</th>
+                                    <th
+                                        onClick={() => {
+                                            if (sortColumn === 'date') setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+                                            else { setSortColumn('date'); setSortOrder('desc'); }
+                                        }}
+                                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                                        title="Click to sort by Date"
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            Date
+                                            {sortColumn === 'date' ? (
+                                                sortOrder === 'desc' ? <ArrowDown size={14} color="var(--color-primary-600, #4f46e5)" /> : <ArrowUp size={14} color="var(--color-primary-600, #4f46e5)" />
+                                            ) : (
+                                                <ArrowDown size={14} color="var(--color-neutral-300, #d1d5db)" />
+                                            )}
+                                        </div>
+                                    </th>
                                     <th>Type</th>
-                                    <th>Details</th>
+                                    <th
+                                        onClick={() => {
+                                            if (sortColumn === 'time') setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+                                            else { setSortColumn('time'); setSortOrder('desc'); }
+                                        }}
+                                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                                        title="Click to sort by Time"
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            Details
+                                        </div>
+                                    </th>
                                     <th>Status</th>
                                 </tr>
                             </thead>

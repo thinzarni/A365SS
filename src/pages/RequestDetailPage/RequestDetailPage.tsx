@@ -94,9 +94,11 @@ export default function RequestDetailPage() {
                 const raw = res.data?.data || res.data?.datalist || {};
 
                 // Map attendance request specifics to generic detail model
-                const requesttypedesc = (raw.attendancerequesttype === 1) ? 'Remote Time in'
+                const requesttypedesc = (raw.type === "601") ? 'Time In' 
+                    : (raw.type === "602") ? 'Time Out' 
+                    : (raw.attendancerequesttype === 1) ? 'Remote Time in'
                     : (raw.attendancerequesttype === 2) ? 'Backdate Time in'
-                        : (raw.type === "601" ? 'Time In' : raw.type === "602" ? 'Time Out' : 'Attendance');
+                    : 'Attendance';
 
                 const mappedDetail: any = {
                     ...raw,
