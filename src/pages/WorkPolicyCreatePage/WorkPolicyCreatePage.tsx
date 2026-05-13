@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Save, X, List, Plus, Trash2, Search, Check, Pencil } from 'lucide-react';
+import { Save, X, List, Plus, Trash2, Search, Check, Pencil, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../lib/api-client';
@@ -82,6 +82,7 @@ export default function WorkPolicyCreatePage() {
     // In edit mode, start as view-only; for new, start as editing
     const [isEditing, setIsEditing] = useState(!syskey);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     // ── Setup Lists ──
     const { data: workPolicies = [] } = useQuery<SelectOption[]>({
@@ -165,6 +166,7 @@ export default function WorkPolicyCreatePage() {
                             const val = e.target.value;
                             setCalendarShiftData(prev => prev.map(s => s.date === item.date ? { ...s, shiftSyskey: val } : s));
                         }}
+                        disabled={!isEditing}
                     >
                         {shiftOptions.map(opt => (
                             <option key={opt.syskey} value={opt.syskey}>
@@ -195,6 +197,7 @@ export default function WorkPolicyCreatePage() {
 
     // ── Employee Search Modal State ──
     const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
+    const [empSearchInput, setEmpSearchInput] = useState('');
     const [empSearch, setEmpSearch] = useState('');
 
     const { data: allEmployees = [], isLoading: isLoadingEmps } = useQuery<any[]>({
@@ -395,37 +398,53 @@ export default function WorkPolicyCreatePage() {
             calendar: type === 1 ? calendarId : "",
             roster: type === 0 ? rosterId : "",
             workpolicy: workPolicyId,
-            employeeList: employeeList.map(emp => ({
+            employeeList: employeeList.map((emp, index) => ({
+                rownum: String(index + 1),
                 syskey: emp.syskey,
                 eid: emp.eid,
                 name: emp.name,
+                joineddate: emp.joineddate || "",
                 rank: emp.rank || null,
                 department: emp.department || null,
                 branch: emp.branch || null,
                 section: emp.section || null,
                 company: emp.company || null,
                 calendersyskey: emp.calendersyskey || null,
-                calenderdescription: null,
-                defaultcalendar: null
+                flag: true,
+                isexist: false
             })),
             shiftData: type === 1 ? calendarShiftData : [],
             userid: userId || '',
             domain: domain || ''
         };
 
+        setIsSaving(true);
         try {
             // For edit: PUT to WORKPOLICY_INSERT/{syskey}
             // For create: POST to WORKPOLICY_INSERT
+            let response;
             if (syskey) {
-                await apiClient.put(`${WORKPOLICY_INSERT}/${syskey}`, payload);
+                response = await apiClient.put(`${WORKPOLICY_INSERT}/${syskey}`, payload);
             } else {
-                await apiClient.post(WORKPOLICY_INSERT, payload);
+                response = await apiClient.post(WORKPOLICY_INSERT, payload);
             }
+
+            // The backend might return HTTP 200 but include an error statuscode inside the payload
+            // Note: The legacy backend returns statuscode: 300 for success.
+            const statusCode = response.data?.statuscode;
+            if (response.data && statusCode && statusCode !== 200 && statusCode !== 300) {
+                toast.error(response.data.message || t('workPolicy.saveFail'));
+                return; // Remain in form
+            }
+
             toast.success(syskey ? t('workPolicy.updateSuccess') : t('workPolicy.saveSuccess'));
             navigate('/employeeworkpolicy');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving work policy:', error);
-            toast.error(t('workPolicy.saveFail'));
+            const errorMsg = error.response?.data?.message || t('workPolicy.saveFail');
+            toast.error(errorMsg);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -438,8 +457,9 @@ export default function WorkPolicyCreatePage() {
                     {/* Save — only visible when editing */}
                     {isEditing && (
                         <>
-                            <button className={styles.saveBtn} onClick={handleSave}>
-                                <Save size={16} /> {t('workPolicy.save')}
+                            <button className={styles.saveBtn} onClick={handleSave} disabled={isSaving}>
+                                {isSaving ? <Loader2 size={16} className={styles.spinner} /> : <Save size={16} />}
+                                {isSaving ? t('workPolicy.saving', 'Saving...') : t('workPolicy.save')}
                             </button>
                             <button className={styles.cancelBtn} onClick={() => setIsEditing(false)}>
                                 <X size={16} /> {t('workPolicy.cancel')}
@@ -499,9 +519,21 @@ export default function WorkPolicyCreatePage() {
                         <div className={styles.formGroup}>
                             <label>{t('workPolicy.date')}<span>*</span></label>
                             <div className={styles.dateRange}>
-                                <input type="date" className={styles.input} value={startDate} onChange={e => setStartDate(e.target.value)} disabled={!isEditing || type === 1} />
+                                <input
+                                    type="date"
+                                    className={styles.input}
+                                    value={startDate}
+                                    onChange={e => setStartDate(e.target.value)}
+                                    disabled={!isEditing || type === 1}
+                                />
                                 <span>-</span>
-                                <input type="date" className={styles.input} value={endDate} onChange={e => setEndDate(e.target.value)} disabled={!isEditing || type === 1} />
+                                <input
+                                    type="date"
+                                    className={styles.input}
+                                    value={endDate}
+                                    onChange={e => setEndDate(e.target.value)}
+                                    disabled={!isEditing || type === 1}
+                                />
                             </div>
                         </div>
 
@@ -629,22 +661,33 @@ export default function WorkPolicyCreatePage() {
             {/* ── Employee Search Modal ── */}
             <Modal
                 open={isEmpModalOpen}
-                onClose={() => { setIsEmpModalOpen(false); setEmpSearch(''); }}
+                onClose={() => { setIsEmpModalOpen(false); setEmpSearch(''); setEmpSearchInput(''); }}
                 title={t('workPolicy.selectEmployees')}
                 footer={
-                    <Button variant="secondary" onClick={() => { setIsEmpModalOpen(false); setEmpSearch(''); }}>
+                    <Button variant="secondary" onClick={() => { setIsEmpModalOpen(false); setEmpSearch(''); setEmpSearchInput(''); }}>
                         {t('workPolicy.done', { count: employeeList.length })}
                     </Button>
                 }
             >
-                <div style={{ marginBottom: 16 }}>
-                    <Input
-                        placeholder={t('workPolicy.searchEmployee')}
-                        value={empSearch}
-                        onChange={(e) => setEmpSearch(e.target.value)}
-                        icon={<Search size={18} />}
-                        autoFocus
-                    />
+                <div style={{ marginBottom: 16, display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                        <Input
+                            placeholder={t('workPolicy.searchEmployee')}
+                            value={empSearchInput}
+                            onChange={(e) => setEmpSearchInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && setEmpSearch(empSearchInput)}
+                            icon={<Search size={18} />}
+                            autoFocus
+                        />
+                    </div>
+                    <Button onClick={() => setEmpSearch(empSearchInput)}>
+                        {t('common.search', 'Search')}
+                    </Button>
+                    {(empSearchInput || empSearch) && (
+                        <Button variant="secondary" onClick={() => { setEmpSearchInput(''); setEmpSearch(''); }}>
+                            {t('common.clear', 'Clear')}
+                        </Button>
+                    )}
                 </div>
 
                 <div style={{ maxHeight: 400, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>

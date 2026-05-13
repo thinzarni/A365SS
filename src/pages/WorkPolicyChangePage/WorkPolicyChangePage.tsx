@@ -59,6 +59,7 @@ function formatDisplayDate(yyyymmdd: string): string {
 export default function WorkPolicyChangePage() {
     const navigate = useNavigate();
     const { t } = useTranslation();
+    const [searchInputVal, setSearchInputVal] = useState('');
     const [searchval, setSearchval] = useState('');
     const [viewMode, setViewMode] = useState<'policy' | 'employee'>('policy');
     const [currentPage, setCurrentPage] = useState(1);
@@ -181,13 +182,30 @@ export default function WorkPolicyChangePage() {
 
             {/* ── Search bar ── */}
             <div className={styles.searchBar}>
-                <Search size={15} className={styles.searchIcon} />
-                <input
-                    className={styles.searchInput}
-                    placeholder={t('workPolicy.searchPlaceholder')}
-                    value={searchval}
-                    onChange={e => setSearchval(e.target.value)}
-                />
+                <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+                    <Search size={15} className={styles.searchIcon} />
+                    <input
+                        className={styles.searchInput}
+                        placeholder={t('workPolicy.searchPlaceholder')}
+                        value={searchInputVal}
+                        onChange={e => setSearchInputVal(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && setSearchval(searchInputVal)}
+                    />
+                </div>
+                <button
+                    onClick={() => setSearchval(searchInputVal)}
+                    style={{ marginLeft: '12px', padding: '10px 20px', background: 'var(--color-primary-600, #4f46e5)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                >
+                    {t('common.search', 'Search')}
+                </button>
+                {(searchInputVal || searchval) && (
+                    <button
+                        onClick={() => { setSearchInputVal(''); setSearchval(''); }}
+                        style={{ marginLeft: '8px', padding: '10px 20px', background: '#fff', color: 'var(--color-neutral-700, #374151)', border: '1px solid var(--color-neutral-300, #d1d5db)', borderRadius: '10px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                    >
+                        {t('common.clear', 'Clear')}
+                    </button>
+                )}
             </div>
 
             {/* ── View Toggle ── */}

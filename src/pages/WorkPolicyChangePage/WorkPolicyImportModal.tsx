@@ -219,6 +219,7 @@ export default function WorkPolicyImportModal({ isOpen, onClose, onSuccess }: Im
             open={isOpen}
             onClose={handleClose}
             title={t('workPolicy.import.title')}
+            extraLarge
         >
             <div className={styles.container}>
                 {step === 'upload' ? (
