@@ -392,8 +392,8 @@ export default function WorkPolicyCreatePage() {
             startdate: formatPayloadDate(startDate),
             enddate: formatPayloadDate(endDate),
             type,
-            calendar: type === 1 ? calendarId : null,
-            roster: type === 0 ? rosterId : null,
+            calendar: type === 1 ? calendarId : "",
+            roster: type === 0 ? rosterId : "",
             workpolicy: workPolicyId,
             employeeList: employeeList.map(emp => ({
                 syskey: emp.syskey,
@@ -499,9 +499,9 @@ export default function WorkPolicyCreatePage() {
                         <div className={styles.formGroup}>
                             <label>{t('workPolicy.date')}<span>*</span></label>
                             <div className={styles.dateRange}>
-                                <input type="date" className={styles.input} value={startDate} onChange={e => setStartDate(e.target.value)} disabled />
+                                <input type="date" className={styles.input} value={startDate} onChange={e => setStartDate(e.target.value)} disabled={!isEditing || type === 1} />
                                 <span>-</span>
-                                <input type="date" className={styles.input} value={endDate} onChange={e => setEndDate(e.target.value)} disabled />
+                                <input type="date" className={styles.input} value={endDate} onChange={e => setEndDate(e.target.value)} disabled={!isEditing || type === 1} />
                             </div>
                         </div>
 
