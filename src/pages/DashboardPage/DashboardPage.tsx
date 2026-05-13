@@ -344,6 +344,200 @@ export default function DashboardPage() {
         }
     };
 
+    const renderBarShape = (props: any, isHovered: boolean) => {
+        const { x, y, width, height, value, index } = props;
+        const item = employeeStatusData[index];
+        const depth = 10;
+
+        if (!value || value <= 0) {
+            return (
+                <g>
+                    {/* BASE */}
+                    <rect
+                        x={x + 4}
+                        y={y + height + 8}
+                        width={width - 6}
+                        height={4}
+                        rx={4}
+                        fill="rgba(148,163,184,0.18)"
+                    />
+                    {/* VALUE */}
+                    <text
+                        x={x + width / 2}
+                        y={y - 10}
+                        textAnchor="middle"
+                        fill="#cbd5e1"
+                        fontSize={13}
+                        fontWeight={700}
+                    >
+                        0
+                    </text>
+                </g>
+            );
+        }
+        return (
+            <g>
+                {/* SHADOW */}
+                <ellipse
+                    cx={x + width / 2 + 4}
+                    cy={y + height + 12}
+                    rx={width / 1.6}
+                    ry={6}
+                    fill={isHovered ? "rgba(15,23,42,0.18)" : "rgba(15,23,42,0.12)"}
+                />
+                {/* RIGHT FACE */}
+                <path
+                    d={`M ${x + width} ${y} L ${x + width + depth} ${y - depth} L ${x + width + depth} ${y + height - depth} L ${x + width} ${y + height} Z`}
+                    fill={item.color}
+                    opacity={0.65}
+                />
+                {/* TOP FACE */}
+                <path
+                    d={`M ${x} ${y} L ${x + depth} ${y - depth} L ${x + width + depth} ${y - depth} L ${x + width} ${y} Z`}
+                    fill={item.color}
+                    opacity={0.85}
+                />
+                {/* MAIN FACE */}
+                <rect
+                    x={x}
+                    y={y}
+                    width={width}
+                    height={height}
+                    fill={item.color}
+                    opacity={isHovered ? 0.9 : 1}
+                />
+
+                {/* MAIN GRADIENT OVERLAY */}
+                <defs>
+                    <linearGradient id={`barGradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
+                        <stop offset="30%" stopColor="rgba(255,255,255,0.15)" />
+                        <stop offset="70%" stopColor="rgba(0,0,0,0.1)" />
+                        <stop offset="100%" stopColor="rgba(0,0,0,0.2)" />
+                    </linearGradient>
+                </defs>
+                <rect
+                    x={x}
+                    y={y}
+                    width={width}
+                    height={height}
+                    fill={`url(#barGradient-${index})`}
+                    opacity={isHovered ? 0.8 : 0.6}
+                />
+
+                {/* LEFT SIDE GLOSS */}
+                <rect
+                    x={x + 2}
+                    y={y + 8}
+                    width={width * 0.08}
+                    height={height - 16}
+                    fill="rgba(255,255,255,0.6)"
+                    rx={2}
+                />
+
+                {/* BOTTOM SHADOW */}
+                <rect
+                    x={x + 2}
+                    y={y + height - 8}
+                    width={width - 4}
+                    height={6}
+                    fill="rgba(0,0,0,0.15)"
+                    rx={3}
+                />
+
+                {/* HOVER EFFECTS */}
+                {isHovered && (
+                    <>
+                        {/* ENHANCED RIGHT FACE */}
+                        <path
+                            d={`M ${x + width} ${y} L ${x + width + depth} ${y - depth} L ${x + width + depth} ${y + height - depth} L ${x + width} ${y + height} Z`}
+                            fill={item.color}
+                            opacity={1}
+                        />
+                        {/* RIGHT FACE LIGHTENER */}
+                        <path
+                            d={`M ${x + width} ${y} L ${x + width + depth} ${y - depth} L ${x + width + depth} ${y + height - depth} L ${x + width} ${y + height} Z`}
+                            fill="#ffffff"
+                            opacity={0.25}
+                        />
+
+                        {/* ENHANCED TOP FACE */}
+                        <path
+                            d={`M ${x} ${y} L ${x + depth} ${y - depth} L ${x + width + depth} ${y - depth} L ${x + width} ${y} Z`}
+                            fill={item.color}
+                            opacity={1}
+                        />
+                        {/* TOP FACE LIGHTENER */}
+                        <path
+                            d={`M ${x} ${y} L ${x + depth} ${y - depth} L ${x + width + depth} ${y - depth} L ${x + width} ${y} Z`}
+                            fill="#ffffff"
+                            opacity={0.4}
+                        />
+
+                        {/* ENHANCED MAIN FACE */}
+                        <rect
+                            x={x}
+                            y={y}
+                            width={width}
+                            height={height}
+                            fill={item.color}
+                            opacity={1}
+                        />
+                        {/* MAIN FACE LIGHTENER */}
+                        <rect
+                            x={x}
+                            y={y}
+                            width={width}
+                            height={height}
+                            fill="#ffffff"
+                            opacity={0.25}
+                        />
+
+                        {/* ENHANCED GLOSS EFFECTS */}
+                        <defs>
+                            <linearGradient id={`hoverGradient-${index}-hover`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="rgba(255,255,255,0.8)" />
+                                <stop offset="40%" stopColor="rgba(255,255,255,0.4)" />
+                                <stop offset="80%" stopColor="rgba(255,255,255,0.1)" />
+                                <stop offset="100%" stopColor="rgba(0,0,0,0.05)" />
+                            </linearGradient>
+                        </defs>
+                        <rect
+                            x={x}
+                            y={y}
+                            width={width}
+                            height={height}
+                            fill={`url(#hoverGradient-${index}-hover)`}
+                            opacity={1}
+                        />
+
+                        {/* BRIGHT LEFT GLOSS */}
+                        <rect
+                            x={x + 2}
+                            y={y + 6}
+                            width={width * 0.1}
+                            height={height - 12}
+                            fill="rgba(255,255,255,0.9)"
+                            rx={2}
+                        />
+                    </>
+                )}
+
+                {/* VALUE */}
+                <text
+                    x={x + width / 2 + 8}
+                    y={y - 12}
+                    textAnchor="middle"
+                    fill={item.color}
+                    fontSize={14}
+                    fontWeight={800}
+                >
+                    {value}
+                </text>
+            </g>
+        );
+    };
+
     // ── Loading state ──
     if (isLoading) {
         return (
@@ -645,7 +839,7 @@ export default function DashboardPage() {
                     {/* TOOLTIP */}
                     <Tooltip
                         cursor={{
-                            fill: 'rgba(99,102,241,0.04)'
+                            fill: 'transparent'
                         }}
                         contentStyle={{
                             background: '#ffffff',
@@ -664,224 +858,8 @@ export default function DashboardPage() {
                         dataKey="value"
                         maxBarSize={42}
                         animationDuration={1200}
-                        // onClick={(data: any) => {
-                        //     handleBarClick(data);
-                        // }}
-                        shape={(props: any) => {
-
-                            const {
-                                x,
-                                y,
-                                width,
-                                height,
-                                value,
-                                index
-                            } = props;
-
-                            const item = employeeStatusData[index];
-                            const depth = 10;
-                            const isHovered = props.isHovered;
-
-                            if (!value || value <= 0) {
-                                return (
-                                    <g>
-                                        {/* BASE */}
-                                        <rect
-                                            x={x + 4}
-                                            y={y + height + 8}
-                                            width={width - 6}
-                                            height={4}
-                                            rx={4}
-                                            fill="rgba(148,163,184,0.18)"
-                                        />
-
-                                        {/* VALUE */}
-                                        <text
-                                            x={x + width / 2}
-                                            y={y - 10}
-                                            textAnchor="middle"
-                                            fill="#cbd5e1"
-                                            fontSize={13}
-                                            fontWeight={700}
-                                        >
-                                            0
-                                        </text>
-                                    </g>
-                                );
-                            }
-                            return (
-                                <g>
-                                    {/* SHADOW */}
-                                    <ellipse
-                                        cx={x + width / 2 + 4}
-                                        cy={y + height + 12}
-                                        rx={width / 1.6}
-                                        ry={6}
-                                        fill={isHovered ? "rgba(15,23,42,0.18)" : "rgba(15,23,42,0.12)"}
-                                    />
-                                    {/* RIGHT FACE */}
-                                    <path
-                                        d={`
-                                            M ${x + width} ${y}
-                                            L ${x + width + depth} ${y - depth}
-                                            L ${x + width + depth} ${y + height - depth}
-                                            L ${x + width} ${y + height}
-                                            Z
-                                        `}
-                                        fill={item.color}
-                                        opacity={0.65}
-                                    />
-
-                                    {/* TOP FACE */}
-                                    <path
-                                        d={`
-                                            M ${x} ${y}
-                                            L ${x + depth} ${y - depth}
-                                            L ${x + width + depth} ${y - depth}
-                                            L ${x + width} ${y}
-                                            Z
-                                        `}
-                                        fill={item.color}
-                                        opacity={0.85}
-                                    />
-
-                                    {/* MAIN FACE */}
-                                    <rect
-                                        x={x}
-                                        y={y}
-                                        width={width}
-                                        height={height}
-                                        fill={item.color}
-                                        opacity={isHovered ? 0.9 : 1}
-                                    />
-
-                                    {/* MAIN GRADIENT OVERLAY */}
-                                    <defs>
-                                        <linearGradient id={`barGradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                                            <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
-                                            <stop offset="30%" stopColor="rgba(255,255,255,0.15)" />
-                                            <stop offset="70%" stopColor="rgba(0,0,0,0.1)" />
-                                            <stop offset="100%" stopColor="rgba(0,0,0,0.2)" />
-                                        </linearGradient>
-                                    </defs>
-                                    <rect
-                                        x={x}
-                                        y={y}
-                                        width={width}
-                                        height={height}
-                                        fill={`url(#barGradient-${index})`}
-                                        opacity={isHovered ? 0.8 : 0.6}
-                                    />
-
-                                    {/* LEFT SIDE GLOSS */}
-                                    <rect
-                                        x={x + 2}
-                                        y={y + 8}
-                                        width={width * 0.08}
-                                        height={height - 16}
-                                        fill="rgba(255,255,255,0.6)"
-                                        rx={2}
-                                    />
-
-                                    
-                                    
-                                    {/* BOTTOM SHADOW */}
-                                    <rect
-                                        x={x + 2}
-                                        y={y + height - 8}
-                                        width={width - 4}
-                                        height={6}
-                                        fill="rgba(0,0,0,0.15)"
-                                        rx={3}
-                                    />
-
-                                    
-                                    {/* HOVER EFFECTS */}
-                                    {isHovered && (
-                                        <>
-                                            {/* ENHANCED RIGHT FACE */}
-                                            <path
-                                                d={`
-                                                    M ${x + width} ${y}
-                                                    L ${x + width + depth} ${y - depth}
-                                                    L ${x + width + depth} ${y + height - depth}
-                                                    L ${x + width} ${y + height}
-                                                    Z
-                                                `}
-                                                fill={item.color}
-                                                opacity={0.8}
-                                            />
-
-                                            {/* ENHANCED TOP FACE */}
-                                            <path
-                                                d={`
-                                                    M ${x} ${y}
-                                                    L ${x + depth} ${y - depth}
-                                                    L ${x + width + depth} ${y - depth}
-                                                    L ${x + width} ${y}
-                                                    Z
-                                                `}
-                                                fill={item.color}
-                                                opacity={0.9}
-                                            />
-
-                                            {/* ENHANCED MAIN FACE */}
-                                            <rect
-                                                x={x}
-                                                y={y}
-                                                width={width}
-                                                height={height}
-                                                fill={item.color}
-                                                opacity={0.95}
-                                            />
-
-                                            {/* ENHANCED GLOSS EFFECTS */}
-                                            <defs>
-                                                <linearGradient id={`hoverGradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                                                    <stop offset="0%" stopColor="rgba(255,255,255,0.7)" />
-                                                    <stop offset="40%" stopColor="rgba(255,255,255,0.3)" />
-                                                    <stop offset="80%" stopColor="rgba(0,0,0,0.05)" />
-                                                    <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
-                                                </linearGradient>
-                                            </defs>
-                                            <rect
-                                                x={x}
-                                                y={y}
-                                                width={width}
-                                                height={height}
-                                                fill={`url(#hoverGradient-${index})`}
-                                                opacity={0.9}
-                                            />
-
-                                            {/* BRIGHT LEFT GLOSS */}
-                                            <rect
-                                                x={x + 2}
-                                                y={y + 6}
-                                                width={width * 0.1}
-                                                height={height - 12}
-                                                fill="rgba(255,255,255,0.8)"
-                                                rx={2}
-                                            />
-
-                                            
-                                            
-                                                                                    </>
-                                    )}
-
-                                    {/* VALUE */}
-                                    <text
-                                        x={x + width / 2 + 8}
-                                        y={y - 12}
-                                        textAnchor="middle"
-                                        fill={item.color}
-                                        fontSize={14}
-                                        fontWeight={800}
-                                    >
-                                        {value}
-                                    </text>
-                                </g>
-                            );
-                        }}
+                        shape={(props: any) => renderBarShape(props, false)}
+                        activeBar={(props: any) => renderBarShape(props, true)}
                     />
                 </BarChart>
             </ResponsiveContainer>
