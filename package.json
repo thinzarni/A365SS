@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite --host --mode prd",
     "dev:a365": "vite --host --mode a365",
+    "dev:mpt": "vite --host --mode mpt",
     "build": "tsc -b && vite build --mode prd",
     "build:a365": "tsc -b && vite build --mode a365",
+    "build:mpt": "tsc -b && vite build --mode mpt",
     "lint": "eslint .",
     "preview": "vite preview --host"
   },
@@ -17,6 +19,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-query": "^5.90.21",
     "axios": "^1.13.5",
+    "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "i18next": "^25.8.13",
     "i18next-browser-languagedetector": "^8.2.1",
@@ -28,12 +31,14 @@
     "react-i18next": "^16.5.4",
     "react-router-dom": "^7.13.0",
     "recharts": "^3.8.1",
+    "socket.io-client": "^4.8.3",
     "xlsx": "^0.18.5",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/crypto-js": "^4.2.2",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

@@ -9,6 +9,7 @@ import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
 // Reusing identical modal styles from AttendancePage
 import modalStyles from '../AttendancePage/AttendancePage.module.css';
+import { SUPERVISE_USER_LIST } from '../../config/api-routes';
 
 interface EditActivityModalProps {
     syskey: string | null;
@@ -62,7 +63,7 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
     const { data: supervisedUsers } = useQuery({
         queryKey: ['supervised-attendance-users'],
         queryFn: async () => {
-            const res = await mainClient.post('api/checkin/supervised-attendance/users');
+            const res = await mainClient.post(SUPERVISE_USER_LIST);
             return res.data?.data || [];
         },
         enabled: isCreate

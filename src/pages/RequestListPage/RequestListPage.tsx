@@ -16,7 +16,6 @@ import {
     Banknote,
     FileText,
     Filter,
-    Download,
     Loader2,
     FileSpreadsheet,
 } from 'lucide-react';
@@ -297,7 +296,7 @@ export default function RequestListPage() {
                 else if (st === '4') statusText = 'Draft';
 
                 const typeDesc = req.requesttypedesc || req.requesttype || '—';
-                
+
                 let details = '—';
                 const typeStr = typeDesc.toLowerCase();
                 if (typeStr.includes('early out') || typeStr.includes('late')) {
@@ -366,7 +365,7 @@ export default function RequestListPage() {
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        {isAttendancePage && (
+                        {/* {isAttendancePage && (
                             <Button
                                 onClick={() => setImportModalOpen(true)}
                                 variant="ghost"
@@ -375,10 +374,10 @@ export default function RequestListPage() {
                                 <Download size={16} />
                                 Import / Export
                             </Button>
-                        )}
+                        )} */}
                         <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')}>
                             <Plus size={16} />
-                            {isSubtypeView ? pathTypeCfg!.newLabel : t('request.newRequest')}
+                            {t('request.newRequest')}
                         </Button>
                     </div>
                 </div>
@@ -529,7 +528,7 @@ export default function RequestListPage() {
                         <p className="empty-state__desc">
                             Submit your first HR request to get started.
                         </p>
-                        <Button onClick={() => navigate('/requests/new')} style={{ marginTop: '0.5rem' }}>
+                        <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')} style={{ marginTop: '0.5rem' }}>
                             <Plus size={16} />
                             {t('request.newRequest')}
                         </Button>
@@ -556,14 +555,14 @@ export default function RequestListPage() {
                                     return (
                                         <tr key={req.syskey || i} onClick={() => {
                                             if (isAttendancePage) {
-                                                navigate(`/attendancerequest/${req.syskey}`);
+                                                navigate(`/attendancerequest/${req.syskey}`, { state: { refIndex: i + 1 } });
                                             } else {
                                                 navigate(`/requests/${req.syskey}`);
                                             }
                                         }}>
                                             <td>{req.eid || '—'}</td>
                                             <td>{req.name || '—'}</td>
-                                            <td>{req.refno || '—'}</td>
+                                            <td>{isAttendancePage ? `#${i + 1}` : (req.refno || '—')}</td>
                                             <td className={styles['requests-table__dates']}>
                                                 {displayDate(req.startdate || req.date) || '—'}
                                                 {req.enddate && req.enddate !== req.startdate ? ` → ${displayDate(req.enddate)}` : ''}

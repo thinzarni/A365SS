@@ -1,5 +1,5 @@
-import { useState } from 'react';
-
+import { useState, useEffect } from 'react';
+ 
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,8 +15,11 @@ import {
     Banknote,
     FileText,
     Trash2,
+    Star,
+    Send,
+    Edit,
 } from 'lucide-react';
-import { Button } from '../../components/ui';
+import { Button, Textarea } from '../../components/ui';
 import ApprovalWorkflowModal from '../../components/modals/ApprovalWorkflowModal';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
@@ -25,11 +28,18 @@ import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
-import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS } from '../../config/api-routes';
+import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, SAVE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS, GET_ATTENDANCE_REASON } from '../../config/api-routes';
 import { flavor } from '../../config/features';
 import type { TypesModel } from '../../types/models';
 import styles from './RequestDetailPage.module.css';
 import { displayDate } from '../../lib/date-utils';
+
+const CLAIM_PROCESS_STATUS_OPTIONS = [
+    { code: '', description: '-' },
+    { code: '1', description: 'Review By EB Team' },
+    { code: '2', description: 'Review By Third Party Assessor' },
+    { code: '3', description: 'Completed' },
+];
 
 function getTypeVisual(desc: string) {
     const d = desc?.toLowerCase() || '';
@@ -63,6 +73,8 @@ export default function RequestDetailPage() {
     const { user, domain } = useAuthStore();
 
     const isAttendance = location.pathname.includes('/attendancerequest');
+    const routerState = location.state as { item?: any; refIndex?: number } | null;
+    const listRefIndex = routerState?.refIndex;
 
     // Mirrors mobile RequestDetail.fromJson — reads datalist + 4 separate person lists
     const { data: detailData, isLoading } = useQuery<{
@@ -90,16 +102,17 @@ export default function RequestDetailPage() {
                     ...raw,
                     requesttypedesc,
                     requeststatus: String(raw.status || '1'),
-                    requestsubtypedesc: `${raw.intime || ''}${raw.intime && raw.outtime ? ' - ' : ''}${raw.outtime || ''}`,
+                    requestsubtypedesc: '', // Do not show time in header — shown in Date & Time section
                     remark: raw.description,
-                    eid: raw.employee_id,
+                    employeeid: raw.employee_id,
                     name: raw.employee_name,
                     startdate: raw.date,
                     starttime: raw.intime,
                     endtime: raw.outtime,
                     locationname: raw.location,
-                    // refno can be the syskey for now
-                    refno: raw.syskey,
+                    processstatus: raw.processstatus || raw.claimProcessStatus || '',
+                    // refno left undefined — only show if API returns a real refno
+                    refno: raw.refno || '',
                 };
 
                 const approvers: Approver[] = typeof raw.approvedby === 'string' && raw.approvedby
@@ -157,11 +170,27 @@ export default function RequestDetailPage() {
         enabled: !!isLeave && (flavor === 'prd' || flavor === 'mpt'),
     });
 
+    // Attendance Reason lookup
+    const { data: attendanceReasonsList = [] } = useQuery({
+        queryKey: ['attendanceReasons'],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_ATTENDANCE_REASON, {
+                userid: user?.userid || '',
+                domain: domain || 'dev',
+            });
+            const raw = res.data?.data || [];
+            return raw.map((r: any) => ({ syskey: String(r.syskey), label: r.description || r.code || '' }));
+        },
+        enabled: isAttendance,
+    });
+
     const detail = detailData?.detail;
     const approverList = detailData?.approverList || [];
     const memberList = detailData?.memberList || [];
     const accompanyPersonList = detailData?.accompanyPersonList || [];
 
+    const isClaim = detail?.requesttypedesc?.toLowerCase().includes('claim') || detail?.requesttypedesc?.toLowerCase().includes('advance');
+    const hasMaxAmount = detail && detail.max_amount !== undefined && Number(detail.max_amount) !== 0;
 
 
     const deleteMutation = useMutation({
@@ -177,10 +206,69 @@ export default function RequestDetailPage() {
     });
 
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+ 
+    const [rating, setRating] = useState<number>(0);
+    const [feedbacks, setFeedbacks] = useState<string>('');
+
+    useEffect(() => {
+        if (detail) {
+            setRating(Number((detail as any).claim_rating || 0));
+            setFeedbacks((detail as any).claim_feedbacks || '');
+        }
+    }, [detail]);
+
+    const feedbackMutation = useMutation({
+        mutationFn: async () => {
+            const { eid, ...rest } = detail as any;
+            const payload = {
+                ...rest,
+                employeeid: eid || (detail as any).employeeid || (detail as any).employee_id,
+                claim_rating: rating,
+                claim_feedbacks: feedbacks,
+            };
+
+            // Ensure selectedApprovers use employeeid instead of eid
+            if (payload.selectedApprovers && Array.isArray(payload.selectedApprovers)) {
+                payload.selectedApprovers = payload.selectedApprovers.map((app: any) => ({
+                    ...app,
+                    employeeid: app.employeeid || app.eid || '',
+                }));
+            }
+
+            await apiClient.post(`${SAVE_REQUEST}/${id}`, payload);
+        },
+        onSuccess: () => {
+            toast.success('Feedbacks sent successfully');
+            queryClient.invalidateQueries({ queryKey: ['requestDetail', id] });
+        },
+        onError: () => toast.error('Failed to send feedbacks'),
+    });
 
     const isPending = String(detail?.requeststatus || '') === RequestStatus.Pending;
+    const isApproved = String(detail?.requeststatus || '') === RequestStatus.Approved;
+    const isRejected = String(detail?.requeststatus || '') === RequestStatus.Rejected;
     const hasApprovedStep = detail?.approvaltype === '1' && detail.stepLevelData?.some(s => s.status === 2);
-    const canDelete = isPending && !hasApprovedStep;
+
+    // Restrictions for Claim requests
+    const typeDesc = (detail?.requesttypedesc || '').toLowerCase();
+    const isStrictClaim = typeDesc.includes('claim');
+    const hasPositiveMax = Number(detail?.max_amount || 0) > 0;
+    const pStatusVal = String((detail as any)?.processstatus || '').toLowerCase();
+    
+    // Restricted codes: '1' (EB Team), '2' (Third Party), '3' (Completed)
+    const isRestrictedProcess = isStrictClaim && hasPositiveMax && (
+        ['1', '2', '3'].includes(pStatusVal) ||
+        pStatusVal.includes('eb team') ||
+        pStatusVal.includes('third party') ||
+        pStatusVal.includes('completed')
+    );
+
+    // For attendance requests: only allow edit/delete when status is pending (1)
+    const attendanceStatus = String((detail as any)?.requeststatus || '');
+    const isAttendanceTerminal = isAttendance && (attendanceStatus === '2' || attendanceStatus === '3');
+
+    const canEdit = isPending && !isRestrictedProcess && !isAttendanceTerminal;
+    const canDelete = isPending && !hasApprovedStep && !isRestrictedProcess && !isAttendanceTerminal;
 
     if (isLoading) {
         return (
@@ -224,6 +312,15 @@ export default function RequestDetailPage() {
         ? leaveReasonsList.find(r => r.syskey === (detail as any).leavereason)?.description || (detail as any).leavereason
         : '';
 
+    const rawProcessStatus = (detail as any).processstatus || (detail as any).claimProcessStatus || '';
+    const processStatusDesc = CLAIM_PROCESS_STATUS_OPTIONS.find(opt => opt.code === String(rawProcessStatus))?.description || rawProcessStatus;
+
+    // Resolve attendancereason syskey -> label (e.g. "NON" or "Forgotten")
+    const attendanceReasonKey = String((detail as any)?.attendancereason || '');
+    const resolvedAttendanceReason = attendanceReasonsList.find((r: any) => r.syskey === attendanceReasonKey)?.label
+        || (detail as any)?.attendancereasondesc
+        || (attendanceReasonKey === '1' ? 'NON' : attendanceReasonKey === '2' ? 'Forgotten' : attendanceReasonKey) || '';
+
     return (
         <div className={styles['request-detail']}>
             <button className={styles['request-detail__back']} onClick={() => isAttendance ? navigate('/attendancerequest') : navigate('/requests')}>
@@ -240,10 +337,12 @@ export default function RequestDetailPage() {
                         </div>
                         <div className={styles['request-detail__title-group']}>
                             <h2>{detail.requesttypedesc}{detail.requestsubtypedesc ? ` — ${detail.requestsubtypedesc}` : ''}</h2>
-                            <span>
-                                {detail.refno ? `Ref #${detail.refno}` : ''}
-                                {detail.eid ? ` · ${detail.eid}` : ''}
-                            </span>
+                            {(detail.refno || listRefIndex || detail.eid) && (
+                                <span>
+                                    {detail.refno ? `Ref #${detail.refno}` : (listRefIndex ? `#${listRefIndex}` : '')}
+                                    {detail.eid ? ` · ${detail.eid}` : ''}
+                                </span>
+                            )}
                         </div>
                     </div>
                     <StatusBadge status={String(detail.requeststatus)} />
@@ -354,7 +453,6 @@ export default function RequestDetailPage() {
 
                     {/* Financial */}
                     {((detail.amount || 0) > 0 || (detail.estimatedbudget || 0) > 0 || detail.remaining_balance !== undefined || detail.max_amount !== undefined) && (() => {
-                        const hasMaxAmount = detail.max_amount !== undefined && Number(detail.max_amount) !== 0;
                         return (
                             <div className={styles['request-detail__section']}>
                                 <h4 className={styles['request-detail__section-title']}>Financial</h4>
@@ -374,6 +472,9 @@ export default function RequestDetailPage() {
                             <h4 className={styles['request-detail__section-title']}>Location</h4>
                             <div className={styles['request-detail__grid']}>
                                 <Field label="Location" value={detail.locationname} />
+                                {isAttendance && (detail as any).latitude && (detail as any).latitude !== '0.0' && (detail as any).longitude && (detail as any).longitude !== '0.0' && (
+                                    <Field label="Coordinates" value={`${(detail as any).latitude}, ${(detail as any).longitude}`} />
+                                )}
                             </div>
                         </div>
                     )}
@@ -398,26 +499,96 @@ export default function RequestDetailPage() {
                     )}
 
                     {/* Requester Remark */}
-                    {(detail.remark || (detail as any).reason || (detail as any).description) && (
+                    {(detail.remark || (detail as any).reason || (detail as any).description || (isAttendance && resolvedAttendanceReason)) && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Remarks</h4>
-                            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-neutral-700)', lineHeight: 'var(--leading-relaxed)', whiteSpace: 'pre-wrap' }}>
-                                {detail.remark || (detail as any).reason || (detail as any).description}
-                            </p>
+                            <div className={styles['request-detail__remark-container']}>
+                                {(detail.remark || (detail as any).reason || (detail as any).description) && (
+                                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-neutral-700)', lineHeight: 'var(--leading-relaxed)', whiteSpace: 'pre-wrap' }}>
+                                        {detail.remark || (detail as any).reason || (detail as any).description}
+                                    </p>
+                                )}
+                                {isAttendance && resolvedAttendanceReason && (
+                                    <div className={styles['request-detail__reason-type-label']} style={{ marginTop: 8 }}>
+                                        <span style={{ fontSize: '12px', color: 'var(--color-neutral-500)', fontWeight: 500 }}>Reason Type: </span>
+                                        <span style={{ fontSize: '13px', color: 'var(--color-primary-600)', fontWeight: 600 }}>
+                                            {resolvedAttendanceReason}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
-                    {/* Confirmed Amount — only shown when max_amount is set */}
-                    {(String(detail.requeststatus) === RequestStatus.Approved || String(detail.requeststatus) === RequestStatus.Rejected)
-                        && detail.confirmed_amount !== undefined
-                        && detail.max_amount !== undefined && Number(detail.max_amount) !== 0 && (
-                            <div className={styles['request-detail__section']}>
-                                <h4 className={styles['request-detail__section-title']}>Confirmed Amount</h4>
-                                <div className={styles['request-detail__grid']}>
-                                    <Field label="Amount" value={Number(detail.confirmed_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />
+                    {/* Approval Details */}
+                    {((hasMaxAmount && (isPending || isApproved || isRejected)) || 
+                      processStatusDesc === 'Review By EB Team' || 
+                      ((isApproved || isRejected) && detail.comment)) && (
+                        <div className={styles['request-detail__section']}>
+                            <h4 className={styles['request-detail__section-title']}>Approval Details</h4>
+                            <div className={styles['request-detail__grid']}>
+                                {/* 1. Confirmed Amount */}
+                                {(isApproved || isRejected) && detail.confirmed_amount !== undefined && hasMaxAmount && (
+                                    <Field label="Confirmed Amount" value={Number(detail.confirmed_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />
+                                )}
+
+                                {/* 2. Approver Comment */}
+                                {(isApproved || isRejected) && detail.comment && (
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <Field label="Approver Comment" value={detail.comment} />
+                                    </div>
+                                )}
+
+                                {/* 3. Process Status */}
+                                {((hasMaxAmount && (isPending || isApproved || isRejected)) || processStatusDesc === 'Review By EB Team') && (
+                                    <Field label="Process Status" value={processStatusDesc || '-'} />
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Feedback Section */}
+                    {isClaim && hasMaxAmount && (isApproved || isRejected) && (
+                        <div className={styles['request-detail__section']}>
+                            <h4 className={styles['request-detail__section-title']}>Claim Feedback</h4>
+                            <div className={styles['request-detail__feedback-box']}>
+                                <div className={styles['request-detail__rating']}>
+                                    <span className={styles['request-detail__field-label']}>Rating</span>
+                                    <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                                        {[1, 2, 3, 4, 5].map((s) => (
+                                            <Star
+                                                key={s}
+                                                size={24}
+                                                fill={s <= rating ? '#eab308' : 'transparent'}
+                                                color={s <= rating ? '#eab308' : '#cbd5e1'}
+                                                style={{ cursor: 'pointer' }}
+                                                onClick={() => setRating(s)}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: 16 }}>
+                                    <Textarea
+                                        label="Your Feedbacks"
+                                        value={feedbacks}
+                                        onChange={(e) => setFeedbacks(e.target.value)}
+                                        placeholder="Enter your feedback here..."
+                                        rows={3}
+                                    />
+                                </div>
+                                <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                                    <Button
+                                        size="sm"
+                                        loading={feedbackMutation.isPending}
+                                        onClick={() => feedbackMutation.mutate()}
+                                    >
+                                        <Send size={14} style={{ marginRight: 8 }} />
+                                        Send Feedbacks
+                                    </Button>
                                 </div>
                             </div>
-                        )}
+                        </div>
+                    )}
 
                     {/* Approved By */}
                     {detail.approvaltype !== '1' && approverList.length > 0 && (
@@ -469,18 +640,6 @@ export default function RequestDetailPage() {
                         </div>
                     )}
 
-                    {/* Approver Comment — only shown when max_amount is set */}
-                    {(String(detail.requeststatus) === RequestStatus.Approved || String(detail.requeststatus) === RequestStatus.Rejected)
-                        && detail.comment
-                        && detail.max_amount !== undefined && Number(detail.max_amount) !== 0 && (
-                            <div className={styles['request-detail__section']}>
-                                <h4 className={styles['request-detail__section-title']}>Approver Comment</h4>
-                                <div className={styles['request-detail__grid']}>
-                                    <Field label="Comment" value={detail.comment} />
-                                </div>
-                            </div>
-                        )}
-
                     {/* Accompanying Persons */}
                     {accompanyPersonList.length > 0 && (
                         <div className={styles['request-detail__section']}>
@@ -507,17 +666,29 @@ export default function RequestDetailPage() {
                 </div>
 
                 {/* ── Actions ── */}
-                {canDelete && (
+                {(canDelete || canEdit) && (
                     <div className={styles['request-detail__actions']}>
-                        <Button
-                            variant="danger"
-                            size="sm"
-                            loading={deleteMutation.isPending}
-                            onClick={() => setShowDeleteModal(true)}
-                        >
-                            <Trash2 size={14} />
-                            Delete
-                        </Button>
+                        {canEdit && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => navigate(isAttendance ? `/attendancerequest/edit/${id}` : `/requests/edit/${id}`, { state: { item: detailData?.detail, refIndex: listRefIndex } })}
+                            >
+                                <Edit size={14} />
+                                Edit
+                            </Button>
+                        )}
+                        {canDelete && (
+                            <Button
+                                variant="danger"
+                                size="sm"
+                                loading={deleteMutation.isPending}
+                                onClick={() => setShowDeleteModal(true)}
+                            >
+                                <Trash2 size={14} />
+                                Delete
+                            </Button>
+                        )}
                     </div>
                 )}
             </div>

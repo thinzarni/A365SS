@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 import {
     Clock,
     Activity,
@@ -18,7 +20,10 @@ import {
     MapPin,
     ArrowUpDown,
     ArrowUp,
-    ArrowDown
+    ArrowDown,
+    Download,
+    Plus,
+    Upload
 } from 'lucide-react';
 import { Input, Select } from '../../components/ui';
 import apiClient from '../../lib/api-client';
@@ -26,6 +31,7 @@ import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
 import styles from './SupervisedAttendancePage.module.css';
 import EditActivityModal from './EditActivityModal';
+import SupervisedAttendanceImportModal from './SupervisedAttendanceImportModal';
 
 /* ── Types ── */
 interface SupervisedRecord {
@@ -69,6 +75,7 @@ export default function SupervisedAttendancePage() {
     const pageSize = 20;
 
     const [isCreateMode, setIsCreateMode] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     // API-bound states that actually trigger the fetch
     const [apiFromDate, setApiFromDate] = useState<string>(format(new Date(), 'yyyyMMdd'));
@@ -175,6 +182,40 @@ export default function SupervisedAttendancePage() {
 
     const hasNextPage = records.length === pageSize;
 
+    const handleExport = () => {
+        if (!records || records.length === 0) {
+            toast.error(t('supervisedAttendance.noRecordsToExport', 'No records to export'));
+            return;
+        }
+
+        try {
+            const exportData = records.map(rec => {
+                const meta = getAttTypeLabel(rec.type);
+                return {
+                    'Employee ID': rec.employee_id,
+                    'Employee Name': rec.employee_name,
+                    'Date': rec.date ? format(new Date(rec.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')), 'MMM dd, yyyy') : '-',
+                    'Time': rec.time || '--:--',
+                    'Type': meta.label,
+                    'Backdated': rec.backdateFlag ? 'Yes' : 'No',
+                    'Location': rec.location || '',
+                    'Description': rec.description || '',
+                    'User Type': rec.relationship || 'Self',
+                    'Status': rec.pair_status === 1 ? 'Process' : 'New'
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance');
+            XLSX.writeFile(workbook, `Supervised_Attendance_${apiFromDate}_${apiToDate}.xlsx`);
+            toast.success(t('supervisedAttendance.exportSuccess', 'Export completed successfully'));
+        } catch (error) {
+            console.error('Export failed:', error);
+            toast.error(t('supervisedAttendance.exportFailed', 'Failed to export data'));
+        }
+    };
+
     return (
         <div className={styles.page}>
             <header className={styles.header}>
@@ -191,26 +232,69 @@ export default function SupervisedAttendancePage() {
                     </div>
                 }
 
-                <button
-                    onClick={() => setIsCreateMode(true)}
-                    className={styles.submitBtn}
-                    style={{
-                        padding: '0.5rem 1rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        borderRadius: '6px',
-                        background: 'var(--color-primary-600)',
-                        color: '#fff',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontWeight: 500,
-                        fontSize: '14px'
-                    }}
-                >
-                    <Clock size={16} />
-                    {t('supervisedAttendance.create', 'Create Attendance')}
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                        onClick={handleExport}
+                        className={styles.submitBtn}
+                        title={t('supervisedAttendance.export', 'Export to Excel')}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            borderRadius: '6px',
+                            background: 'var(--color-neutral-100)',
+                            color: 'var(--color-neutral-700)',
+                            border: '1px solid var(--color-neutral-200)',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            fontSize: '14px'
+                        }}
+                    >
+                        <Download size={16} />
+                        {t('supervisedAttendance.export', 'Export')}
+                    </button>
+                    <button
+                        onClick={() => setIsImportModalOpen(true)}
+                        className={styles.submitBtn}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            borderRadius: '6px',
+                            background: 'var(--color-neutral-100)',
+                            color: 'var(--color-neutral-700)',
+                            border: '1px solid var(--color-neutral-200)',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            fontSize: '14px'
+                        }}
+                    >
+                        <Upload size={16} />
+                        {t('supervisedAttendance.import', 'Import')}
+                    </button>
+                    <button
+                        onClick={() => setIsCreateMode(true)}
+                        className={styles.submitBtn}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            borderRadius: '6px',
+                            background: 'var(--color-primary-600)',
+                            color: '#fff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            fontSize: '14px'
+                        }}
+                    >
+                        <Plus size={16} />
+                        {t('supervisedAttendance.new', 'New')}
+                    </button>
+                </div>
             </header>
 
             <div style={{ padding: '0.75rem 1rem', background: 'var(--color-neutral-0)', borderBottom: '1px solid var(--color-neutral-100)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end', animation: 'fadeIn 0.2s ease-in-out' }}>
@@ -456,6 +540,14 @@ export default function SupervisedAttendancePage() {
                     }}
                 />
             )}
+
+            <SupervisedAttendanceImportModal
+                open={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ['supervised-attendance'] });
+                }}
+            />
         </div>
     );
 }
