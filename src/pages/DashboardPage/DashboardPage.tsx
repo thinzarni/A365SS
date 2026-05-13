@@ -4,7 +4,7 @@
              attendance records, quick-action tiles
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -24,7 +24,6 @@ import {
     Calendar,
     Users,
     MapPin,
-    X,
     ChevronRight,
     ImageIcon,
     BarChart3,
@@ -110,7 +109,7 @@ function getAttTypeName(type: number): { label: string; color: string; dot: stri
         case 601: return { label: 'TIME IN', color: '#22c55e', dot: 'green' };
         case 602: return { label: 'TIME OUT', color: '#ef4444', dot: 'red' };
         case 603: return { label: 'ACTIVITY', color: '#8b5cf6', dot: 'purple' };
-        case 604: return { label: 'CHECK IN', color: '#3b82f6', dot: 'blue' };
+        case 604: return { label: 'CHECK IN', color: 'var(--color-primary-500)', dot: 'blue' };
         default: return { label: 'RECORD', color: '#64748b', dot: 'blue' };
     }
 }
@@ -167,12 +166,13 @@ function parseTimeStr(t: string): Date | null {
 const quickActions = [
     { path: '/leave', icon: TreePalm, label: 'Leave', bg: '#fef3c7', color: '#d97706' },
     { path: '/claims', icon: Receipt, label: 'Claims', bg: '#fce7f3', color: '#db2777' },
-    { path: '/holidays', icon: CalendarDays, label: 'Holidays', bg: '#dbeafe', color: '#2563eb' },
+    { path: '/holidays', icon: CalendarDays, label: 'Holidays', bg: 'var(--color-primary-100)', color: 'var(--color-primary-600)' },
     { path: '/approvals', icon: CheckSquare, label: 'Approvals', bg: '#dcfce7', color: '#16a34a' },
     { path: '/requests', icon: ClipboardList, label: 'Requests', bg: '#f3e8ff', color: '#7c3aed' },
     { path: '/reservations', icon: Calendar, label: 'Reservations', bg: '#e0e7ff', color: '#4338ca' },
     { path: '/leave-summary', icon: TreePalm, label: 'Leave Summary', bg: '#ccfbf1', color: '#0d9488' },
     { path: '/team', icon: Users, label: 'Team', bg: '#fef9c3', color: '#ca8a04' },
+    { path: '/attendanceapproval', icon: UserCheck, label: 'Attendance Approval', bg: '#ecfeff', color: '#0891b2' },
 ];
 
 /* ── Component ── */
@@ -303,46 +303,46 @@ export default function DashboardPage() {
     const isLoading = summaryLoading || homeLoading || adminLoading || employeesLoading;
 
     // Handle bar click to fetch specific employee data
-    const handleBarClick = async (data: any) => {
-        try {
-            // Convert status names to match API expectations (matching admin attendance page)
-            let statusValue = '0'; // Default to all
-            const statusName = data.name.toLowerCase();
+    // const handleBarClick = async (data: any) => {
+    //     try {
+    //         // Convert status names to match API expectations (matching admin attendance page)
+    //         let statusValue = '0'; // Default to all
+    //         const statusName = data.name.toLowerCase();
             
-            if (statusName.includes('present')) {
-                statusValue = '1'; // Present
-            } else if (statusName.includes('leave')) {
-                statusValue = '2'; // Leave
-            } else if (statusName.includes('absent')) {
-                statusValue = '4'; // Absent (Note: '4' not '3')
-            } else if (statusName.includes('remote') || statusName.includes('work from home')) {
-                statusValue = '4'; // Remote work uses same as absent
-            } else if (statusName.includes('late')) {
-                statusValue = '5'; // Late In
-            } else if (statusName.includes('early')) {
-                statusValue = '6'; // Early Out
-            }
+    //         if (statusName.includes('present')) {
+    //             statusValue = '1'; // Present
+    //         } else if (statusName.includes('leave')) {
+    //             statusValue = '2'; // Leave
+    //         } else if (statusName.includes('absent')) {
+    //             statusValue = '4'; // Absent (Note: '4' not '3')
+    //         } else if (statusName.includes('remote') || statusName.includes('work from home')) {
+    //             statusValue = '4'; // Remote work uses same as absent
+    //         } else if (statusName.includes('late')) {
+    //             statusValue = '5'; // Late In
+    //         } else if (statusName.includes('early')) {
+    //             statusValue = '6'; // Early Out
+    //         }
             
-            setSelectedStatus(data.name);
+    //         setSelectedStatus(data.name);
             
-            // Call API to get filtered employees using the same endpoint as admin attendance
-            const res = await mainClient.post(ADMIN_ATTENDANCE_LIST, {
-                date: todayStr,
-                status: statusValue,
-                searchVal: '',
-                page: 1,
-                limit: 50,
-                type: 0,
-                userid: userId,
-                domain: domain
-            });
+    //         // Call API to get filtered employees using the same endpoint as admin attendance
+    //         const res = await mainClient.post(ADMIN_ATTENDANCE_LIST, {
+    //             date: todayStr,
+    //             status: statusValue,
+    //             searchVal: '',
+    //             page: 1,
+    //             limit: 50,
+    //             type: 0,
+    //             userid: userId,
+    //             domain: domain
+    //         });
             
-            setFilteredEmployees(res.data?.data || []);
-        } catch (error) {
-            console.error('Error fetching filtered employees:', error);
-            setFilteredEmployees([]);
-        }
-    };
+    //         setFilteredEmployees(res.data?.data || []);
+    //     } catch (error) {
+    //         console.error('Error fetching filtered employees:', error);
+    //         setFilteredEmployees([]);
+    //     }
+    // };
 
     const renderBarShape = (props: any, isHovered: boolean) => {
         const { x, y, width, height, value, index } = props;
@@ -629,7 +629,7 @@ export default function DashboardPage() {
                 <div className={styles.statsRow}>
                     <div
                         className={styles.statCard}
-                        style={{ '--stat-color': '#2563eb', '--stat-bg': '#eff6ff' } as React.CSSProperties}
+                        style={{ '--stat-color': 'var(--color-primary-600)', '--stat-bg': 'var(--color-primary-50)' } as React.CSSProperties}
                     >
                         <div className={styles.statIcon}><UserCheck size={20} /></div>
                         <div className={styles.statValue}>
@@ -685,7 +685,7 @@ export default function DashboardPage() {
             <section>
                 <div className={styles.sectionHeader}>
                     <h2 className={styles.sectionTitle}>
-                        <Activity size={20} style={{ color: '#2563eb' }} />
+                        <Activity size={20} style={{ color: 'var(--color-primary-600)' }} />
                         {t('dashboard.todayRecord')}
                         {records.length > 0 && (
                             <span className={styles.sectionBadge}>{records.length}</span>
@@ -865,6 +865,61 @@ export default function DashboardPage() {
             </ResponsiveContainer>
         </div>
     </div>
+
+    {/* ───────────────── RIGHT : EMPLOYEE CARD ───────────────── - COMMENTED OUT */}
+    {/* <div className={styles.activityCard}>
+
+
+        // HEADER
+        <div className={styles.cardHeader}>
+            <div>
+                <h2 className={styles.cardTitle}>
+                    Employee Attendance {selectedStatus && `- ${selectedStatus}`}
+                </h2>
+
+
+                <p className={styles.cardSubtitle}>
+                    {selectedStatus ? `${selectedStatus} employees` : 'Latest attendance records'}
+                </p>
+            </div>
+
+            {selectedStatus && (
+                <button 
+                    className={styles.resetBtn}
+                    onClick={() => {
+                        setSelectedStatus(null);
+                        setFilteredEmployees([]);
+                    }}
+                >
+                    <X size={16} />
+                    All
+                </button>
+            )}
+        </div>
+
+        // EMPLOYEE LIST - COMMENTED OUT
+        // <div className={styles.employeeList}>
+        //     {selectedStatus ? (
+        //         // SHOW FILTERED EMPLOYEES WHEN BAR IS CLICKED
+        //         filteredEmployees.map((employee: any, index: number) => (
+        //             <UserCard
+        //                 key={index}
+        //                 user={employee}
+        //                 onCardTap={() => {}}
+        //             />
+        //         ))
+        //     ) : (
+        //         // SHOW DEFAULT EMPLOYEES
+        //         employees?.slice(0, 6).map((employee: any, index: number) => (
+        //             <UserCard
+        //                 key={index}
+        //                 user={employee}
+        //                 onCardTap={() => {}}
+        //             />
+        //         ))
+        //     )}
+        // </div>
+    // </div> */}
 </section>
 
     {/* Spacer between sections */}
@@ -885,7 +940,8 @@ export default function DashboardPage() {
                             'Requests': 'nav.myRequests',
                             'Reservations': 'nav.reservations',
                             'Leave Summary': 'nav.leaveSummary',
-                            'Team': 'nav.team'
+                            'Team': 'nav.team',
+                            'Attendance Approval': 'nav.attendanceApproval'
                         };
                         const key = labelKeyMap[label] || label;
                         return (
