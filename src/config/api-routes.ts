@@ -11,6 +11,7 @@ export const GENERATE_QR = 'generate/qr';
 export const QR_SUCCESS = 'qr-success';
 export const CHECK_PASSWORD_EXPIRY = 'check/password-expried';
 export const DOMAIN_LIST = `${hxmPrefix}payroll/domainlist`;
+export const PAYROLL_PERIOD = `${hxmPrefix}payroll/payperiod`;
 export const USER_PROFILE = flavor == 'prd' ? 'api/employees/extended-profile' : 'api/employees/profile';
 export const USER_PROFILE_UPDATE = 'api/employees/profile/update';
 export const GET_FAMILY = 'api/employees/getfamily';
@@ -60,6 +61,7 @@ export const ATTENDANCE_SHIFT_DATA = 'api/checkin/shift';
 export const SAVE_ATTENDANCE_REQ = 'api/attendancerequest/saveattendancerequest';
 export const GET_ATTENDANCE_REQ_LIST = 'api/attendancerequest/getAttendanceRequestList';
 export const GET_ATTENDANCE_REQ_DETAIL = 'api/attendancerequest/getAttendanceRequestDetail';
+export const GET_ATTENDANCE_REASON = 'api/attendancerequest/getAttendanceReason';
 export const EXPORT_ATTENDANCE_REQ_TEMPLATE = 'api/attendancerequest/exportattendancerequesttemplate';
 export const PREPARE_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/prepareimportattendancerequest';
 export const PREVIEW_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/previewlistattendancerequest';
@@ -68,6 +70,13 @@ export const CLEAR_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/clearattendanc
 export const GET_ATTENDANCE_APPROVAL_LIST = 'api/checkin/getapproval';
 export const SAVE_ATTENDANCE_APPROVAL = 'api/checkin/saveapproval';
 export const MULTI_APPROVE_REJECT = 'api/checkin/multiapproveorreject';
+
+// ── Supervised Attendance / Attendance Import ──
+export const EXPORT_ATTENDANCE_RAW_TEMPLATE = `${hxmPrefix}attendance/exportrawtemplate`;
+export const PREPARE_IMPORT_ATTENDANCE = `${hxmPrefix}attendance/prepareimportrawdata`;
+export const PREVIEW_IMPORT_ATTENDANCE = `${hxmPrefix}attendance/previewrawlist`;
+export const CONFIRM_IMPORT_ATTENDANCE = `${hxmPrefix}attendance/importraw`;
+export const CLEAR_IMPORT_ATTENDANCE = `api/attendancerequest/clearattendancerequest`;
 
 // ── Approvals ──
 export const APPROVAL_LIST = `${hxmPrefix}approval/approvallist`;
@@ -141,6 +150,7 @@ export const TEAM_LEAVE_SUMMARY = 'api/teams/leaveSummary';
 export const TEAM_EMPLOYEE_RANK = '/api/teams/employee/rank';
 export const USER_PROFILE_BY_ID = 'api/teams/employees/profile';
 export const CALENDAR_VIEW = 'api/checkin/calendarView';
+export const CALENDAR_DETAIL = `${hxmPrefix}calendar/detail`;
 export const HOLIDAYS = 'api/checkin/holidays';
 export const MONTHLY_SUMMARY = 'api/checkin/monthly-summary';
 export const ACTIVITY_TYPES = 'api/activity-type';
@@ -193,3 +203,23 @@ export const ESS_CONTACT_INFO = 'api/employees/contact-info';
 export const ESS_ADDRESS_STATES = 'api/master/states';
 export const ESS_ADDRESS_DISTRICTS = 'api/master/districts';
 export const ESS_ADDRESS_TOWNSHIPS = 'api/master/townships';
+
+// ── Supervise ──
+export const SUPERVISE_WORKPOLICY_LIST = 'api/supervise/workpolicy/list';
+export const SUPERVISE_USER_LIST = 'api/supervise/users';
+export const WORKPOLICY_PERSONALIZE = `${hxmPrefix}workpolicyconfig/personalize`;
+export const WORKPOLICY_INSERT = `${hxmPrefix}workpolicyconfig/insert`;
+export const SETUP_WORKPOLICY = `${hxmPrefix}setup/getSetupList/workpolicy`;
+export const SETUP_ROSTER = `${hxmPrefix}setup/getSetupList/roster`;
+export const SETUP_CALENDAR = `${hxmPrefix}setup/getSetupList/calendar`;
+
+// ── Work Policy Import ──
+export const WORKPOLICY_DELETE = `${hxmPrefix}workpolicyconfig/delete`;
+export const WORKPOLICY_EXPORT_TEMPLATE = `${hxmPrefix}workpolicyconfig/workpolicy/exporttemplate`;
+export const WORKPOLICY_EXPORT = `${hxmPrefix}workpolicyconfig/workpolicy/export`;
+export const WORKPOLICY_PREPARE_IMPORT = `${hxmPrefix}workpolicyconfig/prepareimportdata`;
+export const WORKPOLICY_PREVIEW_DB = `${hxmPrefix}workpolicyconfig/previewdb`;
+export const WORKPOLICY_PREVIEW_IMPORT = `${hxmPrefix}workpolicyconfig/previewlist`;
+export const WORKPOLICY_CONFIRM_IMPORT = `${hxmPrefix}workpolicyconfig/import`;
+export const WORKPOLICY_CLEAR_IMPORT = `${hxmPrefix}workpolicyconfig/clear`;
+export const WORKPOLICY_CHECK_IMPORT_STATUS = `${hxmPrefix}workpolicyconfig/checkinputstatus`;

@@ -865,61 +865,6 @@ export default function DashboardPage() {
             </ResponsiveContainer>
         </div>
     </div>
-
-    {/* ───────────────── RIGHT : EMPLOYEE CARD ───────────────── - COMMENTED OUT */}
-    {/* <div className={styles.activityCard}>
-
-
-        // HEADER
-        <div className={styles.cardHeader}>
-            <div>
-                <h2 className={styles.cardTitle}>
-                    Employee Attendance {selectedStatus && `- ${selectedStatus}`}
-                </h2>
-
-
-                <p className={styles.cardSubtitle}>
-                    {selectedStatus ? `${selectedStatus} employees` : 'Latest attendance records'}
-                </p>
-            </div>
-
-            {selectedStatus && (
-                <button 
-                    className={styles.resetBtn}
-                    onClick={() => {
-                        setSelectedStatus(null);
-                        setFilteredEmployees([]);
-                    }}
-                >
-                    <X size={16} />
-                    All
-                </button>
-            )}
-        </div>
-
-        // EMPLOYEE LIST - COMMENTED OUT
-        // <div className={styles.employeeList}>
-        //     {selectedStatus ? (
-        //         // SHOW FILTERED EMPLOYEES WHEN BAR IS CLICKED
-        //         filteredEmployees.map((employee: any, index: number) => (
-        //             <UserCard
-        //                 key={index}
-        //                 user={employee}
-        //                 onCardTap={() => {}}
-        //             />
-        //         ))
-        //     ) : (
-        //         // SHOW DEFAULT EMPLOYEES
-        //         employees?.slice(0, 6).map((employee: any, index: number) => (
-        //             <UserCard
-        //                 key={index}
-        //                 user={employee}
-        //                 onCardTap={() => {}}
-        //             />
-        //         ))
-        //     )}
-        // </div>
-    // </div> */}
 </section>
 
     {/* Spacer between sections */}

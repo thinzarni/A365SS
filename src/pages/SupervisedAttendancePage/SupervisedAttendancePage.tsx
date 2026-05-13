@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 import {
     Clock,
     Activity,
@@ -18,7 +20,10 @@ import {
     MapPin,
     ArrowUpDown,
     ArrowUp,
-    ArrowDown
+    ArrowDown,
+    Download,
+    Plus,
+    Upload
 } from 'lucide-react';
 import { Input, Select } from '../../components/ui';
 import apiClient from '../../lib/api-client';
@@ -26,6 +31,7 @@ import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
 import styles from './SupervisedAttendancePage.module.css';
 import EditActivityModal from './EditActivityModal';
+import SupervisedAttendanceImportModal from './SupervisedAttendanceImportModal';
 
 /* ── Types ── */
 interface SupervisedRecord {
@@ -67,6 +73,9 @@ export default function SupervisedAttendancePage() {
 
     const [page, setPage] = useState<number>(1);
     const pageSize = 20;
+
+    const [isCreateMode, setIsCreateMode] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     // API-bound states that actually trigger the fetch
     const [apiFromDate, setApiFromDate] = useState<string>(format(new Date(), 'yyyyMMdd'));
@@ -173,13 +182,47 @@ export default function SupervisedAttendancePage() {
 
     const hasNextPage = records.length === pageSize;
 
+    const handleExport = () => {
+        if (!records || records.length === 0) {
+            toast.error(t('supervisedAttendance.noRecordsToExport', 'No records to export'));
+            return;
+        }
+
+        try {
+            const exportData = records.map(rec => {
+                const meta = getAttTypeLabel(rec.type);
+                return {
+                    'Employee ID': rec.employee_id,
+                    'Employee Name': rec.employee_name,
+                    'Date': rec.date ? format(new Date(rec.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')), 'MMM dd, yyyy') : '-',
+                    'Time': rec.time || '--:--',
+                    'Type': meta.label,
+                    'Backdated': rec.backdateFlag ? 'Yes' : 'No',
+                    'Location': rec.location || '',
+                    'Description': rec.description || '',
+                    'User Type': rec.relationship || 'Self',
+                    'Status': rec.pair_status === 1 ? 'Process' : 'New'
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance');
+            XLSX.writeFile(workbook, `Supervised_Attendance_${apiFromDate}_${apiToDate}.xlsx`);
+            toast.success(t('supervisedAttendance.exportSuccess', 'Export completed successfully'));
+        } catch (error) {
+            console.error('Export failed:', error);
+            toast.error(t('supervisedAttendance.exportFailed', 'Failed to export data'));
+        }
+    };
+
     return (
         <div className={styles.page}>
             <header className={styles.header}>
                 <div>
                     <h1 className={styles.title}>{t('supervisedAttendance.title', 'Attendance')}</h1>
                     <p className="page-header__subtitle">
-                        {t('supervisedAttendance.subtitle', 'Shows attendance records for your direct reports and supervised members.')}
+                        {t('supervisedAttendance.subtitle', 'Shows attendance records for self, your direct reports and supervised members.')}
                     </p>
                 </div>
 
@@ -188,39 +231,107 @@ export default function SupervisedAttendancePage() {
                         <Loader2 size={18} className={styles.spinIcon} />
                     </div>
                 }
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                        onClick={handleExport}
+                        className={styles.submitBtn}
+                        title={t('supervisedAttendance.export', 'Export to Excel')}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            borderRadius: '6px',
+                            background: 'var(--color-neutral-100)',
+                            color: 'var(--color-neutral-700)',
+                            border: '1px solid var(--color-neutral-200)',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            fontSize: '14px'
+                        }}
+                    >
+                        <Download size={16} />
+                        {t('supervisedAttendance.export', 'Export')}
+                    </button>
+                    <button
+                        onClick={() => setIsImportModalOpen(true)}
+                        className={styles.submitBtn}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            borderRadius: '6px',
+                            background: 'var(--color-neutral-100)',
+                            color: 'var(--color-neutral-700)',
+                            border: '1px solid var(--color-neutral-200)',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            fontSize: '14px'
+                        }}
+                    >
+                        <Upload size={16} />
+                        {t('supervisedAttendance.import', 'Import')}
+                    </button>
+                    <button
+                        onClick={() => setIsCreateMode(true)}
+                        className={styles.submitBtn}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            borderRadius: '6px',
+                            background: 'var(--color-primary-600)',
+                            color: '#fff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            fontSize: '14px'
+                        }}
+                    >
+                        <Plus size={16} />
+                        {t('supervisedAttendance.new', 'New')}
+                    </button>
+                </div>
             </header>
 
-            <div style={{ padding: '1rem', background: 'var(--color-neutral-0)', borderBottom: '1px solid var(--color-neutral-100)', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', animation: 'fadeIn 0.2s ease-in-out' }}>
-                <div style={{ minWidth: '240px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>{t('supervisedAttendance.dateRange', 'Date Range')}</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ padding: '0.75rem 1rem', background: 'var(--color-neutral-0)', borderBottom: '1px solid var(--color-neutral-100)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end', animation: 'fadeIn 0.2s ease-in-out' }}>
+                <div style={{ minWidth: '220px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--color-neutral-500)', marginBottom: '4px' }}>{t('supervisedAttendance.dateRange', 'Date Range')}</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Input
                             type="date"
                             value={fromDate}
                             onChange={(e) => setFromDate(e.target.value)}
+                            style={{ height: '32px', fontSize: '13px' }}
                         />
-                        <span style={{ color: 'var(--text-muted)' }}>→</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>→</span>
                         <Input
                             type="date"
                             value={toDate}
                             onChange={(e) => setToDate(e.target.value)}
+                            style={{ height: '32px', fontSize: '13px' }}
                         />
                     </div>
                 </div>
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>{t('supervisedAttendance.searchKeyword', 'Search Keyword')}</label>
+                <div style={{ flex: 1, minWidth: '180px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--color-neutral-500)', marginBottom: '4px' }}>{t('supervisedAttendance.searchKeyword', 'Search Keyword')}</label>
                     <Input
                         placeholder={t('supervisedAttendance.searchPlaceholder', 'Employee name or details...')}
                         value={searchKey}
                         onChange={(e) => setSearchKey(e.target.value)}
+                        style={{ height: '32px', fontSize: '13px' }}
                     />
                 </div>
-                <div style={{ minWidth: '160px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>{t('supervisedAttendance.attendanceType', 'Attendance Type')}</label>
+                <div style={{ minWidth: '140px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--color-neutral-500)', marginBottom: '4px' }}>{t('supervisedAttendance.attendanceType', 'Type')}</label>
                     <Select
                         id="att-type-select"
                         value={attendanceType}
                         onChange={(e) => setAttendanceType(e.target.value)}
+                        style={{ height: '32px', fontSize: '13px' }}
                         options={[
                             { value: '', label: t('status.all', 'All') },
                             { value: '601', label: t('supervisedAttendance.timeIn', 'Time In') },
@@ -230,12 +341,13 @@ export default function SupervisedAttendancePage() {
                         ]}
                     />
                 </div>
-                <div style={{ minWidth: '160px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-neutral-700)', marginBottom: '6px' }}>{t('supervisedAttendance.pairStatus', 'Pair Status')}</label>
+                <div style={{ minWidth: '140px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--color-neutral-500)', marginBottom: '4px' }}>{t('supervisedAttendance.pairStatus', 'Status')}</label>
                     <Select
                         id="pair-status-select"
                         value={String(pairStatus)}
                         onChange={(e) => setPairStatus(Number(e.target.value))}
+                        style={{ height: '32px', fontSize: '13px' }}
                         options={[
                             { value: '2', label: t('status.all', 'All') },
                             { value: '0', label: t('supervisedAttendance.new', 'New') },
@@ -244,7 +356,7 @@ export default function SupervisedAttendancePage() {
                     />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <label style={{ display: 'block', fontSize: '13px', color: 'transparent', marginBottom: '6px', pointerEvents: 'none', userSelect: 'none' }}>Apply</label>
+                    <label style={{ display: 'block', fontSize: '11px', color: 'transparent', marginBottom: '4px', pointerEvents: 'none', userSelect: 'none' }}>Apply</label>
                     <button
                         onClick={handleApplyFilters}
                         title="Search"
@@ -253,15 +365,15 @@ export default function SupervisedAttendancePage() {
                             color: '#fff',
                             border: 'none',
                             borderRadius: '6px',
-                            width: '38px',
-                            height: '38px',
+                            width: '32px',
+                            height: '32px',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center'
                         }}
                     >
-                        <Search size={18} />
+                        <Search size={16} />
                     </button>
                 </div>
             </div>
@@ -317,52 +429,54 @@ export default function SupervisedAttendancePage() {
                                         <tr key={rec.syskey || Math.random().toString()} className={styles.tr}>
                                             <td className={styles.td}>
                                                 <div className={styles.employeeCell}>
-                                                    <span>{rec.employee_id}</span>
+                                                    <span className={styles.employeeId}>{rec.employee_id}</span>
                                                 </div>
                                             </td>
                                             <td className={styles.td}>
                                                 <div className={styles.employeeCell}>
-                                                    <span>{rec.employee_name}</span>
+                                                    <span style={{ fontWeight: 500 }}>{rec.employee_name}</span>
                                                 </div>
                                             </td>
                                             <td className={styles.td}>
                                                 <div className={styles.dateTimeCell}>
-                                                    <span className={styles.recordTime}>{rec.time || '--:--'}</span>{', '}
-                                                    <span className={styles.recordDate} style={{ color: 'var(--text-muted)' }}>
+                                                    <span className={styles.recordTime}>{rec.time || '--:--'}</span>
+                                                    <span className={styles.recordDate}>
                                                         {rec.date ? format(new Date(rec.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')), 'MMM dd, yyyy') : '-'}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td className={styles.td}>
-                                                <div className={`${styles.badge} ${meta.styleClass}`} style={{ display: 'inline-flex', width: 'auto' }}>
-                                                    {meta.icon}
-                                                    {meta.label}
-                                                </div>
-                                                {rec.backdateFlag && (
-                                                    <div style={{ fontSize: 11, color: '#eab308', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                        <CheckCircle2 size={12} /> {t('supervisedAttendance.backdated', 'BACKDATED')}
+                                                <div className={styles.badgeWrapper}>
+                                                    <div className={`${styles.badge} ${meta.styleClass}`}>
+                                                        {meta.icon}
+                                                        {meta.label}
                                                     </div>
-                                                )}
+                                                    {rec.backdateFlag && (
+                                                        <div className={styles.backdateBadge}>
+                                                            <CheckCircle2 size={10} /> {t('supervisedAttendance.backdated', 'BACKDATED')}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className={styles.td}>
                                                 <div className={styles.locationCell}>
-                                                    <div className={styles.cellIconRow}>
-                                                        {rec.location ? <><MapPin size={14} style={{ marginTop: 2, flexShrink: 0, color: 'var(--text-muted)' }} /> <span>{rec.location}</span></> : '-'}
+                                                    <div className={styles.cellIconRow} style={{ display: 'flex', alignItems: 'flex-start', gap: '4px', fontSize: '0.7rem' }}>
+                                                        {rec.location ? <><MapPin size={12} style={{ marginTop: 2, flexShrink: 0, color: 'var(--text-muted)' }} /> <span style={{ color: 'var(--text-muted)' }}>{rec.location}</span></> : '-'}
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className={styles.td}>
-                                                <div className={styles.descCell}>
+                                                <div className={styles.descCell} title={rec.description}>
                                                     {rec.description || '-'}
                                                 </div>
                                             </td>
                                             <td className={styles.td}>
                                                 <div className={styles.descCell}>
-                                                    {rec.relationship || '-'}
+                                                    {rec.relationship || 'Self'}
                                                 </div>
                                             </td>
                                             <td className={styles.td}>
-                                                <span className={`${styles.badge} ${rec.pair_status === 1 ? styles.type601 : styles.type604}`} style={{ display: 'inline-flex', width: 'auto' }}>
+                                                <span className={`${styles.badge} ${rec.pair_status === 1 ? styles.type601 : styles.type604}`}>
                                                     {rec.pair_status === 1 ? t('supervisedAttendance.process', 'Process') : t('supervisedAttendance.new', 'New')}
                                                 </span>
                                             </td>
@@ -372,7 +486,7 @@ export default function SupervisedAttendancePage() {
                                                     className={styles.tableActionBtn}
                                                     title={rec.pair_status === 1 ? t('supervisedAttendance.viewRecord', 'View Record') : t('supervisedAttendance.editRecord', 'Edit Record')}
                                                 >
-                                                    {rec.pair_status === 1 ? <Eye size={16} /> : <Edit3 size={16} />}
+                                                    {rec.pair_status === 1 ? <Eye size={14} /> : <Edit3 size={14} />}
                                                 </button>
                                             </td>
                                         </tr>
@@ -411,12 +525,25 @@ export default function SupervisedAttendancePage() {
                 </>
             )}
 
-            {/* Edit Modal */}
-            <EditActivityModal
-                syskey={editingRecord?.syskey || null}
-                initialDate={editingRecord?.date}
-                readOnly={editingRecord?.pair_status === 1}
-                onClose={() => setEditingRecord(null)}
+            {/* Create/Edit Modal */}
+            {(editingRecord || isCreateMode) && (
+                <EditActivityModal
+                    syskey={editingRecord?.syskey || null}
+                    initialDate={editingRecord?.date || format(new Date(), 'yyyy-MM-dd')}
+                    readOnly={editingRecord?.pair_status === 1}
+                    onClose={() => {
+                        setEditingRecord(null);
+                        setIsCreateMode(false);
+                    }}
+                    onSuccess={() => {
+                        queryClient.invalidateQueries({ queryKey: ['supervised-attendance'] });
+                    }}
+                />
+            )}
+
+            <SupervisedAttendanceImportModal
+                open={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
                 onSuccess={() => {
                     queryClient.invalidateQueries({ queryKey: ['supervised-attendance'] });
                 }}

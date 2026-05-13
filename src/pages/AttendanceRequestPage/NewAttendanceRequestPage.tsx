@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -9,7 +9,7 @@ import { Textarea } from '../../components/ui/Input/Input';
 import Select from '../../components/ui/Select/Select';
 import { useAuthStore } from '../../stores/auth-store';
 import mainClient from '../../lib/main-client';
-import { SAVE_ATTENDANCE_REQ, TEAM_LIST } from '../../config/api-routes';
+import { SAVE_ATTENDANCE_REQ, TEAM_LIST, GET_ATTENDANCE_REASON } from '../../config/api-routes';
 import type { TeamMember } from '../../types/models';
 import styles from './AttendanceRequestPage.module.css';
 import '../../styles/pages.css';
@@ -28,7 +28,13 @@ function nowTimeStr(): string {
 export default function NewAttendanceRequestPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
     const { userId, user, domain } = useAuthStore();
+    const isEdit = !!id;
+    const routerLocation = useLocation();
+    // Item data passed from the list/detail page via router state
+    const existingDetail: any = (routerLocation.state as any)?.item || null;
+    const refIndex = (routerLocation.state as any)?.refIndex || null;
 
     // ── Team Data Query ──
     const { data: members = [] } = useQuery<TeamMember[]>({
@@ -78,6 +84,31 @@ export default function NewAttendanceRequestPage() {
         },
         enabled: !!userId,
     });
+    
+    // ── Attendance Reasons Query ──
+    const { data: reasonOptionsRaw = [] } = useQuery({
+        queryKey: ['attendance-reasons', userId, domain],
+        queryFn: async () => {
+            const res = await mainClient.post(GET_ATTENDANCE_REASON, {
+                userid: userId,
+                domain: domain,
+            });
+            const raw = res.data?.data || [];
+            return raw.map((r: any) => ({
+                value: String(r.syskey),
+                label: r.description || r.code || '',
+            }));
+        },
+        enabled: !!userId,
+    });
+
+    // Use static NON/Forgotten when API returns empty
+    const reasonOptions = reasonOptionsRaw.length > 0 ? reasonOptionsRaw : [
+        { value: '1', label: 'NON' },
+        { value: '2', label: 'Forgotten' },
+    ];
+
+    // No extra API call needed — data comes from router state
 
     // ── State ──
     const [selectedMemberSyskey, setSelectedMemberSyskey] = useState<string>('__SELF__');
@@ -88,7 +119,9 @@ export default function NewAttendanceRequestPage() {
     const [location, setLocation] = useState('');
     const [reason, setReason] = useState('');
     const [requestType, setRequestType] = useState('1'); // 1=Remote, 2=Backdate
-    const [reasonType, setReasonType] = useState('1');  // 1=None, 2=Forget
+    const [reasonType, setReasonType] = useState('1');  // syskey from reasonOptions
+    const [lat, setLat] = useState('0.0');
+    const [long, setLong] = useState('0.0');
 
 
     const toApiDate = (d: string) => d ? d.replace(/-/g, '') : '';
@@ -123,6 +156,51 @@ export default function NewAttendanceRequestPage() {
             setSelectedMemberSyskey('__SELF__');
         }
     }, [employeeOptions, selectedMemberSyskey]);
+
+    // Populate form from existing detail
+    useEffect(() => {
+        if (existingDetail) {
+            // Find member syskey from employee_syskey or user_id
+            if (existingDetail.employee_syskey) {
+                const member = members.find(m => String(m.syskey) === String(existingDetail.employee_syskey));
+                if (member) {
+                    setSelectedMemberSyskey(member.syskey);
+                } else if (String(existingDetail.employee_syskey) === String(user?.syskey)) {
+                    setSelectedMemberSyskey('__SELF__');
+                }
+            }
+
+            setType(String(existingDetail.type || '601'));
+            setRequestType(String(existingDetail.requesttype || '1'));
+            setReasonType(String(existingDetail.attendancereason || '1'));
+            
+            const rawDate = String(existingDetail.date || '');
+            if (rawDate.length === 8) {
+                setDate(`${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`);
+            }
+            
+            const parseTime = (t: string) => {
+                if (!t) return nowTimeStr();
+                // "08:30 AM" -> "08:30", "01:30 PM" -> "13:30"
+                const match = t.match(/(\d+):(\d+)\s+(AM|PM)/i);
+                if (!match) return nowTimeStr();
+                let h = parseInt(match[1]);
+                const m = match[2];
+                const ampm = match[3].toUpperCase();
+                if (ampm === 'PM' && h < 12) h += 12;
+                if (ampm === 'AM' && h === 12) h = 0;
+                return `${String(h).padStart(2, '0')}:${m}`;
+            };
+
+            if (existingDetail.type === '601') setIntime(parseTime(existingDetail.intime));
+            if (existingDetail.type === '602') setOuttime(parseTime(existingDetail.outtime));
+            
+            setLocation(existingDetail.location || '');
+            setReason(existingDetail.description || '');
+            setLat(existingDetail.latitude || '0.0');
+            setLong(existingDetail.longitude || '0.0');
+        }
+    }, [existingDetail, members, user]);
     const selectedMemberInfo = useMemo(() => {
         if (selectedMemberSyskey === '__SELF__') {
             // Find myself in the full list to get the real numeric EID and Employee Record syskey
@@ -170,6 +248,7 @@ export default function NewAttendanceRequestPage() {
             }
 
             const payload = {
+                syskey: id || '0',
                 userid: userId || '', // The manager/requester
                 domain: domain || 'dev',
                 type,
@@ -177,29 +256,31 @@ export default function NewAttendanceRequestPage() {
                 intime: type === '601' ? toApi12hTime(intime) : '',
                 outtime: type === '602' ? toApi12hTime(outtime) : '',
                 location: location || 'MIT q',
-                latitude: '0.0',
-                longitude: '0.0',
+                latitude: lat || '0.0',
+                longitude: long || '0.0',
                 description: reason,
-                status: 1,
-                approvedby: '',
+                status: existingDetail?.status || 1,
+                approvedby: existingDetail?.approvedby || '',
                 employee_syskey: targetEmp.syskey,
                 employee_id: targetEmp.id,
                 employee_name: targetEmp.name,
                 employee_userid: targetEmp.userid,
                 requesttype: Number(requestType),
-                reasonType: Number(reasonType),
+                attendancereason: reasonType,
             };
 
-            const res = await mainClient.post(SAVE_ATTENDANCE_REQ, payload);
+            // For update: POST /saveattendancerequest/{syskey}  |  For new: POST /saveattendancerequest
+            const endpoint = isEdit && id ? `${SAVE_ATTENDANCE_REQ}/${id}` : SAVE_ATTENDANCE_REQ;
+            const res = await mainClient.post(endpoint, payload);
             const data = res.data;
-            const isSuccess = data?.status === 201 || data?.statuscode === 200 || data?.statuscode === 300 || data?.message_code === "203" || data?.message === "Save successfully";
+            const isSuccess = data?.status === 201 || data?.statuscode === 200 || data?.statuscode === 300 || data?.message_code === "203" || data?.message === "Save successfully" || data?.message === "Update successfully";
             if (!isSuccess) {
                 throw new Error(data?.message || t('common.error'));
             }
             return data;
         },
         onSuccess: () => {
-            toast.success(t('request.submitSuccess'));
+            toast.success(isEdit ? 'Request updated successfully' : t('request.submitSuccess'));
             navigate('/attendancerequest');
         },
         onError: (err: unknown) => {
@@ -225,8 +306,8 @@ export default function NewAttendanceRequestPage() {
             </button>
 
             <div className="page-header">
-                <h1 className="page-header__title">New Attendance Request</h1>
-                <p className="page-header__subtitle">Request manual time in/out overrides</p>
+                <h1 className="page-header__title">{isEdit ? 'Edit Attendance Request' : 'New Attendance Request'}</h1>
+                <p className="page-header__subtitle">{isEdit ? (refIndex ? `Editing request #${refIndex}` : `Editing request #${id}`) : 'Request manual time in/out overrides'}</p>
             </div>
 
             <form className={styles['new-request__card']} onSubmit={handleSubmit}>
@@ -282,29 +363,13 @@ export default function NewAttendanceRequestPage() {
                         </div>
 
                         <div className={styles['new-request__full']}>
-                            <label className={styles['new-request__label']}>Reason Type</label>
-                            <div className={styles['radio-group']}>
-                                <label className={styles['radio-option']}>
-                                    <input
-                                        type="radio"
-                                        name="reasonType"
-                                        value="1"
-                                        checked={reasonType === '1'}
-                                        onChange={(e) => setReasonType(e.target.value)}
-                                    />
-                                    <span>None</span>
-                                </label>
-                                <label className={styles['radio-option']}>
-                                    <input
-                                        type="radio"
-                                        name="reasonType"
-                                        value="2"
-                                        checked={reasonType === '2'}
-                                        onChange={(e) => setReasonType(e.target.value)}
-                                    />
-                                    <span>Forget</span>
-                                </label>
-                            </div>
+                            <Select
+                                id="reason-type"
+                                label="Reason Type"
+                                value={reasonType}
+                                onChange={(e) => setReasonType(e.target.value)}
+                                options={reasonOptions}
+                            />
                         </div>
 
                         <div className={styles['new-request__full']}>
@@ -354,6 +419,23 @@ export default function NewAttendanceRequestPage() {
                             />
                         </div>
 
+                        <div className={styles['new-request__full']} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+                            <Input
+                                id="latitude"
+                                label="Latitude"
+                                value={lat}
+                                onChange={(e) => setLat(e.target.value)}
+                                placeholder="0.0"
+                            />
+                            <Input
+                                id="longitude"
+                                label="Longitude"
+                                value={long}
+                                onChange={(e) => setLong(e.target.value)}
+                                placeholder="0.0"
+                            />
+                        </div>
+
                         <div className={styles['new-request__full']}>
                             <Textarea
                                 id="reason"
@@ -372,7 +454,7 @@ export default function NewAttendanceRequestPage() {
                         {t('common.cancel')}
                     </Button>
                     <Button type="submit" loading={submitMutation.isPending}>
-                        {t('request.submit')}
+                        {isEdit ? 'Update Request' : t('request.submit')}
                     </Button>
                 </div>
             </form>

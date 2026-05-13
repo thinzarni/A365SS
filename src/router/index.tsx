@@ -1,47 +1,67 @@
+import React, { Suspense, lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { RequireAuth, GuestOnly } from '../components/auth/AuthGuard';
 import AppLayout from '../components/layout/AppLayout';
-import LoginPage from '../pages/LoginPage/LoginPage';
-import QRLoginPage from '../pages/LoginPage/QRLoginPage';
-import RequestListPage from '../pages/RequestListPage/RequestListPage';
-import NewRequestPage from '../pages/NewRequestPage/NewRequestPage';
-import RequestDetailPage from '../pages/RequestDetailPage/RequestDetailPage';
-import ApprovalListPage from '../pages/ApprovalListPage/ApprovalListPage';
-import ApprovalDetailPage from '../pages/ApprovalDetailPage/ApprovalDetailPage';
-import ReservationsPage from '../pages/ReservationsPage/ReservationsPage';
-import ClaimsPage from '../pages/ClaimsPage/ClaimsPage';
-import NewClaimPage from '../pages/ClaimsPage/NewClaimPage';
-import ClaimDetailPage from '../pages/ClaimsPage/ClaimDetailPage';
-import LeaveSummaryPage from '../pages/LeaveSummaryPage/LeaveSummaryPage';
-import LeavePage from '../pages/LeavePage/LeavePage';
-import TeamPage from '../pages/TeamPage/TeamPage';
-import TeamDetailView from '../pages/TeamPage/TeamDetailView';
-import MemberDetailView from '../pages/TeamPage/MemberDetailView';
-import HRViewPage from '../pages/HRViewPage/HRViewPage';
-import HolidaysPage from '../pages/HolidaysPage/HolidaysPage';
-import DashboardPage from '../pages/DashboardPage/DashboardPage';
-import ChatPage from '../pages/ChatPage/ChatPage';
-import DomainSelectPage from '../pages/DomainSelectPage/DomainSelectPage';
-import SecurityQuestionsPage from '../pages/SecurityQuestionsPage/SecurityQuestionsPage';
-import ForceChangePasswordPage from '../pages/ForceChangePasswordPage/ForceChangePasswordPage';
-import VerifyOtpPage from '../pages/VerifyOtpPage/VerifyOtpPage';
-import ForgotPasswordPage from '../pages/ForgotPasswordPage/ForgotPasswordPage';
-import ComingSoonPage from '../pages/ComingSoonPage/ComingSoonPage';
-import RulesAndRegulationsPage from '../pages/RulesAndRegulationsPage/RulesAndRegulationsPage';
-import PdfListPage from '../pages/RulesAndRegulationsPage/PdfListPage';
-import NotificationPage from '../pages/NotificationPage/NotificationPage';
-import AttendancePage from '../pages/AttendancePage/AttendancePage';
-import SeparationLeaveAuthorizePage from '../pages/SeparationLeaveAuthorizePage/SeparationLeaveAuthorizePage';
-import SeparationAttendanceAuthorizePage from '../pages/SeparationAttendanceAuthorizePage/SeparationAttendanceAuthorizePage';
-import SupervisedAttendancePage from '../pages/SupervisedAttendancePage/SupervisedAttendancePage';
+import { Loader2 } from 'lucide-react';
+import { flavor } from '../config/features';
+
+const FallbackLoading = () => (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '50vh' }}>
+        <Loader2 className="animate-spin" size={32} color="#3b82f6" />
+    </div>
+);
+
+const Loadable = (Component: React.ComponentType<any>) => (props: any) => (
+    <Suspense fallback={<FallbackLoading />}>
+        <Component {...props} />
+    </Suspense>
+);
+
+const LoginPage = Loadable(lazy(() => import('../pages/LoginPage/LoginPage')));
+const QRLoginPage = Loadable(lazy(() => import('../pages/LoginPage/QRLoginPage')));
+const RequestListPage = Loadable(lazy(() => import('../pages/RequestListPage/RequestListPage')));
+const NewRequestPage = Loadable(lazy(() => import('../pages/NewRequestPage/NewRequestPage')));
+const RequestDetailPage = Loadable(lazy(() => import('../pages/RequestDetailPage/RequestDetailPage')));
+const ApprovalListPage = Loadable(lazy(() => import('../pages/ApprovalListPage/ApprovalListPage')));
+const ApprovalDetailPage = Loadable(lazy(() => import('../pages/ApprovalDetailPage/ApprovalDetailPage')));
+const AttendanceApprovalListPage = Loadable(lazy(() => import('../pages/AttendanceApprovalListPage/AttendanceApprovalListPage')));
+const AttendanceApprovalDetailPage = Loadable(lazy(() => import('../pages/AttendanceApprovalDetailPage/AttendanceApprovalDetailPage')));
+const ReservationsPage = Loadable(lazy(() => import('../pages/ReservationsPage/ReservationsPage')));
+const ClaimsPage = Loadable(lazy(() => import('../pages/ClaimsPage/ClaimsPage')));
+const NewClaimPage = Loadable(lazy(() => import('../pages/ClaimsPage/NewClaimPage')));
+const ClaimDetailPage = Loadable(lazy(() => import('../pages/ClaimsPage/ClaimDetailPage')));
+const LeaveSummaryPage = Loadable(lazy(() => import('../pages/LeaveSummaryPage/LeaveSummaryPage')));
+const LeavePage = Loadable(lazy(() => import('../pages/LeavePage/LeavePage')));
+const TeamPage = Loadable(lazy(() => import('../pages/TeamPage/TeamPage')));
+const TeamDetailView = Loadable(lazy(() => import('../pages/TeamPage/TeamDetailView')));
+const MemberDetailView = Loadable(lazy(() => import('../pages/TeamPage/MemberDetailView')));
+const HRViewPage = Loadable(lazy(() => import('../pages/HRViewPage/HRViewPage')));
+const HolidaysPage = Loadable(lazy(() => import('../pages/HolidaysPage/HolidaysPage')));
+const DashboardPage = Loadable(lazy(() => import('../pages/DashboardPage/DashboardPage')));
+const ChatPage = Loadable(lazy(() => import('../pages/ChatPage/ChatPage')));
+const DomainSelectPage = Loadable(lazy(() => import('../pages/DomainSelectPage/DomainSelectPage')));
+const SecurityQuestionsPage = Loadable(lazy(() => import('../pages/SecurityQuestionsPage/SecurityQuestionsPage')));
+const ForceChangePasswordPage = Loadable(lazy(() => import('../pages/ForceChangePasswordPage/ForceChangePasswordPage')));
+const VerifyOtpPage = Loadable(lazy(() => import('../pages/VerifyOtpPage/VerifyOtpPage')));
+const ForgotPasswordPage = Loadable(lazy(() => import('../pages/ForgotPasswordPage/ForgotPasswordPage')));
+const ComingSoonPage = Loadable(lazy(() => import('../pages/ComingSoonPage/ComingSoonPage')));
+const RulesAndRegulationsPage = Loadable(lazy(() => import('../pages/RulesAndRegulationsPage/RulesAndRegulationsPage')));
+const PdfListPage = Loadable(lazy(() => import('../pages/RulesAndRegulationsPage/PdfListPage')));
+const NotificationPage = Loadable(lazy(() => import('../pages/NotificationPage/NotificationPage')));
+const AttendancePage = Loadable(lazy(() => import('../pages/AttendancePage/AttendancePage')));
+const SeparationLeaveAuthorizePage = Loadable(lazy(() => import('../pages/SeparationLeaveAuthorizePage/SeparationLeaveAuthorizePage')));
+const SeparationAttendanceAuthorizePage = Loadable(lazy(() => import('../pages/SeparationAttendanceAuthorizePage/SeparationAttendanceAuthorizePage')));
+const SupervisedAttendancePage = Loadable(lazy(() => import('../pages/SupervisedAttendancePage/SupervisedAttendancePage')));
+const WorkPolicyChangePage = Loadable(lazy(() => import('../pages/WorkPolicyChangePage/WorkPolicyChangePage')));
+const WorkPolicyCreatePage = Loadable(lazy(() => import('../pages/WorkPolicyCreatePage/WorkPolicyCreatePage')));
 
 // ── Flavor-based profile page ──
 // prd  → 7-tab ESS profile (Employment, Personal, Emergency Contacts, Work Experience, etc.)
 // a365 → original simple profile view
-import ProfilePage from '../pages/ProfilePage/ProfilePage';
-import ProfilePagePrd from '../pages/ProfilePage/ProfilePagePrd';
-import NewAttendanceRequestPage from '../pages/AttendanceRequestPage/NewAttendanceRequestPage';
-import { flavor } from '../config/features';
+const ProfilePage = Loadable(lazy(() => import('../pages/ProfilePage/ProfilePage')));
+const ProfilePagePrd = Loadable(lazy(() => import('../pages/ProfilePage/ProfilePagePrd')));
+const NewAttendanceRequestPage = Loadable(lazy(() => import('../pages/AttendanceRequestPage/NewAttendanceRequestPage')));
+
 const ActiveProfilePage = flavor === 'prd' || flavor === 'mpt' ? ProfilePagePrd : ProfilePage;
 
 export const router = createBrowserRouter([
@@ -73,6 +93,7 @@ export const router = createBrowserRouter([
                     // ── Plural routes (canonical) ──
                     { path: '/requests', element: <RequestListPage /> },
                     { path: '/requests/new', element: <NewRequestPage /> },
+                    { path: '/requests/edit/:id', element: <NewRequestPage /> },
                     { path: '/requests/:id', element: <RequestDetailPage /> },
                     { path: '/approvals', element: <ApprovalListPage /> },
                     { path: '/approvals/:id', element: <ApprovalDetailPage /> },
@@ -85,6 +106,7 @@ export const router = createBrowserRouter([
                     // ── Singular aliases — API datalist returns these router values ──
                     { path: '/request', element: <RequestListPage /> },
                     { path: '/request/new', element: <NewRequestPage /> },
+                    { path: '/request/edit/:id', element: <NewRequestPage /> },
                     { path: '/request/:id', element: <RequestDetailPage /> },
                     { path: '/approval', element: <ApprovalListPage /> },
                     { path: '/approval/:id', element: <ApprovalDetailPage /> },
@@ -107,11 +129,12 @@ export const router = createBrowserRouter([
                     { path: '/offinlieu', element: <RequestListPage /> },
                     { path: '/offinlieu/new', element: <NewRequestPage /> },
                     // ── Attendance subtypes — use existing approval pages ──
-                    { path: '/attendanceapproval', element: <ApprovalListPage /> },
-                    { path: '/attendanceapproval/:id/:type', element: <ApprovalDetailPage /> },
-                    { path: '/attendancerequest', element: <RequestListPage /> },
-                    { path: '/attendancerequest/new', element: <NewAttendanceRequestPage /> },
-                    { path: '/attendancerequest/:id', element: <RequestDetailPage /> },
+                    { path: '/attendanceapproval', element: <AttendanceApprovalListPage /> },
+                    { path: '/attendanceapproval/:id/:type', element: <AttendanceApprovalDetailPage /> },
+                    {path: '/attendancerequest', element: <RequestListPage />},
+                    {path: '/attendancerequest/new', element: <NewAttendanceRequestPage />},
+                    {path: '/attendancerequest/edit/:id', element: <NewAttendanceRequestPage />},
+                    {path: '/attendancerequest/:id', element: <RequestDetailPage />},
                     { path: '/locationapproval', element: <ApprovalListPage /> },
                     // ── Other ──
                     { path: '/leave', element: <LeavePage /> },
@@ -132,6 +155,10 @@ export const router = createBrowserRouter([
                     { path: '/separationLeaveAuthorize', element: <SeparationLeaveAuthorizePage /> },
                     { path: '/separationAttendanceAuthorize', element: <SeparationAttendanceAuthorizePage /> },
                     { path: '/attendancelist', element: <SupervisedAttendancePage /> },
+                    { path: '/employeeworkpolicy', element: <WorkPolicyChangePage /> },
+                    { path: '/employeeworkpolicy/new', element: <WorkPolicyCreatePage /> },
+                    { path: '/employeeworkpolicy/edit/:syskey', element: <WorkPolicyCreatePage /> },
+
 
                     // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──
                     { path: '*', element: <ComingSoonPage /> },

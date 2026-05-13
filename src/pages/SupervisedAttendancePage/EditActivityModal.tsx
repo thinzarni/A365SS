@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
+import { format } from 'date-fns';
 
 import apiClient from '../../lib/api-client';
+import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
 // Reusing identical modal styles from AttendancePage
 import modalStyles from '../AttendancePage/AttendancePage.module.css';
+import { SUPERVISE_USER_LIST } from '../../config/api-routes';
 
 interface EditActivityModalProps {
     syskey: string | null;
@@ -27,20 +30,24 @@ const parseDateInput = (str: string | undefined) => {
 };
 
 export default function EditActivityModal({ syskey, initialDate, readOnly = false, onClose, onSuccess }: EditActivityModalProps) {
+    const isCreate = !syskey;
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const { userId: currentUserId, domain } = useAuthStore();
+
     // Form fields
+    const [selectedEmployeeSyskey, setSelectedEmployeeSyskey] = useState('');
     const [attendanceType, setAttendanceType] = useState('');
-    const [date, setDate] = useState(parseDateInput(initialDate));
+    const [date, setDate] = useState(parseDateInput(initialDate || format(new Date(), 'yyyy-MM-dd')));
     const [time, setTime] = useState('');
     const [latitude, setLatitude] = useState('');
     const [longitude, setLongitude] = useState('');
     const [location, setLocation] = useState('');
     const [description, setDescription] = useState('');
     const [isBackdate, setIsBackdate] = useState(false);
-    const { userId, domain } = useAuthStore();
     const [employeeDisplay, setEmployeeDisplay] = useState('');
     const [employeeId, setEmployeeId] = useState('');
+    const [employeeName, setEmployeeName] = useState('');
     const [subTypeSyskey, setSubTypeSyskey] = useState('');
 
     // Fetch primary attendance types
@@ -52,9 +59,21 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
         }
     });
 
+    // Fetch supervised users for creation
+    const { data: supervisedUsers } = useQuery({
+        queryKey: ['supervised-attendance-users'],
+        queryFn: async () => {
+            const res = await mainClient.post(SUPERVISE_USER_LIST);
+            return res.data?.data || [];
+        },
+        enabled: isCreate
+    });
+
     const selectedAttTypeObj = attendanceTypesList?.find((t: any) => t.syskey === attendanceType);
-    const isActivity = selectedAttTypeObj?.name === 603 || selectedAttTypeObj?.name === '603';
-    const isCheckIn = selectedAttTypeObj?.name === 604 || selectedAttTypeObj?.name === '604';
+    // Raw codes for type checking (601: IN, 602: OUT, 603: ACTIVITY, 604: CHECKIN)
+    const typeCode = selectedAttTypeObj?.name;
+    const isActivity = typeCode === 603 || typeCode === '603';
+    const isCheckIn = typeCode === 604 || typeCode === '604';
 
     // Fetch subtypes conditionally
     const { data: checkInTypes } = useQuery({
@@ -69,7 +88,6 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
     const { data: activitySubTypes } = useQuery({
         queryKey: ['setup-activitytypes-list'],
         queryFn: async () => {
-            // Mapping from getSetupList/activitytype
             const res = await apiClient.get(`api/hxm/setup/getSetupList/activitytype`);
             return res.data?.datalist || [];
         },
@@ -100,10 +118,25 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
     useEffect(() => {
         if (syskey) {
             setDate(parseDateInput(initialDate));
+        } else {
+            // Reset for create
+            setAttendanceType('');
+            setDate(parseDateInput(initialDate || new Date().toISOString()));
+            setTime('');
+            setLatitude('');
+            setLongitude('');
+            setLocation('');
+            setDescription('');
+            setIsBackdate(false);
+            setEmployeeDisplay('');
+            setEmployeeId('');
+            setEmployeeName('');
+            setSelectedEmployeeSyskey('');
+            setSubTypeSyskey('');
         }
     }, [syskey, initialDate]);
 
-    // Fetch Details
+    // Fetch Details for Edit
     const { data: details, isLoading } = useQuery({
         queryKey: ['attendance-detail', syskey],
         queryFn: async () => {
@@ -115,9 +148,10 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
     });
 
     useEffect(() => {
-        if (details) {
+        if (details && !isCreate) {
             setEmployeeDisplay(`${details.employee_id || ''} ${details.name || details.username || ''}`.trim());
             setEmployeeId(details.employee_id || '');
+            setEmployeeName(details.name || details.username || '');
             setAttendanceType(details.type || details.attendancetype || '');
             setDate((prev) => prev || parseDateInput(details.date));
             setTime(parseTime12h(details.time));
@@ -127,54 +161,105 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
             setDescription(details.description || '');
             setIsBackdate(details.backdateflag || false);
             setSubTypeSyskey(details.subtype || details.activity_type || details.checkin_type || '');
+            setSelectedEmployeeSyskey(details.employee_syskey || '');
         }
-    }, [details]);
+    }, [details, isCreate]);
+
+    // Update internal IDs when selecting employee from list (Create mode)
+    useEffect(() => {
+        if (isCreate && selectedEmployeeSyskey) {
+            const user = supervisedUsers?.find((u: any) => u.employee_syskey === selectedEmployeeSyskey);
+            if (user) {
+                setEmployeeId(user.employee_id);
+                setEmployeeName(user.employee_name);
+            }
+        }
+    }, [selectedEmployeeSyskey, isCreate, supervisedUsers]);
 
     // Lock body scroll
     useEffect(() => {
-        if (syskey) document.body.style.overflow = 'hidden';
+        if (syskey || isCreate) document.body.style.overflow = 'hidden';
         else document.body.style.overflow = '';
         return () => { document.body.style.overflow = ''; };
-    }, [syskey]);
+    }, [syskey, isCreate]);
 
-    if (!syskey) return null;
+    if (!syskey && initialDate === undefined) return null; // Wait for open
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            const payload = {
-                userid: userId,
-                domain: domain,
-                serverdate: date.replace(/-/g, ''), // e.g. "20260412"
-                date: date.replace(/-/g, ''),
-                time: formatTime12h(time), // e.g. "03:27 PM"
-                latitude,
-                longitude,
-                attendancetype: attendanceType,
-                typeSyskey: "",
-                location,
-                description,
-                backdate: isBackdate,
-                remotereason: details?.remotereason || 1,
-                backdatereason: details?.backdatereason || 1,
-                employeeid: employeeId,
-                checkin_type: isCheckIn ? subTypeSyskey : null,
-                activity_type: isActivity ? subTypeSyskey : null,
-                subtype: (isActivity || isCheckIn) ? subTypeSyskey : null
-            };
+            const formattedDate = date.replace(/-/g, '');
+            const formattedTime = formatTime12h(time);
 
-            const res = await apiClient.put(`api/hxm/attendance/A365attendance/insert/${syskey}`, payload);
+            if (isCreate) {
+                // Creation logic using HXM insert endpoint
+                const payload = {
+                    employee: `${employeeId} ${employeeName}`,
+                    serverdate: '',
+                    date: formattedDate,
+                    time: formattedTime,
+                    latitude: latitude || '0',
+                    longitude: longitude || '0',
+                    attendancetype: attendanceType,
+                    typeSyskey: '',
+                    location: location || '',
+                    description: description || '',
+                    backdate: isBackdate,
+                    remotereason: 1,
+                    backdatereason: 1,
+                    employeeid: employeeId,
+                    checkin_type: isCheckIn ? subTypeSyskey : null,
+                    activity_type: isActivity ? subTypeSyskey : null,
+                    subtype: (isActivity || isCheckIn) ? subTypeSyskey : null,
+                    userid: currentUserId,
+                    domain: domain
+                };
 
-            if (res.status === 200 || res.status === 201 || res.data?.statuscode === 200) {
-                toast.success('Attendance record updated successfully');
-                onSuccess();
-                onClose();
+                const res = await apiClient.post('api/hxm/attendance/A365attendance/insert', payload);
+                if (res.status === 200 || res.status === 201 || res.data?.statuscode === 200) {
+                    toast.success('Attendance record created successfully');
+                    onSuccess();
+                    onClose();
+                } else {
+                    toast.error(res.data?.message || 'Failed to create record');
+                }
             } else {
-                toast.error(res.data?.message || 'Failed to update record');
+                // Edit logic using requested payload format
+                const payload = {
+                    employee: `${employeeId} ${employeeName}`,
+                    serverdate: formattedDate,
+                    date: formattedDate,
+                    time: formattedTime,
+                    latitude: latitude || '0',
+                    longitude: longitude || '0',
+                    attendancetype: attendanceType,
+                    typeSyskey: '',
+                    location: location || '',
+                    description: description || '',
+                    backdate: isBackdate,
+                    remotereason: 1,
+                    backdatereason: 1,
+                    employeeid: employeeId,
+                    checkin_type: isCheckIn ? subTypeSyskey : null,
+                    activity_type: isActivity ? subTypeSyskey : null,
+                    subtype: (isActivity || isCheckIn) ? subTypeSyskey : null,
+                    userid: currentUserId,
+                    domain: domain
+                };
+
+                const res = await apiClient.put(`api/hxm/attendance/A365attendance/insert/${syskey}`, payload);
+
+                if (res.status === 200 || res.status === 201 || res.data?.statuscode === 200) {
+                    toast.success('Attendance record updated successfully');
+                    onSuccess();
+                    onClose();
+                } else {
+                    toast.error(res.data?.message || 'Failed to update record');
+                }
             }
         } catch (error: any) {
-            toast.error(error.response?.data?.message || error.message || 'Error updating record');
+            toast.error(error.response?.data?.message || error.message || 'Error processing request');
         } finally {
             setIsSubmitting(false);
         }
@@ -184,14 +269,14 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
         <div className={modalStyles.modalOverlay} onClick={onClose}>
             <div className={modalStyles.modalContent} style={{ maxWidth: '800px' }} onClick={e => e.stopPropagation()}>
                 <div className={modalStyles.modalHeader}>
-                    <h2>{readOnly ? 'View Check In Record' : 'Edit Check In Record'}</h2>
+                    <h2>{isCreate ? 'Create Attendance Record' : (readOnly ? 'View Attendance Record' : 'Edit Attendance Record')}</h2>
                     <button type="button" className={modalStyles.closeBtn} onClick={onClose}>
                         <X size={20} />
                     </button>
                 </div>
 
                 <form className={modalStyles.modalForm} onSubmit={handleSubmit}>
-                    {isLoading ? (
+                    {(isLoading && !isCreate) ? (
                         <div className={modalStyles.modalBody} style={{ justifyContent: 'center', alignItems: 'center' }}>
                             <div className={modalStyles.submitSpinner} style={{ width: 24, height: 24, borderColor: '#ccc', borderTopColor: '#2563eb' }}></div>
                         </div>
@@ -202,7 +287,24 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                                     <div className={modalStyles.formGroup}>
                                         <label>Employee<span style={{ color: 'red' }}>*</span></label>
-                                        <input type="text" value={employeeDisplay} disabled style={{ background: '#f1f5f9', color: '#64748b' }} />
+                                        {isCreate ? (
+                                            <div className={modalStyles.selectWrap}>
+                                                <select
+                                                    value={selectedEmployeeSyskey}
+                                                    onChange={e => setSelectedEmployeeSyskey(e.target.value)}
+                                                    required
+                                                >
+                                                    <option value="">Select Employee</option>
+                                                    {supervisedUsers?.map((user: any) => (
+                                                        <option key={user.employee_syskey} value={user.employee_syskey}>
+                                                            {user.employee_id} - {user.employee_name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        ) : (
+                                            <input type="text" value={employeeDisplay} disabled style={{ background: '#f1f5f9', color: '#64748b' }} />
+                                        )}
                                     </div>
 
                                     <div className={modalStyles.formGroup}>
@@ -221,8 +323,8 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
                                                 {attendanceTypesList?.map((type: any) => (
                                                     <option key={type.syskey} value={type.syskey}>{type.description || type.name}</option>
                                                 ))}
-                                                {/* Fallback option if missing */}
-                                                {attendanceType && !attendanceTypesList?.find((t: any) => t.syskey === attendanceType) && (
+                                                {/* Fallback option if missing in edit mode */}
+                                                {!isCreate && attendanceType && !attendanceTypesList?.find((t: any) => t.syskey === attendanceType) && (
                                                     <option value={attendanceType}>Current Type</option>
                                                 )}
                                             </select>
@@ -335,8 +437,8 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
 
                     <div className={modalStyles.modalFooter} style={{ justifyContent: 'flex-start' }}>
                         {!readOnly && (
-                            <button type="submit" className={modalStyles.submitBtn} disabled={isSubmitting || isLoading}>
-                                {isSubmitting ? <div className={modalStyles.submitSpinner}></div> : <><Save size={16} /> Save</>}
+                            <button type="submit" className={modalStyles.submitBtn} disabled={isSubmitting || (isLoading && !isCreate)}>
+                                {isSubmitting ? <div className={modalStyles.submitSpinner}></div> : <><Save size={16} /> {isCreate ? 'Create' : 'Save'}</>}
                             </button>
                         )}
                         <button type="button" className={modalStyles.cancelBtn} onClick={onClose} disabled={isSubmitting}>
@@ -348,3 +450,4 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
         </div>
     );
 }
+
