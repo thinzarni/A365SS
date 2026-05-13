@@ -193,7 +193,7 @@ export default function SupervisedAttendanceImportModal({ open, onClose, onSucce
             open={open}
             onClose={handleClose}
             title={t('supervisedAttendance.importTitle', 'Import Attendance')}
-            large
+            extraLarge
         >
             <div className={styles['import-modal']}>
                 <div className={styles['import-modal__steps']}>
@@ -255,9 +255,10 @@ export default function SupervisedAttendanceImportModal({ open, onClose, onSucce
                                         <th>Employee ID</th>
                                         <th>Date</th>
                                         <th>Time</th>
+                                        <th>Location</th>
                                         <th>Type</th>
-                                        <th>Subtype</th>
-                                        <th>{previewTab === 'invalid' ? 'Reason & Errors' : 'Reason'}</th>
+                                        <th>Backdate</th>
+                                        <th>{previewTab === 'invalid' ? 'Reason & Errors' : 'Description'}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -268,8 +269,9 @@ export default function SupervisedAttendanceImportModal({ open, onClose, onSucce
                                                 <td>{row.employee_id}</td>
                                                 <td>{row.date}</td>
                                                 <td>{row.time}</td>
-                                                <td>{row.type === 601 ? 'Time In' : row.type === 602 ? 'Time Out' : 'In/Out'}</td>
-                                                <td>{row.requesttype}</td>
+                                                <td>{row.location}</td>
+                                                <td>{row.type}</td>
+                                                <td>{row.backdate}</td>
                                                 <td>
                                                     {row.description || '—'}
                                                     {errors.length > 0 && (
