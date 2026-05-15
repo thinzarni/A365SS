@@ -173,9 +173,8 @@ export default function DashboardPage() {
     const { t, i18n } = useTranslation();
     const { user, userId, domain } = useAuthStore();
     const [now, setNow] = useState(new Date());
-    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
-    const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
-    const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+    // const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+    // const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
 
     // Live clock update
     useEffect(() => {
@@ -476,8 +475,6 @@ export default function DashboardPage() {
                                 <div
                                     key={idx}
                                     className={styles.recordCard}
-                                    onClick={() => setSelectedRecord(rec)}
-                                    style={{ cursor: 'pointer' }}
                                 >
                                     <div className={styles.recordLeft}>
                                         <div className={`${styles.recordIcon} ${styles[meta.dot]}`}>
