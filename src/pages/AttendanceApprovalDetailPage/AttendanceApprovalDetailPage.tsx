@@ -211,12 +211,9 @@ export default function AttendanceApprovalDetailPage() {
     const isApproved = statusCode === '2';
     const isRejected = statusCode === '3';
 
-    const attTypeLabel = item.approvetype ||
-        (urlType === '1' || String(item.requesttype) === '1'
-            ? 'Remote Time in'
-            : urlType === '2' || String(item.requesttype) === '2'
-                ? 'Backdate Time in'
-                : 'Attendance');
+    const fallbackLabel = (urlType === '1' || String(item.requesttype) === '1') ? 'Remote Timein' : 
+                          (urlType === '2' || String(item.requesttype) === '2') ? 'Backdate Timein' : 'Attendance';
+    const attTypeLabel = String(item.approvetype || fallbackLabel).replace(/Timein/i, item.type || 'Time In');
 
     const reqName = String(item.name || item.employee_id || 'Employee');
 

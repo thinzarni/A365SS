@@ -225,7 +225,7 @@
     left: 0;
     z-index: 5;
     border-right: 1px solid #e5e7eb;
-    background: inherit;
+    background: #fff;
 }
 
 .invalidRow td {

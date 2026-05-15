@@ -332,7 +332,7 @@ export default function WorkPolicyImportModal({ isOpen, onClose, onSuccess }: Im
                                 <thead>
                                     <tr>
                                         <th className={styles.stickyCol}>{t('workPolicy.import.id')}<span className={styles.required}>*</span></th>
-                                        <th className={styles.stickyCol}>{t('workPolicy.import.name')}<span className={styles.required}>*</span></th>
+                                        <th>{t('workPolicy.import.name')}<span className={styles.required}>*</span></th>
                                         <th>{t('workPolicy.workPolicy')}<span className={styles.required}>*</span></th>
                                         <th>{t('workPolicy.startDate')}<span className={styles.required}>*</span></th>
                                         <th>{t('workPolicy.endDate')}<span className={styles.required}>*</span></th>
@@ -347,7 +347,7 @@ export default function WorkPolicyImportModal({ isOpen, onClose, onSuccess }: Im
                                     {(filterType === 'valid' ? validData : invalidData).map((row, idx) => (
                                         <tr key={idx} className={row.is_error ? styles.invalidRow : ''}>
                                             <td className={styles.stickyCol} title={row.eid_error}>{row.eid}</td>
-                                            <td className={styles.stickyCol} title={row.name_error}>{row.name}</td>
+                                            <td title={row.name_error}>{row.name}</td>
                                             <td title={row.workpolicysetup_error}>{row.workpolicysetup}</td>
                                             <td title={row.startdate_error}>{row.startdate}</td>
                                             <td title={row.enddate_error}>{row.enddate}</td>

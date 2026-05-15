@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 
@@ -32,6 +32,7 @@ const parseDateInput = (str: string | undefined) => {
 export default function EditActivityModal({ syskey, initialDate, readOnly = false, onClose, onSuccess }: EditActivityModalProps) {
     const isCreate = !syskey;
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const queryClient = useQueryClient();
 
     const { userId: currentUserId, domain } = useAuthStore();
 
@@ -252,6 +253,7 @@ export default function EditActivityModal({ syskey, initialDate, readOnly = fals
 
                 if (res.status === 200 || res.status === 201 || res.data?.statuscode === 200) {
                     toast.success('Attendance record updated successfully');
+                    queryClient.invalidateQueries({ queryKey: ['attendance-detail', syskey] });
                     onSuccess();
                     onClose();
                 } else {

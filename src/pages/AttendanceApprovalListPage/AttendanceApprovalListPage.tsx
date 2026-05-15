@@ -104,12 +104,12 @@ export default function AttendanceApprovalListPage() {
                     date: item.date,
                     startdate: item.date,
                     requesttype: itemType,
-                    requesttypedesc: item.approvetype || (itemType === '1' ? 'Remote Timein' : 'Backdate Timein'),
-                    requeststatus: (() => { 
-                        const s = String(item.status ?? ''); 
-                        if (s === '2') return '2'; 
-                        if (s === '3') return '3'; 
-                        return '1'; 
+                    requesttypedesc: String(item.approvetype || (itemType === '1' ? 'Remote Timein' : 'Backdate Timein')).replace(/Timein/i, item.type || 'Time In'),
+                    requeststatus: (() => {
+                        const s = String(item.status ?? '');
+                        if (s === '2') return '2';
+                        if (s === '3') return '3';
+                        return '1';
                     })() as any,
                     requestsubtypedesc: item.time || '',
                     remark: item.description,
@@ -139,7 +139,7 @@ export default function AttendanceApprovalListPage() {
                         {allApprovals.length} {allApprovals.length === 1 ? 'approval' : 'approvals'}
                     </div>
                 </div>
-                <button 
+                <button
                     className={styles['filter-btn']}
                     onClick={() => setShowFilter(!showFilter)}
                 >
@@ -155,18 +155,18 @@ export default function AttendanceApprovalListPage() {
                     <div className={styles['filter-grid']}>
                         <div className={styles['filter-item']}>
                             <label>From Date</label>
-                            <input 
-                                type="date" 
-                                value={toInputDate(fromDate)} 
-                                onChange={(e) => setFromDate(fromInputDate(e.target.value))} 
+                            <input
+                                type="date"
+                                value={toInputDate(fromDate)}
+                                onChange={(e) => setFromDate(fromInputDate(e.target.value))}
                             />
                         </div>
                         <div className={styles['filter-item']}>
                             <label>To Date</label>
-                            <input 
-                                type="date" 
-                                value={toInputDate(toDate)} 
-                                onChange={(e) => setToDate(fromInputDate(e.target.value))} 
+                            <input
+                                type="date"
+                                value={toInputDate(toDate)}
+                                onChange={(e) => setToDate(fromInputDate(e.target.value))}
                             />
                         </div>
                     </div>
@@ -194,8 +194,8 @@ export default function AttendanceApprovalListPage() {
 
                 <div className={styles['att-types']}>
                     {[
-                        { key: '1', label: 'Remote Time in' },
-                        { key: '2', label: 'Backdate Time in' },
+                        { key: '1', label: 'Remote' },
+                        { key: '2', label: 'Backdate' },
                     ].map((type) => (
                         <button
                             key={type.key}
@@ -250,7 +250,7 @@ export default function AttendanceApprovalListPage() {
                                 </div>
                             ))}
                         </div>
-                        
+
                         <div className={styles['footer']}>
                             <Users size={14} />
                             <span>{allApprovals.length} total</span>

@@ -264,7 +264,7 @@ export default function DashboardPage() {
     });
 
     // ── Fetch employees data ──
-    const { data: employees, isLoading: employeesLoading } = useQuery({
+    const { isLoading: employeesLoading } = useQuery({
         queryKey: ['dashboard-employees', todayStr, userId, domain],
         queryFn: async () => {
             try {
