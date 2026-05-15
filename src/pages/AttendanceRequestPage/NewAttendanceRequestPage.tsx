@@ -3,13 +3,16 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
 import Select from '../../components/ui/Select/Select';
+import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
+import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { useAuthStore } from '../../stores/auth-store';
 import mainClient from '../../lib/main-client';
-import { SAVE_ATTENDANCE_REQ, TEAM_LIST, GET_ATTENDANCE_REASON } from '../../config/api-routes';
+import { SAVE_ATTENDANCE_REQ, TEAM_LIST, GET_ATTENDANCE_REASON, GET_ATTENDANCE_REQ_DETAIL, DELETE_ATTENDANCE_REQ } from '../../config/api-routes';
+import { RequestStatus } from '../../types/models';
 import type { TeamMember } from '../../types/models';
 import styles from './AttendanceRequestPage.module.css';
 import '../../styles/pages.css';
@@ -32,9 +35,33 @@ export default function NewAttendanceRequestPage() {
     const { userId, user, domain } = useAuthStore();
     const isEdit = !!id;
     const routerLocation = useLocation();
-    // Item data passed from the list/detail page via router state
-    const existingDetail: any = (routerLocation.state as any)?.item || null;
+    
+    // Item data passed from the list page via router state (optional)
+    const stateItem = (routerLocation.state as any)?.item || null;
     const refIndex = (routerLocation.state as any)?.refIndex || null;
+
+    // ── Detail Data Query (if id exists but state is empty) ──
+    const { data: fetchedDetail, isLoading: isDetailLoading } = useQuery({
+        queryKey: ['attendance-detail', id],
+        queryFn: async () => {
+            if (!id) return null;
+            const res = await mainClient.post(`${GET_ATTENDANCE_REQ_DETAIL}/${id}`, {
+                userid: userId || '',
+                domain: domain || 'dev'
+            });
+            return res.data?.data || res.data?.datalist || null;
+        },
+        enabled: !!id && !stateItem,
+    });
+
+    const existingDetail = stateItem || fetchedDetail;
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+    // ── Status & Mode Logic ──
+    // Status 1 = Pending, 2 = Approved, 3 = Rejected
+    const currentStatus = String(existingDetail?.status || existingDetail?.requeststatus || '1');
+    const isViewMode = isEdit && currentStatus !== RequestStatus.Pending;
+    const canDelete = isEdit && currentStatus === RequestStatus.Pending;
 
     // ── Team Data Query ──
     const { data: members = [] } = useQuery<TeamMember[]>({
@@ -171,7 +198,8 @@ export default function NewAttendanceRequestPage() {
             }
 
             setType(String(existingDetail.type || '601'));
-            setRequestType(String(existingDetail.requesttype || '1'));
+            // Request type (Remote/Backdate) can be in atttype, attendancerequesttype or requesttype (if mapped)
+            setRequestType(String(existingDetail.atttype || existingDetail.attendancerequesttype || existingDetail.requesttype || '1'));
             setReasonType(String(existingDetail.attendancereason || '1'));
             
             const rawDate = String(existingDetail.date || '');
@@ -195,12 +223,12 @@ export default function NewAttendanceRequestPage() {
             if (existingDetail.type === '601') setIntime(parseTime(existingDetail.intime));
             if (existingDetail.type === '602') setOuttime(parseTime(existingDetail.outtime));
             
-            setLocation(existingDetail.location || '');
-            setReason(existingDetail.description || '');
-            setLat(existingDetail.latitude || '0.0');
-            setLong(existingDetail.longitude || '0.0');
+            setLocation(existingDetail.location || existingDetail.locationname || '');
+            setReason(existingDetail.description || existingDetail.remark || '');
+            setLat(String(existingDetail.latitude ?? existingDetail.lat ?? '0.0'));
+            setLong(String(existingDetail.longitude ?? existingDetail.long ?? '0.0'));
         }
-    }, [existingDetail, members, user]);
+    }, [existingDetail, members, user, id]); // Added id to deps for fetching case
     const selectedMemberInfo = useMemo(() => {
         if (selectedMemberSyskey === '__SELF__') {
             // Find myself in the full list to get the real numeric EID and Employee Record syskey
@@ -271,13 +299,31 @@ export default function NewAttendanceRequestPage() {
 
             // For update: POST /saveattendancerequest/{syskey}  |  For new: POST /saveattendancerequest
             const endpoint = isEdit && id ? `${SAVE_ATTENDANCE_REQ}/${id}` : SAVE_ATTENDANCE_REQ;
-            const res = await mainClient.post(endpoint, payload);
-            const data = res.data;
-            const isSuccess = data?.status === 201 || data?.statuscode === 200 || data?.statuscode === 300 || data?.message_code === "203" || data?.message === "Save successfully" || data?.message === "Update successfully";
-            if (!isSuccess) {
-                throw new Error(data?.message || t('common.error'));
+            
+            try {
+                const res = await mainClient.post(endpoint, payload);
+                const data = res.data;
+                const isSuccess = data?.status === 201 || data?.statuscode === 200 || data?.statuscode === 300 || data?.message_code === "203" || data?.message === "Save successfully" || data?.message === "Update successfully";
+                
+                if (!isSuccess) {
+                    // Check for duplicate attendance in response data even if status is 2xx
+                    if (data?.message_code === "402" || data?.message === "Attendance already exist") {
+                        const typeLabel = type === '601' ? 'Time in' : 'Time out';
+                        throw new Error(`${typeLabel} is already request`);
+                    }
+                    throw new Error(data?.message || t('common.error'));
+                }
+                return data;
+            } catch (err: any) {
+                // Handle 400 error from Axios
+                const data = err.response?.data;
+                if (data?.message_code === "402" || data?.message === "Attendance already exist") {
+                    const typeLabel = type === '601' ? 'Time in' : 'Time out';
+                    throw new Error(`${typeLabel} is already request`);
+                }
+                // Rethrow other errors to be caught by onError
+                throw err;
             }
-            return data;
         },
         onSuccess: () => {
             toast.success(isEdit ? 'Request updated successfully' : t('request.submitSuccess'));
@@ -289,14 +335,45 @@ export default function NewAttendanceRequestPage() {
         },
     });
 
+    const deleteMutation = useMutation({
+        mutationFn: async () => {
+            await mainClient.post(`${DELETE_ATTENDANCE_REQ}/${id}`, {
+                userid: userId || '',
+                domain: domain || 'dev'
+            });
+        },
+        onSuccess: () => {
+            toast.success('Request deleted successfully');
+            navigate('/attendancerequest');
+        },
+        onError: (err: unknown) => {
+            const msg = err instanceof Error ? err.message : 'Failed to delete request';
+            toast.error(msg);
+        },
+    });
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (isViewMode) return;
         if (!reason.trim()) {
             toast.error('Please provide a reason');
             return;
         }
         submitMutation.mutate();
     };
+
+    if (isEdit && !existingDetail && isDetailLoading) {
+        return (
+            <div className={styles['new-request']} style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+                <div className="loader" />
+            </div>
+        );
+    }
+
+    const pageTitle = isViewMode ? 'Attendance Request Detail' : (isEdit ? 'Edit Attendance Request' : 'New Attendance Request');
+    const pageSubtitle = isViewMode 
+        ? (refIndex ? `Viewing request #${refIndex}` : `Viewing request #${id}`)
+        : (isEdit ? (refIndex ? `Editing request #${refIndex}` : `Editing request #${id}`) : 'Request manual time in/out overrides');
 
     return (
         <div className={styles['new-request']}>
@@ -306,8 +383,17 @@ export default function NewAttendanceRequestPage() {
             </button>
 
             <div className="page-header">
-                <h1 className="page-header__title">{isEdit ? 'Edit Attendance Request' : 'New Attendance Request'}</h1>
-                <p className="page-header__subtitle">{isEdit ? (refIndex ? `Editing request #${refIndex}` : `Editing request #${id}`) : 'Request manual time in/out overrides'}</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                        <h1 className="page-header__title">{pageTitle}</h1>
+                        <p className="page-header__subtitle">{pageSubtitle}</p>
+                    </div>
+                    {isViewMode && (
+                        <div style={{ marginTop: 'var(--space-2)' }}>
+                            <StatusBadge status={currentStatus} />
+                        </div>
+                    )}
+                </div>
             </div>
 
             <form className={styles['new-request__card']} onSubmit={handleSubmit}>
@@ -321,6 +407,7 @@ export default function NewAttendanceRequestPage() {
                                 value={selectedMemberSyskey}
                                 onChange={(e) => setSelectedMemberSyskey(e.target.value)}
                                 options={employeeOptions}
+                                disabled={isViewMode}
                             />
                         </div>
 
@@ -349,6 +436,7 @@ export default function NewAttendanceRequestPage() {
                                     { value: '601', label: 'Time In' },
                                     { value: '602', label: 'Time Out' },
                                 ]}
+                                disabled={isViewMode}
                             />
                             <Select
                                 id="request-type"
@@ -359,6 +447,7 @@ export default function NewAttendanceRequestPage() {
                                     { value: '1', label: 'Remote' },
                                     { value: '2', label: 'Backdate' },
                                 ]}
+                                disabled={isViewMode}
                             />
                         </div>
 
@@ -369,6 +458,7 @@ export default function NewAttendanceRequestPage() {
                                 value={reasonType}
                                 onChange={(e) => setReasonType(e.target.value)}
                                 options={reasonOptions}
+                                disabled={isViewMode}
                             />
                         </div>
 
@@ -380,6 +470,7 @@ export default function NewAttendanceRequestPage() {
                                 value={date}
                                 onChange={(e) => setDate(e.target.value)}
                                 required
+                                disabled={isViewMode}
                             />
                         </div>
 
@@ -392,6 +483,7 @@ export default function NewAttendanceRequestPage() {
                                     value={intime}
                                     onChange={(e) => setIntime(e.target.value)}
                                     required
+                                    disabled={isViewMode}
                                 />
                             </div>
                         )}
@@ -405,6 +497,7 @@ export default function NewAttendanceRequestPage() {
                                     value={outtime}
                                     onChange={(e) => setOuttime(e.target.value)}
                                     required
+                                    disabled={isViewMode}
                                 />
                             </div>
                         )}
@@ -416,6 +509,7 @@ export default function NewAttendanceRequestPage() {
                                 value={location}
                                 onChange={(e) => setLocation(e.target.value)}
                                 placeholder="MIT q, My Office, etc."
+                                disabled={isViewMode}
                             />
                         </div>
 
@@ -426,6 +520,7 @@ export default function NewAttendanceRequestPage() {
                                 value={lat}
                                 onChange={(e) => setLat(e.target.value)}
                                 placeholder="0.0"
+                                disabled={isViewMode}
                             />
                             <Input
                                 id="longitude"
@@ -433,6 +528,7 @@ export default function NewAttendanceRequestPage() {
                                 value={long}
                                 onChange={(e) => setLong(e.target.value)}
                                 placeholder="0.0"
+                                disabled={isViewMode}
                             />
                         </div>
 
@@ -444,20 +540,47 @@ export default function NewAttendanceRequestPage() {
                                 onChange={(e) => setReason(e.target.value)}
                                 placeholder="State the reason for this manual override…"
                                 required
+                                disabled={isViewMode}
                             />
                         </div>
                     </div>
                 </div>
 
                 <div className={styles['new-request__footer']}>
-                    <Button type="button" variant="secondary" onClick={() => navigate('/attendancerequest')}>
-                        {t('common.cancel')}
-                    </Button>
-                    <Button type="submit" loading={submitMutation.isPending}>
-                        {isEdit ? 'Update Request' : t('request.submit')}
-                    </Button>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        {canDelete && (
+                            <Button type="button" variant="danger" onClick={() => setShowDeleteModal(true)} disabled={deleteMutation.isPending}>
+                                <Trash2 size={16} />
+                                Delete
+                            </Button>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                        <Button type="button" variant="secondary" onClick={() => navigate('/attendancerequest')}>
+                            {isViewMode ? 'Close' : t('common.cancel')}
+                        </Button>
+                        {!isViewMode && (
+                            <Button type="submit" loading={submitMutation.isPending}>
+                                {isEdit ? 'Update Request' : t('request.submit')}
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </form>
+
+            <ConfirmModal
+                open={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={() => {
+                    deleteMutation.mutate();
+                    setShowDeleteModal(false);
+                }}
+                title="Delete Attendance Request"
+                message="Are you sure you want to delete this attendance request? This action cannot be undone."
+                confirmLabel="Delete"
+                variant="danger"
+                loading={deleteMutation.isPending}
+            />
         </div>
     );
 }

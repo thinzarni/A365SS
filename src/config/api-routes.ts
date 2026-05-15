@@ -62,6 +62,7 @@ export const SAVE_ATTENDANCE_REQ = 'api/attendancerequest/saveattendancerequest'
 export const GET_ATTENDANCE_REQ_LIST = 'api/attendancerequest/getAttendanceRequestList';
 export const GET_ATTENDANCE_REQ_DETAIL = 'api/attendancerequest/getAttendanceRequestDetail';
 export const GET_ATTENDANCE_REASON = 'api/attendancerequest/getAttendanceReason';
+export const DELETE_ATTENDANCE_REQ = 'api/attendancerequest/attendancedelete';
 export const EXPORT_ATTENDANCE_REQ_TEMPLATE = 'api/attendancerequest/exportattendancerequesttemplate';
 export const PREPARE_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/prepareimportattendancerequest';
 export const PREVIEW_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/previewlistattendancerequest';

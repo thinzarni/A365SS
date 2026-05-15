@@ -134,7 +134,7 @@ export const router = createBrowserRouter([
                     {path: '/attendancerequest', element: <RequestListPage />},
                     {path: '/attendancerequest/new', element: <NewAttendanceRequestPage />},
                     {path: '/attendancerequest/edit/:id', element: <NewAttendanceRequestPage />},
-                    {path: '/attendancerequest/:id', element: <RequestDetailPage />},
+                    {path: '/attendancerequest/:id', element: <NewAttendanceRequestPage />},
                     { path: '/locationapproval', element: <ApprovalListPage /> },
                     // ── Other ──
                     { path: '/leave', element: <LeavePage /> },

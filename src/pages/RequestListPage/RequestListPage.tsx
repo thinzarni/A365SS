@@ -193,6 +193,8 @@ export default function RequestListPage() {
                     refno: item.syskey,
                     date: item.date,
                     startdate: item.date,
+                    type: item.type,
+                    atttype: item.atttype || item.attendancerequesttype,
                     requesttype: item.atttype || item.type,
                     requesttypedesc: item.type === '601' ? 'Time In' : item.type === '602' ? 'Time Out' : (attType === '1' || item.atttype === '1') ? 'Remote Time in' : (attType === '2' || item.atttype === '2') ? 'Backdate Time in' : 'Attendance',
                     requeststatus: String(item.status || '1'),
@@ -200,6 +202,12 @@ export default function RequestListPage() {
                     intime: item.intime,
                     outtime: item.outtime,
                     remark: item.description,
+                    description: item.description,
+                    location: item.location,
+                    latitude: item.latitude,
+                    longitude: item.longitude,
+                    processstatus: item.processstatus || item.claimProcessStatus || '',
+                    attendancereason: item.attendancereason,
                 }));
             }
 
@@ -625,7 +633,7 @@ export default function RequestListPage() {
                                     return (
                                         <tr key={req.syskey || i} onClick={() => {
                                             if (isAttendancePage) {
-                                                navigate(`/attendancerequest/${req.syskey}`, { state: { refIndex: i + 1 } });
+                                                navigate(`/attendancerequest/${req.syskey}`, { state: { item: req, refIndex: i + 1 } });
                                             } else {
                                                 navigate(`/requests/${req.syskey}`);
                                             }
