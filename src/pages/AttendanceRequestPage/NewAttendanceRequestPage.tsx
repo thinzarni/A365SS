@@ -3,15 +3,16 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trash2, MapPin, RefreshCw, Loader2 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
 import Select from '../../components/ui/Select/Select';
+import EditableSelect from '../../components/ui/Select/EditableSelect';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { useAuthStore } from '../../stores/auth-store';
 import mainClient from '../../lib/main-client';
-import { SAVE_ATTENDANCE_REQ, TEAM_LIST, GET_ATTENDANCE_REASON, GET_ATTENDANCE_REQ_DETAIL, DELETE_ATTENDANCE_REQ } from '../../config/api-routes';
+import { SAVE_ATTENDANCE_REQ, TEAM_LIST, GET_ATTENDANCE_REASON, GET_ATTENDANCE_REQ_DETAIL, DELETE_ATTENDANCE_REQ, LOCATION_LIST } from '../../config/api-routes';
 import { RequestStatus } from '../../types/models';
 import type { TeamMember } from '../../types/models';
 import styles from './AttendanceRequestPage.module.css';
@@ -35,7 +36,7 @@ export default function NewAttendanceRequestPage() {
     const { userId, user, domain } = useAuthStore();
     const isEdit = !!id;
     const routerLocation = useLocation();
-    
+
     // Item data passed from the list page via router state (optional)
     const stateItem = (routerLocation.state as any)?.item || null;
     const refIndex = (routerLocation.state as any)?.refIndex || null;
@@ -111,7 +112,7 @@ export default function NewAttendanceRequestPage() {
         },
         enabled: !!userId,
     });
-    
+
     // ── Attendance Reasons Query ──
     const { data: reasonOptionsRaw = [] } = useQuery({
         queryKey: ['attendance-reasons', userId, domain],
@@ -128,6 +129,28 @@ export default function NewAttendanceRequestPage() {
         },
         enabled: !!userId,
     });
+
+    // ── Registered Locations Query ──
+    const { data: registeredLocations = [], isLoading: isLocationsLoading } = useQuery({
+        queryKey: ['location-list', userId, domain],
+        queryFn: async () => {
+            const res = await mainClient.post(LOCATION_LIST, {
+                userid: userId,
+                domain: domain,
+            });
+            return res.data?.data || [];
+        },
+        enabled: !!userId,
+    });
+
+    const locationOptions = useMemo(() => {
+        return registeredLocations.map((loc: any) => ({
+            value: String(loc.syskey),
+            label: loc.description || loc.name || '',
+            lat: String(loc.latitude || '0.0'),
+            long: String(loc.longitude || '0.0')
+        }));
+    }, [registeredLocations]);
 
     // Use static NON/Forgotten when API returns empty
     const reasonOptions = reasonOptionsRaw.length > 0 ? reasonOptionsRaw : [
@@ -149,6 +172,8 @@ export default function NewAttendanceRequestPage() {
     const [reasonType, setReasonType] = useState('1');  // syskey from reasonOptions
     const [lat, setLat] = useState('0.0');
     const [long, setLong] = useState('0.0');
+    const [isWaitingLocation, setIsWaitingLocation] = useState(false);
+    const [selectedLocationSyskey, setSelectedLocationSyskey] = useState<string>('');
 
 
     const toApiDate = (d: string) => d ? d.replace(/-/g, '') : '';
@@ -184,6 +209,90 @@ export default function NewAttendanceRequestPage() {
         }
     }, [employeeOptions, selectedMemberSyskey]);
 
+    const handleRefreshLocation = () => {
+        if (!navigator.geolocation) {
+            toast.error('Geolocation is not supported by your browser');
+            return;
+        }
+
+        setIsWaitingLocation(true);
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords;
+                setLat(latitude.toFixed(6));
+                setLong(longitude.toFixed(6));
+
+                // 1. Try to match with registered locations (Offices)
+                let matchedLocationName = '';
+                let matchedSyskey = '';
+
+                if (locationOptions.length > 0) {
+                    for (const loc of locationOptions) {
+                        const locLat = parseFloat(loc.lat || '0');
+                        const locLong = parseFloat(loc.long || '0');
+                        const dist = Math.sqrt(Math.pow(latitude - locLat, 2) + Math.pow(longitude - locLong, 2));
+                        
+                        if (dist < 0.001) { // Within ~100m
+                            matchedLocationName = loc.label;
+                            matchedSyskey = loc.value;
+                            break;
+                        }
+                    }
+                }
+
+                if (matchedLocationName) {
+                    setLocation(matchedLocationName);
+                    setSelectedLocationSyskey(matchedSyskey);
+                    setIsWaitingLocation(false);
+                    toast.success('Office location detected');
+                } else {
+                    // 2. Try reverse geocoding for street name
+                    try {
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`, {
+                            headers: { 'Accept-Language': 'en' }
+                        });
+                        const data = await response.json();
+                        
+                        if (data && data.address) {
+                            const addr = data.address;
+                            // Prefer street name (road) and suburb/neighborhood
+                            const components = [
+                                addr.road || addr.pedestrian || addr.path,
+                                addr.suburb || addr.neighbourhood || addr.village,
+                                addr.city || addr.town || addr.county
+                            ].filter(Boolean);
+                            
+                            const streetName = components.length > 0 ? components.join(', ') : data.display_name;
+                            setLocation(streetName || 'Current Location');
+                        } else {
+                            setLocation('Current Location');
+                        }
+                    } catch (e) {
+                        console.error('Geocoding error:', e);
+                        setLocation('Current Location');
+                    } finally {
+                        setSelectedLocationSyskey('');
+                        setIsWaitingLocation(false);
+                        toast.success('Location updated');
+                    }
+                }
+            },
+            (error) => {
+                console.error('Geolocation error:', error);
+                setIsWaitingLocation(false);
+                toast.error('Failed to get location');
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    };
+
+    // Auto-fetch location for new request
+    useEffect(() => {
+        if (!isEdit) {
+            handleRefreshLocation();
+        }
+    }, [isEdit]);
+
     // Populate form from existing detail
     useEffect(() => {
         if (existingDetail) {
@@ -201,12 +310,12 @@ export default function NewAttendanceRequestPage() {
             // Request type (Remote/Backdate) can be in atttype, attendancerequesttype or requesttype (if mapped)
             setRequestType(String(existingDetail.atttype || existingDetail.attendancerequesttype || existingDetail.requesttype || '1'));
             setReasonType(String(existingDetail.attendancereason || '1'));
-            
+
             const rawDate = String(existingDetail.date || '');
             if (rawDate.length === 8) {
                 setDate(`${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`);
             }
-            
+
             const parseTime = (t: string) => {
                 if (!t) return nowTimeStr();
                 // "08:30 AM" -> "08:30", "01:30 PM" -> "13:30"
@@ -222,11 +331,12 @@ export default function NewAttendanceRequestPage() {
 
             if (existingDetail.type === '601') setIntime(parseTime(existingDetail.intime));
             if (existingDetail.type === '602') setOuttime(parseTime(existingDetail.outtime));
-            
+
             setLocation(existingDetail.location || existingDetail.locationname || '');
             setReason(existingDetail.description || existingDetail.remark || '');
             setLat(String(existingDetail.latitude ?? existingDetail.lat ?? '0.0'));
             setLong(String(existingDetail.longitude ?? existingDetail.long ?? '0.0'));
+            setSelectedLocationSyskey(existingDetail.location_syskey || '');
         }
     }, [existingDetail, members, user, id]); // Added id to deps for fetching case
     const selectedMemberInfo = useMemo(() => {
@@ -295,16 +405,17 @@ export default function NewAttendanceRequestPage() {
                 employee_userid: targetEmp.userid,
                 requesttype: Number(requestType),
                 attendancereason: reasonType,
+                location_syskey: selectedLocationSyskey,
             };
 
             // For update: POST /saveattendancerequest/{syskey}  |  For new: POST /saveattendancerequest
             const endpoint = isEdit && id ? `${SAVE_ATTENDANCE_REQ}/${id}` : SAVE_ATTENDANCE_REQ;
-            
+
             try {
                 const res = await mainClient.post(endpoint, payload);
                 const data = res.data;
                 const isSuccess = data?.status === 201 || data?.statuscode === 200 || data?.statuscode === 300 || data?.message_code === "203" || data?.message === "Save successfully" || data?.message === "Update successfully";
-                
+
                 if (!isSuccess) {
                     // Check for duplicate attendance in response data even if status is 2xx
                     if (data?.message_code === "402" || data?.message === "Attendance already exist") {
@@ -371,7 +482,7 @@ export default function NewAttendanceRequestPage() {
     }
 
     const pageTitle = isViewMode ? 'Attendance Request Detail' : (isEdit ? 'Edit Attendance Request' : 'New Attendance Request');
-    const pageSubtitle = isViewMode 
+    const pageSubtitle = isViewMode
         ? (refIndex ? `Viewing request #${refIndex}` : `Viewing request #${id}`)
         : (isEdit ? (refIndex ? `Editing request #${refIndex}` : `Editing request #${id}`) : 'Request manual time in/out overrides');
 
@@ -502,35 +613,43 @@ export default function NewAttendanceRequestPage() {
                             </div>
                         )}
 
-                        <div className={styles['new-request__full']}>
-                            <Input
-                                id="location"
+                        <div className={styles['new-request__full']} style={{ marginBottom: 'var(--space-1)' }}>
+                            <EditableSelect
                                 label="Location"
                                 value={location}
-                                onChange={(e) => setLocation(e.target.value)}
-                                placeholder="MIT q, My Office, etc."
+                                options={locationOptions}
+                                onChange={(val, opt) => {
+                                    setLocation(val);
+                                    if (opt) {
+                                        setSelectedLocationSyskey(opt.value);
+                                        const l_lat = Number(opt.lat || 0).toFixed(6);
+                                        const l_long = Number(opt.long || 0).toFixed(6);
+                                        setLat(l_lat);
+                                        setLong(l_long);
+                                    } else {
+                                        setSelectedLocationSyskey('');
+                                    }
+                                }}
+                                placeholder="Select or type location..."
                                 disabled={isViewMode}
+                                isLoading={isLocationsLoading}
                             />
                         </div>
 
-                        <div className={styles['new-request__full']} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-                            <Input
-                                id="latitude"
-                                label="Latitude"
-                                value={lat}
-                                onChange={(e) => setLat(e.target.value)}
-                                placeholder="0.0"
-                                disabled={isViewMode}
-                            />
-                            <Input
-                                id="longitude"
-                                label="Longitude"
-                                value={long}
-                                onChange={(e) => setLong(e.target.value)}
-                                placeholder="0.0"
-                                disabled={isViewMode}
-                            />
-                        </div>
+                        {!isViewMode && (
+                            <div className={styles['new-request__full']} style={{ marginTop: '-8px', marginBottom: 'var(--space-2)' }}>
+                                <div className={styles['coordinate-display']} onClick={handleRefreshLocation}>
+                                    <span className={styles['coordinate-text']}>
+                                        {Number(lat).toFixed(6)} , {Number(long).toFixed(6)}
+                                    </span>
+                                    {isWaitingLocation ? (
+                                        <Loader2 size={14} className={styles['spin']} />
+                                    ) : (
+                                        <RefreshCw size={14} />
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         <div className={styles['new-request__full']}>
                             <Textarea

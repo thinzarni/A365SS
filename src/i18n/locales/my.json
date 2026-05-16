@@ -15,7 +15,7 @@
         "changePassword": "စကားဝှက်ပြောင်းရန်",
         "logout": "ထွက်ရန်",
         "loginSubtitle": "HR ဝန်ဆောင်မှုပေါ်တယ်သို့ ဝင်ရောက်ပါ",
-        "azureSignIn": "Azure AD",
+        "azureSignIn": "လက်မှတ်ထိုးဝင်ခြင်း",
         "qrSignIn": "QR ကုဒ်ဖြင့် ဝင်ရောက်ရန်"
     },
     "nav": {

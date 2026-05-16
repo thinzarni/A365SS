@@ -76,13 +76,13 @@ export default function LoginPage() {
                             const serverMsg = res.data.message;
                             toast.error(serverMsg === 'Invalid'
                                 ? 'User does not exist in A365. Please contact your administrator.'
-                                : serverMsg || 'Azure AD sign-in failed.');
+                                : serverMsg || 'Single Sign On sign-in failed.');
                         }
                     } catch (err: any) {
                         const serverMsg = err?.response?.data?.message;
                         toast.error(serverMsg === 'Invalid'
                             ? 'User does not exist in A365. Please contact your administrator.'
-                            : serverMsg || 'Azure AD sign-in failed.');
+                            : serverMsg || 'Single Sign On sign-in failed.');
                     } finally {
                         setAzureSsoLoading(false);
                     }
@@ -251,7 +251,7 @@ export default function LoginPage() {
             });
         } catch (err: any) {
             if (err.errorCode !== 'interaction_in_progress') {
-                setError(err.message || 'Azure login failed.');
+                setError(err.message || 'Single Sign On login failed.');
             }
         }
     };

@@ -16,7 +16,7 @@
         "logout": "Logout",
         "loginSubtitle": "Sign in to your HR self-service portal",
         "qrSignIn": "Sign In with QR",
-        "azureSignIn": "Azure AD"
+        "azureSignIn": "Single Sign On"
     },
     "nav": {
         "dashboard": "Dashboard",

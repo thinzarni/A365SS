@@ -12,6 +12,8 @@ export const QR_SUCCESS = 'qr-success';
 export const CHECK_PASSWORD_EXPIRY = 'check/password-expried';
 export const DOMAIN_LIST = `${hxmPrefix}payroll/domainlist`;
 export const PAYROLL_PERIOD = `${hxmPrefix}payroll/payperiod`;
+export const LOCATION_LIST = 'api/checkin/locations/reference';
+
 export const USER_PROFILE = flavor == 'prd' ? 'api/employees/extended-profile' : 'api/employees/profile';
 export const USER_PROFILE_UPDATE = 'api/employees/profile/update';
 export const GET_FAMILY = 'api/employees/getfamily';
