@@ -269,7 +269,7 @@ const MOD_OPTIONS = ['New', 'Correct', 'Update'];
 // ── Main Component ─────────────────────────────────────────────────────
 export default function ProfilePage() {
     const { t } = useTranslation();
-    const { user, domain } = useAuthStore();
+    const { user, domain, userId: loggedInUserId } = useAuthStore();
     const { userId: urlUserId } = useParams();
 
     const { data: menuData } = useQuery({
@@ -289,12 +289,12 @@ export default function ProfilePage() {
     const queryClient = useQueryClient();
 
     const { data: profile, isLoading, error } = useQuery<ProfileData | null>({
-        queryKey: ['employee-profile', urlUserId || user?.usersyskey],
+        queryKey: ['employee-profile', urlUserId || loggedInUserId],
         queryFn: async () => {
             try {
                 const endpoint = urlUserId ? USER_PROFILE_BY_ID : USER_PROFILE;
                 const res = await mainClient.post(endpoint, {
-                    userid: urlUserId || user?.userid
+                    userid: urlUserId || loggedInUserId
                 });
                 return res.data?.data ?? res.data ?? null;
             } catch (err) { console.error('Failed to fetch profile', err); return null; }
@@ -581,6 +581,7 @@ function calcAge(dob: string): string {
 function PersonalTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
     const [isEditing, setIsEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [draft, setDraft] = useState({
         dob: profile.dob || '',
         age: calcAge(profile.dob),
@@ -594,7 +595,10 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
 
     const cancel = () => setIsEditing(false);
 
-    const save = () => {
+    const save = async () => {
+        setSaving(true);
+        await new Promise(r => setTimeout(r, 400));
+        setSaving(false);
         setIsEditing(false);
         toast.success(t('profile.personal.saveSuccess'));
     };
@@ -653,8 +657,10 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
                         </FormRow>
                     </div>
                     <div className={styles.formActions} style={{ marginTop: 16 }}>
-                        <button className={styles.btnGhost} onClick={cancel}>{t('common.cancel')}</button>
-                        <button className={styles.btnPrimary} onClick={save}><Save size={14} /> {t('request.save')}</button>
+                        <button className={styles.btnGhost} onClick={cancel} disabled={saving}>{t('common.cancel')}</button>
+                        <button className={styles.btnPrimary} onClick={save} disabled={saving}>
+                            {saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} {t('request.save')}
+                        </button>
                     </div>
                 </div>
             ) : (
@@ -689,6 +695,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     const countryCodes = useCountryCodes(showModal);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
 
     const blank = (): EmergencyContact => ({
         id: '', name: '', relationship: '', relationshipSyskey: '', countryCode: '', contactNumber: '', address: '',
@@ -762,10 +769,6 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
 
 
     const openAdd = () => {
-        if (records.pending.length >= 2) {
-            toast.error('Emergency contact can be add max 2 person to pending');
-            return;
-        }
         setForm(blank());
         setEditingId(null);
         setShowModal(true);
@@ -818,6 +821,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                 updatedPending = [...records.pending, { ...rec, isdelete: true, modOption: form.modOption, effectiveFrom: form.effectiveFrom, status: 'Pending' }];
             } else { return; }
             const { domain } = useAuthStore.getState();
+            setSaving(true);
             const emergencylist = updatedPending.map(r => ({
                 syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
                 orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
@@ -837,7 +841,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                 setRecords(prev => ({ current: prev.current, pending: updatedPending }));
                 close();
                 toast.success('Marked for deletion');
-            } catch { toast.error('Failed to update record'); }
+            } catch { toast.error('Failed to update record'); } finally { setSaving(false); }
             return;
         }
 
@@ -860,6 +864,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             : [...records.pending, newRecord];
 
         const { domain } = useAuthStore.getState();
+        setSaving(true);
         const emergencylist = updatedPending.map(r => ({
             syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
             orgrecordsyskey: r.orgrecordsyskey || (r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : ""),
@@ -886,6 +891,8 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             toast.success(t('profile.emergency.saveSuccess'));
         } catch (err) {
             toast.error('Failed to save emergency contact');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -1023,7 +1030,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             }
 
             {showModal && (
-                <FormModal title={editingId ? `${t('profile.emergency.edit')}` : `${t('profile.emergency.add')}`} onClose={close} onSave={save}>
+                <FormModal title={editingId ? `${t('profile.emergency.edit')}` : `${t('profile.emergency.add')}`} onClose={close} onSave={save} saving={saving}>
                     <FormRow label={`${t('profile.emergency.name')} *`}>
                         <input className={styles.formInput} value={form.name} onChange={fv('name')} placeholder={t('profile.emergency.fullName')} />
                     </FormRow>
@@ -1107,8 +1114,12 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                 </div>
                             </div>
                             <button type="button"
-                                onClick={() => setForm(prev => ({ ...prev, isdelete: !prev.isdelete }))}
-                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0 }}
+                                onClick={() => {
+                                    if (records.pending.some(p => p.id === editingId)) return;
+                                    setForm(prev => ({ ...prev, isdelete: !prev.isdelete }));
+                                }}
+                                disabled={records.pending.some(p => p.id === editingId)}
+                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: records.pending.some(p => p.id === editingId) ? 'not-allowed' : 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0, opacity: records.pending.some(p => p.id === editingId) ? 0.6 : 1 }}
                             >
                                 <span style={{ position: 'absolute', top: '3px', left: form.isdelete ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                             </button>
@@ -1144,6 +1155,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     const [records, setRecords] = useState<{ current: WorkExperience[], pending: WorkExperience[] }>({ current: [], pending: [] });
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
 
     const { data: orgTypes = [] } = useQuery({
         queryKey: ['setup', 'org_type'],
@@ -1299,6 +1311,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                 updatedPending = [...records.pending, { ...rec, isdelete: true, modOption: form.modOption, effectiveFrom: form.effectiveFrom, status: 'Pending' }];
             } else { return; }
             const { domain } = useAuthStore.getState();
+            setSaving(true);
             const experiencelist = updatedPending.map(r => ({
                 syskey: (r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id)) ? r.id : "",
                 orgrecordsyskey: r.orgrecordsyskey || "",
@@ -1314,7 +1327,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                 setRecords(prev => ({ current: prev.current, pending: updatedPending }));
                 closeExp();
                 toast.success('Marked for deletion');
-            } catch { toast.error('Failed to remove pending experience'); }
+            } catch { toast.error('Failed to remove pending experience'); } finally { setSaving(false); }
             return;
         }
 
@@ -1350,6 +1363,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             : [...records.pending, newRecord];
 
         const { domain } = useAuthStore.getState();
+        setSaving(true);
         const experiencelist = updatedPending.map(r => ({
             syskey: (r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id)) ? r.id : "",
             orgrecordsyskey: r.orgrecordsyskey || "",
@@ -1387,6 +1401,8 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             toast.success(isUpdate ? t('profile.experience.saveSuccessUpdate') : t('profile.experience.saveSuccessAdd'));
         } catch (err) {
             toast.error('Failed to save experience information');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -1552,7 +1568,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                 )}
 
             {showModal && (
-                <FormModal title={editingId ? t('profile.experience.modalEdit') : t('profile.experience.modalAdd')} onClose={closeExp} onSave={saveExp}>
+                <FormModal title={editingId ? t('profile.experience.modalEdit') : t('profile.experience.modalAdd')} onClose={closeExp} onSave={saveExp} saving={saving}>
                     <FormRow label={`${t('profile.experience.org')} *`}>
                         <input className={styles.formInput} value={form.organization} onChange={f('organization')} placeholder={t('profile.experience.orgPlaceholder')} required aria-required />
                     </FormRow>
@@ -1638,8 +1654,12 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                 </div>
                             </div>
                             <button type="button"
-                                onClick={() => setForm(prev => ({ ...prev, isdelete: !prev.isdelete }))}
-                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0 }}
+                                onClick={() => {
+                                    if (records.pending.some(p => p.id === editingId)) return;
+                                    setForm(prev => ({ ...prev, isdelete: !prev.isdelete }));
+                                }}
+                                disabled={records.pending.some(p => p.id === editingId)}
+                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: records.pending.some(p => p.id === editingId) ? 'not-allowed' : 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0, opacity: records.pending.some(p => p.id === editingId) ? 0.6 : 1 }}
                             >
                                 <span style={{ position: 'absolute', top: '3px', left: form.isdelete ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                             </button>
@@ -1669,6 +1689,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
     const [records, setRecords] = useState<{ current: Qualification[], pending: Qualification[] }>({ current: [], pending: [] });
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
 
     const formatDateForDisplay = (dateStr: string) => {
         if (!dateStr) return '';
@@ -1849,13 +1870,14 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                 updatedPending = [...records.pending, { ...rec, isdelete: true, modOption: form.modOption, effectiveFrom: form.effectiveFrom, status: '0' }];
             } else { return; }
             const { domain } = useAuthStore.getState();
+            setSaving(true);
             const qualificationlist = mapQualificationPayload(updatedPending);
             try {
                 await mainClient.post(QUALIFICATION_UPDATE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid, qualificationlist });
                 setRecords(prev => ({ current: prev.current, pending: updatedPending }));
                 close();
                 toast.success('Marked for deletion');
-            } catch { toast.error('Failed to remove qualification'); }
+            } catch { toast.error('Failed to remove qualification'); } finally { setSaving(false); }
             return;
         }
 
@@ -1882,6 +1904,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             : [...records.pending, newRecord];
 
         const { domain } = useAuthStore.getState();
+        setSaving(true);
         const qualificationlist = mapQualificationPayload(updatedPending);
 
         try {
@@ -1903,6 +1926,8 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             toast.success(isUpdate ? t('profile.qualification.saveSuccessUpdate') : t('profile.qualification.saveSuccessAdd'));
         } catch (err) {
             toast.error('Failed to save qualification information');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -2049,7 +2074,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             }
 
             {showModal && (
-                <FormModal title={editingId ? t('profile.qualification.modalEdit') : t('profile.qualification.modalAdd')} onClose={close} onSave={save}>
+                <FormModal title={editingId ? t('profile.qualification.modalEdit') : t('profile.qualification.modalAdd')} onClose={close} onSave={save} saving={saving}>
                     <FormRow label={t('profile.qualification.type')}>
                         <select className={styles.formSelect} value={form.type} onChange={f('type')}>
                             <option value="Education">{t('profile.options.qualTypes.Education')}</option>
@@ -2159,8 +2184,12 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                 </div>
                             </div>
                             <button type="button"
-                                onClick={() => setForm(prev => ({ ...prev, isdelete: !prev.isdelete }))}
-                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0 }}
+                                onClick={() => {
+                                    if (records.pending.some(p => p.id === editingId)) return;
+                                    setForm(prev => ({ ...prev, isdelete: !prev.isdelete }));
+                                }}
+                                disabled={records.pending.some(p => p.id === editingId)}
+                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: records.pending.some(p => p.id === editingId) ? 'not-allowed' : 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0, opacity: records.pending.some(p => p.id === editingId) ? 0.6 : 1 }}
                             >
                                 <span style={{ position: 'absolute', top: '3px', left: form.isdelete ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                             </button>
@@ -2198,6 +2227,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const relationships = useRelationships(showModal);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
 
     const { data: fetchedData, isLoading } = useQuery({
         queryKey: ['family', profile.userid, profile.eid],
@@ -2285,6 +2315,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                 updatedPending = [...records.pending, { ...rec, isdelete: true, modOption: form.modOption, effectiveFrom: form.effectiveFrom, status: 'Pending' }];
             } else { return; }
             const { domain } = useAuthStore.getState();
+            setSaving(true);
             const familylist = updatedPending.map(r => ({
                 syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
                 orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
@@ -2300,7 +2331,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                 setRecords(prev => ({ current: prev.current, pending: updatedPending }));
                 close();
                 toast.success('Marked for deletion');
-            } catch { toast.error('Failed to update family information'); }
+            } catch { toast.error('Failed to update family information'); } finally { setSaving(false); }
             return;
         }
 
@@ -2321,6 +2352,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             : [...records.pending, newRecord];
 
         const { domain } = useAuthStore.getState();
+        setSaving(true);
         const familylist = updatedPending.map(r => ({
             syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
             orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
@@ -2357,6 +2389,8 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             toast.success(isUpdate ? t('profile.family.saveSuccessUpdate') : t('profile.family.saveSuccessAdd'));
         } catch (err) {
             toast.error('Failed to save family information');
+        } finally {
+            setSaving(false);
         }
     };
     const remove = async (id: string) => {
@@ -2512,7 +2546,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             }
 
             {showModal && (
-                <FormModal title={editingId ? t('profile.family.modalEdit') : t('profile.family.modalAdd')} onClose={close} onSave={save}>
+                <FormModal title={editingId ? t('profile.family.modalEdit') : t('profile.family.modalAdd')} onClose={close} onSave={save} saving={saving}>
                     <FormRow label={`${t('profile.emergency.name')} *`}>
                         <input className={styles.formInput} value={form.name} onChange={fv('name')} placeholder={t('profile.emergency.fullName')} />
                     </FormRow>
@@ -2591,8 +2625,12 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                 </div>
                             </div>
                             <button type="button"
-                                onClick={() => setForm(prev => ({ ...prev, isdelete: !prev.isdelete }))}
-                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0 }}
+                                onClick={() => {
+                                    if (records.pending.some(p => p.id === editingId)) return;
+                                    setForm(prev => ({ ...prev, isdelete: !prev.isdelete }));
+                                }}
+                                disabled={records.pending.some(p => p.id === editingId)}
+                                style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: records.pending.some(p => p.id === editingId) ? 'not-allowed' : 'pointer', background: form.isdelete ? '#f43f5e' : '#cbd5e1', transition: 'background 0.2s', flexShrink: 0, opacity: records.pending.some(p => p.id === editingId) ? 0.6 : 1 }}
                             >
                                 <span style={{ position: 'absolute', top: '3px', left: form.isdelete ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                             </button>
@@ -2628,6 +2666,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
     const { domain } = useAuthStore();
     const [records, setRecords] = useState<{ current: Address[], pending: Address[] }>({ current: [], pending: [] });
     const [isEditing, setIsEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     const [contactDetails, setContactDetails] = useState({
         primaryEmail: '',
@@ -2842,6 +2881,8 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
 
     const save = async () => {
         if ((contactDetails.modOption === 'Update' || contactDetails.modOption === 'New') && !contactDetails.effectiveFrom) { toast.error('Effective Date is required'); return; }
+        
+        setSaving(true);
         const toPayload = (addr: Address) => ({
             syskey: addr.syskey,
             orgrecordsyskey: addr.orgrecordsyskey || (records.current.find(c => c.addressstatus === addr.addressstatus)?.syskey || ''),
@@ -2876,6 +2917,8 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
             refetch();
         } catch (err) {
             toast.error('Failed to update address information');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -3105,8 +3148,10 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                     </div>
 
                     <div className={styles.formActions} style={{ marginTop: 'var(--space-8)' }}>
-                        <button className={styles.btnGhost} onClick={cancel}>{t('common.cancel')}</button>
-                        <button className={styles.btnPrimary} onClick={save}><Save size={14} /> {t('request.save')}</button>
+                        <button className={styles.btnGhost} onClick={cancel} disabled={saving}>{t('common.cancel')}</button>
+                        <button className={styles.btnPrimary} onClick={save} disabled={saving}>
+                            {saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} {t('request.save')}
+                        </button>
                     </div>
                 </div>
             ) : (
@@ -3281,7 +3326,7 @@ function FormRow({ label, children, fullWidth }: { label: string; children: Reac
     );
 }
 
-function FormModal({ title, onClose, onSave, children }: { title: string; onClose: () => void; onSave: () => void; children: React.ReactNode }) {
+function FormModal({ title, onClose, onSave, saving, children }: { title: string; onClose: () => void; onSave: () => void; saving?: boolean; children: React.ReactNode }) {
     const { t } = useTranslation();
 
     useEffect(() => {
@@ -3300,8 +3345,8 @@ function FormModal({ title, onClose, onSave, children }: { title: string; onClos
                 </div>
                 <div className={styles.modalBody}>{children}</div>
                 <div className={styles.modalActions}>
-                    <Button type="button" variant="ghost" onClick={onClose}>{t('common.cancel')}</Button>
-                    <Button type="button" onClick={onSave}><Save size={14} style={{ marginRight: 4 }} /> {t('common.save')}</Button>
+                    <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
+                    <Button type="button" onClick={onSave} loading={saving} disabled={saving}><Save size={14} style={{ marginRight: 4 }} /> {t('common.save')}</Button>
                 </div>
             </div>
         </div>

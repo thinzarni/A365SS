@@ -10,6 +10,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import {
     Users,
@@ -136,6 +137,7 @@ function getInitials(name: string): string {
 /* ═══════════════════════════════════ Component ═══════════════════════════════════ */
 
 export default function TeamPage() {
+    const { t } = useTranslation();
     const { userId } = useAuthStore();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -251,9 +253,6 @@ export default function TeamPage() {
         const stack = [...navStack];
         const prev = stack.pop();
         if (prev) {
-            // If the user arrived via URL (?userId=...), the initial stack was [userId]
-            // If we are popping back to that root and the view is already that queryUserId,
-            // we should just go back in browser history to return to HR View.
             if (stack.length === 0 && queryUserId && viewUserId === queryUserId) {
                 navigate(-1);
             } else {
@@ -273,19 +272,19 @@ export default function TeamPage() {
                     <div>
                         <h1 className="page-header__title">
                             <Users size={24} style={{ verticalAlign: 'middle', marginRight: 8 }} />
-                            Team Structure
+                            {t('team.title')}
                         </h1>
                         <p className="page-header__subtitle">
                             {teamData
                                 ? `${teamData.seniors.length} seniors · ${teamData.juniors.length} members · ${teamData.teams.length} teams`
-                                : 'Loading team data…'
+                                : t('team.loading')
                             }
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         {navStack.length > 0 && (
                             <button className={styles.backBtn} onClick={navigateBack}>
-                                ← Back
+                                {t('team.back')}
                             </button>
                         )}
                         <button className={styles.refreshBtn} onClick={() => refetch()} disabled={isLoading}>
@@ -306,8 +305,8 @@ export default function TeamPage() {
             {isError && (
                 <div className={styles.errorCard}>
                     <AlertCircle size={20} />
-                    <span>Failed to load team data. Please try again.</span>
-                    <button onClick={() => refetch()}>Retry</button>
+                    <span>{t('team.error')}</span>
+                    <button onClick={() => refetch()}>{t('team.retry')}</button>
                 </div>
             )}
 
@@ -320,7 +319,7 @@ export default function TeamPage() {
                         <div className={styles.section}>
                             <h2 className={styles.sectionTitle}>
                                 <Crown size={16} />
-                                Reporting Officers
+                                {t('team.reportingOfficers')}
                             </h2>
                             <div className={styles.timeline}>
                                 {teamData.seniors.map((senior, idx) => (
@@ -371,7 +370,7 @@ export default function TeamPage() {
                         ══════════════════════════════════════════════ */}
                     {teamData.user && (
                         <div className={styles.section}>
-                            <UserCard member={teamData.user} />
+                            <UserCard member={teamData.user} t={t} />
                         </div>
                     )}
 
@@ -382,7 +381,7 @@ export default function TeamPage() {
                         <div className={styles.section}>
                             <h2 className={styles.sectionTitle}>
                                 <Building2 size={16} />
-                                Teams
+                                {t('team.teams')}
                             </h2>
                             <div className={styles.teamBadges}>
                                 {teamData.teams.map((team) => (
@@ -415,7 +414,7 @@ export default function TeamPage() {
                         <div className={styles.section}>
                             <h2 className={styles.sectionTitle}>
                                 <UserCheck size={16} />
-                                Direct Reports
+                                {t('team.directReports')}
                                 <span className={styles.countBadge}>{directReports.length}</span>
                             </h2>
                             <div className={styles.memberGrid}>
@@ -437,7 +436,7 @@ export default function TeamPage() {
                         <div className={styles.section}>
                             <h2 className={styles.sectionTitle}>
                                 <Users size={16} />
-                                Supervisions
+                                {t('team.supervisions')}
                                 <span className={styles.countBadge}>{supervisions.length}</span>
                             </h2>
                             <div className={styles.memberGrid}>
@@ -456,8 +455,8 @@ export default function TeamPage() {
                     {teamData.seniors.length === 0 && teamData.juniors.length === 0 && teamData.teams.length === 0 && (
                         <div className={styles.emptyState}>
                             <Users size={48} strokeWidth={1} />
-                            <h3>No team data available</h3>
-                            <p>Your team structure will appear here once configured.</p>
+                            <h3>{t('team.noTeamData')}</h3>
+                            <p>{t('team.noTeamDataDesc')}</p>
                         </div>
                     )}
                 </>
@@ -469,7 +468,7 @@ export default function TeamPage() {
 /* ═══════════════════════════ Sub-components ═══════════════════════════ */
 
 /** Current user hero card (blue themed) */
-function UserCard({ member }: { member: TeamMember }) {
+function UserCard({ member, t }: { member: TeamMember; t: (key: string) => string }) {
     const status = getStatusInfo(member);
 
     return (
@@ -519,10 +518,10 @@ function UserCard({ member }: { member: TeamMember }) {
 
                 {/* Stats row */}
                 <div className={styles.statsRow}>
-                    <StatTile icon={<Clock size={16} />} value={member.workingDays} label="Working Days" />
-                    <StatTile icon={<LogIn size={16} />} value={member.timeInCount} label="Check-ins" />
-                    <StatTile icon={<Activity size={16} />} value={member.activityCount} label="Activities" />
-                    <StatTile icon={<Palmtree size={16} />} value={member.leaveCount} label="Leaves" />
+                    <StatTile icon={<Clock size={16} />} value={member.workingDays} label={t('team.workingDays')} />
+                    <StatTile icon={<LogIn size={16} />} value={member.timeInCount} label={t('team.checkIns')} />
+                    <StatTile icon={<Activity size={16} />} value={member.activityCount} label={t('team.activities')} />
+                    <StatTile icon={<Palmtree size={16} />} value={member.leaveCount} label={t('team.leaves')} />
                 </div>
             </div>
         </div>

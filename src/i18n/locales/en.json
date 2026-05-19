@@ -20,6 +20,7 @@
     },
     "nav": {
         "dashboard": "Dashboard",
+        "payslip": "Payslip",
         "myRequests": "My Requests",
         "approvals": "Approvals",
         "reservations": "Reservations",
@@ -636,5 +637,36 @@
             "noData": "No data to display.",
             "previewTitle": "Import Preview"
         }
+    },
+    "team": {
+        "title": "Team Structure",
+        "loading": "Loading team data\u2026",
+        "error": "Failed to load team data. Please try again.",
+        "errorDetail": "Failed to load team details.",
+        "retry": "Retry",
+        "back": "← Back",
+        "reportingOfficers": "Reporting Officers",
+        "teams": "Teams",
+        "directReports": "Direct Reports",
+        "supervisions": "Supervisions",
+        "noTeamData": "No team data available",
+        "noTeamDataDesc": "Your team structure will appear here once configured.",
+        "teamMembers": "Team Members",
+        "management": "Management",
+        "members": "Members",
+        "noMembers": "No members found",
+        "noMembersDesc": "This team doesn't have any members yet.",
+        "memberDataMissing": "Member data not available. Please navigate from the team page.",
+        "goToTeam": "Go to Team",
+        "attendance": "Attendance \u2014 {{date}}",
+        "noRecords": "No records for this day",
+        "workingDays": "Working Days",
+        "checkIns": "Check-ins",
+        "activities": "Activities",
+        "leaves": "Leaves",
+        "present": "Present",
+        "leave": "Leave",
+        "activity": "Activity",
+        "teamMember": "Team Member"
     }
 }

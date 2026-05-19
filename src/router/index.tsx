@@ -61,6 +61,7 @@ const WorkPolicyCreatePage = Loadable(lazy(() => import('../pages/WorkPolicyCrea
 const ProfilePage = Loadable(lazy(() => import('../pages/ProfilePage/ProfilePage')));
 const ProfilePagePrd = Loadable(lazy(() => import('../pages/ProfilePage/ProfilePagePrd')));
 const NewAttendanceRequestPage = Loadable(lazy(() => import('../pages/AttendanceRequestPage/NewAttendanceRequestPage')));
+// const PayslipPage = Loadable(lazy(() => import('../pages/PayslipPage/PayslipPage'))); // route disabled
 
 const ActiveProfilePage = flavor === 'prd' || flavor === 'mpt' ? ProfilePagePrd : ProfilePage;
 
@@ -131,10 +132,10 @@ export const router = createBrowserRouter([
                     // ── Attendance subtypes — use existing approval pages ──
                     { path: '/attendanceapproval', element: <AttendanceApprovalListPage /> },
                     { path: '/attendanceapproval/:id/:type', element: <AttendanceApprovalDetailPage /> },
-                    {path: '/attendancerequest', element: <RequestListPage />},
-                    {path: '/attendancerequest/new', element: <NewAttendanceRequestPage />},
-                    {path: '/attendancerequest/edit/:id', element: <NewAttendanceRequestPage />},
-                    {path: '/attendancerequest/:id', element: <NewAttendanceRequestPage />},
+                    { path: '/attendancerequest', element: <RequestListPage /> },
+                    { path: '/attendancerequest/new', element: <NewAttendanceRequestPage /> },
+                    { path: '/attendancerequest/edit/:id', element: <NewAttendanceRequestPage /> },
+                    { path: '/attendancerequest/:id', element: <NewAttendanceRequestPage /> },
                     { path: '/locationapproval', element: <ApprovalListPage /> },
                     // ── Other ──
                     { path: '/leave', element: <LeavePage /> },
@@ -158,6 +159,7 @@ export const router = createBrowserRouter([
                     { path: '/employeeworkpolicy', element: <WorkPolicyChangePage /> },
                     { path: '/employeeworkpolicy/new', element: <WorkPolicyCreatePage /> },
                     { path: '/employeeworkpolicy/edit/:syskey', element: <WorkPolicyCreatePage /> },
+                    // { path: '/payslip', element: <PayslipPage /> },
 
 
                     // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──

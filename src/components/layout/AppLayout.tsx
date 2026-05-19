@@ -41,6 +41,7 @@ import {
     ListTodo,
     CalendarRange,
     LogIn,
+    Banknote,
 } from 'lucide-react';
 
 import { useAuthStore } from '../../stores/auth-store';
@@ -51,7 +52,7 @@ import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { useNotificationStore } from '../../stores/notification-store';
-import { MENU_ITEMS, CHECK_PASSWORD_EXPIRY } from '../../config/api-routes';
+import { MENU_ITEMS } from '../../config/api-routes';
 import { appConfig } from '../../config/app-config';
 import { chatSocket } from '../../lib/chat-socket';
 // import { appSocket } from '../../lib/app-socket';
@@ -110,6 +111,7 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     // Social Post
     '/socialpost': Globe,
     '/profile': Contact,
+    '/payslip': Banknote,
 };
 
 // ── Router → i18n translation key mapping ──
@@ -150,6 +152,7 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/customai': 'nav.customAi',
     '/rulesandreg': 'nav.rulesAndReg',
     '/objectdetection': 'nav.objectDetection',
+    '/payslip': 'nav.payslip',
 };
 
 // Fallback: shown when API hasn't loaded yet
@@ -432,7 +435,7 @@ export default function AppLayout() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const pwdCheckRan = React.useRef(false);
+    // pwdCheckRan ref removed — password expiry handled via socket event
     useEffect(() => {
         // Run active check and websocket listening for non-Azure logins
         if (!userId || !domain || !token || loginType === 'azure') {
@@ -475,7 +478,7 @@ export default function AppLayout() {
             pwdWsObj.onmessage = (event) => {
                 try {
                     const decoded = JSON.parse(event.data);
-                    if (decoded?.event === 'password_expiry_warning' && decoded?.data) {
+                    if ((decoded?.event === 'password_expiry_warning' || decoded?.event === 'password_expired') && decoded?.data) {
                         const data = decoded.data;
                         // console.log("socket message: " + JSON.stringify(data));
                         if (data.status === true && data.expired_date) {
@@ -508,64 +511,7 @@ export default function AppLayout() {
             console.error('Failed to init password expiry socket', e);
         }
 
-        // 2. HTTP Verification (Once per day)
-        if ((import.meta.env.VITE_FLAVOR === 'prd' || import.meta.env.VITE_FLAVOR === 'mpt') && !pwdCheckRan.current) {
-            pwdCheckRan.current = true;
-            const checkPasswordExpiry = async () => {
-                try {
-                    const today = new Date().toISOString().split('T')[0];
-                    const storageKey = `last_pwd_expiry_check_${userId}_${domain}`;
-                    const lastCheck = localStorage.getItem(storageKey);
-
-                    if (lastCheck === today) return;
-
-                    const res = await authClient.post(CHECK_PASSWORD_EXPIRY, {
-                        userid: userId,
-                        appid: appConfig.appId,
-                        domain,
-                    });
-
-                    const json = res.data;
-                    if (res.status === 200 || json?.status === 200) {
-                        localStorage.setItem(storageKey, today);
-                    }
-
-                    if (json?.status === 200) {
-                        if (json.data?.status === true) {
-                            const expiredDateStr: string | undefined = json.data.expired_date;
-                            const message: string = json.data.message || 'Your password will expire soon.';
-                            if (expiredDateStr) {
-                                const checkDate = new Date();
-                                checkDate.setHours(0, 0, 0, 0);
-                                const expiredDate = new Date(expiredDateStr);
-                                expiredDate.setHours(0, 0, 0, 0);
-                                const daysLeft = Math.round(
-                                    (expiredDate.getTime() - checkDate.getTime()) / (1000 * 60 * 60 * 24)
-                                );
-                                const isExpired = daysLeft < 0;
-                                if (daysLeft <= 5) {
-                                    setPwdExpiry({ message, daysLeft, isExpired });
-                                }
-                            }
-                        } else if (json.data?.status === false) {
-                            const msg = json.data?.message || 'Your password has expired. Please change it to continue.';
-                            toast.error(msg);
-
-                            // Dispatch password expiry email silently
-                            try {
-                                mainClient.post('api/mail/sendemailfrommodule', {
-                                    userid: userId,
-                                    domain: domain || 'dev'
-                                }).catch(() => { });
-                            } catch { }
-
-                            setTimeout(() => navigate('/force-change-password', { replace: true }), 1500);
-                        }
-                    }
-                } catch { }
-            };
-            checkPasswordExpiry();
-        }
+        // 2. HTTP Verification (Once per day) - Disabled as it is now handled via socket
 
         return () => {
             if (pwdWsObj && pwdWsObj.readyState === WebSocket.OPEN) {

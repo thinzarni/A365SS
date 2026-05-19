@@ -163,13 +163,22 @@ export default function RequestListPage() {
     });
 
     const typeOptions = useMemo(() => {
-        return [
-            { value: '', label: 'All Types' },
-            ...requestTypes.map(t => ({
-                value: t.syskey,
-                label: t.description
-            }))
-        ];
+        const options: {value: string, label: string}[] = [];
+        const seenLabels = new Set<string>();
+        const seenValues = new Set<string>();
+
+        requestTypes.forEach(t => {
+            const label = t.description || '';
+            const value = t.syskey || '';
+            
+            if (label && value && !seenLabels.has(label) && !seenValues.has(value)) {
+                seenLabels.add(label);
+                seenValues.add(value);
+                options.push({ value, label });
+            }
+        });
+
+        return options;
     }, [requestTypes]);
 
     const { data: allRequests = [], isLoading: requestsLoading } = useQuery<RequestModel[]>({

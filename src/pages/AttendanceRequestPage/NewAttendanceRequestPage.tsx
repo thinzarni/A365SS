@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Trash2, MapPin, RefreshCw, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
 import Select from '../../components/ui/Select/Select';

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, MapPin, Search } from 'lucide-react';
+import { ChevronDown, MapPin } from 'lucide-react';
 import styles from './Select.module.css';
 
 interface Option {

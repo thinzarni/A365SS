@@ -14,7 +14,7 @@ export const DOMAIN_LIST = `${hxmPrefix}payroll/domainlist`;
 export const PAYROLL_PERIOD = `${hxmPrefix}payroll/payperiod`;
 export const LOCATION_LIST = 'api/checkin/locations/reference';
 
-export const USER_PROFILE = flavor == 'prd' ? 'api/employees/extended-profile' : 'api/employees/profile';
+export const USER_PROFILE = flavor == 'prd' || flavor === 'mpt' ? 'api/employees/extended-profile' : 'api/employees/profile';
 export const USER_PROFILE_UPDATE = 'api/employees/profile/update';
 export const GET_FAMILY = 'api/employees/getfamily';
 export const FAMILY_UPDATE = 'api/employees/family/update';
