@@ -276,7 +276,7 @@ export default function TeamPage() {
                         </h1>
                         <p className="page-header__subtitle">
                             {teamData
-                                ? `${teamData.seniors.length} seniors · ${teamData.juniors.length} members · ${teamData.teams.length} teams`
+                                ? t('team.subtitle', { seniors: teamData.seniors.length, members: teamData.juniors.length, teams: teamData.teams.length })
                                 : t('team.loading')
                             }
                         </p>

@@ -369,15 +369,22 @@ export default function RequestListPage() {
                     details = `${Number(req.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
                 }
 
-                return {
+                const exportObj: any = {
                     'Employee ID': req.eid || '—',
                     'Employee Name': req.name || '—',
                     'Ref #': req.refno || '—',
                     'Date': displayDate(req.startdate || req.date) || '—',
                     'Type': typeDesc,
-                    'Details': details,
-                    'Status': statusText,
                 };
+
+                if (isAttendancePage) {
+                    exportObj['Time'] = details;
+                } else {
+                    exportObj['Details'] = details;
+                }
+                exportObj['Status'] = statusText;
+
+                return exportObj;
             });
 
             // SheetJS logic
@@ -534,7 +541,7 @@ export default function RequestListPage() {
             <div className={styles['requests-list-card']}>
                 <div className={styles['requests-list-card__header']}>
                     <h3 className={styles['requests-list-card__title']}>
-                        {isSubtypeView ? `${pathTypeCfg!.label} Requests` : 'All Requests'}
+                        {isSubtypeView ? `${pathTypeCfg!.label.replace(/ Request$/i, '')} Requests` : 'All Requests'}
                     </h3>
                     <div className={styles['requests-list-card__actions']}>
                         {isAttendancePage && (
@@ -628,7 +635,12 @@ export default function RequestListPage() {
                                         title="Click to sort by Time"
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            Details
+                                            {isAttendancePage ? 'Time' : 'Details'}
+                                            {sortColumn === 'time' ? (
+                                                sortOrder === 'desc' ? <ArrowDown size={14} color="var(--color-primary-600, #4f46e5)" /> : <ArrowUp size={14} color="var(--color-primary-600, #4f46e5)" />
+                                            ) : (
+                                                <ArrowDown size={14} color="var(--color-neutral-300, #d1d5db)" />
+                                            )}
                                         </div>
                                     </th>
                                     <th>Status</th>
