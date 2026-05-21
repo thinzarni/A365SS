@@ -78,7 +78,7 @@ export default function ForgotPasswordPage() {
                 </div>
                 <h1 className={styles.title}>Forgot Password?</h1>
                 <p className={styles.subtitle}>
-                    Enter your email or mobile number and we'll send you a one-time code to reset your password.
+                    Enter your Employee ID and we'll send you a one-time code to reset your password.
                 </p>
 
                 {error && <div className={styles.error}>{error}</div>}
@@ -86,11 +86,11 @@ export default function ForgotPasswordPage() {
                 <form onSubmit={handleSubmit} className={styles.form}>
                     <Input
                         id="forgot-email"
-                        label="Email or Mobile"
+                        label="Employee ID"
                         type="text"
                         value={email}
                         onChange={e => setEmail(e.target.value)}
-                        placeholder="user@company.com"
+                        placeholder="MP99999"
                         icon={<Mail size={18} />}
                         required
                     />

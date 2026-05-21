@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
     Search,
     Loader2,
@@ -33,19 +34,13 @@ interface SeparationRecord {
     leaveauthorize: number; // 1=Pending, 2=Authorize, 3=Unauthorize
 }
 
-const statusTabs = [
-    { key: 4, label: 'All' },
-    { key: 1, label: 'Pending' },
-    { key: 2, label: 'Authorized' },
-    { key: 3, label: 'Unauthorized' },
-];
-
 function formatDate(raw?: string): string {
     if (!raw || raw.length < 8) return raw || '';
     return `${raw.slice(6, 8)}/${raw.slice(4, 6)}/${raw.slice(0, 4)}`;
 }
 
 export default function SeparationLeaveAuthorizePage() {
+    const { t } = useTranslation();
     const { userId, domain } = useAuthStore();
     const [searchval, setSearchval] = useState('');
     const [activeTab, setActiveTab] = useState(1); // Default to Pending
@@ -57,6 +52,13 @@ export default function SeparationLeaveAuthorizePage() {
     // Leave conflict modal state
     const [showConflictModal, setShowConflictModal] = useState(false);
     const [pendingLeaves, setPendingLeaves] = useState<any[]>([]);
+
+    const statusTabs = [
+        { key: 4, label: t('separation.tabAll') },
+        { key: 1, label: t('separation.tabPending') },
+        { key: 2, label: t('separation.tabAuthorized') },
+        { key: 3, label: t('separation.tabUnauthorized') },
+    ];
 
     const { data, isLoading, refetch, isFetching } = useQuery({
         queryKey: ['separation-leave-list', searchval, activeTab, page, userId, domain],
@@ -89,12 +91,14 @@ export default function SeparationLeaveAuthorizePage() {
                 return;
             }
 
-            const action = variables.status === 2 ? 'Authorized' : 'Unauthorized';
-            toast.success(`Employee ${action} successfully`);
+            const msg = variables.status === 2
+                ? t('separation.leaveAuthorizedSuccess')
+                : t('separation.leaveUnauthorizedSuccess');
+            toast.success(msg);
             queryClient.invalidateQueries({ queryKey: ['separation-leave-list'] });
         },
         onError: () => {
-            toast.error('Failed to update status');
+            toast.error(t('separation.leaveUpdateFailed'));
         }
     });
 
@@ -109,11 +113,11 @@ export default function SeparationLeaveAuthorizePage() {
 
     const handleExport = async () => {
         if (totalCount === 0) {
-            toast.error('No data to export');
+            toast.error(t('separation.noDataExport'));
             return;
         }
 
-        const loadToast = toast.loading('Preparing export...');
+        const loadToast = toast.loading(t('separation.preparingExport'));
         try {
             const res = await mainClient.post(SEPARATION_LEAVE_LIST, {
                 searchval,
@@ -127,7 +131,7 @@ export default function SeparationLeaveAuthorizePage() {
             const allRecords: SeparationRecord[] = res.data?.datalist || [];
 
             if (allRecords.length === 0) {
-                toast.error('No records found for export');
+                toast.error(t('separation.noRecordsExport'));
                 return;
             }
 
@@ -142,34 +146,30 @@ export default function SeparationLeaveAuthorizePage() {
                 'Team': rec.teamname || '',
                 'Resign Date': formatDate(rec.resigndate),
                 'End Date': formatDate(rec.enddate),
-                'Status': rec.leaveauthorize === 2 ? 'Approved' : rec.leaveauthorize === 3 ? 'Rejected' : 'Pending'
+                'Status': rec.leaveauthorize === 2
+                    ? t('separation.statusApproved')
+                    : rec.leaveauthorize === 3
+                        ? t('separation.statusRejected')
+                        : t('separation.statusPending')
             }));
 
             const worksheet = XLSX.utils.json_to_sheet(exportData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Separation Leaves');
 
-            // Column widths
             const wscols = [
-                { wch: 15 }, // ID
-                { wch: 25 }, // Name
-                { wch: 25 }, // MPT Position
-                { wch: 25 }, // Job Position
-                { wch: 20 }, // Office
-                { wch: 20 }, // Division
-                { wch: 25 }, // Department
-                { wch: 15 }, // Team
-                { wch: 15 }, // Resign Date
-                { wch: 15 }, // End Date
-                { wch: 15 }  // Status
+                { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 25 },
+                { wch: 20 }, { wch: 20 }, { wch: 25 }, { wch: 15 },
+                { wch: 15 }, { wch: 15 }, { wch: 15 }
             ];
             worksheet['!cols'] = wscols;
 
-            XLSX.writeFile(workbook, `Separation_Leave_Authorize_${statusTabs.find(t => t.key === activeTab)?.label || 'All'}.xlsx`);
-            toast.success('Export completed');
+            const activeLabel = statusTabs.find(tab => tab.key === activeTab)?.label || 'All';
+            XLSX.writeFile(workbook, `Separation_Leave_Authorize_${activeLabel}.xlsx`);
+            toast.success(t('separation.exportCompleted'));
         } catch (error) {
             console.error('Export failed:', error);
-            toast.error('Failed to export data');
+            toast.error(t('separation.exportFailed'));
         } finally {
             toast.dismiss(loadToast);
         }
@@ -178,8 +178,8 @@ export default function SeparationLeaveAuthorizePage() {
     return (
         <div className={styles.container}>
             <div className={styles.pageHeader}>
-                <h1 className={styles.pageTitle}>Separation Leave Authorize</h1>
-                <p className={styles.pageSubtitle}>{totalCount} requests</p>
+                <h1 className={styles.pageTitle}>{t('separation.leaveTitle')}</h1>
+                <p className={styles.pageSubtitle}>{t('separation.requests', { count: totalCount })}</p>
             </div>
             <div className={styles.contentCard}>
                 <header className={styles.header}>
@@ -199,7 +199,7 @@ export default function SeparationLeaveAuthorizePage() {
                             <Search className={styles.searchIcon} size={16} />
                             <input
                                 type="text"
-                                placeholder="Search employee..."
+                                placeholder={t('separation.searchPlaceholder')}
                                 value={searchval}
                                 onChange={(e) => { setSearchval(e.target.value); setPage(1); }}
                                 className={styles.searchInput}
@@ -209,7 +209,7 @@ export default function SeparationLeaveAuthorizePage() {
                             <button
                                 className={styles.refreshBtn}
                                 onClick={handleExport}
-                                title="Export to Excel"
+                                title={t('separation.exportToExcel')}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
                             >
                                 <Download size={18} />
@@ -229,13 +229,13 @@ export default function SeparationLeaveAuthorizePage() {
                 {isLoading ? (
                     <div className={styles.loadingState}>
                         <Loader2 className={styles.spinner} size={40} />
-                        <p>Loading separation records...</p>
+                        <p>{t('separation.loadingLeave')}</p>
                     </div>
                 ) : paginatedRecords.length === 0 ? (
                     <div className={styles.emptyState}>
                         <TrendingUp size={48} color="#cbd5e1" style={{ marginBottom: '1rem' }} />
-                        <h3>No records found</h3>
-                        <p>Try adjusting your filters or search keywords.</p>
+                        <h3>{t('separation.noRecords')}</h3>
+                        <p>{t('separation.noRecordsDesc')}</p>
                     </div>
                 ) : (
                     <>
@@ -243,17 +243,17 @@ export default function SeparationLeaveAuthorizePage() {
                             <table className={styles.table}>
                                 <thead>
                                     <tr>
-                                        <th>Employee ID</th>
-                                        <th>Employee Name</th>
-                                        <th>MPT Position</th>
-                                        <th>Job Position</th>
-                                        <th>Office</th>
-                                        <th>Division</th>
-                                        <th>Department</th>
-                                        <th>Team</th>
-                                        <th>Resign Date</th>
-                                        <th>End Date</th>
-                                        <th>Leave Authorize</th>
+                                        <th>{t('separation.colEmployeeId')}</th>
+                                        <th>{t('separation.colEmployeeName')}</th>
+                                        <th>{t('separation.colMptPosition')}</th>
+                                        <th>{t('separation.colJobPosition')}</th>
+                                        <th>{t('separation.colOffice')}</th>
+                                        <th>{t('separation.colDivision')}</th>
+                                        <th>{t('separation.colDepartment')}</th>
+                                        <th>{t('separation.colTeam')}</th>
+                                        <th>{t('separation.colResignDate')}</th>
+                                        <th>{t('separation.colEndDate')}</th>
+                                        <th>{t('separation.colLeaveAuthorize')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -276,19 +276,19 @@ export default function SeparationLeaveAuthorizePage() {
                                                             className={styles.actionTrigger}
                                                             onClick={() => setOpenMenuId(openMenuId === rec.syskey ? null : rec.syskey)}
                                                         >
-                                                            <Badge variant="pending" dot>Pending</Badge>
+                                                            <Badge variant="pending" dot>{t('separation.statusPending')}</Badge>
                                                         </div>
                                                     ) : rec.leaveauthorize === 2 ? (
-                                                        <Badge variant="approved-outline" dot>Approved</Badge>
+                                                        <Badge variant="approved-outline" dot>{t('separation.statusApproved')}</Badge>
                                                     ) : (
-                                                        <Badge variant="rejected-outline" dot>Rejected</Badge>
+                                                        <Badge variant="rejected-outline" dot>{t('separation.statusRejected')}</Badge>
                                                     )}
 
                                                     {openMenuId === rec.syskey && (
                                                         <>
                                                             <div className={styles.popoverBackdrop} onClick={() => setOpenMenuId(null)} />
                                                             <div className={styles.popover}>
-                                                                <div className={styles.popoverHeader}>Change Approval Status</div>
+                                                                <div className={styles.popoverHeader}>{t('separation.changeApprovalStatus')}</div>
                                                                 <button
                                                                     className={`${styles.popoverBtn} ${styles.btnApprove}`}
                                                                     disabled={statusMutation.isPending}
@@ -297,7 +297,7 @@ export default function SeparationLeaveAuthorizePage() {
                                                                         setOpenMenuId(null);
                                                                     }}
                                                                 >
-                                                                    Approve
+                                                                    {t('separation.approve')}
                                                                 </button>
                                                                 <button
                                                                     className={`${styles.popoverBtn} ${styles.btnReject}`}
@@ -307,7 +307,7 @@ export default function SeparationLeaveAuthorizePage() {
                                                                         setOpenMenuId(null);
                                                                     }}
                                                                 >
-                                                                    Reject
+                                                                    {t('separation.reject')}
                                                                 </button>
                                                             </div>
                                                         </>
@@ -322,7 +322,11 @@ export default function SeparationLeaveAuthorizePage() {
 
                         <div className={styles.pagination}>
                             <div className={styles.pageInfo}>
-                                Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, totalCount)} of {totalCount} entries
+                                {t('separation.showing', {
+                                    from: (page - 1) * pageSize + 1,
+                                    to: Math.min(page * pageSize, totalCount),
+                                    total: totalCount
+                                })}
                             </div>
                             <div className={styles.pageControls}>
                                 <button
@@ -331,11 +335,9 @@ export default function SeparationLeaveAuthorizePage() {
                                     disabled={page === 1}
                                 >
                                     <ChevronLeft size={16} />
-                                    Prev
+                                    {t('separation.prev')}
                                 </button>
-                                <button
-                                    className={`${styles.pageBtn} ${styles.pageBtnActive}`}
-                                >
+                                <button className={`${styles.pageBtn} ${styles.pageBtnActive}`}>
                                     {page}
                                 </button>
                                 <button
@@ -343,7 +345,7 @@ export default function SeparationLeaveAuthorizePage() {
                                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                     disabled={page === totalPages || totalPages === 0}
                                 >
-                                    Next
+                                    {t('separation.next')}
                                     <ChevronRight size={16} />
                                 </button>
                             </div>

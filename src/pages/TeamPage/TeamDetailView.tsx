@@ -9,6 +9,7 @@
 import { useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import {
     ArrowLeft,
@@ -38,6 +39,7 @@ import '../../styles/pages.css';
 /* ═══════════════════════════════════ Component ═══════════════════════════════════ */
 
 export default function TeamDetailView() {
+    const { t } = useTranslation();
     const { teamSyskey } = useParams<{ teamSyskey: string }>();
     const navigate = useNavigate();
     const location = useLocation();
@@ -156,12 +158,12 @@ export default function TeamDetailView() {
                         </button>
                         <div>
                             <h1 className="page-header__title">
-                                Team Members
+                                {t('team.teamMembers')}
                             </h1>
                             <p className="page-header__subtitle">
                                 {data
                                     ? `${data.members.length} member${data.members.length !== 1 ? 's' : ''}`
-                                    : 'Loading…'
+                                    : t('team.loading')
                                 }
                             </p>
                         </div>
@@ -183,8 +185,8 @@ export default function TeamDetailView() {
             {isError && (
                 <div className={styles.errorCard}>
                     <AlertCircle size={20} />
-                    <span>Failed to load team details.</span>
-                    <button onClick={() => refetch()}>Retry</button>
+                    <span>{ t('team.errorDetail')}</span>
+                    <button onClick={() => refetch()}>{t('team.retry')}</button>
                 </div>
             )}
 
@@ -214,7 +216,7 @@ export default function TeamDetailView() {
                         <div className={styles.section}>
                             <div className={styles.sectionHeader}>
                                 <Shield size={16} />
-                                <h3 className={styles.sectionTitle}>Management</h3>
+                                <h3 className={styles.sectionTitle}>{t('team.management')}</h3>
                                 <span className={styles.countBadge}>{management.length}</span>
                             </div>
                             <div className={styles.mgmtGrid}>
@@ -236,7 +238,7 @@ export default function TeamDetailView() {
                         <div className={styles.section}>
                             <div className={styles.sectionHeader}>
                                 <Users size={16} />
-                                <h3 className={styles.sectionTitle}>Members</h3>
+                                <h3 className={styles.sectionTitle}>{t('team.members')}</h3>
                                 <span className={styles.countBadge}>{regularMembers.length}</span>
                             </div>
                             <div className={styles.memberList}>
@@ -255,8 +257,8 @@ export default function TeamDetailView() {
                     {data.members.length === 0 && !isLoading && (
                         <div className={styles.emptyState}>
                             <Users size={48} strokeWidth={1} />
-                            <h3>No members found</h3>
-                            <p>This team doesn't have any members yet.</p>
+                            <h3>{t('team.noMembers')}</h3>
+                            <p>{t('team.noMembersDesc')}</p>
                         </div>
                     )}
                 </>

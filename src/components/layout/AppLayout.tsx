@@ -41,6 +41,7 @@ import {
     ListTodo,
     CalendarRange,
     LogIn,
+    Banknote,
 } from 'lucide-react';
 
 import { useAuthStore } from '../../stores/auth-store';
@@ -51,7 +52,7 @@ import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { useNotificationStore } from '../../stores/notification-store';
-import { MENU_ITEMS, CHECK_PASSWORD_EXPIRY } from '../../config/api-routes';
+import { MENU_ITEMS } from '../../config/api-routes';
 import { appConfig } from '../../config/app-config';
 import { chatSocket } from '../../lib/chat-socket';
 // import { appSocket } from '../../lib/app-socket';
@@ -110,6 +111,7 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     // Social Post
     '/socialpost': Globe,
     '/profile': Contact,
+    '/payslip': Banknote,
 };
 
 // ── Router → i18n translation key mapping ──
@@ -150,6 +152,7 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/customai': 'nav.customAi',
     '/rulesandreg': 'nav.rulesAndReg',
     '/objectdetection': 'nav.objectDetection',
+    '/payslip': 'nav.payslip',
 };
 
 // Fallback: shown when API hasn't loaded yet
@@ -432,7 +435,7 @@ export default function AppLayout() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const pwdCheckRan = React.useRef(false);
+    // pwdCheckRan ref removed — password expiry handled via socket event
     useEffect(() => {
         // Run active check and websocket listening for non-Azure logins
         if (!userId || !domain || !token || loginType === 'azure') {
@@ -440,44 +443,42 @@ export default function AppLayout() {
             return;
         }
 
-        // 1. Establish the global Chat WS connection (Skip in Prod flavor)
-        if (import.meta.env.VITE_FLAVOR !== 'prd') {
-            console.log("🔌 [AppLayout] Connecting to CHAT SOCKET (Flavor is not prd)");
+        // 1. Establish the global Chat WS connection (Skip in Prod/MPT flavors)
+        if (import.meta.env.VITE_FLAVOR !== 'prd' && import.meta.env.VITE_FLAVOR !== 'mpt') {
+            console.log("🔌 [AppLayout] Connecting to CHAT SOCKET (Flavor is not prd/mpt)");
             chatSocket.connect();
-
-        } else {
-            // console.log("🔌 [AppLayout] Connecting to APP SOCKET (Flavor is prd)");
-            // appSocket.connect();
-
-            // const reqHandler = (data: any) => {
-            //     console.log('🔔 [AppSocket] requestConfirmed data received:', data);
-            //     queryClient.invalidateQueries({ queryKey: ['requests'] });
-            //     queryClient.invalidateQueries({ queryKey: ['summaryRequests'] });
-            //     toast.success('New request submitted or updated.');
-            // };
-
-            // const appHandler = (data: any) => {
-            //     console.log('🔔 [AppSocket] approvalConfirmed data received:', data);
-            //     queryClient.invalidateQueries({ queryKey: ['approvals'] });
-            //     toast.success('Approval status updated.');
-            // };
-
-            // appSocket.on('requestConfirmed', reqHandler);
-            // appSocket.on('approvalConfirmed', appHandler);
         }
 
-        // 1.b. Establish dedicated Password Expiry listener using IAM server directly
+        // 1.b. Password Expiry WebSocket — uses per-flavor wsUrl from app-config.ts
+        // mpt flavor uses ws:// (internal network), prd flavor uses wss:// (cloud)
         let pwdWsObj: WebSocket | null = null;
+        const pwdWsBase = appConfig.wsUrl
+            ? appConfig.wsUrl.replace(/\/$/, '')                             // use configured wsUrl as-is
+            : (appConfig.iamUrl || '').replace(/^https?/, 'wss') + '/api';  // fallback: derive from iamUrl
+        console.log(`🔌 [PwdSocket] Attempting connection to: ${pwdWsBase}?user_id=${userId}&appid=${appConfig.appId}&domain_id=${domain}`);
         try {
-            const iamWsBase = (appConfig.iamUrl || '').replace(/^https?/, 'wss');
-            pwdWsObj = new WebSocket(`${iamWsBase}/api?user_id=${encodeURIComponent(userId)}&appid=${encodeURIComponent(appConfig.appId)}&domain_id=${encodeURIComponent(domain)}`);
+            pwdWsObj = new WebSocket(`${pwdWsBase}?user_id=${encodeURIComponent(userId)}&appid=${encodeURIComponent(appConfig.appId)}&domain_id=${encodeURIComponent(domain)}`);
+
+            pwdWsObj.onopen = (ev) => {
+                console.log('✅ [PwdSocket] Connected successfully', ev);
+                // Try sending a ping just in case the server expects some traffic
+                try { pwdWsObj?.send('ping'); } catch (e) { }
+            };
+
+            pwdWsObj.onerror = (err) => {
+                console.error('❌ [PwdSocket] Connection error:', err);
+            };
+
+            pwdWsObj.onclose = (ev) => {
+                console.log(`🔌 [PwdSocket] Closed (code=${ev.code}, reason=${ev.reason || 'none'}, clean=${ev.wasClean})`);
+            };
 
             pwdWsObj.onmessage = (event) => {
+                console.log('[PwdSocket] Message received:', event.data);
                 try {
                     const decoded = JSON.parse(event.data);
-                    if (decoded?.event === 'password_expiry_warning' && decoded?.data) {
+                    if ((decoded?.event === 'password_expiry_warning' || decoded?.event === 'password_expired') && decoded?.data) {
                         const data = decoded.data;
-                        // console.log("socket message: " + JSON.stringify(data));
                         if (data.status === true && data.expired_date) {
                             const checkDate = new Date();
                             checkDate.setHours(0, 0, 0, 0);
@@ -501,78 +502,20 @@ export default function AppLayout() {
                         }
                     }
                 } catch (e) {
-                    // Not JSON
+                    console.warn('[PwdSocket] Non-JSON message:', event.data);
                 }
             };
         } catch (e) {
-            console.error('Failed to init password expiry socket', e);
+            console.error('[PwdSocket] Failed to create WebSocket:', e);
         }
 
-        // 2. HTTP Verification (Once per day)
-        if ((import.meta.env.VITE_FLAVOR === 'prd' || import.meta.env.VITE_FLAVOR === 'mpt') && !pwdCheckRan.current) {
-            pwdCheckRan.current = true;
-            const checkPasswordExpiry = async () => {
-                try {
-                    const today = new Date().toISOString().split('T')[0];
-                    const storageKey = `last_pwd_expiry_check_${userId}_${domain}`;
-                    const lastCheck = localStorage.getItem(storageKey);
-
-                    if (lastCheck === today) return;
-
-                    const res = await authClient.post(CHECK_PASSWORD_EXPIRY, {
-                        userid: userId,
-                        appid: appConfig.appId,
-                        domain,
-                    });
-
-                    const json = res.data;
-                    if (res.status === 200 || json?.status === 200) {
-                        localStorage.setItem(storageKey, today);
-                    }
-
-                    if (json?.status === 200) {
-                        if (json.data?.status === true) {
-                            const expiredDateStr: string | undefined = json.data.expired_date;
-                            const message: string = json.data.message || 'Your password will expire soon.';
-                            if (expiredDateStr) {
-                                const checkDate = new Date();
-                                checkDate.setHours(0, 0, 0, 0);
-                                const expiredDate = new Date(expiredDateStr);
-                                expiredDate.setHours(0, 0, 0, 0);
-                                const daysLeft = Math.round(
-                                    (expiredDate.getTime() - checkDate.getTime()) / (1000 * 60 * 60 * 24)
-                                );
-                                const isExpired = daysLeft < 0;
-                                if (daysLeft <= 5) {
-                                    setPwdExpiry({ message, daysLeft, isExpired });
-                                }
-                            }
-                        } else if (json.data?.status === false) {
-                            const msg = json.data?.message || 'Your password has expired. Please change it to continue.';
-                            toast.error(msg);
-
-                            // Dispatch password expiry email silently
-                            try {
-                                mainClient.post('api/mail/sendemailfrommodule', {
-                                    userid: userId,
-                                    domain: domain || 'dev'
-                                }).catch(() => { });
-                            } catch { }
-
-                            setTimeout(() => navigate('/force-change-password', { replace: true }), 1500);
-                        }
-                    }
-                } catch { }
-            };
-            checkPasswordExpiry();
-        }
+        // 2. HTTP Verification (Once per day) - Disabled as it is now handled via socket
 
         return () => {
+            console.log("🧹 [PwdSocket] Cleanup triggered, closing socket if open");
             if (pwdWsObj && pwdWsObj.readyState === WebSocket.OPEN) {
-                pwdWsObj.close();
+                pwdWsObj.close(1000, "Component unmounted");
             }
-            // appSocket.off('requestConfirmed');
-            // appSocket.off('approvalConfirmed');
         };
     }, [userId, domain, token, loginType, navigate, user?.syskey]);
 
