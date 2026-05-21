@@ -305,6 +305,11 @@
     color: #dc2626;
 }
 
+.requests-type-badge--attendance {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
 .requests-type-badge--default {
     background: var(--color-neutral-100);
     color: var(--color-neutral-600);

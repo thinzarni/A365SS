@@ -89,6 +89,7 @@ function getTypeVariant(typedesc: string): string {
     if (lower.includes('reserv')) return 'reservation';
     if (lower.includes('travel')) return 'travel';
     if (lower.includes('claim') || lower.includes('cash') || lower.includes('advance')) return 'claim';
+    if (lower.includes('attendance') || lower.includes('time in') || lower.includes('time out')) return 'attendance';
     return 'default';
 }
 
@@ -101,6 +102,7 @@ function getTypeIcon(variant: string) {
         case 'reservation': return Calendar;
         case 'travel': return Plane;
         case 'claim': return Banknote;
+        case 'attendance': return Clock;
         default: return FileText;
     }
 }
@@ -163,14 +165,14 @@ export default function RequestListPage() {
     });
 
     const typeOptions = useMemo(() => {
-        const options: {value: string, label: string}[] = [];
+        const options: { value: string, label: string }[] = [];
         const seenLabels = new Set<string>();
         const seenValues = new Set<string>();
 
         requestTypes.forEach(t => {
             const label = t.description || '';
             const value = t.syskey || '';
-            
+
             if (label && value && !seenLabels.has(label) && !seenValues.has(value)) {
                 seenLabels.add(label);
                 seenValues.add(value);
@@ -205,9 +207,14 @@ export default function RequestListPage() {
                     type: item.type,
                     atttype: item.atttype || item.attendancerequesttype,
                     requesttype: item.atttype || item.type,
-                    requesttypedesc: item.type === '601' ? 'Time In' : item.type === '602' ? 'Time Out' : (attType === '1' || item.atttype === '1') ? 'Remote Time in' : (attType === '2' || item.atttype === '2') ? 'Backdate Time in' : 'Attendance',
+                    requesttypedesc: (() => {
+                        const typeLabel = item.type === '602' ? 'Time Out' : 'Time In';
+                        const atype = String(item.atttype || item.attendancerequesttype || attType || '1');
+                        const attTypeLabel = atype === '2' ? 'Backdate' : 'Remote';
+                        return `${attTypeLabel} ${typeLabel}`;
+                    })(),
                     requeststatus: String(item.status || '1'),
-                    requestsubtypedesc: `${item.intime || ''}${item.intime && item.outtime ? ' - ' : ''}${item.outtime || ''}`,
+                    requestsubtypedesc: item.time || `${item.intime || ''}${item.intime && item.outtime ? ' - ' : ''}${item.outtime || ''}`,
                     intime: item.intime,
                     outtime: item.outtime,
                     remark: item.description,
