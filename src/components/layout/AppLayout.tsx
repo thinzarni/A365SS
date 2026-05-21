@@ -111,7 +111,7 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     // Social Post
     '/socialpost': Globe,
     '/profile': Contact,
-    '/payslip': Banknote,
+    '/payslip/list': Banknote,
 };
 
 // ── Router → i18n translation key mapping ──

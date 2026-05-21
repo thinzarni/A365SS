@@ -61,7 +61,7 @@ const WorkPolicyCreatePage = Loadable(lazy(() => import('../pages/WorkPolicyCrea
 const ProfilePage = Loadable(lazy(() => import('../pages/ProfilePage/ProfilePage')));
 const ProfilePagePrd = Loadable(lazy(() => import('../pages/ProfilePage/ProfilePagePrd')));
 const NewAttendanceRequestPage = Loadable(lazy(() => import('../pages/AttendanceRequestPage/NewAttendanceRequestPage')));
-// const PayslipPage = Loadable(lazy(() => import('../pages/PayslipPage/PayslipPage'))); // route disabled
+const PayslipPage = Loadable(lazy(() => import('../pages/PayslipPage/PayslipPage'))); // route disabled
 
 const ActiveProfilePage = flavor === 'prd' || flavor === 'mpt' ? ProfilePagePrd : ProfilePage;
 
@@ -159,7 +159,7 @@ export const router = createBrowserRouter([
                     { path: '/employeeworkpolicy', element: <WorkPolicyChangePage /> },
                     { path: '/employeeworkpolicy/new', element: <WorkPolicyCreatePage /> },
                     { path: '/employeeworkpolicy/edit/:syskey', element: <WorkPolicyCreatePage /> },
-                    // { path: '/payslip', element: <PayslipPage /> },
+                    { path: '/payslip/list', element: <PayslipPage /> },
 
 
                     // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──

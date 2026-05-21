@@ -43,6 +43,24 @@ export async function makeSignInPayload(userId: string, reqType: number, passwor
     };
 }
 
+export async function makePayslipAuthPayload(userId: string, reqType: number, password = '', otpSent = false) {
+    const uuid = getOrCreateUUID();
+    const dateTime = new Date().toISOString();
+    const sToken = await createSToken(dateTime, String(reqType), uuid);
+
+    return {
+        user_id: userId,
+        s_token: sToken,
+        app_id: APP_ID,
+        sid: password != "" ? '' : '999', // empty for password login, '999' for OTP
+        uuid,
+        date_time: dateTime,
+        req_type: reqType,
+        password, // empty string when not used (OTP flow)
+        send_otp: otpSent
+    };
+}
+
 export async function makeResetPayload(userId: string, reqType: number) {
     const uuid = getOrCreateUUID();
     const dateTime = new Date().toISOString();
