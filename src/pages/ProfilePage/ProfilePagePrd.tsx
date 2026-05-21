@@ -28,7 +28,10 @@ import {
     GET_CITY_LIST,
     GET_WARD_LIST,
     USER_PROFILE,
-    USER_PROFILE_BY_ID
+    USER_PROFILE_BY_ID,
+    FILE_GENERATE_UPLOAD_URL,
+    FILE_STREAM_UPLOAD,
+    FILE_DIRECT_DOWNLOAD,
 } from '../../config/api-routes';
 import styles from './ProfilePagePrd.module.css';
 import mainClient from '../../lib/main-client';
@@ -168,7 +171,8 @@ interface FamilyMember {
     modOption: 'New' | 'Correct' | 'Update';
     effectiveFrom: string;
     status: string;
-    attachment?: string;
+    attachment?: string;           // full signed URL or FS URL (for display)
+    attachmentKey?: string;         // raw storage key sent to directdownloadfile API
     isdelete?: boolean;
 }
 
@@ -259,6 +263,12 @@ function useCountryCodes(isOpen: boolean) {
         staleTime: 5 * 60 * 1000,
     });
     return codes;
+}
+
+/** Returns a phone number format hint — country code followed by generic digit pattern */
+function getPhonePlaceholder(code: string): string {
+    if (!code) return 'Phone number';
+    return `xxxx-xxx-xxx`;
 }
 const NATIONALITIES = ['Myanmar', 'Chinese', 'Indian', 'Thai', 'Japanese', 'Korean', 'American', 'Other'];
 const ETHNICITIES = ['Bamar', 'Shan', 'Karen', 'Rakhine', 'Mon', 'Karenni', 'Chin', 'Kachin', 'Other'];
@@ -1062,7 +1072,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                                         </option>
                                     ))}
                                 </select>
-                                <input type="number" className={styles.formInput} style={{ flex: 1 }} value={form.contactNumber} onChange={fv('contactNumber')} placeholder="09-xxx-xxx-xxx" />
+                                <input type="tel" className={styles.formInput} style={{ flex: 1 }} value={form.contactNumber} onChange={fv('contactNumber')} placeholder={getPhonePlaceholder(form.countryCode || '')} />
                             </div>
                         </FormRow>
                     </div>
@@ -1493,18 +1503,16 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 32px' }}>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Job Description</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.designation}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Start Date</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{displayExpDate(r.fromdate)}</span></div>
-                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Township</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.township || '-'}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Position Held</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.designation}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Salary</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Organization Type</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.orgTypeDesc || orgTypes.find((o: any) => o.syskey === r.orgType)?.description || r.orgType}</span></div>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>End Date</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{displayExpDate(r.todate) || 'Present'}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Company</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.organization}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Industry</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.industryDesc || industries.find((i: any) => i.syskey === r.industry)?.description || r.industry}</span></div>
-                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Organization Type</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.orgTypeDesc || orgTypes.find((o: any) => o.syskey === r.orgType)?.description || r.orgType}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Reason To Leave</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.reasonForChange || '-'}</span></div>
                                                 </div>
                                             </div>
@@ -1543,16 +1551,15 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 32px', opacity: r.isdelete ? 0.6 : 1 }}>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Job Description</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.designation}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Start Date</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{displayExpDate(r.fromdate)}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Position Held</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.designation}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Salary</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.salary} {r.currencyDesc || currencies.find((c: any) => c.syskey === r.currency)?.description || r.currency}</span></div>
+                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Organization Type</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.orgTypeDesc || orgTypes.find((o: any) => o.syskey === r.orgType)?.description || r.orgType}</span></div>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>End Date</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{displayExpDate(r.todate) || 'Present'}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Company</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.organization}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Industry</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.industryDesc || industries.find((i: any) => i.syskey === r.industry)?.description || r.industry}</span></div>
-                                                    <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Organization Type</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.orgTypeDesc || orgTypes.find((o: any) => o.syskey === r.orgType)?.description || r.orgType}</span></div>
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Reason To Leave</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.reasonForChange || '-'}</span></div>
                                                 </div>
                                             </div>
@@ -2220,6 +2227,45 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
 // ═══════════════════════════════════════════════════════════════════════
 // TAB 6 — Family Information for Tax Calculation (Create/Edit/View)
 // ═══════════════════════════════════════════════════════════════════════
+
+/** Resolves an attachment value to a viewable URL.
+ *  - If it is already a full URL (starts with http/https) → return as-is
+ *  - If it is a raw FS storage key (e.g. dev/employee/family/2026/5/file.jpg)
+ *    → build: mainUrl + 'api/' + key
+ */
+/** Calls HXM directdownloadfile API and opens the file in a new browser tab.
+ *  Works for both image and document attachments.
+ */
+async function openAttachment(fileName: string | undefined | null): Promise<void> {
+    if (!fileName) return;
+    const { userId, domain } = useAuthStore.getState();
+    try {
+        const response = await apiClient.get(FILE_DIRECT_DOWNLOAD, {
+            params: { fileName, userid: userId, domain: domain || 'dev' },
+            responseType: 'blob',
+        });
+        const blob = new Blob([response.data], {
+            type: response.headers['content-type'] || 'application/octet-stream',
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        // For viewable types (images, PDF) — open inline; others trigger download
+        const ct = response.headers['content-type'] || '';
+        if (ct.startsWith('image/') || ct === 'application/pdf') {
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.click();
+        } else {
+            link.download = fileName.split('/').pop() || 'attachment';
+            link.click();
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch {
+        toast.error('Failed to open attachment');
+    }
+}
+
 function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
     const [records, setRecords] = useState<{ current: FamilyMember[], pending: FamilyMember[] }>({ current: [], pending: [] });
@@ -2250,7 +2296,8 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                 modOption: item.modificationoption || 'New',
                 effectiveFrom: item.effectivedate && item.effectivedate.length === 8 ? `${item.effectivedate.substring(0, 4)}-${item.effectivedate.substring(4, 6)}-${item.effectivedate.substring(6, 8)}` : (item.effectivedate || ''),
                 status: item.status?.toString() === '1' ? 'Approved' : (item.status?.toString() === '2' ? 'Rejected' : 'Pending'),
-                attachment: item.signurl || item.attachment || '',
+                attachment: item.signurl || item.attachment || '',   // full URL for display
+                attachmentKey: item.attachment || '',                // raw key for API
                 isdelete: !!item.isdelete
             })) as FamilyMember[];
 
@@ -2268,7 +2315,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
         }
     }, [fetchedData]);
 
-    const blank = (): FamilyMember => ({ id: '', name: '', gender: '', dob: '', relationship: '', relationshipSyskey: '', taxEligible: 'No', modOption: 'New', effectiveFrom: '', status: 'Pending', attachment: '' });
+    const blank = (): FamilyMember => ({ id: '', name: '', gender: '', dob: '', relationship: '', relationshipSyskey: '', taxEligible: 'No', modOption: 'New', effectiveFrom: '', status: 'Pending', attachment: '', attachmentKey: '' });
     const [form, setForm] = useState<FamilyMember>(blank());
 
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
@@ -2286,7 +2333,8 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             syskey: r.id && r.id.length > 20 ? r.id : "", orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
             name: r.name, gender: r.gender, dob: r.dob ? r.dob.replace(/-/g, '') : '',
             relationship: r.relationshipSyskey || r.relationship, taxexeligibility: r.taxEligible === 'Yes',
-            attachment: r.attachment || null, modificationoption: r.modOption,
+            attachment: r.attachment || null,
+            modificationoption: r.modOption,
             effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
             familystatus: r.modOption === 'New' ? '1' : '0', status: r.status === 'Approved' ? '1' : '0',
             isdelete: !!r.isdelete,
@@ -2321,7 +2369,8 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                 orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
                 name: r.name, gender: r.gender, dob: r.dob ? r.dob.replace(/-/g, '') : '',
                 relationship: r.relationshipSyskey || r.relationship, taxexeligibility: r.taxEligible === 'Yes',
-                attachment: r.attachment || null, modificationoption: r.modOption,
+                attachment: r.attachment || null,
+                modificationoption: r.modOption,
                 effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
                 familystatus: r.modOption === 'New' ? '1' : '0', status: r.status === 'Approved' ? '1' : '0',
                 isdelete: !!r.isdelete,
@@ -2464,7 +2513,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                 <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: 'var(--color-neutral-800)' }}>{t('common.currentRecords')}</div>
                                 <table className={styles.table}>
                                     <thead>
-                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.personal.gender')}</th><th>{t('profile.personal.dob')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.family.taxEligible')}</th><th></th></tr>
+                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.personal.gender')}</th><th>{t('profile.personal.dob')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.family.taxEligible')}</th><th>{t('profile.family.attachment')}</th><th></th></tr>
                                     </thead>
                                     <tbody>
                                         {records.current.map(r => (
@@ -2474,6 +2523,16 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td>{r.dob}</td>
                                                 <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
+                                                <td>
+                                                    {r.attachmentKey || r.attachment ? (
+                                                        <button
+                                                            onClick={() => openAttachment(r.attachmentKey || r.attachment)}
+                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#3b82f6', padding: '3px 8px', borderRadius: '6px', border: '1px solid #bfdbfe', background: '#eff6ff', cursor: 'pointer' }}
+                                                        >
+                                                            <FileText size={12} /> View
+                                                        </button>
+                                                    ) : <span style={{ color: '#cbd5e1', fontSize: '12px' }}>—</span>}
+                                                </td>
                                                 <td>
                                                     <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                                                         <button
@@ -2501,7 +2560,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                 </div>
                                 <table className={styles.table}>
                                     <thead style={{ background: 'var(--color-warning-50)' }}>
-                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.personal.gender')}</th><th>{t('profile.personal.dob')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.family.taxEligible')}</th><th>{t('profile.family.status')}</th><th></th></tr>
+                                        <tr><th>{t('profile.emergency.name')}</th><th>{t('profile.personal.gender')}</th><th>{t('profile.personal.dob')}</th><th>{t('profile.emergency.relationship')}</th><th>{t('profile.family.taxEligible')}</th><th>{t('profile.family.attachment')}</th><th>{t('profile.family.status')}</th><th></th></tr>
                                     </thead>
                                     <tbody>
                                         {records.pending.map(r => (
@@ -2515,6 +2574,16 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.dob}</td>
                                                 <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
+                                                <td>
+                                                    {r.attachmentKey || r.attachment ? (
+                                                        <button
+                                                            onClick={() => openAttachment(r.attachmentKey || r.attachment)}
+                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#3b82f6', padding: '3px 8px', borderRadius: '6px', border: '1px solid #bfdbfe', background: '#eff6ff', cursor: 'pointer', opacity: r.isdelete ? 0.6 : 1 }}
+                                                        >
+                                                            <FileText size={12} /> View
+                                                        </button>
+                                                    ) : <span style={{ color: '#cbd5e1', fontSize: '12px' }}>—</span>}
+                                                </td>
                                                 <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} isDelete={r.isdelete} /></td>
                                                 <td>
                                                     <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
@@ -2609,8 +2678,58 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                             )}
                         </>
                     )}
-                    <FormRow label={`${t('profile.family.attachment')} *`}>
-                        <input className={styles.formInput} type="file" accept=".pdf,.docx,.jpg,.png" onChange={e => setForm(prev => ({ ...prev, attachment: e.target.files?.[0]?.name || '' }))} />
+                    <FormRow label={editingId && form.attachment ? t('profile.family.attachment') : `${t('profile.family.attachment')} *`}>
+                        {/* Show existing attachment when editing */}
+                        {editingId && (form.attachmentKey || form.attachment) && (() => {
+                            return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '8px 12px', borderRadius: '8px', background: '#f0f9ff', border: '1px solid #bae6fd' }}>
+                                    <FileText size={14} style={{ color: '#0284c7', flexShrink: 0 }} />
+                                    <button
+                                        type="button"
+                                        onClick={() => openAttachment(form.attachmentKey || form.attachment)}
+                                        style={{ flex: 1, fontSize: '12px', color: '#0284c7', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    >
+                                        View current attachment
+                                    </button>
+                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, attachment: '', attachmentKey: '' }))}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '2px', display: 'flex', flexShrink: 0 }}
+                                        title="Remove attachment"
+                                    >
+                                        <X size={13} />
+                                    </button>
+                                </div>
+                            );
+                        })()}
+                        <input
+                            className={styles.formInput}
+                            type="file"
+                            accept=".pdf,.docx,.jpg,.png"
+                            onChange={async e => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const uploadingToast = toast.loading(`Uploading ${file.name}...`);
+                                try {
+                                    // Step 1: get presigned upload URL from HXM
+                                    const { data } = await apiClient.get(FILE_GENERATE_UPLOAD_URL, {
+                                        params: { fileName: file.name }
+                                    });
+                                    const { uploadUrl, fileName } = data;
+
+                                    // Step 2: PUT raw file binary to the stream endpoint
+                                    await mainClient.put(
+                                        uploadUrl.startsWith('http') ? uploadUrl : `${FILE_STREAM_UPLOAD}?path=${encodeURIComponent(fileName)}`,
+                                        file,
+                                        { headers: { 'Content-Type': file.type } }
+                                    );
+
+                                    // Step 3: store the returned fileName key (no base64)
+                                    setForm(prev => ({ ...prev, attachment: fileName, attachmentKey: fileName }));
+                                    toast.success('File uploaded', { id: uploadingToast });
+                                } catch (err) {
+                                    toast.error('File upload failed', { id: uploadingToast });
+                                }
+                            }}
+                        />
                         {form.attachment && <p className={styles.fileHint}>Selected: {form.attachment}</p>}
                     </FormRow>
 
@@ -3132,7 +3251,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
                             <input className={styles.formInput} type="email" value={contactDetails.secondaryEmail} onChange={updateContact('secondaryEmail')} placeholder="secondary@email.com" />
                         </FormRow>
                         <FormRow label={t('profile.contact.primaryMobile')}>
-                            <input className={styles.formInput} type="number" value={contactDetails.primaryMobile} onChange={updateContact('primaryMobile')} placeholder="09-xxx-xxx-xxx" />
+                            <input className={styles.formInput} type="tel" value={contactDetails.primaryMobile} onChange={updateContact('primaryMobile')} placeholder="09-xxx-xxx-xxx" />
                         </FormRow>
 
                     </div>

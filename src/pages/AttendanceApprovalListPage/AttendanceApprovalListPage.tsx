@@ -104,7 +104,11 @@ export default function AttendanceApprovalListPage() {
                     date: item.date,
                     startdate: item.date,
                     requesttype: itemType,
-                    requesttypedesc: String(item.approvetype || (itemType === '1' ? 'Remote Timein' : 'Backdate Timein')).replace(/Timein/i, item.type || 'Time In'),
+                    requesttypedesc: item.approvetype
+                        ? String(item.approvetype)
+                            .replace(/\bTimein\b/gi, 'Time In')
+                            .replace(/\bTimeout\b/gi, 'Time Out')
+                        : (itemType === '1' ? 'Remote' : 'Backdate'),
                     requeststatus: (() => {
                         const s = String(item.status ?? '');
                         if (s === '2') return '2';
