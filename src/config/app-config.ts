@@ -11,6 +11,8 @@ export interface AppConfig {
     iamUrl: string;
     /** A365 main service URL */
     mainUrl: string;
+    /** Payslip service URL (if different from mainUrl, e.g. MPT runs on a different port) */
+    payslipUrl?: string;
     /** Chat service URL */
     chatUrl: string;
     /** WebSocket URL (optional — derived from chatUrl if not set) */
@@ -36,7 +38,6 @@ const MPT_IAM_URL = 'http://iam-uat.mptjo.com.mm:8000';
 
 const configs: Record<string, AppConfig> = {
     dev: {
-
         baseUrl: import.meta.env.VITE_BASE_URL || 'https://apx002.omnicloudapi.com/',
         authUrl: import.meta.env.VITE_AUTH_URL || IAM_URL + '/api/auth/',
         iamUrl: import.meta.env.VITE_IAM_URL || IAM_URL,
@@ -45,7 +46,7 @@ const configs: Record<string, AppConfig> = {
         chatUrl: import.meta.env.VITE_CHAT_URL || IAM_URL + '/api/',
         wsUrl: import.meta.env.VITE_WS_URL || IAM_URL + '/api/',
         appName: 'A365 HR',
-        appVersion: import.meta.env.VITE_APP_VERSION || '1.0.13',
+        appVersion: import.meta.env.VITE_APP_VERSION || '1.0.15',
         appId: import.meta.env.VITE_APP_ID || '004',
         environment: 'dev',
     },
@@ -57,7 +58,7 @@ const configs: Record<string, AppConfig> = {
         chatUrl: import.meta.env.VITE_CHAT_URL || IAM_URL + '/api/',
         wsUrl: import.meta.env.VITE_WS_URL || undefined,
         appName: 'A365 HR',
-        appVersion: import.meta.env.VITE_APP_VERSION || '1.0.13',
+        appVersion: import.meta.env.VITE_APP_VERSION || '1.0.15',
         appId: import.meta.env.VITE_APP_ID || '004',
         environment: 'staging',
     },
@@ -71,21 +72,21 @@ const configs: Record<string, AppConfig> = {
         chatUrl: import.meta.env.VITE_CHAT_URL || PRD_IAM_URL + '/api/',
         wsUrl: import.meta.env.VITE_WS_URL || 'wss://mptiam.mitcloud.com/api',
         appName: 'A365 HR',
-        appVersion: import.meta.env.VITE_APP_VERSION || '1.0.13',
+        appVersion: import.meta.env.VITE_APP_VERSION || '1.0.15',
         appId: import.meta.env.VITE_APP_ID || '005',
         environment: 'prod',
     },
     mpt: {
         // Direct IP-based deployment for the MPT internal network.
-        // Update MPT_IP / MPT_PORT above whenever the server changes.
         baseUrl: import.meta.env.VITE_BASE_URL || 'http://hrms-uat.mptjo.com.mm:8081/',
         authUrl: import.meta.env.VITE_AUTH_URL || MPT_IAM_URL + '/api/auth/',
         iamUrl: import.meta.env.VITE_IAM_URL || MPT_IAM_URL,
         mainUrl: import.meta.env.VITE_MAIN_URL || 'http://hrapp-uat.mptjo.com.mm:8080/',
+        payslipUrl: import.meta.env.VITE_PAYSLIP_URL || 'http://hrapp-uat.mptjo.com.mm:8083/',
         chatUrl: import.meta.env.VITE_CHAT_URL || MPT_IAM_URL + '/api/',
         wsUrl: import.meta.env.VITE_WS_URL || 'ws://iam-uat.mptjo.com.mm:8000/api',
         appName: 'A365 HR',
-        appVersion: import.meta.env.VITE_APP_VERSION || '1.0.13',
+        appVersion: import.meta.env.VITE_APP_VERSION || '1.0.15',
         appId: import.meta.env.VITE_APP_ID || '005',
         environment: 'mpt',
     },

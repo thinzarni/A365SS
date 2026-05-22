@@ -716,5 +716,20 @@
         "leaveUnauthorizedSuccess": "Employee Unauthorized successfully",
         "updateFailed": "Failed to update attendance status",
         "leaveUpdateFailed": "Failed to update status"
+    },
+    "payslipPage": {
+        "back": "Payslip",
+        "verifyTitle": "Verify Identity",
+        "verifySubtitle": "Enter your password to access your payslip",
+        "employeeId": "Employee ID",
+        "password": "Password",
+        "verifyBtn": "Verify & View Payslip",
+        "verifying": "Verifying...",
+        "errorEmpty": "Please enter your password.",
+        "errorSession": "User session not found.",
+        "errorIncorrect": "Incorrect password. Please try again.",
+        "errorFailed": "Verification failed. Please try again.",
+        "errorPrep": "Failed to prepare payslip. Please try again.",
+        "tryAgain": "Try Again"
     }
 }

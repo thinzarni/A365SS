@@ -152,7 +152,7 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/customai': 'nav.customAi',
     '/rulesandreg': 'nav.rulesAndReg',
     '/objectdetection': 'nav.objectDetection',
-    '/payslip': 'nav.payslip',
+    '/payslip/list': 'nav.payslip',
 };
 
 // Fallback: shown when API hasn't loaded yet
@@ -455,7 +455,7 @@ export default function AppLayout() {
         const pwdWsBase = appConfig.wsUrl
             ? appConfig.wsUrl.replace(/\/$/, '')                             // use configured wsUrl as-is
             : (appConfig.iamUrl || '').replace(/^https?/, 'wss') + '/api';  // fallback: derive from iamUrl
-        console.log(`🔌 [PwdSocket] Attempting connection to: ${pwdWsBase}?user_id=${userId}&appid=${appConfig.appId}&domain_id=${domain}`);
+        // console.log(`🔌 [PwdSocket] Attempting connection to: ${pwdWsBase}?user_id=${userId}&appid=${appConfig.appId}&domain_id=${domain}`);
         try {
             pwdWsObj = new WebSocket(`${pwdWsBase}?user_id=${encodeURIComponent(userId)}&appid=${encodeURIComponent(appConfig.appId)}&domain_id=${encodeURIComponent(domain)}`);
 

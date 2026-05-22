@@ -1,57 +1,29 @@
 /**
  * hybrid-encrypt.ts
- * Mirrors Flutter's HybridEncryptor exactly:
+ * Mirrors Flutter's HybridEncryptor exactly using node-forge:
  *   1. Generate random AES-128 key + IV (16 bytes each)
  *   2. AES-128-CBC encrypt JSON payload {domain, userid}
  *   3. Prepend IV to ciphertext → base64 → encryptedData
  *   4. RSA-OAEP encrypt the AES key → base64 → encryptedKey
  *
  * The public RSA key is loaded from /public.pem (copied from assets/keys/public.pem).
+ * Uses node-forge instead of window.crypto.subtle to support non-HTTPS environments (like HTTP in WebViews).
  */
+
+import forge from 'node-forge';
 
 const PEM_URL = `${import.meta.env.BASE_URL}public.pem`;
 
-/** Parse PEM → ArrayBuffer (strips headers, decodes base64) */
-function pemToArrayBuffer(pem: string): ArrayBuffer {
-    const b64 = pem
-        .replace(/-----BEGIN PUBLIC KEY-----/, '')
-        .replace(/-----END PUBLIC KEY-----/, '')
-        .replace(/\s+/g, '');
-    const binary = atob(b64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes.buffer;
-}
-
-/** Encode ArrayBuffer → URL-safe base64 */
-function toBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-}
-
 /** Load and cache the RSA public key */
-let _cachedPublicKey: CryptoKey | null = null;
-async function loadPublicKey(): Promise<CryptoKey> {
+let _cachedPublicKey: forge.pki.rsa.PublicKey | null = null;
+async function loadPublicKey(): Promise<forge.pki.rsa.PublicKey> {
     if (_cachedPublicKey) return _cachedPublicKey;
 
     const res = await fetch(PEM_URL);
     if (!res.ok) throw new Error(`Failed to load public key: ${res.status}`);
     const pem = await res.text();
-    const keyBuffer = pemToArrayBuffer(pem);
-
-    _cachedPublicKey = await crypto.subtle.importKey(
-        'spki',
-        keyBuffer,
-        { name: 'RSA-OAEP', hash: 'SHA-1' }, // Flutter uses OAEP with default SHA-1
-        false,
-        ['encrypt'],
-    );
+    
+    _cachedPublicKey = forge.pki.publicKeyFromPem(pem) as forge.pki.rsa.PublicKey;
     return _cachedPublicKey;
 }
 
@@ -64,41 +36,30 @@ export async function hybridEncrypt(domain: string, userid: string): Promise<{
     encryptedKey: string;
 }> {
     // 1. Generate random AES-128 key (16 bytes) and IV (16 bytes)
-    const aesKeyBytes = crypto.getRandomValues(new Uint8Array(16));
-    const ivBytes = crypto.getRandomValues(new Uint8Array(16));
+    const aesKey = forge.random.getBytesSync(16);
+    const iv = forge.random.getBytesSync(16);
 
-    // 2. Import as AES-CBC key
-    const aesKey = await crypto.subtle.importKey(
-        'raw',
-        aesKeyBytes,
-        { name: 'AES-CBC' },
-        false,
-        ['encrypt'],
-    );
-
-    // 3. Encrypt the JSON payload with AES-128-CBC
+    // 2. Encrypt the JSON payload with AES-128-CBC
     const payload = JSON.stringify({ domain, userid });
-    const encodedPayload = new TextEncoder().encode(payload);
-    const ciphertext = await crypto.subtle.encrypt(
-        { name: 'AES-CBC', iv: ivBytes },
-        aesKey,
-        encodedPayload,
-    );
+    const cipher = forge.cipher.createCipher('AES-CBC', aesKey);
+    cipher.start({ iv: iv });
+    cipher.update(forge.util.createBuffer(payload, 'utf8'));
+    cipher.finish();
+    const ciphertext = cipher.output.getBytes();
 
-    // 4. Prepend IV to ciphertext → encryptedData (matches Flutter: combinedData = [IV + ciphertext])
-    const combined = new Uint8Array(ivBytes.length + ciphertext.byteLength);
-    combined.set(ivBytes, 0);
-    combined.set(new Uint8Array(ciphertext), ivBytes.length);
-    const encryptedData = toBase64(combined.buffer);
+    // 3. Prepend IV to ciphertext → encryptedData (matches Flutter: combinedData = [IV + ciphertext])
+    const combined = iv + ciphertext;
+    const encryptedData = forge.util.encode64(combined);
 
-    // 5. RSA-OAEP encrypt the AES key → encryptedKey
+    // 4. RSA-OAEP encrypt the AES key → encryptedKey
     const publicKey = await loadPublicKey();
-    const encryptedKeyBuffer = await crypto.subtle.encrypt(
-        { name: 'RSA-OAEP' },
-        publicKey,
-        aesKeyBytes,
-    );
-    const encryptedKey = toBase64(encryptedKeyBuffer);
+    const encryptedKeyBytes = publicKey.encrypt(aesKey, 'RSA-OAEP', {
+        md: forge.md.sha1.create(), // Flutter uses OAEP with default SHA-1
+        mgf1: {
+            md: forge.md.sha1.create()
+        }
+    });
+    const encryptedKey = forge.util.encode64(encryptedKeyBytes);
 
     return { encryptedData, encryptedKey };
 }

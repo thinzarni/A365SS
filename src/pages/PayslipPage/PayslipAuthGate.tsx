@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Lock, Eye, EyeOff, ShieldCheck, Banknote } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import authClient from '../../lib/auth-client';
-import { makePayslipAuthPayload, makeSignInPayload } from '../../lib/auth-token';
+import { makePayslipAuthPayload } from '../../lib/auth-token';
 import { useAuthStore } from '../../stores/auth-store';
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 
 export default function PayslipAuthGate({ onAuthenticated }: Props) {
     const { userId } = useAuthStore();
+    const { t } = useTranslation();
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -17,8 +19,8 @@ export default function PayslipAuthGate({ onAuthenticated }: Props) {
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        if (!password.trim()) { setError('Please enter your password.'); return; }
-        if (!userId) { setError('User session not found.'); return; }
+        if (!password.trim()) { setError(t('payslipPage.errorEmpty')); return; }
+        if (!userId) { setError(t('payslipPage.errorSession')); return; }
 
         setError('');
         setLoading(true);
@@ -31,10 +33,10 @@ export default function PayslipAuthGate({ onAuthenticated }: Props) {
             if (data.status === 200 || res.status === 200) {
                 onAuthenticated();
             } else {
-                setError(data.message || 'Incorrect password. Please try again.');
+                setError(data.message || t('payslipPage.errorIncorrect'));
             }
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Verification failed. Please try again.');
+            setError(err.response?.data?.message || t('payslipPage.errorFailed'));
         } finally {
             setLoading(false);
         }
@@ -77,10 +79,10 @@ export default function PayslipAuthGate({ onAuthenticated }: Props) {
                         </div>
                     </div>
                     <h2 style={{ margin: '0 0 6px', fontSize: '20px', fontWeight: 700, color: 'var(--color-text, #111827)' }}>
-                        Verify Identity
+                        {t('payslipPage.verifyTitle')}
                     </h2>
                     <p style={{ margin: 0, fontSize: '13px', color: 'var(--color-text-muted, #6b7280)', lineHeight: 1.6 }}>
-                        Enter your password to access your payslip
+                        {t('payslipPage.verifySubtitle')}
                     </p>
                 </div>
 
@@ -88,7 +90,7 @@ export default function PayslipAuthGate({ onAuthenticated }: Props) {
                     {/* User ID (read-only) */}
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-text, #374151)', marginBottom: '6px' }}>
-                            Employee ID
+                            {t('payslipPage.employeeId')}
                         </label>
                         <input
                             type="text"
@@ -107,7 +109,7 @@ export default function PayslipAuthGate({ onAuthenticated }: Props) {
                     {/* Password */}
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--color-text, #374151)', marginBottom: '6px' }}>
-                            Password
+                            {t('payslipPage.password')}
                         </label>
                         <div style={{ position: 'relative' }}>
                             <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>
@@ -175,12 +177,12 @@ export default function PayslipAuthGate({ onAuthenticated }: Props) {
                                     borderTopColor: 'transparent', borderRadius: '50%',
                                     display: 'inline-block', animation: 'spin 0.8s linear infinite',
                                 }} />
-                                Verifying...
+                                {t('payslipPage.verifying')}
                             </>
                         ) : (
                             <>
                                 <ShieldCheck size={16} />
-                                Verify & View Payslip
+                                {t('payslipPage.verifyBtn')}
                             </>
                         )}
                     </button>
