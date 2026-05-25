@@ -73,7 +73,7 @@ export default function PayslipPage() {
             <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
                 <div style={backBarStyle} onClick={handleBack} role="button" aria-label="Back to auth">
                     <ChevronLeft size={20} color="var(--color-neutral-500, #6b7280)" />
-                    <span style={{ fontSize: '14px', color: 'var(--color-neutral-600, #4b5563)', fontWeight: 500 }}>Payslip</span>
+                    <span style={{ fontSize: '14px', color: 'var(--color-neutral-600, #4b5563)', fontWeight: 500 }}>{t('payslipPage.title', 'Payslip')}</span>
                 </div>
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Loader2 size={32} className="animate-spin" color="#3b82f6" />
@@ -97,7 +97,7 @@ export default function PayslipPage() {
                         onClick={handleBack}
                         style={{ marginTop: '8px', padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: '#fff', fontSize: '14px', cursor: 'pointer' }}
                     >
-                        Try Again
+                        {t('payslipPage.tryAgain', 'Try Again')}
                     </button>
                 </div>
             </div>
