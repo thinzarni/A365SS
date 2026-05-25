@@ -124,9 +124,10 @@ export default function SupervisedAttendanceImportModal({ open, onClose, onSucce
             setPreviewData(data);
             setPreviewTab(data.invalidCount > 0 ? 'invalid' : 'valid');
         },
-        onError: (err: unknown) => {
-            const msg = err instanceof Error ? err.message : t('common.error');
+        onError: (err: any) => {
+            const msg = err?.response?.data?.message || (err instanceof Error ? err.message : t('common.error'));
             toast.error(msg);
+            setFiles([]);
         }
     });
 
