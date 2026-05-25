@@ -165,6 +165,7 @@ export const SAVE_CHECKIN = 'api/checkin';
 // ── Admin Attendance ──
 export const ADMIN_ATTENDANCE_LIST = 'api/checkin/members';
 export const ADMIN_ATTENDANCE_COUNTS = 'api/checkin/counts';
+export const ADMIN_MEMBER_LIST = `${hxmPrefix}integration/memberlist`;
 export const ADMIN_CARD_DATA = `${hxmPrefix}integration/getadmincarddata`;
 // ── Chat (uses chatUrl) ──
 export const CHAT_CREATE = 'chat-new/create';

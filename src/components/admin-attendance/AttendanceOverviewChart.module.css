@@ -1,5 +1,6 @@
 .chartWrapper {
     width: 100%;
+    height: 100%;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
@@ -16,7 +17,9 @@
 
 .chartContainer {
     width: 100%;
-    height: 350px;
+    height: 100%;
+    flex: 1;
+    min-height: 0;
 }
 
 .legend {
@@ -49,4 +52,13 @@
 /* Ensure rotated labels are visible */
 :global(.recharts-cartesian-axis-tick-value) {
     font-family: inherit;
+}
+
+.barGroup {
+    cursor: pointer;
+    transition: filter 0.15s ease;
+}
+
+.barGroup:hover {
+    filter: brightness(1.25) saturate(1.1);
 }
