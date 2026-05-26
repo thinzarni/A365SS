@@ -44,7 +44,7 @@ export default function PayslipPage() {
         hybridEncrypt(domain, userId)
             .then(({ encryptedData, encryptedKey }) => {
                 const params = new URLSearchParams({ encryptedData, encryptedKey, token });
-                const url = `${payslipBase}${PAYSLIP_PATH}?${params.toString()}`;
+                const url = `${payslipBase}${PAYSLIP_PATH}?${params.toString()}&from=selfservice`;
                 // console.log('[PayslipPage] Request URL:', url);
                 setIframeUrl(url);
             })

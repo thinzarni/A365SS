@@ -1,4 +1,4 @@
-{
+﻿{
     "app": {
         "name": "A365 HR"
     },
@@ -276,7 +276,7 @@
             "grade": "အဆင့်",
             "officeEmail": "ရုံးသုံး အီးမေးလ်",
             "officeLocation": "ရုံးတည်နေရာ",
-            "workLocation": "အလုပ်တည်နေရာ",
+            "workLocation": "ဝန်ထမ်း၏ရုံးတည်နေရာ",
             "department": "ဌာန",
             "doj": "အလုပ်စတင်သည့်နေ့",
             "serviceYear": "လုပ်သက်",

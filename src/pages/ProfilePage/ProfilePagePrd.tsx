@@ -1285,7 +1285,6 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 
     const openAdd = () => { setForm(blankExp()); setEditingId(null); setShowModal(true); };
     const openEdit = (r: WorkExperience) => {
-        const isCurrent = records.current.some(c => c.id === r.id);
         setForm({ ...r, isdelete: r.isdelete || false, modOption: 'Update' });
         setEditingId(r.id);
         setShowModal(true);
@@ -1357,8 +1356,10 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         const newRecord = { ...form, organization: orgTrim, designation: form.designation.trim() };
         if (!isUpdate) {
             newRecord.id = Date.now().toString();
-            newRecord.status = 'Pending';
         }
+        // Always mark Pending — ensures the filter(r => r.status === 'Pending') in experiencelist includes this record
+        // (current/Approved records stay 'Approved' otherwise and get filtered out)
+        newRecord.status = 'Pending';
         if (orgTypes.length) {
             const sel = orgTypes.find((o: any) => o.syskey === form.orgType);
             if (sel) newRecord.orgTypeDesc = sel.description;
@@ -1554,9 +1555,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                                 {
                                                     r.status === 'Pending' && (
                                                         <div className={styles.rowActions}>
-                                                            {!r.isdelete && (
-                                                                <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
-                                                            )}
+                                                            <button className={styles.iconBtn} onClick={() => openEdit(r)} title={t('profile.personal.editHint')}><Edit3 size={14} /></button>
                                                         </div>
                                                     )
                                                 }
@@ -1576,7 +1575,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                                                     <div style={{ display: 'flex' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Reason To Leave</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.reasonForChange || '-'}</span></div>
                                                 </div>
                                             </div>
-                                            <div style={{ marginTop: '16px' }}>
+                                            <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                 <StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status || '') as string} isDelete={r.isdelete} />
                                             </div>
                                         </div>
@@ -1741,22 +1740,28 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                 domain: domain || 'demouat',
                 employeeid: profile.eid
             });
-            const processArr = (arr: any[]) => arr.map((item: any) => ({
-                id: item.syskey || item.orgrecordsyskey,
-                type: item.type || 'Education',
-                qualificationtype: item.qualificationtypesyskey || item.qualificationtype || 'Education',
-                description: item.description || '',
-                educationname: item.educationnamesyskey || item.educationname || '',
-                _displayEduName: item.educationname || '',
-                university: item.institution || '',
-                year: item.year || '',
-                country: item.country || '',
-                fromdate: parseDateFromApi(item.fromdate),
-                todate: parseDateFromApi(item.todate),
-                isheight: item.isheight?.toString() === 'true' ? 'true' : 'false',
-                status: item.status?.toString() || '0',
-                isdelete: !!item.isdelete
-            })) as Qualification[];
+            const processArr = (arr: any[]) => arr.map((item: any) => {
+                // API uses 'ishighest' in current array and 'isheight' in update array
+                const highestRaw = item.ishighest ?? item.isheight;
+                return {
+                    id: item.syskey || item.orgrecordsyskey,
+                    orgrecordsyskey: item.orgrecordsyskey || '',
+                    countrysyskey: item.countrysyskey || '',
+                    type: item.type || 'Education',
+                    qualificationtype: item.qualificationtypesyskey || item.qualificationtype || 'Education',
+                    description: item.description || '',
+                    educationname: item.educationnamesyskey || item.educationname || '',
+                    _displayEduName: item.educationname || '',
+                    university: item.institution || '',
+                    year: item.year || '',
+                    country: item.country || '',
+                    fromdate: parseDateFromApi(item.fromdate),
+                    todate: parseDateFromApi(item.todate),
+                    isheight: highestRaw === true || highestRaw?.toString() === 'true' ? 'true' : 'false',
+                    status: item.status?.toString() || '0',
+                    isdelete: !!item.isdelete
+                };
+            }) as Qualification[];
 
             return {
                 current: processArr(res.data?.data?.current || []),
@@ -1826,7 +1831,6 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
 
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
     const openEdit = (r: Qualification) => {
-        const isCurrent = records.current.some(c => c.id === r.id);
         setForm({ ...r, isdelete: r.isdelete || false, modOption: 'Update' });
         setEditingId(r.id);
         setShowModal(true);
@@ -2998,7 +3002,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
             });
             toast.success(t('profile.contact.saveSuccess'));
             setIsEditing(false);
-            refetch();
+            refetchContact();
         } catch (err) {
             toast.error('Failed to update address information');
         } finally {

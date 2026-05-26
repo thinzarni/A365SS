@@ -455,7 +455,7 @@ export default function LoginPage() {
                     }
                         
 
-                        {isMsalSupported && (
+                        {/* {isMsalSupported && ( */}
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -466,7 +466,7 @@ export default function LoginPage() {
                                 <Monitor size={18} className="mr-2" />
                                 {t('auth.azureSignIn')}
                             </Button>
-                        )}
+                        {/* )} */}
                     </div>
 
                     <div className={styles.login__version} style={{ textAlign: 'center', fontSize: '13px', color: '#64748b', marginTop: '24px' }}>

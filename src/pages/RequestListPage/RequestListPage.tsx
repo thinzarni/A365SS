@@ -66,11 +66,6 @@ const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: s
     '/attendancerequest': { filter: 'attendance', label: 'Attendance Request', newLabel: 'New Attendance Request', newPath: '/attendancerequest/new' },
 };
 
-/* ── Attendance sub-type filter ── */
-const attendanceTypes = [
-    { key: '1', label: 'Remote' },
-    { key: '2', label: 'Backdate' },
-];
 
 /* ── Type display helpers ── */
 const statusTabs = [
@@ -124,7 +119,7 @@ export default function RequestListPage() {
     const [fromDate, setFromDate] = useState<string>(dateToInput(DEFAULT_FROM_DATE));
     const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
     const [requestType, setRequestType] = useState<string>('');
-    const [attType, setAttType] = useState(''); // Fetch all attendance types by default
+    const [attType] = useState(''); // Fetch all attendance types by default
     const [didInitDates, setDidInitDates] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
