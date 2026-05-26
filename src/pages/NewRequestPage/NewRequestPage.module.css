@@ -1,5 +1,4 @@
 .new-request {
-    max-width: 720px;
     margin: 0 auto;
 }
 
@@ -54,11 +53,24 @@
     grid-column: 1 / -1;
 }
 
-/* ── Type selector cards ── */
+/* ── Type selector carousel ── */
+.new-request__type-carousel-wrap {
+    position: relative;
+}
+
 .new-request__type-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    display: flex;
     gap: var(--space-3);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding: var(--space-1) var(--space-1) var(--space-3);
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.new-request__type-grid::-webkit-scrollbar {
+    display: none;
 }
 
 .new-request__type-card {
@@ -73,32 +85,53 @@
     transition: all var(--transition-fast);
     background: var(--color-neutral-0);
     text-align: center;
+    flex: 0 0 120px;
+    scroll-snap-align: start;
+    min-width: 110px;
+    user-select: none;
 }
 
 .new-request__type-card:hover {
     border-color: var(--color-primary-200);
     background: var(--color-primary-50);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99,102,241,0.10);
 }
 
 .new-request__type-card--active {
     border-color: var(--color-primary-500);
     background: var(--color-primary-50);
-    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.12);
+    transform: translateY(-2px);
 }
 
 .new-request__type-card-icon {
-    width: 42px;
-    height: 42px;
+    width: 46px;
+    height: 46px;
     border-radius: var(--radius-lg);
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: transform var(--transition-fast);
+}
+
+.new-request__type-card:hover .new-request__type-card-icon,
+.new-request__type-card--active .new-request__type-card-icon {
+    transform: scale(1.1);
 }
 
 .new-request__type-card-label {
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
     color: var(--color-neutral-700);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+}
+
+.new-request__type-card--active .new-request__type-card-label {
+    color: var(--color-primary-700);
 }
 
 /* ── Transport checkboxes ── */
@@ -133,11 +166,18 @@
         grid-template-columns: 1fr;
     }
 
-    .new-request__type-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
     .new-request__card {
         padding: var(--space-4);
+    }
+
+    .new-request__type-card {
+        flex: 0 0 100px;
+        min-width: 100px;
+        padding: var(--space-3) var(--space-2);
+    }
+
+    .new-request__type-card-icon {
+        width: 40px;
+        height: 40px;
     }
 }

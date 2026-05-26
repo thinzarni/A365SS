@@ -207,12 +207,7 @@ export default function RequestListPage() {
                     type: item.type,
                     atttype: item.atttype || item.attendancerequesttype,
                     requesttype: item.atttype || item.type,
-                    requesttypedesc: (() => {
-                        const typeLabel = item.type === '602' ? 'Time Out' : 'Time In';
-                        const atype = String(item.atttype || item.attendancerequesttype || attType || '1');
-                        const attTypeLabel = atype === '2' ? 'Backdate' : 'Remote';
-                        return `${attTypeLabel} ${typeLabel}`;
-                    })(),
+                    requesttypedesc: item.type === '602' ? 'Time Out' : 'Time In',
                     requeststatus: String(item.status || '1'),
                     requestsubtypedesc: item.time || `${item.intime || ''}${item.intime && item.outtime ? ' - ' : ''}${item.outtime || ''}`,
                     intime: item.intime,
@@ -354,7 +349,7 @@ export default function RequestListPage() {
             setExporting(true);
 
             // Map data to Excel format
-            const exportData = (displayRequests as any[]).map((req) => {
+            const exportData = (displayRequests as any[]).map((req, idx) => {
                 let statusText = '—';
                 const st = String(req.requeststatus);
                 if (st === '1') statusText = 'Pending';
@@ -379,7 +374,7 @@ export default function RequestListPage() {
                 const exportObj: any = {
                     'Employee ID': req.eid || '—',
                     'Employee Name': req.name || '—',
-                    'Ref #': req.refno || '—',
+                    'Ref #': isAttendancePage ? `#${idx + 1}` : (req.refno || '—'),
                     'Date': displayDate(req.startdate || req.date) || '—',
                     'Type': typeDesc,
                 };
@@ -528,13 +523,14 @@ export default function RequestListPage() {
                     )}
 
                     {isAttendancePage && (
-                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                        <div className={styles['filter-group']}>
+                            <label className={styles['filter-label']}>Export</label>
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 loading={exporting}
                                 onClick={() => setShowExportConfirm(true)}
-                                style={{ marginBottom: '2px' }}
+                                style={{ border: '1px solid var(--color-neutral-200)', height: '38px' }}
                             >
                                 {exporting ? <Loader2 className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />}
                                 Export Excel

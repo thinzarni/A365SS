@@ -793,7 +793,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     const cancelPending = async (id: string) => {
         const updatedPending = records.pending.filter(r => r.id !== id);
         const { domain } = useAuthStore.getState();
-        const emergencylist = updatedPending.map(r => ({
+        const emergencylist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
             syskey: r.id && r.id.length > 20 ? r.id : "",
             orgrecordsyskey: r.orgrecordsyskey || "",
             name: r.name, relationship: r.relationshipSyskey || r.relationship,
@@ -832,7 +832,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             } else { return; }
             const { domain } = useAuthStore.getState();
             setSaving(true);
-            const emergencylist = updatedPending.map(r => ({
+            const emergencylist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
                 syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
                 orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
                 name: r.name, relationship: r.relationshipSyskey || r.relationship,
@@ -875,7 +875,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
 
         const { domain } = useAuthStore.getState();
         setSaving(true);
-        const emergencylist = updatedPending.map(r => ({
+        const emergencylist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
             syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
             orgrecordsyskey: r.orgrecordsyskey || (r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : ""),
             name: r.name, relationship: r.relationshipSyskey || r.relationship,
@@ -924,7 +924,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
         }
 
         const { domain } = useAuthStore.getState();
-        const emergencylist = updatedPending.map(r => ({
+        const emergencylist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
             syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
             orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
             name: r.name,
@@ -1289,8 +1289,9 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     const cancelPendingExp = async (id: string) => {
         const updatedPending = records.pending.filter(r => r.id !== id);
         const { domain } = useAuthStore.getState();
-        const experiencelist = updatedPending.map(r => ({
-            syskey: r.id && r.id.length > 15 ? r.id : "", orgrecordsyskey: r.orgrecordsyskey || "",
+        const experiencelist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
+            syskey: r.id && r.id.length > 15 ? r.id : "", 
+            orgrecordsyskey: r.orgrecordsyskey || (r.id && r.id.length > 15 && records.current.some(c => c.id === r.id) ? r.id : ""),
             organization: r.organization, organizationtype: r.orgType || null, industry: r.industry || null,
             designation: r.designation, fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
             todate: r.todate ? r.todate.replace(/-/g, '') : '',
@@ -1322,11 +1323,13 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             } else { return; }
             const { domain } = useAuthStore.getState();
             setSaving(true);
-            const experiencelist = updatedPending.map(r => ({
+            const experiencelist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
                 syskey: (r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id)) ? r.id : "",
-                orgrecordsyskey: r.orgrecordsyskey || "",
-                organization: r.organization, organizationtype: r.orgType || null, industry: r.industry || null,
-                designation: r.designation, fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
+                orgrecordsyskey: r.orgrecordsyskey || (r.id && r.id.length > 15 && records.current.some(c => c.id === r.id) ? r.id : ""),
+                organization: r.organization,
+                organizationtype: r.orgType || null, industry: r.industry || null,
+                designation: r.designation,
+                fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
                 todate: r.todate ? r.todate.replace(/-/g, '') : '',
                 previousmonthlysalary: r.salary ? r.salary.toString() : '', currency: r.currency || 'MMK',
                 reasonforchange: r.reasonForChange || '', township: r.townshipSyskey || r.township || '',
@@ -1374,9 +1377,9 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 
         const { domain } = useAuthStore.getState();
         setSaving(true);
-        const experiencelist = updatedPending.map(r => ({
+        const experiencelist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
             syskey: (r.id && r.id.length > 15 && records.pending.some(p => p.id === r.id)) ? r.id : "",
-            orgrecordsyskey: r.orgrecordsyskey || "",
+            orgrecordsyskey: r.orgrecordsyskey || (r.id && r.id.length > 15 && records.current.some(c => c.id === r.id) ? r.id : ""),
             organization: r.organization,
             organizationtype: r.orgType || null,
             industry: r.industry || null,
@@ -1720,7 +1723,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
     };
 
     const mapQualificationPayload = (list: Qualification[]) => {
-        return list.map(r => ({
+        return list.filter(r => r.status === 'Pending').map(r => ({
             syskey:
                 r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id)
                     ? r.id
@@ -2329,7 +2332,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const cancelPendingFamily = async (id: string) => {
         const updatedPending = records.pending.filter(r => r.id !== id);
         const { domain } = useAuthStore.getState();
-        const familylist = updatedPending.map(r => ({
+        const familylist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
             syskey: r.id && r.id.length > 20 ? r.id : "", orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
             name: r.name, gender: r.gender, dob: r.dob ? r.dob.replace(/-/g, '') : '',
             relationship: r.relationshipSyskey || r.relationship, taxexeligibility: r.taxEligible === 'Yes',
@@ -2364,7 +2367,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             } else { return; }
             const { domain } = useAuthStore.getState();
             setSaving(true);
-            const familylist = updatedPending.map(r => ({
+            const familylist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
                 syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
                 orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
                 name: r.name, gender: r.gender, dob: r.dob ? r.dob.replace(/-/g, '') : '',
@@ -2402,7 +2405,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
 
         const { domain } = useAuthStore.getState();
         setSaving(true);
-        const familylist = updatedPending.map(r => ({
+        const familylist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
             syskey: r.id && r.id.length > 20 && records.pending.some(p => p.id === r.id) ? r.id : "",
             orgrecordsyskey: r.id && r.id.length > 20 && records.current.some(c => c.id === r.id) ? r.id : "",
             name: r.name,
@@ -2458,7 +2461,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
         }
 
         const { domain } = useAuthStore.getState();
-        const familylist = updatedPending.map(r => ({
+        const familylist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
             name: r.name,
             gender: r.gender,
             dob: r.dob ? r.dob.replace(/-/g, '') : '',

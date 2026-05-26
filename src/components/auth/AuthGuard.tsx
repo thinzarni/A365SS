@@ -37,13 +37,24 @@ export function RequireAuth() {
     const [isValidating, setIsValidating] = useState(true);
     const hasValidated = useRef(false);
 
+    // Key includes userId so it resets automatically when a different user logs in
+    const sessionKey = `a365-device-registered-${userId ?? 'unknown'}`;
+
     useEffect(() => {
         if (!hydrated || !isAuthenticated || !token) {
             if (hydrated) setIsValidating(false);
             return;
         }
 
+        // Skip if already called in-memory (React StrictMode double-invoke guard)
         if (hasValidated.current) {
+            setIsValidating(false);
+            return;
+        }
+
+        // Skip if already called this session (survives page refresh, cleared on logout)
+        if (sessionStorage.getItem(sessionKey) === '1') {
+            setIsValidating(false);
             return;
         }
 
@@ -61,14 +72,19 @@ export function RequireAuth() {
                     userid: userId,
                     domain: user?.domainName || domain
                 });
-                
+
                 if (deviceRes.data?.statuscode === 400) {
                     logout();
+                    sessionStorage.removeItem(sessionKey);
                     toast.error(deviceRes.data?.message ?? "Employee not found! You don't have access.");
-                } 
+                } else {
+                    // Mark as done for this session
+                    sessionStorage.setItem(sessionKey, '1');
+                }
             } catch (err: any) {
                 if (err?.response?.data?.statuscode === 400) {
                     logout();
+                    sessionStorage.removeItem(sessionKey);
                     toast.error(err?.response?.data?.message ?? "Employee not found! You don't have access.");
                 }
             } finally {
@@ -77,7 +93,7 @@ export function RequireAuth() {
         };
 
         validateDevice();
-    }, [hydrated, isAuthenticated, token, userId, domain, user, logout]);
+    }, [hydrated, isAuthenticated, token, userId, domain, user, logout, sessionKey]);
 
     // Don't redirect or render layout until we know the real auth state and validation is complete
     if (!hydrated || isValidating) return null;
