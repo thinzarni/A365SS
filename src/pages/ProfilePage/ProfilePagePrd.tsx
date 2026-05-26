@@ -3,11 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
-    Mail, Calendar, Briefcase, Award, CreditCard, Clock, Activity,
+    Mail, Calendar, Briefcase, Award, CreditCard, Clock,
     Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle,
-
     Building2, User, Phone, BookOpen, Users, MapPin, Plus, Trash2, Edit3,
-    FileText, AlertCircle, Save
+    FileText, AlertCircle, Save, UsersRound, RefreshCw
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
@@ -679,7 +678,7 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
                         <InfoItem icon={<Calendar size={18} />} label={t('profile.personal.dob')} value={draft.dob} />
                         <InfoItem icon={<Clock size={18} />} label={t('profile.personal.age')} value={draft.age} />
                         <InfoItem icon={<CreditCard size={18} />} label={t('profile.personal.nrc')} value={draft.nrc} />
-                        <InfoItem icon={<Activity size={18} />} label={t('profile.personal.maritalStatus')} value={t(`profile.options.marital.${draft.maritalStatus}` as any, draft.maritalStatus)} />
+                        <InfoItem icon={<UsersRound size={18} />} label={t('profile.personal.maritalStatus')} value={t(`profile.options.marital.${draft.maritalStatus}` as any, draft.maritalStatus)} />
                         <InfoItem icon={<User size={18} />} label={t('profile.personal.gender')} value={t(`profile.options.genders.${draft.gender}` as any, draft.gender)} />
                         <InfoItem icon={<Award size={18} />} label={t('profile.personal.nationality')} value={t(`profile.options.nationalities.${draft.nationality}` as any, draft.nationality)} />
                         <InfoItem icon={<Award size={18} />} label={t('profile.personal.ethnicity')} value={t(`profile.options.ethnicities.${draft.ethnicity}` as any, draft.ethnicity)} />
@@ -718,7 +717,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     const [focusedField, setFocusedField] = useState<'contact' | 'resident' | 'office' | null>(null);
     const fv = (k: keyof EmergencyContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(prev => ({ ...prev, [k]: e.target.value as any }));
 
-    const { data: fetchedData, isLoading } = useQuery({
+    const { data: fetchedData, isLoading, isFetching: isRefreshing, refetch } = useQuery({
         queryKey: ['emergency', profile.userid, profile.eid],
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
@@ -979,7 +978,14 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<Phone size={20} />} title={t('profile.tabs.emergency')} subtitle={t('profile.emergency.subtitle')}
-                action={records.pending.length < 2 ? <button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('common.addContact')}</button> : undefined} />
+                action={
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button className={styles.refreshBtn} onClick={() => refetch()} disabled={isRefreshing} title="Refresh">
+                            <RefreshCw size={14} className={isRefreshing ? styles.spinning : ''} />
+                        </button>
+                        {records.pending.length < 2 && <button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('common.addContact')}</button>}
+                    </div>
+                } />
 
             {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.emergency.noContact')} onAdd={openAdd} />
@@ -1197,7 +1203,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         enabled: showModal
     });
 
-    const { data: fetchedData, isLoading } = useQuery({
+    const { data: fetchedData, isLoading, isFetching: isRefreshing, refetch } = useQuery({
         queryKey: ['experience', profile.userid, profile.eid],
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
@@ -1280,7 +1286,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     const openAdd = () => { setForm(blankExp()); setEditingId(null); setShowModal(true); };
     const openEdit = (r: WorkExperience) => {
         const isCurrent = records.current.some(c => c.id === r.id);
-        setForm({ ...r, isdelete: r.isdelete || false, modOption: isCurrent ? 'Update' : (r.modOption || 'Correct') });
+        setForm({ ...r, isdelete: r.isdelete || false, modOption: 'Update' });
         setEditingId(r.id);
         setShowModal(true);
     };
@@ -1310,7 +1316,6 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     const saveExp = async () => {
         // Delete flow via form toggle
         if (form.isdelete && editingId) {
-            if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
             const isCurrent = records.current.some(r => r.id === editingId);
             const pendingRecord = records.pending.find(p => p.id === editingId);
             let updatedPending: WorkExperience[];
@@ -1347,8 +1352,6 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         const orgTrim = form.organization?.trim() || '';
         if (!orgTrim) { toast.error(t('profile.experience.reqOrg')); return; }
         if (!form.designation?.trim()) { toast.error(t('profile.experience.reqDesignation')); return; }
-
-        if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
 
         const isUpdate = !!editingId;
         const newRecord = { ...form, organization: orgTrim, designation: form.designation.trim() };
@@ -1484,7 +1487,14 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<Building2 size={20} />} title={t('profile.tabs.experience')} subtitle={t('profile.experience.subtitle')}
-                action={<button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('profile.experience.addBtn')}</button>} />
+                action={
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button className={styles.refreshBtn} onClick={() => refetch()} disabled={isRefreshing} title="Refresh">
+                            <RefreshCw size={14} className={isRefreshing ? styles.spinning : ''} />
+                        </button>
+                        <button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('profile.experience.addBtn')}</button>
+                    </div>
+                } />
 
             {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.experience.noData')} onAdd={openAdd} />
@@ -1622,36 +1632,6 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
                         <textarea className={styles.formTextarea} value={form.reasonForChange} onChange={f('reasonForChange')} placeholder={t('profile.experience.reasonPlaceholder')} rows={3} />
                     </FormRow>
 
-                    {/* Modification Type — New badge for add, Update/Correct toggle for edit */}
-                    {!editingId && (
-                        <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 8px' }}>
-                                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Modification Type:</span>
-                                <span style={{ padding: '3px 12px', borderRadius: '9999px', fontSize: '12px', fontWeight: 700, background: '#dcfce7', color: '#16a34a' }}>New</span>
-                            </div>
-                            <FormRow label="Effective Date *">
-                                <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={f('effectiveFrom')} />
-                            </FormRow>
-                        </>
-                    )}
-                    {editingId && (
-                        <>
-                            <div style={{ display: 'flex', gap: '8px', margin: '4px 0 8px' }}>
-                                {(['Update', 'Correct'] as const).map(opt => (
-                                    <button key={opt} type="button"
-                                        onClick={() => setForm(prev => ({ ...prev, modOption: opt, effectiveFrom: opt === 'Correct' ? '' : prev.effectiveFrom }))}
-                                        style={{ flex: 1, padding: '7px 0', borderRadius: '8px', border: `1.5px solid ${form.modOption === opt ? (opt === 'Correct' ? '#f59e0b' : '#3b82f6') : '#e2e8f0'}`, background: form.modOption === opt ? (opt === 'Correct' ? '#fef3c7' : '#dbeafe') : '#f8fafc', color: form.modOption === opt ? (opt === 'Correct' ? '#92400e' : '#1d4ed8') : '#64748b', fontWeight: form.modOption === opt ? 700 : 500, fontSize: '13px', cursor: 'pointer', transition: 'all 0.15s' }}>
-                                        {opt}
-                                    </button>
-                                ))}
-                            </div>
-                            {form.modOption === 'Update' && (
-                                <FormRow label="Effective Date *">
-                                    <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={f('effectiveFrom')} />
-                                </FormRow>
-                            )}
-                        </>
-                    )}
 
                     {/* Delete toggle — only shown when editing */}
                     {editingId && (
@@ -1752,7 +1732,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         }));
     };
 
-    const { data: fetchedData, isLoading } = useQuery({
+    const { data: fetchedData, isLoading, isFetching: isRefreshing, refetch } = useQuery({
         queryKey: ['qualification', profile.userid, profile.eid],
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
@@ -1847,7 +1827,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
     const openAdd = () => { setForm(blank()); setEditingId(null); setShowModal(true); };
     const openEdit = (r: Qualification) => {
         const isCurrent = records.current.some(c => c.id === r.id);
-        setForm({ ...r, isdelete: r.isdelete || false, modOption: isCurrent ? 'Update' : (r.modOption || 'Correct') });
+        setForm({ ...r, isdelete: r.isdelete || false, modOption: 'Update' });
         setEditingId(r.id);
         setShowModal(true);
     };
@@ -1868,7 +1848,6 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
     const save = async () => {
         // Delete flow via form toggle
         if (form.isdelete && editingId) {
-            if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
             const isCurrent = records.current.some(r => r.id === editingId);
             const pendingRecord = records.pending.find(p => p.id === editingId);
             let updatedPending: Qualification[];
@@ -1892,12 +1871,12 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         }
 
         if (!form.description) { toast.error(t('profile.qualification.reqDegree', 'Description is required')); return; }
-        if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
 
         const isUpdate = !!editingId;
         const newRecord: Qualification & { _displayEduName?: string } = { ...form };
         if (!isUpdate) {
             newRecord.id = Date.now().toString(); // Temporary ID, real syskey provided by backend
+            newRecord.status = 'Pending';
         }
 
         if (['Education', 'Certificate', 'Training'].includes(form.type)) {
@@ -1990,7 +1969,14 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<BookOpen size={20} />} title={t('profile.tabs.qualification')} subtitle={t('profile.qualification.subtitle')}
-                action={<button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('profile.qualification.addBtn')}</button>} />
+                action={
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button className={styles.refreshBtn} onClick={() => refetch()} disabled={isRefreshing} title="Refresh">
+                            <RefreshCw size={14} className={isRefreshing ? styles.spinning : ''} />
+                        </button>
+                        <button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('profile.qualification.addBtn')}</button>
+                    </div>
+                } />
 
             {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.qualification.noData')} onAdd={openAdd} />
@@ -2045,7 +2031,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                         }}>
                                             <div className={styles.contactPersonHeader}>
                                                 <span className={styles.contactPersonLabel} style={{ color: r.isdelete ? '#f43f5e' : '#b45309' }}>
-                                                    {t('profile.tabs.qualification')} — {r.isdelete ? (r.status === 'Approved' ? 'Delete Approved' : r.status === 'Rejected' ? 'Delete Rejected' : 'Pending Delete') : r.status}
+                                                    {t('profile.tabs.qualification')}
                                                 </span>
                                                 {
                                                     r.status === 'Pending' || r.status == '0' && (
@@ -2152,37 +2138,6 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                         </FormRow>
                     </div>
 
-                    {/* Modification Type — 3-state */}
-                    {!editingId && (
-                        <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 8px' }}>
-                                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Modification Type:</span>
-                                <span style={{ padding: '3px 12px', borderRadius: '9999px', fontSize: '12px', fontWeight: 700, background: '#dcfce7', color: '#16a34a' }}>New</span>
-                            </div>
-                            <FormRow label="Effective Date *">
-                                <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={f('effectiveFrom')} />
-                            </FormRow>
-                        </>
-                    )}
-                    {editingId && (
-                        <>
-                            <div style={{ display: 'flex', gap: '8px', margin: '4px 0 8px' }}>
-                                {(['Update', 'Correct'] as const).map(opt => (
-                                    <button key={opt} type="button"
-                                        onClick={() => setForm(prev => ({ ...prev, modOption: opt, effectiveFrom: opt === 'Correct' ? '' : prev.effectiveFrom }))}
-                                        style={{ flex: 1, padding: '7px 0', borderRadius: '8px', border: `1.5px solid ${form.modOption === opt ? (opt === 'Correct' ? '#f59e0b' : '#3b82f6') : '#e2e8f0'}`, background: form.modOption === opt ? (opt === 'Correct' ? '#fef3c7' : '#dbeafe') : '#f8fafc', color: form.modOption === opt ? (opt === 'Correct' ? '#92400e' : '#1d4ed8') : '#64748b', fontWeight: form.modOption === opt ? 700 : 500, fontSize: '13px', cursor: 'pointer', transition: 'all 0.15s' }}>
-                                        {opt}
-                                    </button>
-                                ))}
-                            </div>
-                            {form.modOption === 'Update' && (
-                                <FormRow label="Effective Date *">
-                                    <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={f('effectiveFrom')} />
-                                </FormRow>
-                            )}
-                        </>
-                    )}
-
                     {/* Delete toggle — only shown when editing */}
                     {editingId && (
                         <div style={{ marginTop: '8px', padding: '12px 16px', borderRadius: '10px', border: `1.5px solid ${form.isdelete ? '#f43f5e' : '#e2e8f0'}`, background: form.isdelete ? '#fff1f2' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}>
@@ -2278,7 +2233,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
-    const { data: fetchedData, isLoading } = useQuery({
+    const { data: fetchedData, isLoading, isFetching: isRefreshing, refetch } = useQuery({
         queryKey: ['family', profile.userid, profile.eid],
         queryFn: async () => {
             const { domain } = useAuthStore.getState();
@@ -2505,7 +2460,14 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<Users size={20} />} title={t('profile.tabs.family')} subtitle={t('profile.family.subtitle')}
-                action={<button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('profile.family.addBtn')}</button>} />
+                action={
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button className={styles.refreshBtn} onClick={() => refetch()} disabled={isRefreshing} title="Refresh">
+                            <RefreshCw size={14} className={isRefreshing ? styles.spinning : ''} />
+                        </button>
+                        <button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('profile.family.addBtn')}</button>
+                    </div>
+                } />
 
             {records.current.length === 0 && records.pending.length === 0
                 ? <EmptyState message={t('profile.family.noData')} onAdd={openAdd} />
@@ -2927,7 +2889,7 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
     });
 
 
-    const { data: fetchedData, refetch, isLoading } = useQuery({
+    const { data: fetchedData, refetch: refetchContact, isLoading, isFetching: isContactRefreshing } = useQuery({
         queryKey: ['address', profile.userid, profile.eid],
         queryFn: async () => {
             const res = await mainClient.post(ADDRESS_COMPARE, {
@@ -3142,9 +3104,14 @@ function ContactInfoTab({ profile }: { profile: ProfileData }) {
     return (
         <div className={styles.sectionCard}>
             <SectionHeader icon={<MapPin size={20} />} title={t('profile.tabs.contact')} subtitle={t('profile.contact.subtitle')}
-                action={!isEditing
-                    ? <button className={styles.editOutlineBtn} onClick={startEdit}><Edit3 size={14} /> {t('profile.personal.editHint')}</button>
-                    : undefined
+                action={
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button className={styles.refreshBtn} onClick={() => refetchContact()} disabled={isContactRefreshing} title="Refresh">
+                            <RefreshCw size={14} className={isContactRefreshing ? styles.spinning : ''} />
+                        </button>
+                        {!isEditing && <button className={styles.editOutlineBtn} onClick={startEdit}><Edit3 size={14} /> {t('profile.personal.editHint')}</button>}
+                    </div>
+                
                 }
             />
 
@@ -3421,7 +3388,7 @@ function SectionHeader({ icon, title, subtitle, action, status }: { icon: React.
                     {subtitle && <p className={styles.sectionSubtitle}>{subtitle}</p>}
                 </div>
             </div>
-            {action && <div>{action}</div>}
+            {action && <div style={{ display: 'flex', alignItems: 'center' }}>{action}</div>}
         </div>
     );
 }
