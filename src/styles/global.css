@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Myanmar:wght@300;400;500;600;700&display=swap');
 @import './tokens.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -17,6 +17,13 @@ html {
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+}
+
+/* Apply Myanmar font when language is set to 'my' */
+:lang(my),
+:lang(my) * {
+    font-family: 'Noto Sans Myanmar', 'Pyidaungsu', 'Myanmar Text', sans-serif !important;
+    line-height: 1.8;
 }
 
 body {

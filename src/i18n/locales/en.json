@@ -731,5 +731,20 @@
         "errorFailed": "Verification failed. Please try again.",
         "errorPrep": "Failed to prepare payslip. Please try again.",
         "tryAgain": "Try Again"
+    },
+    "rulesAndReg": {
+        "title": "Employee Handbook",
+        "subtitle": "Browse company policies and guidelines",
+        "noFolders": "No Folders",
+        "noFoldersDesc": "There are no rule folders available at this time.",
+        "documents": "Documents",
+        "noPdfs": "No Documents",
+        "noPdfsDesc": "There are no documents in this folder.",
+        "backToFolders": "Back to Folders",
+        "viewDoc": "View Document",
+        "downloadDoc": "Download Document",
+        "failedOpen": "Failed to open document. Please try again.",
+        "failedDownload": "Failed to download document. Please try again.",
+        "failedDownloadServer": "Failed to download document from server."
     }
 }

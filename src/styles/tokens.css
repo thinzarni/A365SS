@@ -49,7 +49,7 @@
   --surface: var(--color-neutral-0);
 
   /* ── Typography ── */
-  --font-sans: 'Inter', 'Noto Sans Myanmar', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', 'Noto Sans Myanmar', 'Pyidaungsu', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   --text-xs: 0.75rem;

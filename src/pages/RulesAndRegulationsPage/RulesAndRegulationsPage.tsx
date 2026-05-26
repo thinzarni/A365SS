@@ -5,6 +5,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Folder, ChevronRight, HardDrive } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 import { RULES_AND_REGULATIONS_LIST } from '../../config/api-routes';
@@ -19,6 +20,7 @@ interface RuleFolder {
 
 export default function RulesAndRegulationsPage() {
     const navigate = useNavigate();
+    const { t } = useTranslation();
 
     const { data: folders = [], isLoading } = useQuery<RuleFolder[]>({
         queryKey: ['rulesAndRegulationsFolders'],
@@ -39,9 +41,9 @@ export default function RulesAndRegulationsPage() {
             <div className="page-header">
                 <div className="page-header__row">
                     <div>
-                        <h1 className="page-header__title">Employee Handbook</h1>
+                        <h1 className="page-header__title">{t('rulesAndReg.title')}</h1>
                         <p className="page-header__subtitle">
-                            Browse company policies and guidelines
+                            {t('rulesAndReg.subtitle')}
                         </p>
                     </div>
                 </div>
@@ -57,8 +59,8 @@ export default function RulesAndRegulationsPage() {
             ) : folders.length === 0 ? (
                 <div className="empty-state">
                     <HardDrive size={64} className="empty-state__icon" />
-                    <h3 className="empty-state__title">No Folders</h3>
-                    <p className="empty-state__desc">There are no rule folders available at this time.</p>
+                    <h3 className="empty-state__title">{t('rulesAndReg.noFolders')}</h3>
+                    <p className="empty-state__desc">{t('rulesAndReg.noFoldersDesc')}</p>
                 </div>
             ) : (
                 <div className={styles.folderList}>
