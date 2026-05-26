@@ -32,6 +32,10 @@ import {
     DRIVERS_LIST,
     CLAIM_TYPES,
     TRANSPORTATION_TYPES,
+    TRAVEL_TYPE_LIST,
+    VEHICLE_USE_LIST,
+    PRODUCT_LIST,
+    PROJECT_LIST,
 } from '../../config/api-routes';
 import styles from './ApprovalDetailPage.module.css';
 
@@ -176,6 +180,49 @@ export default function ApprovalDetailPage() {
         staleTime: 5 * 60 * 1000,
     });
 
+    // Travel-specific lookups
+    const isTravel = String(detail?.datalist?.requesttypedesc || detail?.datalist?.requesttype || '').toLowerCase().includes('travel');
+
+    const { data: travelTypeList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['travelTypeList'],
+        queryFn: async () => {
+            const res = await apiClient.get(TRAVEL_TYPE_LIST);
+            return res.data?.datalist || [];
+        },
+        enabled: !!isTravel,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: vehicleUseList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['vehicleUseList'],
+        queryFn: async () => {
+            const res = await apiClient.get(VEHICLE_USE_LIST);
+            return res.data?.datalist || [];
+        },
+        enabled: !!isTravel,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: productList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['productList'],
+        queryFn: async () => {
+            const res = await apiClient.get(PRODUCT_LIST);
+            return res.data?.datalist || [];
+        },
+        enabled: !!isTravel,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: projectList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['projectList'],
+        queryFn: async () => {
+            const res = await apiClient.get(PROJECT_LIST);
+            return res.data?.datalist || [];
+        },
+        enabled: !!isTravel,
+        staleTime: 5 * 60 * 1000,
+    });
+
     // Sync processStatus from loaded data
     useEffect(() => {
         if (detail) {
@@ -185,7 +232,12 @@ export default function ApprovalDetailPage() {
     }, [detail]);
 
     const data = detail?.datalist || ({} as Record<string, unknown>);
-    const approverList = ((data as Record<string, unknown>)?.approverList || (data as Record<string, unknown>)?.selectedApprovers) as Array<{ syskey: string; name: string }> | undefined;
+    // approverList is at the root of the API response, not inside datalist
+    const approverList = (
+        (detail as any)?.approverList ||
+        (data as Record<string, unknown>)?.approverList ||
+        (data as Record<string, unknown>)?.selectedApprovers
+    ) as Array<{ syskey: string; name: string; eid?: string }> | undefined;
 
     // ── Approve / Reject mutation ──
     const actionMutation = useMutation({
@@ -366,17 +418,19 @@ export default function ApprovalDetailPage() {
                         </div>
                     </div>
 
-                    {/* Date & Time */}
-                    <div className={styles['approval-detail__section']}>
-                        <h4 className={styles['approval-detail__section-title']}>Date & Time</h4>
-                        <div className={styles['approval-detail__grid']}>
-                            <Field label="Start Date" value={displayDate(d.startdate || d.date || d.selectday)} />
-                            {!requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
-                            <Field label="Start Time" value={String(d.starttime || d.time || '')} />
-                            {!requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
-                            {!requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
+                    {/* Date & Time — Travel has its own dedicated section with departure/arrival, skip for travel */}
+                    {!requestTypeString.includes('travel') && (
+                        <div className={styles['approval-detail__section']}>
+                            <h4 className={styles['approval-detail__section-title']}>Date &amp; Time</h4>
+                            <div className={styles['approval-detail__grid']}>
+                                <Field label="Start Date" value={displayDate(d.startdate || d.date || d.selectday)} />
+                                {!requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
+                                <Field label="Start Time" value={String(d.starttime || d.time || '')} />
+                                {!requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
+                                {!requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Transportation fields */}
                     {(d.pickupplace || d.dropoffplace || d.cartype || requestTypeString.includes('transportation')) && (
@@ -439,27 +493,51 @@ export default function ApprovalDetailPage() {
                     )}
 
                     {/* Travel fields */}
-                    {(d.fromplace || d.toplace || d.travelRefNo || d.departuretime) && !requestTypeString.includes('claim') && (
-                        <div className={styles['approval-detail__section']}>
-                            <h4 className={styles['approval-detail__section-title']}>Travel</h4>
-                            <div className={styles['approval-detail__grid']}>
-                                <Field label="Travel Ref No" value={String(d.travelRefNo || '')} />
-                                <Field label="From" value={String(d.fromplace || '')} />
-                                <Field label="To" value={String(d.toplace || '')} />
-                                <Field label="Departure Date" value={displayDate(d.departuredate)} />
-                                <Field label="Arrival Date" value={displayDate(d.arrivaldate)} />
-                                <Field label="Departure Time" value={String(d.departuretime || '')} />
-                                <Field label="Planned Return" value={String(d.plannedreturn || '')} />
-                                <Field label="Mode of Travel" value={Array.isArray(d.modeoftravel) ? d.modeoftravel.join(', ') : String(d.modeoftravel || '')} />
-                                <Field label="Vehicle Use" value={Array.isArray(d.vehicleuse) ? d.vehicleuse.join(', ') : String(d.vehicleuse || '')} />
-                                <Field label="Product" value={String(d.product || '')} />
-                                <Field label="Project" value={String(d.project || '')} />
-                                <Field label="Est. Budget" value={d.estimatedbudget ? String(d.estimatedbudget) : undefined} />
-                                <Field label="Extend Date" value={displayDate(d.extendDate)} />
-                                <Field label="Extend Budget" value={d.extendBudget ? String(d.extendBudget) : undefined} />
+                    {(d.departuredate || d.departuretime || d.modeoftravel) && !requestTypeString.includes('claim') && (() => {
+                        // Resolve UUIDs → readable names
+                        const modeNames = Array.isArray(d.modeoftravel)
+                            ? d.modeoftravel.map((id: string) =>
+                                travelTypeList.find((t: TypesModel) => t.syskey === id)?.description || id
+                              ).join(', ')
+                            : String(d.modeoftravel || '');
+
+                        const vehicleNames = Array.isArray(d.vehicleuse)
+                            ? d.vehicleuse.map((id: string) =>
+                                vehicleUseList.find((v: TypesModel) => v.syskey === id)?.description || id
+                              ).join(', ')
+                            : String(d.vehicleuse || '');
+
+                        const productName = productList.find((p: TypesModel) => p.syskey === d.product)?.description
+                            || d.productdesc || d.product || '';
+
+                        const projectName = projectList.find((p: TypesModel) => p.syskey === d.project)?.description
+                            || d.projectdesc || d.project || '';
+
+                        return (
+                            <div className={styles['approval-detail__section']}>
+                                <h4 className={styles['approval-detail__section-title']}>Travel</h4>
+                                <div className={styles['approval-detail__grid']}>
+                                    {/* Only show these when they have values */}
+                                    {d.travelRefNo && <Field label="Travel Ref No" value={String(d.travelRefNo)} />}
+                                    {d.fromplace && <Field label="From" value={String(d.fromplace)} />}
+                                    {d.toplace && <Field label="To" value={String(d.toplace)} />}
+                                    {d.departuredate && <Field label="Departure Date" value={displayDate(d.departuredate)} />}
+                                    {d.arrivaldate && <Field label="Arrival Date" value={displayDate(d.arrivaldate)} />}
+                                    {d.departuretime && <Field label="Departure Time" value={String(d.departuretime)} />}
+                                    {d.plannedreturn && <Field label="Planned Return" value={String(d.plannedreturn)} />}
+                                    {d.travelpurpose && <Field label="Travel Purpose" value={String(d.travelpurpose)} />}
+                                    {d.days && <Field label="Days" value={String(d.days)} />}
+                                    {modeNames && <Field label="Mode of Travel" value={modeNames} />}
+                                    {vehicleNames && <Field label="Vehicle Use" value={vehicleNames} />}
+                                    {productName && <Field label="Product" value={productName} />}
+                                    {projectName && <Field label="Project" value={projectName} />}
+                                    {d.estimatedbudget > 0 && <Field label="Est. Budget" value={Number(d.estimatedbudget).toLocaleString()} />}
+                                    {d.extendDate && <Field label="Extend Date" value={displayDate(d.extendDate)} />}
+                                    {d.extendBudget > 0 && <Field label="Extend Budget" value={Number(d.extendBudget).toLocaleString()} />}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {/* Claim / Cash Advance fields */}
                     {isClaim && (d.amount || d.currencytype) && (() => {
@@ -563,13 +641,25 @@ export default function ApprovalDetailPage() {
                         </div>
                     )}
 
-                    {/* Remarks — hidden for attendance (description used as remark in that flow) */}
-                    {(d.remark || d.comment || d.reason || d.description) && (
+                    {/* Remarks — includes rejectreason when rejected */}
+                    {(d.remark || d.comment || d.reason || d.description || d.rejectreason || d.travelpurpose) && !requestTypeString.includes('travel') && (
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>Remarks</h4>
                             <div className={styles['approval-detail__remark-container']}>
                                 <p className={styles['approval-detail__remark']} style={{ whiteSpace: 'pre-wrap' }}>
-                                    {String(d.remark || d.comment || d.reason || d.description)}
+                                    {String(d.remark || d.comment || d.reason || d.description || d.rejectreason || d.travelpurpose)}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Reject Reason — when rejected and not yet shown in remarks */}
+                    {isRejected && d.rejectreason && (d.remark || d.comment || d.reason || d.description || d.travelpurpose) && (
+                        <div className={styles['approval-detail__section']}>
+                            <h4 className={styles['approval-detail__section-title']}>Reject Reason</h4>
+                            <div className={styles['approval-detail__remark-container']}>
+                                <p className={styles['approval-detail__remark']} style={{ whiteSpace: 'pre-wrap', color: 'var(--color-danger-600, #dc2626)' }}>
+                                    {String(d.rejectreason)}
                                 </p>
                             </div>
                         </div>
@@ -582,35 +672,74 @@ export default function ApprovalDetailPage() {
                                 <Users size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                                 Approval Chain
                             </h4>
-                            <div className={styles['approval-detail__approver-list']}>
-                                {approverList.map((a) => (
-                                    <span key={a.syskey} className={styles['approval-detail__approver-chip']}>
-                                        <span className={styles['approval-detail__approver-dot']}>
-                                            {a.name?.charAt(0).toUpperCase() || '?'}
-                                        </span>
-                                        {a.name}
-                                    </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {approverList.map((a, idx) => (
+                                    <div
+                                        key={a.syskey}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 10,
+                                            padding: '10px 14px',
+                                            borderRadius: 10,
+                                            background: 'var(--color-neutral-50, #f8fafc)',
+                                            border: '1px solid var(--color-neutral-100, #f1f5f9)',
+                                        }}
+                                    >
+                                        {/* Avatar: profile image or initials */}
+                                        {(a as any).signedURL ? (
+                                            <img
+                                                src={(a as any).signedURL}
+                                                alt={a.name}
+                                                style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                        ) : (
+                                            <span style={{
+                                                width: 34, height: 34, borderRadius: '50%',
+                                                background: 'var(--color-primary-100, #dbeafe)',
+                                                color: 'var(--color-primary-700, #1d4ed8)',
+                                                fontSize: 13, fontWeight: 700,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                flexShrink: 0,
+                                            }}>
+                                                {a.name?.charAt(0).toUpperCase() || '?'}
+                                            </span>
+                                        )}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-neutral-900)' }}>
+                                                {a.name}
+                                            </span>
+                                            <span style={{ fontSize: 12, color: 'var(--color-neutral-400)' }}>
+                                                {a.eid || (a as any).userid || `Approver ${idx + 1}`}
+                                            </span>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         </div>
                     )}
 
-                    {/* Accompany / Members */}
-                    {detail?.accompanyPersonList && detail.accompanyPersonList.length > 0 && (
-                        <div className={styles['approval-detail__section']}>
-                            <h4 className={styles['approval-detail__section-title']}>Accompanying Persons</h4>
-                            <div className={styles['approval-detail__approver-list']}>
-                                {detail.accompanyPersonList.map((p: Approver) => (
-                                    <span key={p.syskey} className={styles['approval-detail__approver-chip']}>
-                                        <span className={styles['approval-detail__approver-dot']}>
-                                            {p.name?.charAt(0).toUpperCase() || '?'}
+                    {/* Accompany Persons — check both root and datalist level */}
+                    {(() => {
+                        const accompanyList = (detail as any)?.accompanyPersonList || d.accompanyPersonList || [];
+                        if (!accompanyList.length) return null;
+                        return (
+                            <div className={styles['approval-detail__section']}>
+                                <h4 className={styles['approval-detail__section-title']}>Accompanying Persons</h4>
+                                <div className={styles['approval-detail__approver-list']}>
+                                    {accompanyList.map((p: Approver) => (
+                                        <span key={p.syskey} className={styles['approval-detail__approver-chip']}>
+                                            <span className={styles['approval-detail__approver-dot']}>
+                                                {p.name?.charAt(0).toUpperCase() || '?'}
+                                            </span>
+                                            {p.name}
                                         </span>
-                                        {p.name}
-                                    </span>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {/* Handovers */}
                     {(d as unknown as { selectedHandovers?: Array<{ syskey: string; name: string }> }).selectedHandovers &&

@@ -124,7 +124,7 @@ export default function RequestListPage() {
     const [fromDate, setFromDate] = useState<string>(dateToInput(DEFAULT_FROM_DATE));
     const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
     const [requestType, setRequestType] = useState<string>('');
-    const [attType, setAttType] = useState('1');
+    const [attType, setAttType] = useState(''); // Fetch all attendance types by default
     const [didInitDates, setDidInitDates] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
@@ -374,7 +374,7 @@ export default function RequestListPage() {
                 const exportObj: any = {
                     'Employee ID': req.eid || '—',
                     'Employee Name': req.name || '—',
-                    'Ref #': isAttendancePage ? `#${idx + 1}` : (req.refno || '—'),
+                    'Ref #': `#${idx + 1}`,
                     'Date': displayDate(req.startdate || req.date) || '—',
                     'Type': typeDesc,
                 };
@@ -523,14 +523,13 @@ export default function RequestListPage() {
                     )}
 
                     {isAttendancePage && (
-                        <div className={styles['filter-group']}>
-                            <label className={styles['filter-label']}>Export</label>
+                        <div className={styles['filter-group']} style={{ display: 'flex', alignItems: 'flex-end' }}>
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 loading={exporting}
                                 onClick={() => setShowExportConfirm(true)}
-                                style={{ border: '1px solid var(--color-neutral-200)', height: '38px' }}
+                                style={{ border: '1px solid var(--color-neutral-200)', height: '42px' }}
                             >
                                 {exporting ? <Loader2 className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />}
                                 Export Excel
@@ -547,19 +546,6 @@ export default function RequestListPage() {
                         {isSubtypeView ? `${pathTypeCfg!.label.replace(/ Request$/i, '')} Requests` : 'All Requests'}
                     </h3>
                     <div className={styles['requests-list-card__actions']}>
-                        {isAttendancePage && (
-                            <div className={styles['requests-att-types']}>
-                                {attendanceTypes.map((t) => (
-                                    <button
-                                        key={t.key}
-                                        className={`${styles['requests-att-type-btn']} ${attType === t.key ? styles['requests-att-type-btn--active'] : ''}`}
-                                        onClick={() => setAttType(t.key)}
-                                    >
-                                        {t.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
                         {(!isSubtypeView || isAttendancePage) && (
                             <button
                                 className={`${styles['filter-toggle-btn']} ${filterOpen ? styles['filter-toggle-btn--active'] : ''}`}
@@ -664,7 +650,7 @@ export default function RequestListPage() {
                                         }}>
                                             <td>{req.eid || '—'}</td>
                                             <td>{req.name || '—'}</td>
-                                            <td>{isAttendancePage ? `#${i + 1}` : (req.refno || '—')}</td>
+                                            <td>{`#${i + 1}`}</td>
                                             <td className={styles['requests-table__dates']}>
                                                 {displayDate(req.startdate || req.date) || '—'}
                                                 {req.enddate && req.enddate !== req.startdate ? ` → ${displayDate(req.enddate)}` : ''}

@@ -28,7 +28,7 @@ import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
-import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, SAVE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS, GET_ATTENDANCE_REASON } from '../../config/api-routes';
+import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, SAVE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS, GET_ATTENDANCE_REASON, TRAVEL_TYPE_LIST, VEHICLE_USE_LIST, PRODUCT_LIST, PROJECT_LIST } from '../../config/api-routes';
 import { flavor } from '../../config/features';
 import type { TypesModel } from '../../types/models';
 import styles from './RequestDetailPage.module.css';
@@ -184,6 +184,49 @@ export default function RequestDetailPage() {
             return raw.map((r: any) => ({ syskey: String(r.syskey), label: r.description || r.code || '' }));
         },
         enabled: isAttendance,
+    });
+
+    const isTravel = detailData?.detail?.requesttypedesc?.toLowerCase().includes('travel');
+
+    // Travel-specific lookups — only fetched when request type is Travel
+    const { data: travelTypeList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['travelTypeList'],
+        queryFn: async () => {
+            const res = await apiClient.get(TRAVEL_TYPE_LIST);
+            return res.data?.datalist || [];
+        },
+        enabled: !!isTravel,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: vehicleUseList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['vehicleUseList'],
+        queryFn: async () => {
+            const res = await apiClient.get(VEHICLE_USE_LIST);
+            return res.data?.datalist || [];
+        },
+        enabled: !!isTravel,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: productList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['productList'],
+        queryFn: async () => {
+            const res = await apiClient.get(PRODUCT_LIST);
+            return res.data?.datalist || [];
+        },
+        enabled: !!isTravel,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: projectList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['projectList'],
+        queryFn: async () => {
+            const res = await apiClient.get(PROJECT_LIST);
+            return res.data?.datalist || [];
+        },
+        enabled: !!isTravel,
+        staleTime: 5 * 60 * 1000,
     });
 
     const detail = detailData?.detail;
@@ -408,28 +451,51 @@ export default function RequestDetailPage() {
                         </div>
                     )}
 
-                    {detail.requesttypedesc?.toLowerCase().includes('travel') && (
-                        <div className={styles['request-detail__section']}>
-                            <h4 className={styles['request-detail__section-title']}>Travel</h4>
-                            <div className={styles['request-detail__grid']}>
-                                {detail.departuredate && <Field label="Departure Date" value={detail.departuredate} />}
-                                {detail.arrivaldate && <Field label="Arrival Date" value={detail.arrivaldate} />}
-                                {detail.departuretime && <Field label="Departure Time" value={detail.departuretime} />}
-                                {detail.plannedreturn && <Field label="Planned Return" value={detail.plannedreturn} />}
-                                {detail.travelpurpose && (
-                                    <div className={styles['new-request__full']} style={{ gridColumn: '1 / -1', marginTop: 'var(--space-2)' }}>
-                                        <Field label="Travel Purpose" value={detail.travelpurpose} />
-                                    </div>
-                                )}
-                                {detail.days && <Field label="Days" value={String(detail.days)} />}
-                                {detail.modeoftravel?.length > 0 && <Field label="Mode of Travel" value={detail.modeoftravel?.join(', ')} />}
-                                {detail.vehicleuse?.length > 0 && <Field label="Vehicle Use" value={detail.vehicleuse?.join(', ')} />}
-                                {detail.product && <Field label="Product" value={detail.product} />}
-                                {detail.project && <Field label="Project" value={detail.project} />}
-                                {detail.estimatedbudget > 0 && <Field label="Estimated Budget" value={String(detail.estimatedbudget)} />}
+                    {detail.requesttypedesc?.toLowerCase().includes('travel') && (() => {
+                        // Resolve UUIDs → readable names using lookup lists
+                        const modeNames = Array.isArray(detail.modeoftravel)
+                            ? detail.modeoftravel.map((id: string) =>
+                                travelTypeList.find(t => t.syskey === id)?.description || id
+                              ).join(', ')
+                            : String(detail.modeoftravel || '');
+
+                        const vehicleNames = Array.isArray(detail.vehicleuse)
+                            ? detail.vehicleuse.map((id: string) =>
+                                vehicleUseList.find(v => v.syskey === id)?.description || id
+                              ).join(', ')
+                            : String(detail.vehicleuse || '');
+
+                        const productName = productList.find(p => p.syskey === detail.product)?.description
+                            || (detail as any).productdesc || detail.product || '';
+
+                        const projectName = projectList.find(p => p.syskey === detail.project)?.description
+                            || (detail as any).projectdesc || detail.project || '';
+
+                        return (
+                            <div className={styles['request-detail__section']}>
+                                <h4 className={styles['request-detail__section-title']}>Travel</h4>
+                                <div className={styles['request-detail__grid']}>
+                                    {detail.departuredate && <Field label="Departure Date" value={displayDate(detail.departuredate)} />}
+                                    {detail.arrivaldate && <Field label="Arrival Date" value={displayDate(detail.arrivaldate)} />}
+                                    {detail.departuretime && <Field label="Departure Time" value={detail.departuretime} />}
+                                    {detail.plannedreturn && <Field label="Planned Return" value={detail.plannedreturn} />}
+                                    {detail.travelpurpose && (
+                                        <div className={styles['new-request__full']} style={{ gridColumn: '1 / -1', marginTop: 'var(--space-2)' }}>
+                                            <Field label="Travel Purpose" value={detail.travelpurpose} />
+                                        </div>
+                                    )}
+                                    {detail.days && <Field label="Days" value={String(detail.days)} />}
+                                    {modeNames && <Field label="Mode of Travel" value={modeNames} />}
+                                    {vehicleNames && <Field label="Vehicle Use" value={vehicleNames} />}
+                                    {productName && <Field label="Product" value={productName} />}
+                                    {projectName && <Field label="Project" value={projectName} />}
+                                    {(detail.estimatedbudget || 0) > 0 && <Field label="Estimated Budget" value={Number(detail.estimatedbudget).toLocaleString()} />}
+                                    {(detail as any).extendDate && <Field label="Extend Date" value={displayDate((detail as any).extendDate)} />}
+                                    {(detail as any).extendBudget > 0 && <Field label="Extend Budget" value={Number((detail as any).extendBudget).toLocaleString()} />}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {/* Reservation fields */}
                     {(detail.rooms || detail.roomsdesc) && (
