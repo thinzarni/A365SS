@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
     BarChart,
     Bar,
@@ -27,11 +27,13 @@ interface AttendanceOverviewChartProps {
         earlyoutcount: number;
     };
     title?: string;
+    onBarClick?: (typeValue: string) => void;
 }
 
 const AttendanceOverviewChart: React.FC<AttendanceOverviewChartProps> = ({
     data,
-    title = "Attendance Overview"
+    title = "Attendance Overview",
+    onBarClick
 }) => {
     // Default fallback data if none provided
     const chartData: ChartDataPoint[] = [
@@ -43,15 +45,28 @@ const AttendanceOverviewChart: React.FC<AttendanceOverviewChartProps> = ({
         { name: 'Early Out', value: data?.earlyoutcount ?? 0, color: '#bf5af2' },
     ];
 
-    // Custom 3D-like bar shape
-    const renderCustomBar = (props: any) => {
-        const { x, y, width, height, fill } = props;
+    const renderCustomBar = useCallback((props: any) => {
+        const { x, y, width, height, fill, payload } = props;
         const depth = 8;
 
         if (height <= 0) return null;
 
         return (
-            <g>
+            <g
+                className={styles.barGroup}
+                onClick={() => {
+                    const typeMap: Record<string, string> = {
+                        'Total': '0',
+                        'Present': '1',
+                        'Leave': '2',
+                        'Absent': '4',
+                        'Late In': '5',
+                        'Early Out': '6'
+                    };
+                    const typeVal = typeMap[payload.name] || '0';
+                    onBarClick?.(typeVal);
+                }}
+            >
                 {/* 3D Top surface */}
                 <path
                     d={`M ${x} ${y} L ${x + depth} ${y - depth} L ${x + width + depth} ${y - depth} L ${x + width} ${y} Z`}
@@ -81,7 +96,7 @@ const AttendanceOverviewChart: React.FC<AttendanceOverviewChartProps> = ({
                 />
             </g>
         );
-    };
+    }, [onBarClick]);
 
     // Calculate Y-axis domain based on total
     const totalValue = Number(data?.total) || 0;
@@ -103,11 +118,11 @@ const AttendanceOverviewChart: React.FC<AttendanceOverviewChartProps> = ({
     return (
         <div className={styles.chartWrapper}>
             <div className={styles.chartContainer}>
-                <ResponsiveContainer width="100%" height={350}>
+                <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                         data={chartData}
                         margin={{ top: 20, right: 30, left: 0, bottom: 30 }}
-                        barSize={30}
+                        barSize={20}
                     >
                         <CartesianGrid
                             strokeDasharray="0"
@@ -133,7 +148,7 @@ const AttendanceOverviewChart: React.FC<AttendanceOverviewChartProps> = ({
                             tick={{ fill: '#4b5563', fontSize: 12, fontWeight: 500 }}
                         />
                         <Tooltip
-                            cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                            cursor={false}
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         />
                         <Bar
@@ -159,4 +174,4 @@ const AttendanceOverviewChart: React.FC<AttendanceOverviewChartProps> = ({
     );
 };
 
-export default AttendanceOverviewChart;
+export default React.memo(AttendanceOverviewChart);

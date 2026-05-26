@@ -5,7 +5,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
@@ -27,12 +27,14 @@ import {
     ChevronRight,
     ImageIcon,
     BarChart3,
+    X,
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
-import { ADMIN_ATTENDANCE_LIST, ADMIN_CARD_DATA } from '../../config/api-routes';
+import { ADMIN_MEMBER_LIST, ADMIN_CARD_DATA } from '../../config/api-routes';
 import styles from './DashboardPage.module.css';
 import AttendanceOverviewChart from '../../components/admin-attendance/AttendanceOverviewChart';
+import UserCard from '../../components/admin-attendance/UserCard';
 import apiClient from '../../lib/api-client';
 
 /* ── Types ── */
@@ -168,15 +170,27 @@ const quickActions = [
     { path: '/attendanceapproval', icon: UserCheck, label: 'Attendance Approval', bg: '#ecfeff', color: '#0891b2' },
 ];
 
-/* ── Component ── */
-export default function DashboardPage() {
-    const { t, i18n } = useTranslation();
-    const { user, userId, domain } = useAuthStore();
-    const [now, setNow] = useState(new Date());
-    // const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
-    // const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
+const STATUS_LABELS: Record<string, string> = {
+    '0': 'All',
+    '1': 'Present',
+    '2': 'Leave',
+    '4': 'Absent',
+    '5': 'Late In',
+    '6': 'Early Out'
+};
 
-    // Live clock update
+/* ── Live Header Component ── */
+interface LiveHeaderProps {
+    user: any;
+    timeIn?: AttendanceRecord;
+    timeOut?: AttendanceRecord;
+    workingHours: string;
+}
+
+function LiveHeader({ user, timeIn, timeOut, workingHours }: LiveHeaderProps) {
+    const { t, i18n } = useTranslation();
+    const [now, setNow] = useState(new Date());
+
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
@@ -190,7 +204,77 @@ export default function DashboardPage() {
         month: 'long',
         day: 'numeric',
     });
-    const todayStr = formatDateYYYYMMDD(now);
+
+    return (
+        <>
+            <section className={styles.hero}>
+                <div className={styles.heroLeft}>
+                    <div className={styles.greeting}>{t(greeting)},</div>
+                    <div className={styles.userName}>{user?.name || user?.userid || 'User'}</div>
+                    <div className={styles.dateStr}>{dateDisplay}</div>
+                </div>
+                <div className={styles.heroRight}>
+                    <div className={styles.liveTime}>
+                        {liveTime}
+                        <span className={styles.ampm}>{ampm}</span>
+                    </div>
+                </div>
+            </section>
+
+            <section className={styles.clockRow}>
+                <div className={styles.clockCard}>
+                    <div className={styles.clockLabel}>
+                        <LogIn size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                        {t('dashboard.timeIn')}
+                    </div>
+                    <div className={`${styles.clockValue} ${!timeIn ? styles.dimmed : ''}`}>
+                        {timeIn?.time || liveTime.slice(0, -3)}
+                    </div>
+                    <span className={`${styles.clockTag} ${styles.tagIn}`}>
+                        {timeIn ? t('dashboard.recorded') : t('dashboard.notYet')}
+                    </span>
+                </div>
+
+                <div className={styles.clockCard}>
+                    <div className={styles.clockLabel}>
+                        <LogOut size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                        {t('dashboard.timeOut')}
+                    </div>
+                    <div className={`${styles.clockValue} ${!timeOut ? styles.dimmed : ''}`}>
+                        {timeOut?.time || '--:--'}
+                    </div>
+                    <span className={`${styles.clockTag} ${styles.tagOut}`}>
+                        {timeOut ? t('dashboard.recorded') : t('dashboard.waiting')}
+                    </span>
+                </div>
+
+                <div className={styles.clockCard}>
+                    <div className={styles.clockLabel}>
+                        <Timer size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                        {t('dashboard.workingHours')}
+                    </div>
+                    <div className={`${styles.clockValue} ${workingHours === '00:00' ? styles.dimmed : ''}`}>
+                        {workingHours}
+                    </div>
+                    <span className={`${styles.clockTag} ${styles.tagHours}`}>
+                        {timeIn && !timeOut ? t('dashboard.inProgress') : timeOut ? t('dashboard.complete') : t('dashboard.idle')}
+                    </span>
+                </div>
+            </section>
+        </>
+    );
+}
+
+/* ── Component ── */
+export default function DashboardPage() {
+    const { t, i18n } = useTranslation();
+    const { user, userId, domain } = useAuthStore();
+    
+    // Static date for API queries
+    const [today] = useState(() => new Date());
+    const [selectedStatus, setSelectedStatus] = useState<string>('0');
+
+    const todayStr = formatDateYYYYMMDD(today);
 
     // ── Fetch admin card data ──
     const { data: adminCardData, isLoading: adminLoading } = useQuery({
@@ -264,27 +348,39 @@ export default function DashboardPage() {
     });
 
     // ── Fetch employees data ──
-    const { isLoading: employeesLoading } = useQuery({
-        queryKey: ['dashboard-employees', todayStr, userId, domain],
-        queryFn: async () => {
+    const {
+        data: employeesData,
+        isLoading: employeesLoading,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage
+    } = useInfiniteQuery({
+        queryKey: ['dashboard-employees', todayStr, selectedStatus, userId, domain],
+        queryFn: async ({ pageParam = 1 }) => {
             try {
-                const res = await mainClient.post(ADMIN_ATTENDANCE_LIST, {
+                const res = await apiClient.post(ADMIN_MEMBER_LIST, {
                     date: todayStr,
-                    status: '0', // All employees
-                    searchVal: '',
-                    page: 1,
+                    searchval: '',
+                    page: pageParam,
                     limit: 20,
                     type: 0,
-                    userid: userId,
-                    domain: domain
+                    status: selectedStatus,
+                    isPersonal: true
                 });
-                return res.data?.data ?? res.data ?? [];
+                const list = res.data?.datalist ?? res.data?.data ?? res.data ?? [];
+                return Array.isArray(list) ? list : [];
             } catch {
                 return [];
             }
         },
+        initialPageParam: 1,
+        getNextPageParam: (lastPage, allPages) => {
+            return lastPage.length === 20 ? allPages.length + 1 : undefined;
+        },
         staleTime: 60_000,
     });
+
+    const employees = useMemo(() => employeesData?.pages.flat() ?? [], [employeesData]);
 
     // ── Derived data ──
     const records: AttendanceRecord[] = useMemo(() => {
@@ -299,8 +395,8 @@ export default function DashboardPage() {
     const timeOut = useMemo(() => records.find(r => r.type === 602), [records]);
     const workingHours = useMemo(() => calcWorkingHours(records), [records]);
 
-    const monthName = now.toLocaleDateString(i18n.language === 'my-MM' ? 'my-MM' : 'en-US', { month: 'long', year: 'numeric' });
-    const isLoading = summaryLoading || homeLoading || adminLoading || employeesLoading;
+    const monthName = today.toLocaleDateString(i18n.language === 'my-MM' ? 'my-MM' : 'en-US', { month: 'long', year: 'numeric' });
+    const isLoading = summaryLoading || homeLoading || adminLoading;
 
     // ── Loading state ──
     if (isLoading) {
@@ -327,62 +423,13 @@ export default function DashboardPage() {
 
     return (
         <div className={styles.page}>
-            {/* ── Hero / Greeting ── */}
-            <section className={styles.hero}>
-                <div className={styles.heroLeft}>
-                    <div className={styles.greeting}>{t(greeting)},</div>
-                    <div className={styles.userName}>{user?.name || user?.userid || 'User'}</div>
-                    <div className={styles.dateStr}>{dateDisplay}</div>
-                </div>
-                <div className={styles.heroRight}>
-                    <div className={styles.liveTime}>
-                        {liveTime}
-                        <span className={styles.ampm}>{ampm}</span>
-                    </div>
-                </div>
-            </section>
-
-            {/* ── Time In / Time Out / Working Hours ── */}
-            <section className={styles.clockRow}>
-                <div className={styles.clockCard}>
-                    <div className={styles.clockLabel}>
-                        <LogIn size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                        {t('dashboard.timeIn')}
-                    </div>
-                    <div className={`${styles.clockValue} ${!timeIn ? styles.dimmed : ''}`}>
-                        {timeIn?.time || liveTime.slice(0, -3)}
-                    </div>
-                    <span className={`${styles.clockTag} ${styles.tagIn}`}>
-                        {timeIn ? t('dashboard.recorded') : t('dashboard.notYet')}
-                    </span>
-                </div>
-
-                <div className={styles.clockCard}>
-                    <div className={styles.clockLabel}>
-                        <LogOut size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                        {t('dashboard.timeOut')}
-                    </div>
-                    <div className={`${styles.clockValue} ${!timeOut ? styles.dimmed : ''}`}>
-                        {timeOut?.time || '--:--'}
-                    </div>
-                    <span className={`${styles.clockTag} ${styles.tagOut}`}>
-                        {timeOut ? t('dashboard.recorded') : t('dashboard.waiting')}
-                    </span>
-                </div>
-
-                <div className={styles.clockCard}>
-                    <div className={styles.clockLabel}>
-                        <Timer size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                        {t('dashboard.workingHours')}
-                    </div>
-                    <div className={`${styles.clockValue} ${workingHours === '00:00' ? styles.dimmed : ''}`}>
-                        {workingHours}
-                    </div>
-                    <span className={`${styles.clockTag} ${styles.tagHours}`}>
-                        {timeIn && !timeOut ? t('dashboard.inProgress') : timeOut ? t('dashboard.complete') : t('dashboard.idle')}
-                    </span>
-                </div>
-            </section>
+            {/* ── Live Hero and Clocks ── */}
+            <LiveHeader 
+                user={user} 
+                timeIn={timeIn} 
+                timeOut={timeOut} 
+                workingHours={workingHours} 
+            />
 
             {/* ── Monthly Summary Stats ── */}
             <section>
@@ -539,69 +586,86 @@ export default function DashboardPage() {
                     </h2>
                 </div>
 
-                {/* ───────────────── ANALYTICS CARD ───────────────── */}
-                <div className={styles.analyticsCard} style={{ width: '60%' }}>
+                <div className={styles.insightsSection}>
+                    {/* ───────────────── ANALYTICS CARD ───────────────── */}
+                    <div className={styles.analyticsCard}>
 
-                    {/* CHART */}
-                    <div className={styles.chartContainer}>
-                        <AttendanceOverviewChart data={chartData} />
+                        {/* CHART */}
+                        <div className={styles.chartContainer}>
+                            <AttendanceOverviewChart
+                                data={chartData}
+                                onBarClick={(typeVal) => {
+                                    setSelectedStatus(typeVal);
+                                }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* ───────────────── RIGHT : EMPLOYEE CARD ───────────────── */}
+                    <div className={styles.activityCard}>
+                        {/* HEADER */}
+                        <div className={styles.cardHeader}>
+                            <div>
+                                <h2 className={styles.cardTitle}>
+                                    Employee Attendance {selectedStatus !== '0' && `- ${STATUS_LABELS[selectedStatus]}`}
+                                </h2>
+                                <p className={styles.cardSubtitle}>
+                                    {selectedStatus !== '0' ? `${STATUS_LABELS[selectedStatus]} employees` : 'Latest attendance records'}
+                                </p>
+                            </div>
+
+                            {selectedStatus !== '0' && (
+                                <button
+                                    className={styles.resetBtn}
+                                    onClick={() => {
+                                        setSelectedStatus('0');
+                                    }}
+                                >
+                                    <X size={16} />
+                                    All
+                                </button>
+                            )}
+                        </div>
+
+                        {/* EMPLOYEE LIST */}
+                        <div
+                            className={styles.employeeList}
+                            onScroll={(e) => {
+                                const target = e.currentTarget;
+                                if (target.scrollHeight - target.scrollTop - target.clientHeight < 50) {
+                                    if (hasNextPage && !isFetchingNextPage) {
+                                        fetchNextPage();
+                                    }
+                                }
+                            }}
+                        >
+                            {employeesLoading ? (
+                                <div style={{ textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '13px' }}>
+                                    Loading employees...
+                                </div>
+                            ) : employees && employees.length > 0 ? (
+                                <>
+                                    {employees.map((employee: any, index: number) => (
+                                        <UserCard
+                                            key={`${employee.eid || index}-${index}`}
+                                            user={employee}
+                                            onCardTap={() => { }}
+                                        />
+                                    ))}
+                                    {isFetchingNextPage && (
+                                        <div style={{ textAlign: 'center', padding: '10px', color: '#64748b', fontSize: '13px' }}>
+                                            Loading more...
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '13px' }}>
+                                    No employees found
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-
-                {/* ───────────────── RIGHT : EMPLOYEE CARD ───────────────── - COMMENTED OUT */}
-                {/* <div className={styles.activityCard}>
-
-
-        // HEADER
-        <div className={styles.cardHeader}>
-            <div>
-                <h2 className={styles.cardTitle}>
-                    Employee Attendance {selectedStatus && `- ${selectedStatus}`}
-                </h2>
-
-
-                <p className={styles.cardSubtitle}>
-                    {selectedStatus ? `${selectedStatus} employees` : 'Latest attendance records'}
-                </p>
-            </div>
-
-            {selectedStatus && (
-                <button 
-                    className={styles.resetBtn}
-                    onClick={() => {
-                        setSelectedStatus(null);
-                        setFilteredEmployees([]);
-                    }}
-                >
-                    <X size={16} />
-                    All
-                </button>
-            )}
-        </div>
-
-        // EMPLOYEE LIST - COMMENTED OUT
-        // <div className={styles.employeeList}>
-        //     {selectedStatus ? (
-        //         // SHOW FILTERED EMPLOYEES WHEN BAR IS CLICKED
-        //         filteredEmployees.map((employee: any, index: number) => (
-        //             <UserCard
-        //                 key={index}
-        //                 user={employee}
-        //                 onCardTap={() => {}}
-        //             />
-        //         ))
-        //     ) : (
-        //         // SHOW DEFAULT EMPLOYEES
-        //         employees?.slice(0, 6).map((employee: any, index: number) => (
-        //             <UserCard
-        //                 key={index}
-        //                 user={employee}
-        //                 onCardTap={() => {}}
-        //             />
-        //         ))
-        //     )}
-        // </div>
-    // </div> */}
             </section>
 
             {/* Spacer between sections */}
