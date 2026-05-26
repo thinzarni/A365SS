@@ -1,0 +1,162 @@
+/* ═══════════════════════════════════════════════════════════
+   Attendance Statistics Styles
+   ═══════════════════════════════════════════════════════════ */
+
+.attendanceStats {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 8px 16px;
+  margin-bottom: 8px;
+}
+
+.statsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  min-width: 70px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.statItem.interactive {
+  cursor: pointer;
+}
+
+.statItem.interactive:hover {
+  background-color: rgba(59, 130, 246, 0.05);
+  transform: translateY(-1px);
+}
+
+.statItem.active {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.statItem.active .statLabel {
+  color: white !important;
+}
+
+.statCount {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 4px;
+  color: #111827;
+}
+
+.statLabel {
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.2;
+  color: #6b7280;
+}
+
+.subStatsRow {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.subStatsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.subStatsHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.subStatsItems {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.compactStatItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.compactStatItem.interactive {
+  cursor: pointer;
+}
+
+.compactStatItem.interactive:hover {
+  background-color: rgba(147, 51, 234, 0.05);
+}
+
+.compactStatCount {
+  font-weight: 600;
+  color: #111827;
+}
+
+.compactStatLabel {
+  font-weight: 500;
+  color: #6b7280;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .attendanceStats {
+    padding: 6px 12px;
+  }
+  
+  .statsRow {
+    gap: 8px;
+  }
+  
+  .statItem {
+    min-width: 60px;
+    padding: 6px;
+  }
+  
+  .statCount {
+    font-size: 20px;
+  }
+  
+  .statLabel {
+    font-size: 11px;
+  }
+  
+  .subStatsItems {
+    gap: 8px;
+  }
+  
+  .compactStatItem {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .statsRow {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .statItem {
+    min-width: 50px;
+    flex: 0 0 auto;
+  }
+}
