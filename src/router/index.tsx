@@ -54,6 +54,8 @@ const SeparationAttendanceAuthorizePage = Loadable(lazy(() => import('../pages/S
 const SupervisedAttendancePage = Loadable(lazy(() => import('../pages/SupervisedAttendancePage/SupervisedAttendancePage')));
 const WorkPolicyChangePage = Loadable(lazy(() => import('../pages/WorkPolicyChangePage/WorkPolicyChangePage')));
 const WorkPolicyCreatePage = Loadable(lazy(() => import('../pages/WorkPolicyCreatePage/WorkPolicyCreatePage')));
+const FerryRequestPage = Loadable(lazy(() => import('../pages/FerryRequestPage/FerryRequestPage')));
+const FerryRequestListPage = Loadable(lazy(() => import('../pages/FerryRequestPage/FerryRequestListPage')));
 
 // ── Flavor-based profile page ──
 // prd  → 7-tab ESS profile (Employment, Personal, Emergency Contacts, Work Experience, etc.)
@@ -129,6 +131,10 @@ export const router = createBrowserRouter([
                     { path: '/cashadvance/new', element: <NewRequestPage /> },
                     { path: '/offinlieu', element: <RequestListPage /> },
                     { path: '/offinlieu/new', element: <NewRequestPage /> },
+                    // ── Ferry Service (company ferry/bus system) ──
+                    { path: '/ferry_request', element: <FerryRequestListPage /> },
+                    { path: '/ferry_request/new', element: <FerryRequestPage /> },
+                    { path: '/ferry_request/:id', element: <FerryRequestPage /> },
                     // ── Attendance subtypes — use existing approval pages ──
                     { path: '/attendanceapproval', element: <AttendanceApprovalListPage /> },
                     { path: '/attendanceapproval/:id/:type', element: <AttendanceApprovalDetailPage /> },

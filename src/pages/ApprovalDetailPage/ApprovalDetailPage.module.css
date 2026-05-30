@@ -388,6 +388,19 @@
     }
 }
 
+/* ── Claim Feedback ── */
+.approval-detail__feedback-box {
+    padding: var(--space-4);
+    background: var(--color-neutral-50);
+    border: 1px solid var(--color-neutral-100);
+    border-radius: var(--radius-lg);
+}
+
+.approval-detail__rating {
+    display: flex;
+    flex-direction: column;
+}
+
 /* ── Attachments ── */
 .approval-detail__attachment-list {
     display: grid;

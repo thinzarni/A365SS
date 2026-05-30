@@ -42,6 +42,7 @@ import {
     TEAM_LIST,
     SAVE_LEAVE_HR,
     GET_REQUEST_DETAIL,
+    GET_LEAVE_DURATION_POLICY,
 } from '../../config/api-routes';
 import type { LeaveType, TeamMember } from '../../types/models';
 import { formatAmount, unformatAmount } from '../../lib/format-utils';
@@ -160,7 +161,7 @@ export default function NewRequestPage() {
     const [subType, setSubType] = useState('');
     const [leaveType, setLeaveType] = useState('');
     const [leaveReason, setLeaveReason] = useState('');
-    const { user, userId } = useAuthStore();
+    const { user, userId, domain } = useAuthStore();
 
     // ── Redirect Attendance Request to its specialized page ──
     useEffect(() => {
@@ -351,6 +352,39 @@ export default function NewRequestPage() {
     const [accompanyPersons, setAccompanyPersons] = useState<MemberItem[]>([]);
     const [handovers, setHandovers] = useState<MemberItem[]>([]);
     const [files, setFiles] = useState<File[]>([]);
+
+    // ── Auto-fetch leave duration from policy API ──
+    useEffect(() => {
+        if (selectedType !== 'leave') return;
+        if (!startDate || !leaveType) return;
+
+        // Convert 'YYYY-MM-DD' → 'yyyyMMdd'
+        const toApiDate = (d: string) => d.replace(/-/g, '');
+
+        const fetchDuration = async () => {
+            try {
+                const res = await apiClient.post(GET_LEAVE_DURATION_POLICY, {
+                    syskey: '',
+                    requesttype: 'leave',
+                    requestsubtype: leaveType,
+                    startdate: toApiDate(startDate),
+                    enddate: toApiDate(endDate || startDate),
+                    starttime: startPeriod,
+                    endtime: endPeriod,
+                    userid: userId || '',
+                    domain: domain || '',
+                });
+                const dur = res.data?.duration;
+                if (dur !== undefined && dur !== null) {
+                    setDuration(String(dur));
+                }
+            } catch {
+                // silently ignore — user can type duration manually
+            }
+        };
+
+        fetchDuration();
+    }, [selectedType, startDate, endDate, startPeriod, endPeriod, leaveType, userId, domain]);
 
     // ── Edit Mode: Fetch existing request details ──
     const { data: editData } = useQuery({
@@ -1328,8 +1362,8 @@ export default function NewRequestPage() {
                             </div>
                         )}
 
-                        {/* ═════ 3. Date & Time (common — hidden for claim/cashadvance/orgchange) ═════ */}
-                        {selectedType !== 'claim' && selectedType !== 'cashadvance' && selectedType !== 'orgchange' && (
+                        {/* ═════ 3. Date & Time (common — hidden for claim/cashadvance/orgchange/leave) ═════ */}
+                        {selectedType !== 'claim' && selectedType !== 'cashadvance' && selectedType !== 'orgchange' && selectedType !== 'leave' && (
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Date & Time</h3>
                                 <div className={styles['new-request__grid']}>
@@ -1339,48 +1373,17 @@ export default function NewRequestPage() {
                                             <Input id="arrivalDate" label="Arrival Date" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} required />
                                         </>
                                     ) : selectedType === 'overtime' ? (
-                                        // Overtime: start/end date | OT Day + OT Hours in one row | start/end time
+                                        // Overtime: start/end date | start/end time | OT Day + OT Hours
                                         <>
                                             <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
                                             <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                                            {/* OT Day + OT Hours — same row */}
+                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                                            {/* OT Day + OT Hours — same row, below times */}
                                             <div className={styles['new-request__full']} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                                                 <Input id="otDays" label="OT Day" type="number" value={otDays} readOnly placeholder="auto" />
                                                 <Input id="hour" label="OT Hours" type="number" value={hour} onChange={(e) => setHour(e.target.value)} placeholder="auto-calculated" min="0" step="0.5" readOnly={!!(startTime && endTime)} />
                                             </div>
-                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                                        </>
-                                    ) : selectedType === 'leave' ? (
-                                        <>
-                                            <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Select
-                                                id="startPeriod"
-                                                label={t('request.startTime')}
-                                                value={startPeriod}
-                                                onChange={(e) => setStartPeriod(e.target.value)}
-                                                options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
-                                            />
-                                            <Input id="endDate" label={t('request.endDate')} type="date" value={endDate || startDate} onChange={(e) => setEndDate(e.target.value)} />
-                                            <Select
-                                                id="endPeriod"
-                                                label={t('request.endTime')}
-                                                value={endPeriod}
-                                                onChange={(e) => setEndPeriod(e.target.value)}
-                                                options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
-                                            />
-                                            <div className={styles['new-request__full']}>
-                                                <Input
-                                                    id="duration"
-                                                    label={t('request.duration')}
-                                                    type="text"
-                                                    inputMode="decimal"
-                                                    value={duration}
-                                                    onChange={(e) => setDuration(e.target.value)}
-                                                    placeholder="e.g. 1.5"
-                                                />
-                                            </div>
-
                                         </>
                                     ) : selectedType === 'offinlieu' ? (
                                         // Off in Lieu: single date + start/end time (no duration) — mirrors mobile
@@ -1750,6 +1753,42 @@ export default function NewRequestPage() {
                                     placeholder="Choose your reason..."
                                     required
                                 />
+                            </div>
+                        )}
+
+                        {/* ── Leave Date & Time (placed below Leave Reason) ── */}
+                        {selectedType === 'leave' && (
+                            <div className={styles['new-request__section']}>
+                                <h3 className={styles['new-request__section-title']}>Date & Time</h3>
+                                <div className={styles['new-request__grid']}>
+                                    <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                    <Select
+                                        id="startPeriod"
+                                        label={t('request.startTime')}
+                                        value={startPeriod}
+                                        onChange={(e) => setStartPeriod(e.target.value)}
+                                        options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
+                                    />
+                                    <Input id="endDate" label={t('request.endDate')} type="date" value={endDate || startDate} onChange={(e) => setEndDate(e.target.value)} />
+                                    <Select
+                                        id="endPeriod"
+                                        label={t('request.endTime')}
+                                        value={endPeriod}
+                                        onChange={(e) => setEndPeriod(e.target.value)}
+                                        options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
+                                    />
+                                    <div className={styles['new-request__full']}>
+                                        <Input
+                                            id="duration"
+                                            label={t('request.duration')}
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={duration}
+                                            onChange={(e) => setDuration(e.target.value)}
+                                            placeholder="e.g. 1.5"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         )}
 

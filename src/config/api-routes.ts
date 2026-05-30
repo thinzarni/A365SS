@@ -59,6 +59,14 @@ export const SHIFT_TIME = `${hxmPrefix}request/getshifttime`;
 export const GAP_TIME = `${hxmPrefix}request/requestgaptime`;
 export const ATTENDANCE_SHIFT_DATA = 'api/checkin/shift';
 
+// ── Ferry Service Setup (company ferry/bus system) ──
+export const FERRY_WORKING_HOURS = `${hxmPrefix}request/getworkinghour`;
+export const FERRY_CHANGE_TYPES = `${hxmPrefix}request/getrequestchangetypes`;
+export const FERRY_CHANGE_PURPOSES = `${hxmPrefix}request/getrequestchangepurposes`;
+export const FERRY_OFFICE_LOCATIONS = `${hxmPrefix}request/getofficelocation`;
+export const FERRY_ASSIGNED_FERRY_NO = `${hxmPrefix}request/getassignferryno`;
+
+
 // ── Attendance Overrides (Mobile) ──
 export const SAVE_ATTENDANCE_REQ = 'api/attendancerequest/saveattendancerequest';
 export const GET_ATTENDANCE_REQ_LIST = 'api/attendancerequest/getAttendanceRequestList';
@@ -86,6 +94,7 @@ export const APPROVAL_LIST = `${hxmPrefix}approval/approvallist`;
 export const APPROVAL_DETAIL = `${hxmPrefix}approval/getapprovaldetail`;
 export const SAVE_APPROVAL = `${hxmPrefix}approval/saveapproval`;
 export const MULTI_SAVE_APPROVAL = `${hxmPrefix}approval/saveApproveOrReject`;
+export const GET_REVIEW_PROCESS_STATUS = `${hxmPrefix}request/getreviewprocessstatus`;
 
 // ── Leave ──
 export const SAVE_LEAVE = `${hxmPrefix}leave/saveleave`;
@@ -103,6 +112,7 @@ export const PREVIEW_IMPORT_LEAVE = 'api/request/previewlistleaverequest';
 export const CONFIRM_IMPORT_LEAVE = 'api/request/importleaverequest';
 export const CLEAR_IMPORT_LEAVE = 'api/request/clearleaverequest';
 export const SAVE_LEAVE_HR = `${hxmPrefix}request/saverequesthr`;
+export const GET_LEAVE_DURATION_POLICY = `${hxmPrefix}request/getleavedurationpolicy`;
 
 // ── Claims ──
 export const CLAIM_LIST = `${hxmPrefix}claim/getclaimlist`;

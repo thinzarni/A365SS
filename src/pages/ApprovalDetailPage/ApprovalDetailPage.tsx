@@ -17,6 +17,8 @@ import {
     XCircle,
     Users,
     Paperclip,
+    Star,
+    Send,
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -32,7 +34,9 @@ import {
     DRIVERS_LIST,
     CLAIM_TYPES,
     TRANSPORTATION_TYPES,
+    GET_REVIEW_PROCESS_STATUS,
 } from '../../config/api-routes';
+import { useAuthStore } from '../../stores/auth-store';
 import styles from './ApprovalDetailPage.module.css';
 
 /** Convert "yyyymmdd" → "dd/mm/yyyy" for display */
@@ -93,22 +97,20 @@ function Field({ label, value }: { label: string; value: string | number | undef
 
 /* ══════════════════════════════════════════════════════════════ */
 
-const CLAIM_PROCESS_STATUS_OPTIONS = [
-    { code: '', description: '-' },
-    { code: '1', description: 'Review By EB Team' },
-    { code: '2', description: 'Review By Third Party Assessor' },
-    { code: '3', description: 'Completed' },
-];
+
 
 export default function ApprovalDetailPage() {
     const { id: syskey } = useParams();
     const { t } = useTranslation();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const { userId, domain } = useAuthStore();
 
     const [comment, setComment] = useState('');
     const [confirmedAmount, setConfirmedAmount] = useState('');
     const [processStatus, setProcessStatus] = useState<string>('');
+    const [rating, setRating] = useState<number>(0);
+    const [feedbacks, setFeedbacks] = useState<string>('');
 
     // Data fetching setup
     const { data: detail, isLoading } = useQuery<ApprovalDetailModel>({
@@ -176,16 +178,54 @@ export default function ApprovalDetailPage() {
         staleTime: 5 * 60 * 1000,
     });
 
-    // Sync processStatus from loaded data
+    // Fetch dynamic process status options from API
+    const { data: reviewProcessStatusOptions = [] } = useQuery<{ syskey: string; code: string; description: string }[]>({
+        queryKey: ['reviewProcessStatus', userId, domain],
+        queryFn: async () => {
+            const res = await apiClient.get(GET_REVIEW_PROCESS_STATUS, {
+                params: { userid: userId || '', domain: domain || '' },
+            });
+            return res.data?.datalist || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // Sync processStatus, rating, feedbacks, comment and confirmedAmount from loaded data
     useEffect(() => {
         if (detail) {
             const dl = detail.datalist as Record<string, unknown>;
             setProcessStatus(String(dl?.processstatus || dl?.claimProcessStatus || ''));
+            setRating(Number((dl as any)?.claim_rating || 0));
+            setFeedbacks(String((dl as any)?.claim_feedbacks || ''));
+            setComment(String((dl as any)?.comment || ''));
+            setConfirmedAmount(String((dl as any)?.confirmed_amount ?? ''));
         }
     }, [detail]);
 
     const data = detail?.datalist || ({} as Record<string, unknown>);
     const approverList = ((data as Record<string, unknown>)?.approverList || (data as Record<string, unknown>)?.selectedApprovers) as Array<{ syskey: string; name: string }> | undefined;
+
+    // Feedback mutation — saves claim_rating + claim_feedbacks
+    const feedbackMutation = useMutation({
+        mutationFn: async () => {
+            const dl = data as Record<string, any>;
+            const payload = {
+                ...dl,
+                syskey,
+                status: String(dl.requeststatus || '2'),
+                claim_rating: rating,
+                claim_feedbacks: feedbacks,
+                selectedApprovers: approverList || [],
+            };
+            const res = await apiClient.post(SAVE_APPROVAL, payload);
+            return res.data;
+        },
+        onSuccess: () => {
+            toast.success('Feedback sent successfully');
+            queryClient.invalidateQueries({ queryKey: ['approval-detail', syskey] });
+        },
+        onError: () => toast.error(t('common.error')),
+    });
 
     // ── Approve / Reject mutation ──
     const actionMutation = useMutation({
@@ -239,11 +279,6 @@ export default function ApprovalDetailPage() {
             const isClaimWithMaxAmount = requestTypeString.includes('claim') && d.max_amount !== undefined && Number(d.max_amount) !== 0;
             if (isClaimWithMaxAmount && (!confirmedAmount || confirmedAmount.trim() === '')) {
                 toast.error('Confirmed amount is required for approval.');
-                return;
-            }
-        } else if (status === 'reject') {
-            if (!comment || comment.trim() === '') {
-                toast.error(t('approval.commentRequired', 'Comment is required for rejection.'));
                 return;
             }
         }
@@ -312,9 +347,15 @@ export default function ApprovalDetailPage() {
     const isClaim = requestTypeString.includes('claim') || requestTypeString.includes('advance');
     const hasMaxAmount = isClaim && d.max_amount !== undefined && Number(d.max_amount) !== 0;
 
+    // Derive the syskey of the "Completed" option from the fetched list
+    const completedSyskey = reviewProcessStatusOptions.find(
+        opt => opt.code.trim().toLowerCase() === 'completed'
+    )?.syskey ?? '';
+
     const isClaimWithMax = isClaim && hasMaxAmount;
+    // For claim-with-max: only show Approve/Reject when process status is Completed (or blank/no process required)
     const canApproveReject = isClaimWithMax
-        ? (!isPending || processStatus === '3' || processStatus.trim() === '')
+        ? (!isPending || processStatus === completedSyskey || processStatus.trim() === '')
         : true;
 
     /* ═══════════════════════════ Render ═════════════════════════ */
@@ -370,9 +411,9 @@ export default function ApprovalDetailPage() {
                     <div className={styles['approval-detail__section']}>
                         <h4 className={styles['approval-detail__section-title']}>Date & Time</h4>
                         <div className={styles['approval-detail__grid']}>
-                            <Field label="Start Date" value={displayDate(d.startdate || d.date || d.selectday)} />
+                            <Field label={requestTypeString.includes('claim') ? 'Date' : 'Start Date'} value={displayDate(d.startdate || d.date || d.selectday)} />
                             {!requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
-                            <Field label="Start Time" value={String(d.starttime || d.time || '')} />
+                            {!requestTypeString.includes('claim') && <Field label="Start Time" value={String(d.starttime || d.time || '')} />}
                             {!requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
                             {!requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
                         </div>
@@ -612,6 +653,42 @@ export default function ApprovalDetailPage() {
                         </div>
                     )}
 
+                    {/* ── Claim Feedback ── */}
+                    {isClaim && (isApproved || isRejected) && (
+                        <div className={styles['approval-detail__section']}>
+                            <h4 className={styles['approval-detail__section-title']}>Claim Feedback</h4>
+                            <div className={styles['approval-detail__feedback-box']}>
+                                {/* Star Rating — read-only */}
+                                <div className={styles['approval-detail__rating']}>
+                                    <span className={styles['approval-detail__field-label']}>Rating</span>
+                                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                        {[1, 2, 3, 4, 5].map((s) => (
+                                            <Star
+                                                key={s}
+                                                size={28}
+                                                fill={s <= rating ? '#eab308' : 'transparent'}
+                                                color={s <= rating ? '#eab308' : '#cbd5e1'}
+                                                style={{ cursor: 'not-allowed', opacity: 0.6 }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                                {/* Feedback Textarea — disabled */}
+                                <div style={{ marginTop: 16 }}>
+                                    <Textarea
+                                        id="claimFeedback"
+                                        label="Your Feedback"
+                                        value={feedbacks}
+                                        onChange={(e) => setFeedbacks(e.target.value)}
+                                        placeholder="Enter your feedback here…"
+                                        rows={3}
+                                        disabled
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Handovers */}
                     {(d as unknown as { selectedHandovers?: Array<{ syskey: string; name: string }> }).selectedHandovers &&
                         (d as unknown as { selectedHandovers?: Array<{ syskey: string; name: string }> }).selectedHandovers!.length > 0 && (
@@ -693,18 +770,19 @@ export default function ApprovalDetailPage() {
                                 </div>
                             )}
 
-                            {isPending && (
+                            {/* Comment — editable for pending; also editable for claims when approved/rejected */}
+                            {(isPending || (isClaim && (isApproved || isRejected))) && (
                                 <Textarea
                                     id="approvalComment"
                                     label={t('approval.comment')}
                                     value={comment}
                                     onChange={(e) => setComment(e.target.value)}
-                                    placeholder="Add your comment (required for rejection)…"
+                                    placeholder="Add your comment…"
                                     rows={3}
                                 />
                             )}
 
-                            {isPending && hasMaxAmount && (
+                            {(isPending || isRejected) && hasMaxAmount && (
                                 <div style={{ marginTop: 12 }}>
                                     <label
                                         style={{
@@ -721,41 +799,74 @@ export default function ApprovalDetailPage() {
                                         <select
                                             value={processStatus}
                                             onChange={(e) => setProcessStatus(e.target.value)}
-                                            disabled={!isPending || processStatusMutation.isPending}
+                                            disabled={processStatusMutation.isPending}
                                             style={{
                                                 flex: 1,
                                                 padding: '8px 12px',
                                                 fontSize: '14px',
                                                 border: '1.5px solid var(--color-neutral-200)',
                                                 borderRadius: 8,
-                                                background: !isPending ? 'var(--color-neutral-50)' : 'var(--color-neutral-0, #fff)',
+                                                background: 'var(--color-neutral-0, #fff)',
                                                 color: 'var(--color-neutral-900)',
-                                                cursor: !isPending ? 'not-allowed' : 'pointer',
+                                                cursor: 'pointer',
                                                 outline: 'none',
                                                 transition: 'border-color 0.2s',
                                                 boxSizing: 'border-box',
                                                 height: 40,
                                             }}
                                         >
-                                            {CLAIM_PROCESS_STATUS_OPTIONS.map(opt => (
-                                                <option key={opt.code} value={opt.code}>{opt.description}</option>
+                                            <option value="">-</option>
+                                            {reviewProcessStatusOptions.map(opt => (
+                                                <option key={opt.syskey} value={opt.syskey}>{opt.description}</option>
                                             ))}
                                         </select>
                                         <Button
                                             variant="primary"
                                             onClick={() => processStatusMutation.mutate(processStatus)}
                                             loading={processStatusMutation.isPending}
-                                            disabled={!isPending}
                                         >
                                             Update
                                         </Button>
                                     </div>
                                 </div>
                             )}
+
+                            {/* Read-only process status for approved claim */}
+                            {!isPending && isApproved && hasMaxAmount && (
+                                <div style={{ marginTop: 12 }}>
+                                    <label
+                                        style={{
+                                            display: 'block',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: 'var(--color-neutral-700)',
+                                            marginBottom: 6,
+                                        }}
+                                    >
+                                        Process Status
+                                    </label>
+                                    <div style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        fontSize: '14px',
+                                        border: '1.5px solid var(--color-neutral-200)',
+                                        borderRadius: 8,
+                                        background: 'var(--color-neutral-50, #f8fafc)',
+                                        color: 'var(--color-neutral-900)',
+                                        boxSizing: 'border-box',
+                                        cursor: 'not-allowed',
+                                        height: 40,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                    }}>
+                                        {reviewProcessStatusOptions.find(opt => opt.syskey === processStatus)?.description || '—'}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className={styles['approval-detail__action-row']}>
-                            {canApproveReject && (isPending || isApproved) && (
+                            {canApproveReject && (isPending || isApproved || isRejected) && (
                                 <Button
                                     variant="success"
                                     onClick={() => handleAction('approve')}
@@ -767,7 +878,7 @@ export default function ApprovalDetailPage() {
                                 </Button>
                             )}
 
-                            {canApproveReject && (isPending || isRejected) && (
+                            {canApproveReject && (isPending || isApproved || isRejected) && (
                                 <Button
                                     variant="danger"
                                     onClick={() => handleAction('reject')}

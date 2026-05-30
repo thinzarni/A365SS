@@ -1,0 +1,429 @@
+/**
+ * FerryRequestListPage
+ *
+ * UI identical to RequestListPage — same page-header, summary cards,
+ * filter row, sortable table, status tabs, type badges.
+ *
+ * Content filtered: requesttypedesc contains 'ferry' OR 'hr'
+ * New request → /ferry/new  |  Row tap → /ferry/:id
+ */
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import {
+    Plus,
+    ClipboardList,
+    Filter,
+    Loader2,
+    ArrowDown,
+    ArrowUp,
+    Car,
+    Trash2,
+} from 'lucide-react';
+import { Button, Input, Select } from '../../components/ui';
+import { StatusBadge } from '../../components/ui/Badge/Badge';
+import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
+import apiClient from '../../lib/api-client';
+import {
+    REQUEST_TYPES,
+    GET_REQUEST_LIST,
+    DELETE_REQUEST,
+} from '../../config/api-routes';
+import type { TypesModel } from '../../types/models';
+import { useAuthStore } from '../../stores/auth-store';
+import { displayDate } from '../../lib/date-utils';
+import { useTranslation } from 'react-i18next';
+import styles from '../RequestListPage/RequestListPage.module.css';
+import '../../styles/pages.css';
+
+/* ─── helpers ────────────────────────────────────────────── */
+function toApiDate(d: string) { return d.replace(/-/g, ''); }
+
+function monthStart() {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`;
+}
+function monthEnd() {
+    const n = new Date();
+    const last = new Date(n.getFullYear(), n.getMonth() + 1, 0);
+    return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
+}
+
+function isFerryType(desc: string) {
+    const d = (desc ?? '').toLowerCase();
+    return d.includes('ferry') || d.includes('hr compliant') || d.includes('hr complaint');
+}
+
+const STATUS_TABS = [
+    { key: 0,  label: 'status.all' },
+    { key: 1,  label: 'status.pending' },
+    { key: 2,  label: 'status.approved' },
+    { key: 3,  label: 'status.rejected' },
+];
+
+type SortCol = 'date' | 'time';
+
+/* type badge — ferry variant */
+function ferryTypeBadge(desc: string) {
+    const d = (desc ?? '').toLowerCase();
+    if (d.includes('registration')) return { cls: 'requests-type-badge--wfh',    icon: '📋' };
+    if (d.includes('change'))       return { cls: 'requests-type-badge--travel',  icon: '🔄' };
+    if (d.includes('hr'))           return { cls: 'requests-type-badge--claim',   icon: '👔' };
+    if (d.includes('complaint') || d.includes('compliant')) return { cls: 'requests-type-badge--overtime', icon: '📣' };
+    return { cls: 'requests-type-badge--default', icon: '🚌' };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Component
+═══════════════════════════════════════════════════════════ */
+export default function FerryRequestListPage() {
+    const navigate  = useNavigate();
+    const { t }     = useTranslation();
+    const qc        = useQueryClient();
+    const { user, userId } = useAuthStore();
+
+    /* ── Filter state ── */
+    const [fromDate,    setFromDate]    = useState(monthStart);
+    const [toDate,      setToDate]      = useState(monthEnd);
+    const [typeSyskey,  setTypeSyskey]  = useState('');
+    const [activeStatus,setActiveStatus]= useState<number>(0);
+    const [filterOpen,  setFilterOpen]  = useState(false);
+    const [sortCol,     setSortCol]     = useState<SortCol>('date');
+    const [sortDir,     setSortDir]     = useState<'asc'|'desc'>('desc');
+
+    /* delete confirm */
+    const [deleteTarget, setDeleteTarget] = useState<any>(null);
+
+    /* ── Ferry types from API ── */
+    const { data: allTypes = [] } = useQuery<TypesModel[]>({
+        queryKey: ['requestTypes'],
+        queryFn:  async () => {
+            const res = await apiClient.get(REQUEST_TYPES);
+            return res.data?.datalist ?? [];
+        },
+        staleTime: 10 * 60 * 1000,
+    });
+
+    const ferryTypes = useMemo(() => [
+        { syskey: '', description: 'All Types' } as TypesModel,
+        ...allTypes.filter(t => isFerryType(t.description)),
+    ], [allTypes]);
+
+    const typeOptions = ferryTypes.map(t => ({ value: t.syskey, label: t.description }));
+
+    /* ── Fetch list ── */
+    const { data: rawList = [], isLoading, refetch } = useQuery<any[]>({
+        queryKey: ['ferryList', fromDate, toDate, typeSyskey, activeStatus],
+        queryFn:  async () => {
+            const res = await apiClient.post(GET_REQUEST_LIST, {
+                fromdate: toApiDate(fromDate),
+                todate:   toApiDate(toDate),
+                type:     typeSyskey,
+                status:   activeStatus === 0 ? '0' : String(activeStatus),
+            });
+            const all: any[] = res.data?.datalist ?? res.data?.data ?? [];
+            return all.filter(r => isFerryType(r.requesttypedesc ?? r.requesttype ?? ''));
+        },
+        staleTime: 0,
+    });
+
+    /* ── Sort + display ── */
+    const displayList = useMemo(() => {
+        const list = [...rawList];
+        list.sort((a, b) => {
+            const aVal = sortCol === 'date'
+                ? (a.startdate || a.date || '')
+                : (a.createddate || '');
+            const bVal = sortCol === 'date'
+                ? (b.startdate || b.date || '')
+                : (b.createddate || '');
+            return sortDir === 'desc'
+                ? bVal.localeCompare(aVal)
+                : aVal.localeCompare(bVal);
+        });
+        return list;
+    }, [rawList, sortCol, sortDir]);
+
+    /* ── Stats ── */
+    const stats = useMemo(() => ({
+        total:    rawList.length,
+        pending:  rawList.filter(r => String(r.requeststatus) === '1').length,
+        approved: rawList.filter(r => String(r.requeststatus) === '2').length,
+        rejected: rawList.filter(r => String(r.requeststatus) === '3').length,
+    }), [rawList]);
+
+    /* ── Sort toggle ── */
+    function toggleSort(col: SortCol) {
+        if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+        else { setSortCol(col); setSortDir('desc'); }
+    }
+
+    /* ── Delete ── */
+    const { mutate: doDelete, isPending: deleting } = useMutation({
+        mutationFn: async (syskey: string) => {
+            const res = await apiClient.post(DELETE_REQUEST, { syskey });
+            return res.data;
+        },
+        onSuccess: (data) => {
+            if (data?.statuscode === 300 || data?.status === 200) {
+                toast.success(data?.message ?? 'Deleted successfully');
+            } else {
+                toast.error(data?.message ?? 'Delete failed');
+            }
+            qc.invalidateQueries({ queryKey: ['ferryList'] });
+            refetch();
+        },
+        onError: () => toast.error('Delete failed'),
+    });
+
+    /* ── selfRequest check (mirrors Flutter) ── */
+    function canDelete(item: any) {
+        const s = String(item.requeststatus);
+        if (s === '2' || s === '3') return false;
+        const myEid = (user as any)?.employee_id ?? (user as any)?.eid ?? userId ?? '';
+        if (item.eid && item.eid !== '' && item.eid !== myEid) return false;
+        return true;
+    }
+
+    /* ─── Detail cell ─── */
+    function detailCell(req: any) {
+        if (req.remark) return req.remark.length > 50 ? req.remark.slice(0, 50) + '…' : req.remark;
+        if (req.duration != null && req.duration !== '') return `${req.duration} day(s)`;
+        return '—';
+    }
+
+    /* ═══════════════════════════════════════════════
+       RENDER — mirrors RequestListPage JSX exactly
+    ═══════════════════════════════════════════════ */
+    return (
+        <div className={styles['requests-page']}>
+
+            {/* ── Page Header ── */}
+            <div className="page-header">
+                <div className="page-header__row">
+                    <div>
+                        <h1 className="page-header__title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Car size={22} style={{ color: 'var(--color-primary-600)' }} />
+                            Ferry Request / Complaint
+                        </h1>
+                        <p className="page-header__subtitle">
+                            {displayList.length} ferry request{displayList.length === 1 ? '' : 's'}
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <Button onClick={() => navigate('/ferry_request/new')}>
+                            <Plus size={16} />
+                            New Ferry Request
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Summary Cards ── */}
+            <div className={styles['requests-summary']}>
+                <div className={styles['requests-summary__card']}>
+                    <span className={styles['requests-summary__value']}>{stats.total}</span>
+                    <span className={styles['requests-summary__label']}>Total Requests</span>
+                </div>
+                <div className={styles['requests-summary__card']}>
+                    <span className={styles['requests-summary__value']}
+                        style={{ color: 'var(--color-warning-600)' }}>
+                        {stats.pending}
+                    </span>
+                    <span className={styles['requests-summary__label']}>Pending</span>
+                </div>
+                <div className={styles['requests-summary__card']}>
+                    <span className={styles['requests-summary__value']}
+                        style={{ color: 'var(--color-success-600)' }}>
+                        {stats.approved}
+                    </span>
+                    <span className={styles['requests-summary__label']}>Approved</span>
+                </div>
+                <div className={styles['requests-summary__card']}>
+                    <span className={styles['requests-summary__value']}
+                        style={{ color: 'var(--color-danger-600)' }}>
+                        {stats.rejected}
+                    </span>
+                    <span className={styles['requests-summary__label']}>Rejected</span>
+                </div>
+            </div>
+
+            {/* ── Filter Row (collapsible) ── */}
+            {filterOpen && (
+                <div className={styles['filters-row']}>
+                    <div className={styles['filter-group']}>
+                        <label className={styles['filter-label']}>Date Range</label>
+                        <div className={styles['filter-inputs']}>
+                            <Input type="date" value={fromDate}
+                                onChange={e => setFromDate(e.target.value)}
+                                className={styles['filter-date']} />
+                            <span className={styles['filter-separator']}>→</span>
+                            <Input type="date" value={toDate}
+                                onChange={e => setToDate(e.target.value)}
+                                className={styles['filter-date']} />
+                        </div>
+                    </div>
+                    <div className={styles['filter-group']}>
+                        <label className={styles['filter-label']}>Request Type</label>
+                        <Select
+                            options={typeOptions}
+                            value={typeSyskey}
+                            onChange={e => setTypeSyskey(e.target.value)}
+                            className={styles['filter-select']}
+                            placeholder="All Types"
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* ── List Card (table) ── */}
+            <div className={styles['requests-list-card']}>
+                <div className={styles['requests-list-card__header']}>
+                    <h3 className={styles['requests-list-card__title']}>Ferry Requests</h3>
+                    <div className={styles['requests-list-card__actions']}>
+                        {/* Filter toggle */}
+                        <button
+                            className={`${styles['filter-toggle-btn']} ${filterOpen ? styles['filter-toggle-btn--active'] : ''}`}
+                            onClick={() => setFilterOpen(o => !o)}
+                            title="Toggle filters"
+                        >
+                            <Filter size={14} />
+                            Filter
+                            {typeSyskey !== '' && <span className={styles['filter-toggle-btn__dot']} />}
+                        </button>
+
+                        {/* Status tabs */}
+                        <div className={styles['requests-filter-tabs']}>
+                            {STATUS_TABS.map(({ key, label }) => (
+                                <button
+                                    key={key}
+                                    className={`${styles['requests-filter-tabs__btn']} ${activeStatus === key ? styles['requests-filter-tabs__btn--active'] : ''}`}
+                                    onClick={() => setActiveStatus(key)}
+                                >
+                                    {t(label)}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── Table body ── */}
+                {isLoading ? (
+                    <div className="empty-state" style={{ padding: '2rem' }}>
+                        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--color-primary-600)' }} />
+                        <p className="empty-state__desc">{t('common.loading')}</p>
+                    </div>
+                ) : displayList.length === 0 ? (
+                    <div className="empty-state" style={{ padding: '2rem' }}>
+                        <ClipboardList size={48} className="empty-state__icon" />
+                        <h3 className="empty-state__title">{t('request.noRequests')}</h3>
+                        <p className="empty-state__desc">No ferry requests found for the selected filters.</p>
+                        <Button onClick={() => navigate('/ferry_request/new')} style={{ marginTop: '0.5rem' }}>
+                            <Plus size={16} />
+                            New Ferry Request
+                        </Button>
+                    </div>
+                ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className={styles['requests-table']}>
+                            <thead>
+                                <tr>
+                                    <th>Employee ID</th>
+                                    <th>Employee Name</th>
+                                    <th>Ref #</th>
+                                    <th
+                                        onClick={() => toggleSort('date')}
+                                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                                        title="Sort by Date"
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            Date
+                                            {sortCol === 'date'
+                                                ? sortDir === 'desc'
+                                                    ? <ArrowDown size={14} color="var(--color-primary-600)" />
+                                                    : <ArrowUp size={14} color="var(--color-primary-600)" />
+                                                : <ArrowDown size={14} color="var(--color-neutral-300)" />}
+                                        </div>
+                                    </th>
+                                    <th>Type</th>
+                                    <th>Details</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {displayList.map((req, i) => {
+                                    const typeDesc = req.requesttypedesc || req.requesttype || '';
+                                    const { cls, icon } = ferryTypeBadge(typeDesc);
+                                    return (
+                                        <tr key={req.syskey || i}
+                                            onClick={() => navigate(`/ferry_request/${req.syskey}`)}>
+                                            <td>{req.eid || '—'}</td>
+                                            <td>{req.name || '—'}</td>
+                                            <td>{req.refno || '—'}</td>
+                                            <td className={styles['requests-table__dates']}>
+                                                {displayDate(req.startdate || req.date) || '—'}
+                                                {req.enddate && req.enddate !== req.startdate
+                                                    ? ` → ${displayDate(req.enddate)}`
+                                                    : ''}
+                                            </td>
+                                            <td>
+                                                <span className={`${styles['requests-type-badge']} ${styles[cls]}`}>
+                                                    <span style={{ marginRight: 3 }}>{icon}</span>
+                                                    {typeDesc || '—'}
+                                                </span>
+                                            </td>
+                                            <td>{detailCell(req)}</td>
+                                            <td>
+                                                <StatusBadge status={String(req.requeststatus)} />
+                                            </td>
+                                            <td onClick={e => e.stopPropagation()}>
+                                                {canDelete(req) && (
+                                                    <button
+                                                        title="Delete"
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            color: 'var(--color-danger-500)',
+                                                            padding: '4px',
+                                                            borderRadius: 6,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                        }}
+                                                        onClick={() => setDeleteTarget(req)}
+                                                    >
+                                                        {deleting
+                                                            ? <Loader2 size={14} className="animate-spin" />
+                                                            : <Trash2 size={14} />}
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* ── Delete confirm modal ── */}
+            <ConfirmModal
+                open={!!deleteTarget}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={() => {
+                    if (deleteTarget) doDelete(deleteTarget.syskey);
+                    setDeleteTarget(null);
+                }}
+                title="Delete Ferry Request"
+                message={`Delete this ${deleteTarget?.requesttypedesc ?? 'ferry'} request? This cannot be undone.`}
+                confirmLabel="Delete"
+                loading={deleting}
+                variant="danger"
+                icon={<Trash2 size={28} />}
+            />
+        </div>
+    );
+}
