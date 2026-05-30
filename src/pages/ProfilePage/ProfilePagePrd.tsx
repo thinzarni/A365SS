@@ -1394,7 +1394,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             currency: r.currency || 'MMK',
             reasonforchange: r.reasonForChange || '',
             township: r.townshipSyskey || r.township || '',
-            modificationoption: r.modOption,
+            modificationoption: 'Correct',
             status: r.status === 'Approved' ? '1' : 0,
             isdelete: !!r.isdelete
         }));
@@ -1722,7 +1722,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
             todate: r.todate ? r.todate.replace(/-/g, '') : '',
             ishighest: r.isheight,
-            modificationoption: r.modOption,
+            modificationoption: 'Correct',
             status: r.id.length < 20 ? "0" : r.status,
             isdelete: !!r.isdelete,
             effectivedate: r.effectiveFrom
