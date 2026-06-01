@@ -651,7 +651,12 @@ export default function RequestListPage() {
                                             if (isAttendancePage) {
                                                 navigate(`/attendancerequest/${req.syskey}`, { state: { item: req, refIndex: i + 1 } });
                                             } else {
-                                                navigate(`/requests/${req.syskey}`);
+                                                const d = typeDesc.toLowerCase();
+                                                if (d.includes('ferry') || d.includes('hr complaint') || d.includes('hrcomplaint')) {
+                                                    navigate(`/ferry_request/${req.syskey}`, { state: { from: '/requests' } });
+                                                } else {
+                                                    navigate(`/requests/${req.syskey}`, { state: { from: '/requests' } });
+                                                }
                                             }
                                         }}>
                                             <td>{req.eid || '—'}</td>

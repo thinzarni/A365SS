@@ -87,7 +87,7 @@ export default function FerryRequestListPage() {
     const [fromDate,    setFromDate]    = useState(monthStart);
     const [toDate,      setToDate]      = useState(monthEnd);
     const [typeSyskey,  setTypeSyskey]  = useState('');
-    const [activeStatus,setActiveStatus]= useState<number>(0);
+    const [activeStatus,setActiveStatus]= useState<number>(1);
     const [filterOpen,  setFilterOpen]  = useState(false);
     const [sortCol,     setSortCol]     = useState<SortCol>('date');
     const [sortDir,     setSortDir]     = useState<'asc'|'desc'>('desc');
@@ -271,7 +271,6 @@ export default function FerryRequestListPage() {
                             value={typeSyskey}
                             onChange={e => setTypeSyskey(e.target.value)}
                             className={styles['filter-select']}
-                            placeholder="All Types"
                         />
                     </div>
                 </div>
@@ -347,9 +346,7 @@ export default function FerryRequestListPage() {
                                         </div>
                                     </th>
                                     <th>Type</th>
-                                    <th>Details</th>
                                     <th>Status</th>
-                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -358,7 +355,7 @@ export default function FerryRequestListPage() {
                                     const { cls, icon } = ferryTypeBadge(typeDesc);
                                     return (
                                         <tr key={req.syskey || i}
-                                            onClick={() => navigate(`/ferry_request/${req.syskey}`)}>
+                                            onClick={() => navigate(`/ferry_request/${req.syskey}`, { state: { from: '/ferry_request' } })}>
                                             <td>{req.eid || '—'}</td>
                                             <td>{req.name || '—'}</td>
                                             <td>{req.refno || '—'}</td>
@@ -374,31 +371,8 @@ export default function FerryRequestListPage() {
                                                     {typeDesc || '—'}
                                                 </span>
                                             </td>
-                                            <td>{detailCell(req)}</td>
                                             <td>
                                                 <StatusBadge status={String(req.requeststatus)} />
-                                            </td>
-                                            <td onClick={e => e.stopPropagation()}>
-                                                {canDelete(req) && (
-                                                    <button
-                                                        title="Delete"
-                                                        style={{
-                                                            background: 'transparent',
-                                                            border: 'none',
-                                                            cursor: 'pointer',
-                                                            color: 'var(--color-danger-500)',
-                                                            padding: '4px',
-                                                            borderRadius: 6,
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                        }}
-                                                        onClick={() => setDeleteTarget(req)}
-                                                    >
-                                                        {deleting
-                                                            ? <Loader2 size={14} className="animate-spin" />
-                                                            : <Trash2 size={14} />}
-                                                    </button>
-                                                )}
                                             </td>
                                         </tr>
                                     );

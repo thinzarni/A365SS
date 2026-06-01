@@ -14,7 +14,7 @@ import toast from 'react-hot-toast';
 import {
     ArrowLeft, Bus, Car, Loader2,
     Phone, MapPin, CheckCircle2, XCircle, Clock,
-    UserCheck, Paperclip,
+    UserCheck, Paperclip, Calendar,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -22,6 +22,7 @@ import { StatusBadge } from '../../components/ui/Badge/Badge';
 import MemberPicker from '../../components/shared/MemberPicker/MemberPicker';
 import type { MemberItem } from '../../components/shared/MemberPicker/MemberPicker';
 import FileUpload from '../../components/ui/FileUpload/FileUpload';
+import ApprovalWorkflowModal from '../../components/modals/ApprovalWorkflowModal';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
 import {
@@ -74,8 +75,37 @@ function toApiDate(d: string) { return d ? d.replace(/-/g, '') : ''; }
 
 function fromApiDate(d: string) {
     if (!d || d.length < 8) return '';
+    if (d.includes('-')) return d.split('T')[0];
     return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
 }
+
+function formatDisplayDate(dateStr: string) {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    if (!year || !month || !day) return dateStr;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const mIndex = Number(month) - 1;
+    if (isNaN(mIndex) || mIndex < 0 || mIndex > 11) return dateStr;
+    return `${day} ${months[mIndex]} ${year}`;
+}
+
+const DateInput = ({ id, label, value, onChange, readOnly, error, rightIcon }: any) => {
+    const [focused, setFocused] = useState(false);
+    return (
+        <Input
+            id={id}
+            label={label}
+            type={readOnly ? 'text' : (focused ? 'date' : 'text')}
+            value={readOnly || !focused ? formatDisplayDate(value) : value}
+            onChange={onChange}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            readOnly={readOnly}
+            error={error}
+            rightIcon={(!focused && rightIcon) ? rightIcon : undefined}
+        />
+    );
+};
 
 function descToFerryType(desc: string): FerryRequestType {
     const d = desc.toLowerCase();
@@ -200,8 +230,10 @@ export default function FerryRequestPage() {
         },
         enabled: !!id,
     });
-    const detail = detailRes?.datalist ?? {};
+    const dl = detailRes?.datalist;
+    const detail = Array.isArray(dl) ? (dl[0] || {}) : (dl || {});
     const detailApprovers: any[] = detailRes?.approverList ?? [];
+    const stepLevelData: any[] = detailRes?.stepLevelData ?? [];
 
     /* ═══════════════════════════════════════════════
        FORM STATE
@@ -244,6 +276,7 @@ export default function FerryRequestPage() {
 
     // HR Complaint
     const [hrComplaintText, setHrComplaintText] = useState('');
+    const [userComplaintText, setUserComplaintText] = useState('');
 
     // Field-level validation errors (Registration)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -294,11 +327,13 @@ export default function FerryRequestPage() {
         if (opt) {
             setSelectedOpt(opt);
             setSelectedType(opt.value);
-            setApprovalType(opt.approvaltype ?? '0');
+            setApprovalType(opt.approvaltype ?? d.approvaltype ?? '0');
         } else {
             const t = descToFerryType(d.requesttypedesc ?? '');
             setSelectedType(t);
             setSelectedOpt(ferryTypeOptions.find(o => o.value === t) ?? null);
+            // fallback: read approvaltype directly from the API response
+            setApprovalType(String(d.approvaltype ?? '0'));
         }
 
         setPhoneNumber(d.phoneno ?? '');
@@ -308,15 +343,26 @@ export default function FerryRequestPage() {
         setMainRoad(d.road ?? '');
         setBusStop(d.busstop ?? '');
         setTownship(d.township ?? '');
-        setChangeTypeSyskey(d.changetypesyskey ?? d.changetype_syskey ?? '');
-        setChangePurposeSyskey(d.changepurpose_syskey ?? '');
-        setOfficeLocationSyskey(d.locationsyskey ?? '');
+        let ctSyskey = d.changetypesyskey ?? d.changetype_syskey ?? d.changetype ?? '';
+        if (!ctSyskey && d.changetypecode) {
+            ctSyskey = changeTypes.find(t => t.code === d.changetypecode)?.syskey ?? ctSyskey;
+        }
+        setChangeTypeSyskey(ctSyskey);
+
+        let cpSyskey = d.changepurpose_syskey ?? d.changepurposesyskey ?? d.changepurpose ?? '';
+        if (!cpSyskey && d.changepurposecode) {
+            cpSyskey = changePurposes.find(t => t.code === d.changepurposecode)?.syskey ?? cpSyskey;
+        }
+        setChangePurposeSyskey(cpSyskey);
+
+        setOfficeLocationSyskey(d.locationsyskey ?? d.location_syskey ?? '');
         setHomeAddress(d.address ?? '');
         setHomeMainRoad(d.road ?? '');
         setHomeBusStop(d.busstop ?? '');
-        setDesiredFerryNoSyskey(d.changeferrysyskey ?? d.changeferry_syskey ?? '');
+        setDesiredFerryNoSyskey(d.changeferrysyskey ?? d.changeferry_syskey ?? d.changeferry ?? '');
         setTemporaryReason(d.remark ?? '');
         setHrComplaintText(d.remark ?? '');
+        setUserComplaintText(d.remark ?? '');
 
         if (d.startdate) {
             const s = fromApiDate(d.startdate);
@@ -341,7 +387,7 @@ export default function FerryRequestPage() {
             }));
         setApprovers(mapToMember(detailApprovers));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [detail?.syskey, detailApprovers.length, ferryTypeOptions.length]);
+    }, [detail?.syskey, detailApprovers.length, ferryTypeOptions.length, changeTypes.length, changePurposes.length]);
 
     /* ── File upload ── */
     const uploadFiles = async (): Promise<string[]> => {
@@ -408,7 +454,7 @@ export default function FerryRequestPage() {
             if (!opt) throw new Error('Please select a request type');
 
             const base: Record<string, unknown> = {
-                syskey: id ?? '0',
+                syskey: !isNew ? (detail?.syskey || id) : '0',
                 requesttype: opt.syskey,
                 requesttypedesc: opt.label,
                 requeststatus: '1',
@@ -447,6 +493,7 @@ export default function FerryRequestPage() {
                 base.ferrycomplaint = sorted.join(',');
                 base.ferryno = currentFerryNo || profileFerryNo;
                 base.phoneno = phoneNumber;
+                base.remark = userComplaintText;
             } else if (selectedType === FerryRequestType.hrcomplaint) {
                 base.remark = hrComplaintText;
                 base.ferryno = currentFerryNo || profileFerryNo;
@@ -456,12 +503,23 @@ export default function FerryRequestPage() {
                 base.ferryno = currentFerryNo;
                 base.changetype_syskey = changeTypeSyskey;
                 base.phoneno = phoneNumber;
+                base.changepurpose_syskey = '';
+                base.locationsyskey = '';
+                base.locationname = '';
+                base.startdate = '';
+                base.enddate = '';
+                base.address = '';
+                base.road = '';
+                base.busstop = '';
+                base.township = '';
+                base.changeferry_syskey = '';
+
                 if (isPermanent) {
                     base.changepurpose_syskey = changePurposeSyskey;
                     if (isOfficeLocation) {
                         base.locationsyskey = officeLocationSyskey;
                         const loc = officeLocations.find(o => o.syskey === officeLocationSyskey);
-                        base.locationname = loc?.officeLocationName ?? loc?.description ?? '';
+                        base.locationname = loc?.name ?? loc?.officeLocationName ?? loc?.description ?? '';
                         base.startdate = toApiDate(officeChangeStartDate);
                     } else if (isHomeAddress) {
                         base.address = homeAddress;
@@ -480,12 +538,13 @@ export default function FerryRequestPage() {
                 }
             }
 
-            await apiClient.post(SAVE_REQUEST, base);
+            const endpoint = !isNew ? `${SAVE_REQUEST}/${id}` : SAVE_REQUEST;
+            await apiClient.post(endpoint, base);
         },
         onSuccess: () => {
             toast.success('Ferry request submitted successfully');
             queryClient.invalidateQueries({ queryKey: ['requests'] });
-            navigate('/ferry');
+            navigate('/ferry_request');
         },
         onError: (e: any) => toast.error(e?.response?.data?.message ?? e?.message ?? 'Submission failed'),
     });
@@ -509,7 +568,7 @@ export default function FerryRequestPage() {
             {/* ── Header ── */}
             <div className={styles.header}>
                 <div className={styles.headerLeft}>
-                    <button className={styles.backBtn} onClick={() => navigate('/ferry')}>
+                    <button className={styles.backBtn} onClick={() => navigate(isNew ? '/ferry_request' : `/ferry_request/${id}`)}>
                         <ArrowLeft size={20} />
                     </button>
                     <div className={styles.headerIcon}>
@@ -517,7 +576,7 @@ export default function FerryRequestPage() {
                     </div>
                     <div>
                         <h1 className={styles.headerTitle}>
-                            {isNew ? 'New Ferry Request' : 'Ferry Request'}
+                            {isNew ? `New ${selectedOpt?.label || 'Ferry Request'}` : (detail?.requesttypedesc || selectedOpt?.label || 'Ferry Request')}
                         </h1>
                         {!isNew && detail?.refno
                             ? <p className={styles.headerSub}>Ref # {detail.refno}</p>
@@ -581,17 +640,54 @@ export default function FerryRequestPage() {
                             <UserCheck size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                             Employee
                         </h3>
-                        <div className={styles.employeeCard}>
-                            <div className={styles.employeeAvatar}>
-                                {((user as any)?.name ?? (user as any)?.username ?? 'U')[0].toUpperCase()}
-                            </div>
-                            <div className={styles.employeeInfo}>
-                                <div className={styles.employeeName}>{(user as any)?.name ?? (user as any)?.username}</div>
-                                <div className={styles.employeeId}>
-                                    {(user as any)?.employee_id ?? (user as any)?.eid ?? userId}
+                        <div className={styles.employeeCard} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0 }}>
+                            {/* Avatar row */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div className={styles.employeeAvatar}>
+                                    {((user as any)?.name ?? (user as any)?.username ?? 'U')[0].toUpperCase()}
                                 </div>
+                                <div className={styles.employeeInfo}>
+                                    {/* Name + EID on same line */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div className={styles.employeeName}>{(user as any)?.name ?? (user as any)?.username}</div>
+                                        {((user as any)?.employee_id ?? (user as any)?.eid ?? userId) && (
+                                            <div style={{ fontSize: 12, color: '#0369a1', background: '#e0f2fe', borderRadius: 4, padding: '1px 6px', fontWeight: 600 }}>
+                                                {(user as any)?.employee_id ?? (user as any)?.eid ?? userId}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {/* Rank below name */}
+                                    {(employeeProfile as any)?.rank && (
+                                        <div style={{ fontSize: 12, color: '#0369a1', marginTop: 2 }}>
+                                            {(employeeProfile as any).rank}
+                                        </div>
+                                    )}
+                                </div>
+                                <CheckCircle2 size={20} color="#22c55e" style={{ flexShrink: 0 }} />
                             </div>
-                            <CheckCircle2 size={20} color="#22c55e" />
+
+                            {/* Divider */}
+                            <div style={{ height: 1, background: '#bae6fd', margin: '12px 0' }} />
+
+                            {/* Department + Join Date */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                {(employeeProfile as any)?.department && (
+                                    <div>
+                                        <div style={{ fontSize: 11, fontWeight: 600, color: '#0369a1', marginBottom: 2, letterSpacing: '0.03em' }}>Department</div>
+                                        <div style={{ fontSize: 13, fontWeight: 500, color: '#0c4a6e' }}>
+                                            {(employeeProfile as any).department}
+                                        </div>
+                                    </div>
+                                )}
+                                {(employeeProfile as any)?.joineddate && (
+                                    <div>
+                                        <div style={{ fontSize: 11, fontWeight: 600, color: '#0369a1', marginBottom: 2, letterSpacing: '0.03em' }}>Join Date</div>
+                                        <div style={{ fontSize: 13, fontWeight: 500, color: '#0c4a6e' }}>
+                                            {(employeeProfile as any).joineddate}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Phone + Current Ferry No shown for Registration & Change */}
@@ -610,18 +706,12 @@ export default function FerryRequestPage() {
                                 )}
                             </div>
                         )}
-                    </section>
 
-                    {/* ════════════════════════════════
-                        REGISTRATION
-                    ════════════════════════════════ */}
-                    {selectedType === FerryRequestType.registration && (
-                        <section className={styles.section}>
-                            <h3 className={styles.sectionTitle}>
-                                <MapPin size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                                Registration Details
-                            </h3>
-                            <div className={styles.grid}>
+                        {/* ════════════════════════════════
+                            REGISTRATION (Merged into upper box)
+                        ════════════════════════════════ */}
+                        {selectedType === FerryRequestType.registration && (
+                            <div className={styles.grid} style={{ marginTop: 14 }}>
                                 <div className={styles.fullCol}>
                                     <label className={styles.fieldLabel}>
                                         Working Hours <span style={{ color: '#ef4444' }}>*</span>
@@ -651,8 +741,8 @@ export default function FerryRequestPage() {
                                     readOnly={isReadOnly}
                                     error={fieldErrors.busStop} />
                             </div>
-                        </section>
-                    )}
+                        )}
+                    </section>
 
                     {/* ════════════════════════════════
                         CHANGE
@@ -686,10 +776,11 @@ export default function FerryRequestPage() {
                                 {isTemporary && changeTypeSyskey && (<>
                                     <div className={styles.fullCol}>
                                         <Textarea id="ferry-temp-reason"
-                                            label="Reason for Change (Business Requirements) *"
+                                            label="Reason for Change Request (Business Requirements) *"
                                             value={temporaryReason}
                                             onChange={e => setTemporaryReason(e.target.value)}
                                             placeholder="Please specify reason..."
+                                            rows={3}
                                             readOnly={isReadOnly} />
                                     </div>
                                     <div className={styles.fullCol}>
@@ -700,17 +791,19 @@ export default function FerryRequestPage() {
                                             <option value="">— Select ferry number —</option>
                                             {ferryNos.map(fn => (
                                                 <option key={fn.syskey} value={fn.syskey}>
-                                                    {fn.description || fn.ferryCarNo || fn.syskey}
+                                                    {fn.carno ?? fn.description ?? fn.ferryCarNo ?? fn.syskey}
                                                 </option>
                                             ))}
                                         </select>
                                     </div>
-                                    <Input id="ferry-temp-from" label="Date From *" type="date"
-                                        value={tempDateFrom} onChange={e => setTempDateFrom(e.target.value)}
-                                        readOnly={isReadOnly} />
-                                    <Input id="ferry-temp-to" label="Date To *" type="date"
-                                        value={tempDateTo} onChange={e => setTempDateTo(e.target.value)}
-                                        readOnly={isReadOnly} />
+                                    <DateInput id="ferry-temp-from" label="Desired Date From *"
+                                        value={tempDateFrom} onChange={(e: any) => setTempDateFrom(e.target.value)}
+                                        readOnly={isReadOnly}
+                                        rightIcon={<Calendar size={18} color="#94a3b8" />} />
+                                    <DateInput id="ferry-temp-to" label="Desired Date To *"
+                                        value={tempDateTo} onChange={(e: any) => setTempDateTo(e.target.value)}
+                                        readOnly={isReadOnly}
+                                        rightIcon={<Calendar size={18} color="#94a3b8" />} />
                                 </>)}
 
                                 {/* Permanent Change */}
@@ -745,7 +838,7 @@ export default function FerryRequestPage() {
                                                         <option value="">— Select office location —</option>
                                                         {officeLocations.map(ol => (
                                                             <option key={ol.syskey} value={ol.syskey}>
-                                                                {ol.officeLocationName ?? ol.description}
+                                                                {ol.name ?? ol.officeLocationName ?? ol.description}
                                                             </option>
                                                         ))}
                                                     </select>
@@ -755,11 +848,12 @@ export default function FerryRequestPage() {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <Input id="ferry-office-start" label="Desired Start Date *" type="date"
+                                                <DateInput id="ferry-office-start" label="Desired Start Date *"
                                                     value={officeChangeStartDate}
-                                                    onChange={e => { setOfficeChangeStartDate(e.target.value); clearFieldError('officeChangeStartDate'); }}
+                                                    onChange={(e: any) => { setOfficeChangeStartDate(e.target.value); clearFieldError('officeChangeStartDate'); }}
                                                     readOnly={isReadOnly}
-                                                    error={fieldErrors.officeChangeStartDate} />
+                                                    error={fieldErrors.officeChangeStartDate}
+                                                    rightIcon={<Calendar size={18} color="#94a3b8" />} />
                                             </div>
                                         )}
 
@@ -783,11 +877,12 @@ export default function FerryRequestPage() {
                                                     onChange={e => { setHomeBusStop(e.target.value); clearFieldError('homeBusStop'); }}
                                                     readOnly={isReadOnly}
                                                     error={fieldErrors.homeBusStop} />
-                                                <Input id="ferry-home-start" label="Desired Start Date *" type="date"
+                                                <DateInput id="ferry-home-start" label="Desired Start Date *"
                                                     value={homeChangeStartDate}
-                                                    onChange={e => { setHomeChangeStartDate(e.target.value); clearFieldError('homeChangeStartDate'); }}
+                                                    onChange={(e: any) => { setHomeChangeStartDate(e.target.value); clearFieldError('homeChangeStartDate'); }}
                                                     readOnly={isReadOnly}
-                                                    error={fieldErrors.homeChangeStartDate} />
+                                                    error={fieldErrors.homeChangeStartDate}
+                                                    rightIcon={<Calendar size={18} color="#94a3b8" />} />
                                             </div>
                                         )}
 
@@ -802,12 +897,19 @@ export default function FerryRequestPage() {
 
                                 {/* Temporary Suspension */}
                                 {isSuspension && changeTypeSyskey && (<>
-                                    <Input id="ferry-susp-from" label="Suspension From *" type="date"
-                                        value={suspDateFrom} onChange={e => setSuspDateFrom(e.target.value)}
-                                        readOnly={isReadOnly} />
-                                    <Input id="ferry-susp-to" label="Suspension To *" type="date"
-                                        value={suspDateTo} onChange={e => setSuspDateTo(e.target.value)}
-                                        readOnly={isReadOnly} />
+                                    <div className={styles.fullCol} style={{ marginTop: 8, marginBottom: 4 }}>
+                                        <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#334155' }}>
+                                            Temporary Suspension For Ferry Usage
+                                        </h4>
+                                    </div>
+                                    <DateInput id="ferry-susp-from" label="Desired Date For Suspension From *"
+                                        value={suspDateFrom} onChange={(e: any) => setSuspDateFrom(e.target.value)}
+                                        readOnly={isReadOnly}
+                                        rightIcon={<Calendar size={18} color="#94a3b8" />} />
+                                    <DateInput id="ferry-susp-to" label="Desired Date For Suspension To *"
+                                        value={suspDateTo} onChange={(e: any) => setSuspDateTo(e.target.value)}
+                                        readOnly={isReadOnly}
+                                        rightIcon={<Calendar size={18} color="#94a3b8" />} />
                                 </>)}
                             </div>
                         </section>
@@ -855,6 +957,15 @@ export default function FerryRequestPage() {
                                 </span>
                             )}
 
+                            <div style={{ marginTop: 16 }}>
+                                <Textarea id="ferry-user-text" label="Please Describe Your Complaint"
+                                    value={userComplaintText}
+                                    onChange={e => setUserComplaintText(e.target.value)}
+                                    placeholder="Write your complaint here..."
+                                    rows={3}
+                                    readOnly={isReadOnly} />
+                            </div>
+
                         </section>
                     )}
 
@@ -868,6 +979,7 @@ export default function FerryRequestPage() {
                                 value={hrComplaintText}
                                 onChange={e => setHrComplaintText(e.target.value)}
                                 placeholder="Describe your complaint in detail..."
+                                rows={4}
                                 readOnly={isReadOnly} />
 
                         </section>
@@ -906,8 +1018,15 @@ export default function FerryRequestPage() {
                         </section>
                     )}
 
-                    {/* ── Read-only approver list ── */}
-                    {!isNew && detailApprovers.length > 0 && (
+                    {/* ── Step-Level Workflow Tracker (approvalType === '1') ── */}
+                    {!isNew && (detail?.approvaltype === '1' || detail?.approvaltype === 1) && stepLevelData.length > 0 && (
+                        <section className={styles.section}>
+                            <ApprovalWorkflowModal steps={stepLevelData} />
+                        </section>
+                    )}
+
+                    {/* ── Read-only approver list (approvalType === '0') ── */}
+                    {!isNew && (detail?.approvaltype === '0' || detail?.approvaltype === 0 || !detail?.approvaltype) && detailApprovers.length > 0 && (
                         <section className={styles.section}>
                             <h3 className={styles.sectionTitle}>Approvers</h3>
                             {detailApprovers.map((a: any) => (
@@ -934,7 +1053,7 @@ export default function FerryRequestPage() {
                     {/* ── Action Bar ── */}
                     {!isReadOnly && (
                         <div className={styles.actionBar}>
-                            <Button variant="secondary" onClick={() => navigate('/ferry')}>Cancel</Button>
+                            <Button variant="secondary" onClick={() => navigate(isNew ? '/ferry_request' : `/ferry_request/${id}`)}>Cancel</Button>
                             <Button id="ferry-submit-btn"
                                 onClick={() => { if (validateForm()) submitRequest(); }}
                                 disabled={submitting}

@@ -57,6 +57,8 @@ const WorkPolicyChangePage = Loadable(lazy(() => import('../pages/WorkPolicyChan
 const WorkPolicyCreatePage = Loadable(lazy(() => import('../pages/WorkPolicyCreatePage/WorkPolicyCreatePage')));
 const FerryRequestPage = Loadable(lazy(() => import('../pages/FerryRequestPage/FerryRequestPage')));
 const FerryRequestListPage = Loadable(lazy(() => import('../pages/FerryRequestPage/FerryRequestListPage')));
+const FerryRequestDetailPage = Loadable(lazy(() => import('../pages/FerryRequestPage/FerryRequestDetailPage')));
+const FerryApprovalFormPage = Loadable(lazy(() => import('../pages/FerryApprovalFormPage/FerryApprovalFormPage')));
 
 // ── Flavor-based profile page ──
 // prd  → 7-tab ESS profile (Employment, Personal, Emergency Contacts, Work Experience, etc.)
@@ -104,6 +106,7 @@ export const router = createBrowserRouter([
                     { path: '/requests/:id', element: <RequestDetailPage /> },
                     { path: '/approvals', element: <ApprovalListPage /> },
                     { path: '/approvals/:id', element: <ApprovalDetailPage /> },
+                    { path: '/ferry_approval/:id', element: <FerryApprovalFormPage /> },
                     { path: '/reservations', element: <ReservationsPage /> },
                     { path: '/claims', element: <ClaimsPage /> },
                     { path: '/claims/new', element: <NewClaimPage /> },
@@ -138,7 +141,8 @@ export const router = createBrowserRouter([
                     // ── Ferry Service (company ferry/bus system) ──
                     { path: '/ferry_request', element: <FerryRequestListPage /> },
                     { path: '/ferry_request/new', element: <FerryRequestPage /> },
-                    { path: '/ferry_request/:id', element: <FerryRequestPage /> },
+                    { path: '/ferry_request/edit/:id', element: <FerryRequestPage /> },
+                    { path: '/ferry_request/:id', element: <FerryRequestDetailPage /> },
                     // ── Attendance subtypes — use existing approval pages ──
                     { path: '/attendanceapproval', element: <AttendanceApprovalListPage /> },
                     { path: '/attendanceapproval/:id/:type', element: <AttendanceApprovalDetailPage /> },

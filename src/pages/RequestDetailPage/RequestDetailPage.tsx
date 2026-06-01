@@ -663,7 +663,7 @@ export default function RequestDetailPage() {
                     )}
 
                     {/* Approved By */}
-                    {detail.approvaltype !== '1' && approverList.length > 0 && (
+                    {(detail.approvaltype === '0' || detail.approvaltype === 0) && approverList.length > 0 && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Approvers</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -735,35 +735,32 @@ export default function RequestDetailPage() {
                             <ApprovalWorkflowModal steps={detail.stepLevelData} />
                         </div>
                     )}
-                </div>
-
-                {/* ── Actions ── */}
                 {(canDelete || canEdit) && (
-                    <div className={styles['request-detail__actions']}>
-                        {canEdit && (
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => navigate(isAttendance ? `/attendancerequest/edit/${id}` : `/requests/edit/${id}`, { state: { item: detailData?.detail, refIndex: listRefIndex } })}
-                            >
-                                <Edit size={14} />
-                                Edit
-                            </Button>
-                        )}
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-start', paddingTop: '16px', marginTop: '24px', borderTop: '1px solid var(--color-neutral-200)' }}>
                         {canDelete && (
                             <Button
                                 variant="danger"
                                 size="sm"
                                 loading={deleteMutation.isPending}
                                 onClick={() => setShowDeleteModal(true)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                             >
-                                <Trash2 size={14} />
-                                Delete
+                                <Trash2 size={14} /> Delete
+                            </Button>
+                        )}
+                        {canEdit && (
+                            <Button
+                                size="sm"
+                                onClick={() => navigate(isAttendance ? `/attendancerequest/edit/${id}` : `/requests/edit/${id}`, { state: { item: detailData?.detail, refIndex: listRefIndex } })}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                            >
+                                <Edit size={14} /> Edit
                             </Button>
                         )}
                     </div>
                 )}
-            </div>
+                </div> {/* Closes request-detail__body */}
+            </div> {/* Closes request-detail__card */}
 
 
 

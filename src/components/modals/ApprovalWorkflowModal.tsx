@@ -75,7 +75,7 @@ export default function ApprovalWorkflowModal({ steps }: ApprovalWorkflowModalPr
                                 <div className={styles['workflow__card-header']}>
                                     <div className={styles['workflow__card-title-group']}>
                                         <span className={styles['workflow__card-title']}>
-                                            {t('approval.step')} {step.level}: {step.rankrole_specificperson}
+                                            Level {step.level}: {step.rankrole_specificperson}
                                         </span>
                                         {step.is_ro && (
                                             <span className={styles['workflow__ro-badge']}>
