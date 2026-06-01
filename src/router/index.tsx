@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { RequireAuth, GuestOnly } from '../components/auth/AuthGuard';
 import AppLayout from '../components/layout/AppLayout';
+import GlobalErrorBoundary from '../components/layout/GlobalErrorBoundary';
 import { Loader2 } from 'lucide-react';
 import { flavor } from '../config/features';
 
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
     // ── Guest routes ──
     {
         element: <GuestOnly />,
+        errorElement: <GlobalErrorBoundary />,
         children: [
             { path: '/login', element: <LoginPage /> },
             { path: '/qr-login', element: <QRLoginPage /> },
@@ -81,15 +83,17 @@ export const router = createBrowserRouter([
     },
 
     // ── Unguarded routes (accessible by both guests and authenticated users) ──
-    { path: '/force-change-password', element: <ForceChangePasswordPage /> },
+    { path: '/force-change-password', element: <ForceChangePasswordPage />, errorElement: <GlobalErrorBoundary /> },
 
     // ── Authenticated routes ──
     {
         element: <RequireAuth />,
+        errorElement: <GlobalErrorBoundary />,
         children: [
             { path: '/select', element: <DomainSelectPage /> },
             {
                 element: <AppLayout />,
+                errorElement: <GlobalErrorBoundary />,
                 children: [
                     { index: true, element: <Navigate to="/dashboard" replace /> },
                     { path: '/dashboard', element: <DashboardPage /> },

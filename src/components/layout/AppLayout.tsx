@@ -264,6 +264,8 @@ export default function AppLayout() {
         if (language && i18n.language !== language) {
             i18n.changeLanguage(language);
         }
+        // Set the HTML lang attribute so CSS :lang(my) selector activates the Myanmar font
+        document.documentElement.lang = language || i18n.language || 'en';
     }, []);
 
     const location = useLocation();
@@ -541,6 +543,8 @@ export default function AppLayout() {
         const nextLang = i18n.language === 'en' ? 'my' : 'en';
         i18n.changeLanguage(nextLang);
         setLanguage(nextLang);
+        // Update HTML lang attribute so CSS :lang(my) activates the Myanmar font
+        document.documentElement.lang = nextLang;
     };
 
     const userInitial = user?.name

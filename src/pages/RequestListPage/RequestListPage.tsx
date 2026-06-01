@@ -68,11 +68,6 @@ const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: s
     '/ferry': { filter: 'ferry|hr compliant|hr complaint', label: 'Ferry Request / Complaint', newLabel: 'New Ferry Request', newPath: '/ferry/new' },
 };
 
-/* ── Attendance sub-type filter ── */
-const attendanceTypes = [
-    { key: '1', label: 'Remote' },
-    { key: '2', label: 'Backdate' },
-];
 
 /* ── Type display helpers ── */
 const statusTabs = [
@@ -128,7 +123,7 @@ export default function RequestListPage() {
     const [fromDate, setFromDate] = useState<string>(dateToInput(DEFAULT_FROM_DATE));
     const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
     const [requestType, setRequestType] = useState<string>('');
-    const [attType, setAttType] = useState('1');
+    const [attType] = useState(''); // Fetch all attendance types by default
     const [didInitDates, setDidInitDates] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
@@ -160,12 +155,17 @@ export default function RequestListPage() {
     }, [shiftData, shiftLoading, didInitDates]);
 
     // Fetch request types for the dropdown
+    const EXCLUDED_REQUEST_TYPES = ['ferry', 'hr complaint'];
     const { data: requestTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['requestTypes'],
         queryFn: async () => {
             const res = await apiClient.get(REQUEST_TYPES);
             return res.data?.datalist || [];
         },
+        select: (data) => data.filter((rt) => {
+            const desc = (rt.description || '').toLowerCase();
+            return !EXCLUDED_REQUEST_TYPES.some((ex) => desc.includes(ex));
+        }),
     });
 
     const typeOptions = useMemo(() => {
@@ -211,12 +211,7 @@ export default function RequestListPage() {
                     type: item.type,
                     atttype: item.atttype || item.attendancerequesttype,
                     requesttype: item.atttype || item.type,
-                    requesttypedesc: (() => {
-                        const typeLabel = item.type === '602' ? 'Time Out' : 'Time In';
-                        const atype = String(item.atttype || item.attendancerequesttype || attType || '1');
-                        const attTypeLabel = atype === '2' ? 'Backdate' : 'Remote';
-                        return `${attTypeLabel} ${typeLabel}`;
-                    })(),
+                    requesttypedesc: item.type === '602' ? 'Time Out' : 'Time In',
                     requeststatus: String(item.status || '1'),
                     requestsubtypedesc: item.time || `${item.intime || ''}${item.intime && item.outtime ? ' - ' : ''}${item.outtime || ''}`,
                     intime: item.intime,
@@ -360,7 +355,7 @@ export default function RequestListPage() {
             setExporting(true);
 
             // Map data to Excel format
-            const exportData = (displayRequests as any[]).map((req) => {
+            const exportData = (displayRequests as any[]).map((req, idx) => {
                 let statusText = '—';
                 const st = String(req.requeststatus);
                 if (st === '1') statusText = 'Pending';
@@ -385,7 +380,7 @@ export default function RequestListPage() {
                 const exportObj: any = {
                     'Employee ID': req.eid || '—',
                     'Employee Name': req.name || '—',
-                    'Ref #': req.refno || '—',
+                    'Ref #': `#${idx + 1}`,
                     'Date': displayDate(req.startdate || req.date) || '—',
                     'Type': typeDesc,
                 };
@@ -534,13 +529,13 @@ export default function RequestListPage() {
                     )}
 
                     {isAttendancePage && (
-                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                        <div className={styles['filter-group']} style={{ display: 'flex', alignItems: 'flex-end' }}>
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 loading={exporting}
                                 onClick={() => setShowExportConfirm(true)}
-                                style={{ marginBottom: '2px' }}
+                                style={{ border: '1px solid var(--color-neutral-200)', height: '42px' }}
                             >
                                 {exporting ? <Loader2 className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />}
                                 Export Excel
@@ -557,19 +552,6 @@ export default function RequestListPage() {
                         {isSubtypeView ? `${pathTypeCfg!.label.replace(/ Request$/i, '')} Requests` : 'All Requests'}
                     </h3>
                     <div className={styles['requests-list-card__actions']}>
-                        {isAttendancePage && (
-                            <div className={styles['requests-att-types']}>
-                                {attendanceTypes.map((t) => (
-                                    <button
-                                        key={t.key}
-                                        className={`${styles['requests-att-type-btn']} ${attType === t.key ? styles['requests-att-type-btn--active'] : ''}`}
-                                        onClick={() => setAttType(t.key)}
-                                    >
-                                        {t.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
                         {(!isSubtypeView || isAttendancePage) && (
                             <button
                                 className={`${styles['filter-toggle-btn']} ${filterOpen ? styles['filter-toggle-btn--active'] : ''}`}
@@ -674,7 +656,7 @@ export default function RequestListPage() {
                                         }}>
                                             <td>{req.eid || '—'}</td>
                                             <td>{req.name || '—'}</td>
-                                            <td>{isAttendancePage ? `#${i + 1}` : (req.refno || '—')}</td>
+                                            <td>{`#${i + 1}`}</td>
                                             <td className={styles['requests-table__dates']}>
                                                 {displayDate(req.startdate || req.date) || '—'}
                                                 {req.enddate && req.enddate !== req.startdate ? ` → ${displayDate(req.enddate)}` : ''}

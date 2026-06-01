@@ -12,7 +12,7 @@ export const QR_SUCCESS = 'qr-success';
 export const CHECK_PASSWORD_EXPIRY = 'check/password-expried';
 export const DOMAIN_LIST = `${hxmPrefix}payroll/domainlist`;
 export const PAYROLL_PERIOD = `${hxmPrefix}payroll/payperiod`;
-export const LOCATION_LIST = 'api/checkin/locations/reference';
+export const SAVE_DEVICE_INFO = `${hxmPrefix}payroll/savedeviceinfo`
 
 export const USER_PROFILE = flavor == 'prd' || flavor === 'mpt' ? 'api/employees/extended-profile' : 'api/employees/profile';
 export const USER_PROFILE_UPDATE = 'api/employees/profile/update';
@@ -34,6 +34,7 @@ export const GET_DISTRICT_LIST = 'api/setup/getdistrict';
 export const GET_TOWNSHIP_LIST = 'api/setup/gettownship';
 export const GET_CITY_LIST = 'api/setup/getcity';
 export const GET_WARD_LIST = 'api/setup/getward';
+export const LOCATION_LIST = 'api/checkin/locations/reference';
 
 // ── Request Management ──
 export const REQUEST_TYPES = `${hxmPrefix}request/getrequesttypelist`;

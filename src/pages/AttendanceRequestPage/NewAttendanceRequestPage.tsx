@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
@@ -34,6 +34,7 @@ export default function NewAttendanceRequestPage() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const { userId, user, domain } = useAuthStore();
+    const queryClient = useQueryClient();
     const isEdit = !!id;
     const routerLocation = useLocation();
 
@@ -438,6 +439,8 @@ export default function NewAttendanceRequestPage() {
         },
         onSuccess: () => {
             toast.success(isEdit ? 'Request updated successfully' : t('request.submitSuccess'));
+            queryClient.invalidateQueries({ queryKey: ['requests'] });
+            queryClient.invalidateQueries({ queryKey: ['summaryRequests'] });
             navigate('/attendancerequest');
         },
         onError: (err: unknown) => {
@@ -455,6 +458,8 @@ export default function NewAttendanceRequestPage() {
         },
         onSuccess: () => {
             toast.success('Request deleted successfully');
+            queryClient.invalidateQueries({ queryKey: ['requests'] });
+            queryClient.invalidateQueries({ queryKey: ['summaryRequests'] });
             navigate('/attendancerequest');
         },
         onError: (err: unknown) => {
@@ -511,31 +516,7 @@ export default function NewAttendanceRequestPage() {
                 <div className={styles['new-request__section']}>
                     <h3 className={styles['new-request__section-title']}>Details</h3>
                     <div className={styles['new-request__grid']}>
-                        <div className={styles['new-request__full']} style={{ marginBottom: 'var(--space-2)' }}>
-                            <Select
-                                id="employee"
-                                label="Select Employee"
-                                value={selectedMemberSyskey}
-                                onChange={(e) => setSelectedMemberSyskey(e.target.value)}
-                                options={employeeOptions}
-                                disabled={isViewMode}
-                            />
-                        </div>
 
-                        <div className={styles['new-request__full']}>
-                            <div className={styles['member-info-card']}>
-                                <div className={styles['member-info-row']}>
-                                    <div className={styles['member-info-item']}>
-                                        <span className={styles['member-info-label']}>Employee ID</span>
-                                        <span className={styles['member-info-value']}>{selectedMemberInfo.id}</span>
-                                    </div>
-                                    <div className={styles['member-info-item']}>
-                                        <span className={styles['member-info-label']}>User ID (Email/Phone)</span>
-                                        <span className={styles['member-info-value']}>{selectedMemberInfo.userid}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
                         <div className={styles['new-request__full']} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                             <Select

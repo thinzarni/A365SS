@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -127,6 +127,95 @@ const TYPE_VISUAL: Record<string, { icon: React.FC<{ size?: number }>; color: st
     orgchange: { icon: Building2, color: '#0ea5e9', bgColor: '#e0f2fe' },
     other: { icon: FileText, color: '#64748b', bgColor: '#f1f5f9' },
 };
+
+/* ══════════════════════════════════════════════════════════════
+   TypeCarousel — horizontal scrollable request type picker
+   ══════════════════════════════════════════════════════════════ */
+function TypeCarousel({
+    requestTypes,
+    selectedType,
+    onSelect,
+    styles,
+}: {
+    requestTypes: TypesModel[];
+    selectedType: string;
+    onSelect: (key: string) => void;
+    styles: Record<string, string>;
+}) {
+    const carouselRef = useRef<HTMLDivElement>(null);
+
+    const scroll = (dir: 'left' | 'right') => {
+        const el = carouselRef.current;
+        if (el) el.scrollBy({ left: dir === 'right' ? 260 : -260, behavior: 'smooth' });
+    };
+
+    const btnBase: React.CSSProperties = {
+        width: 28, height: 28, borderRadius: '50%',
+        border: '1px solid var(--color-neutral-200)',
+        background: 'var(--color-neutral-0)',
+        cursor: 'pointer', display: 'flex',
+        alignItems: 'center', justifyContent: 'center',
+        color: 'var(--color-neutral-500)', transition: 'all 0.15s',
+        flexShrink: 0,
+    };
+
+    return (
+        <div className={styles['new-request__section']}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)', paddingBottom: 'var(--space-2)', borderBottom: '1px solid var(--color-neutral-100)' }}>
+                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--color-neutral-800)', margin: 0 }}>Request Type</h3>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                    <button type="button" style={btnBase} onClick={() => scroll('left')}
+                        onMouseEnter={e => { const b = e.currentTarget; b.style.background = 'var(--color-primary-50)'; b.style.borderColor = 'var(--color-primary-300)'; b.style.color = 'var(--color-primary-600)'; }}
+                        onMouseLeave={e => { const b = e.currentTarget; b.style.background = 'var(--color-neutral-0)'; b.style.borderColor = 'var(--color-neutral-200)'; b.style.color = 'var(--color-neutral-500)'; }}
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                    <button type="button" style={btnBase} onClick={() => scroll('right')}
+                        onMouseEnter={e => { const b = e.currentTarget; b.style.background = 'var(--color-primary-50)'; b.style.borderColor = 'var(--color-primary-300)'; b.style.color = 'var(--color-primary-600)'; }}
+                        onMouseLeave={e => { const b = e.currentTarget; b.style.background = 'var(--color-neutral-0)'; b.style.borderColor = 'var(--color-neutral-200)'; b.style.color = 'var(--color-neutral-500)'; }}
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            {/* Carousel */}
+            <div className={styles['new-request__type-carousel-wrap']}>
+                <div ref={carouselRef} className={styles['new-request__type-grid']}>
+                    {requestTypes.length === 0 ? (
+                        Array.from({ length: 7 }).map((_, i) => (
+                            <div key={i} style={{ flex: '0 0 120px', height: '100px', borderRadius: 'var(--radius-xl)', background: 'var(--color-neutral-100)', animation: 'carousel-pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.08}s` }} />
+                        ))
+                    ) : requestTypes.map((rt) => {
+                        const descLower = (rt.description || '').trim().toLowerCase();
+                        const mapped = DESC_TO_KEY[descLower];
+                        const key = mapped || `other_${rt.syskey}`;
+                        const displayKey = mapped || 'other';
+                        const { icon: Icon, color, bgColor } = TYPE_VISUAL[displayKey] || TYPE_VISUAL.other;
+                        const isActive = selectedType === key;
+                        return (
+                            <div
+                                key={rt.syskey}
+                                className={`${styles['new-request__type-card']} ${isActive ? styles['new-request__type-card--active'] : ''}`}
+                                onClick={() => onSelect(key)}
+                                style={isActive ? { borderColor: color, boxShadow: `0 0 0 3px ${color}22` } : {}}
+                            >
+                                <div className={styles['new-request__type-card-icon']} style={{ background: isActive ? color + '22' : bgColor, color }}>
+                                    <Icon size={22} />
+                                </div>
+                                <span className={styles['new-request__type-card-label']} style={isActive ? { color } : {}}>{rt.description}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+                {/* Right fade edge */}
+                <div style={{ position: 'absolute', right: 0, top: 0, bottom: 8, width: 48, background: 'linear-gradient(to right, transparent, var(--color-neutral-0))', pointerEvents: 'none' }} />
+            </div>
+            <style>{`@keyframes carousel-pulse { 0%,100%{opacity:.35} 50%{opacity:.8} }`}</style>
+        </div>
+    );
+}
 
 /* ══════════════════════════════════════════════════════════════
    Component
@@ -285,6 +374,7 @@ export default function NewRequestPage() {
     const [startPeriod, setStartPeriod] = useState('AM');
     const [endPeriod, setEndPeriod] = useState('AM');
     const [duration, setDuration] = useState('1');
+    const [durationLoading, setDurationLoading] = useState(false);
 
     // ── Core fields ──
     const [startDate, setStartDate] = useState(todayStr);
@@ -362,24 +452,30 @@ export default function NewRequestPage() {
         const toApiDate = (d: string) => d.replace(/-/g, '');
 
         const fetchDuration = async () => {
+            setDurationLoading(true);
             try {
-                const res = await apiClient.post(GET_LEAVE_DURATION_POLICY, {
-                    syskey: '',
-                    requesttype: 'leave',
-                    requestsubtype: leaveType,
-                    startdate: toApiDate(startDate),
-                    enddate: toApiDate(endDate || startDate),
-                    starttime: startPeriod,
-                    endtime: endPeriod,
-                    userid: userId || '',
-                    domain: domain || '',
-                });
+                const [res] = await Promise.all([
+                    apiClient.post(GET_LEAVE_DURATION_POLICY, {
+                        syskey: '',
+                        requesttype: 'leave',
+                        requestsubtype: leaveType,
+                        startdate: toApiDate(startDate),
+                        enddate: toApiDate(endDate || startDate),
+                        starttime: startPeriod,
+                        endtime: endPeriod,
+                        userid: userId || '',
+                        domain: domain || '',
+                    }),
+                    new Promise(resolve => setTimeout(resolve, 1500)), // minimum 1.5s loading
+                ]);
                 const dur = res.data?.duration;
                 if (dur !== undefined && dur !== null) {
                     setDuration(String(dur));
                 }
             } catch {
                 // silently ignore — user can type duration manually
+            } finally {
+                setDurationLoading(false);
             }
         };
 
@@ -509,12 +605,17 @@ export default function NewRequestPage() {
     }, [editData, user]);
 
     // ── API Queries for lookups ──
+    const EXCLUDED_REQUEST_TYPES = ['ferry', 'hr complaint'];
     const { data: requestTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['requestTypes'],
         queryFn: async () => {
             const res = await apiClient.get(REQUEST_TYPES);
             return res.data?.datalist || [];
         },
+        select: (data) => data.filter((rt) => {
+            const desc = (rt.description || '').toLowerCase();
+            return !EXCLUDED_REQUEST_TYPES.some((ex) => desc.includes(ex));
+        }),
     });
 
     // ── Organization Change Lookups ──
@@ -661,11 +762,14 @@ export default function NewRequestPage() {
     const isBenefitBonusClaimType = ['benefit allowance', 'bonus allowance'].includes(claimTypeDesc.trim().toLowerCase());
 
     // Reset sub-fields when type changes; auto-default subType for ALL types
+    // In edit mode, skip clearing leave-specific fields — they are already restored from editData
     useEffect(() => {
+        if (!isEdit) {
+            setLeaveType('');
+            setStartPeriod('AM');
+            setEndPeriod('AM');
+        }
         setSubType('');
-        setLeaveType('');
-        setStartPeriod('AM');
-        setEndPeriod('AM');
         if (selectedType && requestTypes.length > 0) {
             const match = requestTypes.find((t) => {
                 if (selectedType.startsWith('other_')) {
@@ -677,12 +781,8 @@ export default function NewRequestPage() {
         }
     }, [selectedType, requestTypes]);
 
-    // Auto-calculate leave duration when dates or periods change
-    useEffect(() => {
-        if (selectedType === 'leave') {
-            setDuration(calcLeaveDuration(startDate, endDate, startPeriod, endPeriod));
-        }
-    }, [selectedType, startDate, endDate, startPeriod, endPeriod]);
+    // NOTE: Leave duration is fully managed by the getleavedurationpolicy API above.
+    // The local calcLeaveDuration fallback was removed to prevent it from overwriting the API result.
 
     // ── Central auto-sync: startDate → endDate (all types that use both date fields) ──
     // Excludes: travel (departure/arrival), leave (user controls), general/purchase/other (single date)
@@ -1301,38 +1401,18 @@ export default function NewRequestPage() {
             <form className={styles['new-request__card']} onSubmit={handleSubmit}>
                 {/* ═════ 1. Request Type Selector (hidden when pre-selected) ═════ */}
                 {!presetType && (
-                    <div className={styles['new-request__section']}>
-                        <h3 className={styles['new-request__section-title']}>Request Type</h3>
-                        <div className={styles['new-request__type-grid']}>
-                            {requestTypes.length === 0 ? (
-                                <p style={{ color: 'var(--color-neutral-400)', fontSize: 'var(--text-sm)' }}>Loading…</p>
-                            ) : requestTypes.map((rt) => {
-                                const descLower = (rt.description || '').trim().toLowerCase();
-                                const mapped = DESC_TO_KEY[descLower];
-                                const key = mapped || `other_${rt.syskey}`;
-                                const displayKey = mapped || 'other';
-                                const { icon: Icon, color, bgColor } = TYPE_VISUAL[displayKey] || TYPE_VISUAL.other;
-                                return (
-                                    <div
-                                        key={rt.syskey}
-                                        className={`${styles['new-request__type-card']} ${selectedType === key ? styles['new-request__type-card--active'] : ''}`}
-                                        onClick={() => {
-                                            if (key === 'attendancerequest') {
-                                                navigate('/attendancerequest/new');
-                                            } else {
-                                                setSelectedType(key);
-                                            }
-                                        }}
-                                    >
-                                        <div className={styles['new-request__type-card-icon']} style={{ background: bgColor, color }}>
-                                            <Icon size={22} />
-                                        </div>
-                                        <span className={styles['new-request__type-card-label']}>{rt.description}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
+                    <TypeCarousel
+                        requestTypes={requestTypes}
+                        selectedType={selectedType}
+                        styles={styles}
+                        onSelect={(key) => {
+                            if (key === 'attendancerequest') {
+                                navigate('/attendancerequest/new');
+                            } else {
+                                setSelectedType(key);
+                            }
+                        }}
+                    />
                 )}
 
                 {selectedType && (
@@ -1777,16 +1857,60 @@ export default function NewRequestPage() {
                                         onChange={(e) => setEndPeriod(e.target.value)}
                                         options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
                                     />
-                                    <div className={styles['new-request__full']}>
-                                        <Input
-                                            id="duration"
-                                            label={t('request.duration')}
-                                            type="text"
-                                            inputMode="decimal"
-                                            value={duration}
-                                            onChange={(e) => setDuration(e.target.value)}
-                                            placeholder="e.g. 1.5"
-                                        />
+                                    <div style={{ position: 'relative' }}>
+                                        <style>{`
+                                            @keyframes duration-shimmer {
+                                                0% { background-position: -200% 0; }
+                                                100% { background-position: 200% 0; }
+                                            }
+                                        `}</style>
+
+                                        {durationLoading ? (
+                                            <div>
+                                                <label style={{
+                                                    display: 'block',
+                                                    fontSize: '12px',
+                                                    fontWeight: 600,
+                                                    color: 'var(--color-neutral-500)',
+                                                    marginBottom: 6,
+                                                    letterSpacing: '0.03em',
+                                                }}>
+                                                    {t('request.duration')}
+                                                </label>
+                                                <div style={{
+                                                    height: 42,
+                                                    borderRadius: 8,
+                                                    border: '1.5px solid var(--color-neutral-200)',
+                                                    background: 'linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)',
+                                                    backgroundSize: '200% 100%',
+                                                    animation: 'duration-shimmer 1.2s ease-in-out infinite',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    paddingLeft: 12,
+                                                    gap: 8,
+                                                }}>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                        stroke="var(--color-primary-400)" strokeWidth="2.5" strokeLinecap="round"
+                                                        style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
+                                                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                                                    </svg>
+                                                    <span style={{ fontSize: '13px', color: 'var(--color-neutral-400)', fontStyle: 'italic' }}>
+                                                        Calculating…
+                                                    </span>
+                                                </div>
+                                                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                                            </div>
+                                        ) : (
+                                            <Input
+                                                id="duration"
+                                                label={t('request.duration')}
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={duration}
+                                                onChange={(e) => setDuration(e.target.value)}
+                                                placeholder="e.g. 1.5"
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             </div>

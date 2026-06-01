@@ -11,7 +11,7 @@ import { useMsal } from '@azure/msal-react';
 import { InteractionStatus } from '@azure/msal-browser';
 import { loginRequest } from '../../config/msal-config';
 import { appConfig } from '../../config/app-config';
-import { isMsalSupported } from '../../App';
+// import { isMsalSupported } from '../../App';
 import styles from './LoginPage.module.css';
 
 type AuthMode = 'password' | 'otp';
@@ -19,7 +19,7 @@ type AuthMode = 'password' | 'otp';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export default function LoginPage() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const navigate = useNavigate();
     const { instance, inProgress } = useMsal();
     const { login, setUser, setLanguage, language, isAuthenticated } = useAuthStore();
@@ -336,7 +336,12 @@ export default function LoginPage() {
                         <button
                             type="button"
                             className={styles.login__lang_btn}
-                            onClick={() => setLanguage(language === 'en' ? 'my' : 'en')}
+                            onClick={() => {
+                                const next = language === 'en' ? 'my' : 'en';
+                                setLanguage(next);
+                                i18n.changeLanguage(next);
+                                document.documentElement.lang = next;
+                            }}
                         >
                             <Globe size={14} style={{ marginRight: "5px" }} />
                             {language === 'en' ? 'English' : 'Myanmar'}
@@ -433,9 +438,12 @@ export default function LoginPage() {
                     <div className={styles.login__separator}>
                         <span>OR</span>
                     </div>
-
+                    
+                    
                     <div className={styles.login__secondary_actions}>
-                        <Button
+                        {
+                        appConfig.environment != 'mpt' && appConfig.environment != 'prod'
+                    && <Button
                             type="button"
                             variant="ghost"
                             className={styles.login__secondary_button}
@@ -444,8 +452,10 @@ export default function LoginPage() {
                             <QrCode size={18} className="mr-2" />
                             {t('auth.qrSignIn')}
                         </Button>
+                    }
+                        
 
-                        {isMsalSupported && (
+                        {/* {isMsalSupported && ( */}
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -456,7 +466,7 @@ export default function LoginPage() {
                                 <Monitor size={18} className="mr-2" />
                                 {t('auth.azureSignIn')}
                             </Button>
-                        )}
+                        {/* )} */}
                     </div>
 
                     <div className={styles.login__version} style={{ textAlign: 'center', fontSize: '13px', color: '#64748b', marginTop: '24px' }}>
