@@ -20,6 +20,11 @@ import * as XLSX from 'xlsx';
 import styles from './SeparationAttendanceAuthorizePage.module.css';
 
 interface SeparationRecord {
+    separationtype: string;
+    descriptionname: string;
+    resignreasonname: string;
+    isnoticeperiod: boolean;
+    eligibleforrehire: string;
     syskey: string;
     employeeid: string;
     employeename: string;
@@ -42,6 +47,19 @@ interface MissingAttendance {
 function formatDate(raw?: string): string {
     if (!raw || raw.length < 8) return raw || '';
     return `${raw.slice(6, 8)}/${raw.slice(4, 6)}/${raw.slice(0, 4)}`;
+}
+
+// function getYesNo(val: any) {
+//     if (val === true || val === 1 || val === '1' || (typeof val === 'string' && val.toLowerCase() === 'yes')) return 'Yes';
+//     if (val === false || val === 0 || val === '0' || (typeof val === 'string' && val.toLowerCase() === 'no')) return 'No';
+//     return val || '-';
+// }
+
+function getYesNo(val: boolean | null | undefined) {
+console.log(val);
+  if (val === true) return "Yes";
+  if (val === false) return "No";
+  return "-";
 }
 
 export default function SeparationAttendanceAuthorizePage() {
@@ -144,16 +162,21 @@ export default function SeparationAttendanceAuthorizePage() {
             }
 
             const exportData = allRecords.map(rec => ({
-                'Employee ID': rec.employeeid,
-                'Employee Name': rec.employeename,
-                'MPT Position': rec.positionname || '',
-                'Job Position': rec.jopositionname || '',
-                'Office': rec.officename || '',
-                'Division': rec.divisionname || '',
-                'Department': rec.departmentname || '',
-                'Team': rec.teamname || '',
-                'Resign Date': formatDate(rec.resigndate),
-                'End Date': formatDate(rec.enddate),
+                'Resign Employee ID': rec.employeeid,
+                'Resign Employee Name': rec.employeename,
+                'Resign Employee Position (MPT)': rec.positionname || '',
+                'Resign Employee Position (Job)': rec.jopositionname || '',
+                'Resign Employee Division': rec.divisionname || '',
+                'Resign Employee Department': rec.departmentname || '',
+                'Resign Employee Team': rec.teamname || '',
+                'Resign Employee Office': rec.officename || '',
+                'Type': rec.separationtype || '',
+                'Descriptions': rec.descriptionname || '',
+                'Resignation Reason': rec.resignreasonname || '',
+                'Actual Last Date': formatDate(rec.resigndate),
+                'Separation Date': formatDate(rec.enddate),
+                'Notice Period': getYesNo(rec.isnoticeperiod),
+                'Eligible For Rehire': rec.eligibleforrehire || '',
                 'Status': rec.attendanceauthorize === 2
                     ? t('separation.statusApproved')
                     : rec.attendanceauthorize === 3
@@ -255,12 +278,17 @@ export default function SeparationAttendanceAuthorizePage() {
                                         <th>{t('separation.colEmployeeName')}</th>
                                         <th>{t('separation.colMptPosition')}</th>
                                         <th>{t('separation.colJobPosition')}</th>
-                                        <th>{t('separation.colOffice')}</th>
                                         <th>{t('separation.colDivision')}</th>
                                         <th>{t('separation.colDepartment')}</th>
                                         <th>{t('separation.colTeam')}</th>
+                                        <th>{t('separation.colOffice')}</th>
+                                        <th>{t('separation.colType')}</th>
+                                        <th>{t('separation.colDesc')}</th>
+                                        <th>{t('separation.colResignationReason')}</th>
                                         <th>{t('separation.colResignDate')}</th>
                                         <th>{t('separation.colEndDate')}</th>
+                                        <th>{t('separation.colNoticePeriod')}</th>
+                                        <th>{t('separation.colEligibleForRehire')}</th>
                                         <th>{t('separation.colAttendanceAuthorize')}</th>
                                     </tr>
                                 </thead>
@@ -271,12 +299,17 @@ export default function SeparationAttendanceAuthorizePage() {
                                             <td className={styles.empName}>{rec.employeename}</td>
                                             <td>{rec.positionname || ''}</td>
                                             <td>{rec.jopositionname || ''}</td>
-                                            <td>{rec.officename || ''}</td>
                                             <td>{rec.divisionname || ''}</td>
                                             <td>{rec.departmentname || ''}</td>
                                             <td>{rec.teamname || ''}</td>
+                                            <td>{rec.officename || ''}</td>
+                                            <td>{rec.separationtype || ''}</td>
+                                            <td>{rec.descriptionname || ''}</td>
+                                            <td>{rec.resignreasonname || ''}</td>
                                             <td>{formatDate(rec.resigndate)}</td>
                                             <td>{formatDate(rec.enddate)}</td>
+                                            <td>{getYesNo(rec.isnoticeperiod)}</td>
+                                            <td>{rec.eligibleforrehire}</td>
                                             <td>
                                                 <div className={styles.actionContainer}>
                                                     {(rec.attendanceauthorize === 1 || rec.attendanceauthorize === 0 || !rec.attendanceauthorize) ? (
