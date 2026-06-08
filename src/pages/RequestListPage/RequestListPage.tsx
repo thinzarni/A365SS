@@ -64,6 +64,8 @@ const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: s
     '/cashadvance': { filter: 'cash advance', label: 'Cash Advance', newLabel: 'New Cash Advance', newPath: '/cashadvance/new' },
     '/offinlieu': { filter: 'off in lieu', label: 'Off in Lieu', newLabel: 'New Off in Lieu', newPath: '/offinlieu/new' },
     '/attendancerequest': { filter: 'attendance', label: 'Attendance Request', newLabel: 'New Attendance Request', newPath: '/attendancerequest/new' },
+    // ── Ferry Service (company bus/ferry) ──
+    '/ferry': { filter: 'ferry|hr compliant|hr complaint', label: 'Ferry Request / Complaint', newLabel: 'New Ferry Request', newPath: '/ferry/new' },
 };
 
 
@@ -85,6 +87,7 @@ function getTypeVariant(typedesc: string): string {
     if (lower.includes('travel')) return 'travel';
     if (lower.includes('claim') || lower.includes('cash') || lower.includes('advance')) return 'claim';
     if (lower.includes('attendance') || lower.includes('time in') || lower.includes('time out')) return 'attendance';
+    if (lower.includes('ferry') || lower.includes('hr compliant') || lower.includes('hr complaint')) return 'ferry';
     return 'default';
 }
 
@@ -98,6 +101,7 @@ function getTypeIcon(variant: string) {
         case 'travel': return Plane;
         case 'claim': return Banknote;
         case 'attendance': return Clock;
+        case 'ferry': return Car;
         default: return FileText;
     }
 }
@@ -234,9 +238,10 @@ export default function RequestListPage() {
                 eid: item.employeeid || item.employee_id || item.eid || '',
             }));
             if (pathTypeCfg) {
+                const filterRx = new RegExp(pathTypeCfg.filter, 'i');
                 return all.filter(r => {
                     const desc = ((r as any).requesttypedesc || (r as any).requesttype || '').toLowerCase();
-                    return desc.includes(pathTypeCfg.filter);
+                    return filterRx.test(desc);
                 });
             }
             return all;
@@ -319,9 +324,10 @@ export default function RequestListPage() {
                 eid: item.employeeid || item.employee_id || item.eid || '',
             }));
             if (pathTypeCfg) {
+                const filterRx = new RegExp(pathTypeCfg.filter, 'i');
                 return all.filter(r => {
                     const desc = ((r as any).requesttypedesc || (r as any).requesttype || '').toLowerCase();
-                    return desc.includes(pathTypeCfg.filter);
+                    return filterRx.test(desc);
                 });
             }
             return all;
@@ -643,7 +649,12 @@ export default function RequestListPage() {
                                             if (isAttendancePage) {
                                                 navigate(`/attendancerequest/${req.syskey}`, { state: { item: req, refIndex: i + 1 } });
                                             } else {
-                                                navigate(`/requests/${req.syskey}`);
+                                                const d = typeDesc.toLowerCase();
+                                                if (d.includes('ferry') || d.includes('hr complaint') || d.includes('hrcomplaint')) {
+                                                    navigate(`/ferry_request/${req.syskey}`, { state: { from: '/requests' } });
+                                                } else {
+                                                    navigate(`/requests/${req.syskey}`, { state: { from: '/requests' } });
+                                                }
                                             }
                                         }}>
                                             <td>{req.eid || '—'}</td>

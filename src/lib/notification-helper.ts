@@ -119,6 +119,17 @@ export function getNotiRoute(
             if (notiDirection === 'request') return `/requests/${requestSyskey}`;
             return `/approvals/${requestSyskey}`;
 
+        // ── Ferry service (company ferry registration / change / complaint) ──
+        case 'ferry registration':
+        case 'ferry change':
+        case 'ferry user complaint':
+        case 'user compliant':
+        case 'hr compliant':
+        case 'ferry hr complaint':
+            if (notiDirection === 'request') return `/ferry/${requestSyskey}`;
+            return `/approvals/${requestSyskey}`;
+
+
         default:
             return null;
     }

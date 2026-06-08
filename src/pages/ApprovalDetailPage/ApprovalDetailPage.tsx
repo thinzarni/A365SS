@@ -17,6 +17,7 @@ import {
     XCircle,
     Users,
     Paperclip,
+    Star,
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -36,7 +37,9 @@ import {
     VEHICLE_USE_LIST,
     PRODUCT_LIST,
     PROJECT_LIST,
+    GET_REVIEW_PROCESS_STATUS,
 } from '../../config/api-routes';
+import { useAuthStore } from '../../stores/auth-store';
 import styles from './ApprovalDetailPage.module.css';
 
 /** Convert "yyyymmdd" → "dd/mm/yyyy" for display */
@@ -97,22 +100,21 @@ function Field({ label, value }: { label: string; value: string | number | undef
 
 /* ══════════════════════════════════════════════════════════════ */
 
-const CLAIM_PROCESS_STATUS_OPTIONS = [
-    { code: '', description: '-' },
-    { code: '1', description: 'Review By EB Team' },
-    { code: '2', description: 'Review By Third Party Assessor' },
-    { code: '3', description: 'Completed' },
-];
+
 
 export default function ApprovalDetailPage() {
     const { id: syskey } = useParams();
     const { t } = useTranslation();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const { domain } = useAuthStore();
 
     const [comment, setComment] = useState('');
     const [confirmedAmount, setConfirmedAmount] = useState('');
     const [processStatus, setProcessStatus] = useState<string>('');
+    const [rating, setRating] = useState<number>(0);
+    const [hoverRating, setHoverRating] = useState<number>(0);
+    const [feedback, setFeedback] = useState<string>('');
 
     // Data fetching setup
     const { data: detail, isLoading } = useQuery<ApprovalDetailModel>({
@@ -223,11 +225,26 @@ export default function ApprovalDetailPage() {
         staleTime: 5 * 60 * 1000,
     });
 
-    // Sync processStatus from loaded data
+    // Process status options (for claim with max amount)
+    const { data: reviewProcessStatusOptions = [] } = useQuery<{ syskey: string; description: string; code: string }[]>({
+        queryKey: ['reviewProcessStatusOptions'],
+        queryFn: async () => {
+            const res = await apiClient.get(GET_REVIEW_PROCESS_STATUS, { params: { domain } });
+            return res.data?.datalist || [];
+        },
+        enabled: !!syskey,
+        staleTime: 10 * 60 * 1000,
+    });
+
+    // Sync state from loaded data
     useEffect(() => {
         if (detail) {
             const dl = detail.datalist as Record<string, unknown>;
             setProcessStatus(String(dl?.processstatus || dl?.claimProcessStatus || ''));
+            setComment(String((dl as any)?.comment || ''));
+            setConfirmedAmount(String((dl as any)?.confirmed_amount ?? ''));
+            setRating(Number((dl as any)?.claim_rating) || 0);
+            setFeedback(String((dl as any)?.claim_feedbacks || ''));
         }
     }, [detail]);
 
@@ -250,6 +267,8 @@ export default function ApprovalDetailPage() {
                 confirmed_amount: parseFloat(confirmedAmount),
                 selectedApprovers: approverList || [],
                 processstatus: processStatus,
+                rating,
+                feedback,
             };
             const res = await apiClient.post(SAVE_APPROVAL, payload);
             return res.data;
@@ -293,9 +312,19 @@ export default function ApprovalDetailPage() {
                 toast.error('Confirmed amount is required for approval.');
                 return;
             }
-        } else if (status === 'reject') {
+            if (isClaimWithMaxAmount && Number(confirmedAmount) <= 0) {
+                toast.error('Confirmed amount must be greater than zero.');
+                return;
+            }
+            if (isClaimWithMaxAmount && (!comment || comment.trim() === '')) {
+                toast.error('Comment is required for approval.');
+                return;
+            }
+        }
+
+        if (status === 'reject') {
             if (!comment || comment.trim() === '') {
-                toast.error(t('approval.commentRequired', 'Comment is required for rejection.'));
+                toast.error('Comment is required for rejection.');
                 return;
             }
         }
@@ -364,10 +393,13 @@ export default function ApprovalDetailPage() {
     const isClaim = requestTypeString.includes('claim') || requestTypeString.includes('advance');
     const hasMaxAmount = isClaim && d.max_amount !== undefined && Number(d.max_amount) !== 0;
 
+    // Derive the syskey of the "Completed" option from the fetched list
     const isClaimWithMax = isClaim && hasMaxAmount;
-    const canApproveReject = isClaimWithMax
-        ? (!isPending || processStatus === '3' || processStatus.trim() === '')
-        : true;
+
+    // Code of the currently selected process status (used to gate Approve/Reject buttons)
+    const selectedProcessStatusCode = reviewProcessStatusOptions.find(o => o.syskey === processStatus)?.code ?? '';
+    // Show Approve/Reject only when process status code is blank/space or "Completed"
+    const allowActionByProcessStatus = !isClaimWithMax || selectedProcessStatusCode.trim() === '' || selectedProcessStatusCode === 'Completed';
 
     /* ═══════════════════════════ Render ═════════════════════════ */
 
@@ -423,9 +455,9 @@ export default function ApprovalDetailPage() {
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>Date &amp; Time</h4>
                             <div className={styles['approval-detail__grid']}>
-                                <Field label="Start Date" value={displayDate(d.startdate || d.date || d.selectday)} />
+                                <Field label="Date" value={displayDate(d.startdate || d.date || d.selectday)} />
                                 {!requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
-                                <Field label="Start Time" value={String(d.starttime || d.time || '')} />
+
                                 {!requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
                                 {!requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
                             </div>
@@ -558,6 +590,15 @@ export default function ApprovalDetailPage() {
                                     <div className={styles['approval-detail__grid'] ?? ''} style={{ gridTemplateColumns: '1fr 1fr', marginTop: 12 }}>
                                         <Field label="Remaining Balance" value={d.remaining_balance !== undefined ? Number(d.remaining_balance).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : undefined} />
                                         <Field label="Max Amount" value={d.max_amount !== undefined ? Number(d.max_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : undefined} />
+                                    </div>
+                                )}
+                                {/* Process Status — read-only display in body */}
+                                {hasMaxAmount && processStatus && (
+                                    <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr', marginTop: 12 }}>
+                                        <Field
+                                            label="Process Status"
+                                            value={reviewProcessStatusOptions.find(o => o.syskey === processStatus)?.description || processStatus}
+                                        />
                                     </div>
                                 )}
                             </div>
@@ -778,62 +819,49 @@ export default function ApprovalDetailPage() {
                                     >
                                         Confirmed Amount
                                     </label>
-                                    {isApproved ? (
-                                        <div style={{
+                                    <input
+                                        id="confirmedAmount"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        required
+                                        disabled={isApproved}
+                                        value={confirmedAmount}
+                                        onChange={(e) => setConfirmedAmount(e.target.value)}
+                                        placeholder="Enter confirmed amount… *"
+                                        style={{
                                             width: '100%',
                                             padding: '8px 12px',
                                             fontSize: '14px',
                                             border: '1.5px solid var(--color-neutral-200)',
                                             borderRadius: 8,
-                                            background: 'var(--color-neutral-50, #f8fafc)',
-                                            color: 'var(--color-neutral-900)',
+                                            outline: 'none',
+                                            color: isApproved ? 'var(--color-neutral-400)' : 'var(--color-neutral-900)',
+                                            background: isApproved ? 'var(--color-neutral-50, #f8fafc)' : 'var(--color-neutral-0, #fff)',
                                             boxSizing: 'border-box',
-                                            cursor: 'not-allowed'
-                                        }}>
-                                            {d.confirmed_amount != null
-                                                ? Number(d.confirmed_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-                                                : (confirmedAmount || '—')}
-                                        </div>
-                                    ) : (
-                                        <input
-                                            id="confirmedAmount"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={confirmedAmount}
-                                            onChange={(e) => setConfirmedAmount(e.target.value)}
-                                            placeholder="Enter confirmed amount…"
-                                            style={{
-                                                width: '100%',
-                                                padding: '8px 12px',
-                                                fontSize: '14px',
-                                                border: '1.5px solid var(--color-neutral-200)',
-                                                borderRadius: 8,
-                                                outline: 'none',
-                                                color: 'var(--color-neutral-900)',
-                                                background: 'var(--color-neutral-0, #fff)',
-                                                boxSizing: 'border-box',
-                                                transition: 'border-color 0.2s',
-                                            }}
-                                            onFocus={(e) => (e.target.style.borderColor = 'var(--color-primary-500)')}
-                                            onBlur={(e) => (e.target.style.borderColor = 'var(--color-neutral-200)')}
-                                        />
-                                    )}
+                                            transition: 'border-color 0.2s',
+                                            cursor: isApproved ? 'not-allowed' : 'text',
+                                        }}
+                                        onFocus={(e) => !isApproved && (e.target.style.borderColor = 'var(--color-primary-500)')}
+                                        onBlur={(e) => (e.target.style.borderColor = 'var(--color-neutral-200)')}
+                                    />
                                 </div>
                             )}
 
-                            {isPending && (
+                            {/* Comment — editable for pending; also editable for claims when approved/rejected */}
+                            {(isPending || (isClaim && (isApproved || isRejected))) && (
                                 <Textarea
                                     id="approvalComment"
                                     label={t('approval.comment')}
                                     value={comment}
                                     onChange={(e) => setComment(e.target.value)}
-                                    placeholder="Add your comment (required for rejection)…"
+                                    placeholder="Add your comment…"
                                     rows={3}
                                 />
                             )}
 
-                            {isPending && hasMaxAmount && (
+
+                            {(isPending || isRejected) && hasMaxAmount && (
                                 <div style={{ marginTop: 12 }}>
                                     <label
                                         style={{
@@ -850,41 +878,183 @@ export default function ApprovalDetailPage() {
                                         <select
                                             value={processStatus}
                                             onChange={(e) => setProcessStatus(e.target.value)}
-                                            disabled={!isPending || processStatusMutation.isPending}
+                                            disabled={processStatusMutation.isPending}
                                             style={{
                                                 flex: 1,
                                                 padding: '8px 12px',
                                                 fontSize: '14px',
                                                 border: '1.5px solid var(--color-neutral-200)',
                                                 borderRadius: 8,
-                                                background: !isPending ? 'var(--color-neutral-50)' : 'var(--color-neutral-0, #fff)',
+                                                background: 'var(--color-neutral-0, #fff)',
                                                 color: 'var(--color-neutral-900)',
-                                                cursor: !isPending ? 'not-allowed' : 'pointer',
+                                                cursor: 'pointer',
                                                 outline: 'none',
                                                 transition: 'border-color 0.2s',
                                                 boxSizing: 'border-box',
                                                 height: 40,
                                             }}
                                         >
-                                            {CLAIM_PROCESS_STATUS_OPTIONS.map(opt => (
-                                                <option key={opt.code} value={opt.code}>{opt.description}</option>
+                                            <option value="">-</option>
+                                            {reviewProcessStatusOptions.map(opt => (
+                                                <option key={opt.syskey} value={opt.syskey}>{opt.description}</option>
                                             ))}
                                         </select>
                                         <Button
                                             variant="primary"
                                             onClick={() => processStatusMutation.mutate(processStatus)}
                                             loading={processStatusMutation.isPending}
-                                            disabled={!isPending}
                                         >
                                             Update
                                         </Button>
                                     </div>
                                 </div>
                             )}
+
+                            {/* Read-only process status for approved claim */}
+                            {!isPending && isApproved && hasMaxAmount && (
+                                <div style={{ marginTop: 12 }}>
+                                    <label
+                                        style={{
+                                            display: 'block',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: 'var(--color-neutral-700)',
+                                            marginBottom: 6,
+                                        }}
+                                    >
+                                        Process Status
+                                    </label>
+                                    <div style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        fontSize: '14px',
+                                        border: '1.5px solid var(--color-neutral-200)',
+                                        borderRadius: 8,
+                                        background: 'var(--color-neutral-50, #f8fafc)',
+                                        color: 'var(--color-neutral-900)',
+                                        boxSizing: 'border-box',
+                                        cursor: 'not-allowed',
+                                        height: 40,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                    }}>
+                                        {reviewProcessStatusOptions.find(opt => opt.syskey === processStatus)?.description || '—'}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── User Feedbacks ── */}
+                            {(isPending || isApproved || isRejected) && (() => {
+                                const isDisabled = isApproved || isRejected;
+                                return (
+                                    <div style={{
+                                        marginTop: 18,
+                                        paddingTop: 16,
+                                        borderTop: '1px solid var(--color-neutral-100)',
+                                    }}>
+                                        {/* Section title */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                                            <Star size={14} style={{ color: '#f59e0b' }} />
+                                            <span style={{
+                                                fontSize: '12px',
+                                                fontWeight: 700,
+                                                color: 'var(--color-neutral-500)',
+                                                letterSpacing: '0.08em',
+                                                textTransform: 'uppercase',
+                                            }}>
+                                                Employee Feedback
+                                            </span>
+                                        </div>
+
+                                        {/* Card */}
+                                        <div style={{
+                                            background: 'var(--color-neutral-50, #f8fafc)',
+                                            border: '1px solid var(--color-neutral-100, #f1f5f9)',
+                                            borderRadius: 12,
+                                            padding: '14px 16px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: 10,
+                                        }}>
+                                            {/* Stars row */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <div style={{ display: 'flex', gap: 3 }}>
+                                                    {[1, 2, 3, 4, 5].map((star) => (
+                                                        <span
+                                                            key={star}
+                                                            onClick={() => !isDisabled && setRating(star)}
+                                                            onMouseEnter={() => !isDisabled && setHoverRating(star)}
+                                                            onMouseLeave={() => !isDisabled && setHoverRating(0)}
+                                                            style={{
+                                                                fontSize: 26,
+                                                                cursor: isDisabled ? 'default' : 'pointer',
+                                                                color: star <= (hoverRating || rating) ? '#f59e0b' : '#e2e8f0',
+                                                                transition: 'color 0.15s, transform 0.15s',
+                                                                transform: !isDisabled && star <= (hoverRating || rating) ? 'scale(1.2)' : 'scale(1)',
+                                                                display: 'inline-block',
+                                                                lineHeight: 1,
+                                                                userSelect: 'none',
+                                                            }}
+                                                        >
+                                                            ★
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <span style={{
+                                                    fontSize: '14px',
+                                                    fontWeight: 700,
+                                                    color: rating > 0 ? '#f59e0b' : 'var(--color-neutral-300)',
+                                                    letterSpacing: '0.02em',
+                                                    marginLeft: 2,
+                                                }}>
+                                                    {rating > 0 ? `${rating.toFixed(1)} / 5.0` : '— / 5.0'}
+                                                </span>
+                                            </div>
+
+                                            {/* Feedback text — read-only display */}
+                                            {feedback ? (
+                                                <p style={{
+                                                    margin: 0,
+                                                    fontSize: '13px',
+                                                    color: 'var(--color-neutral-600)',
+                                                    lineHeight: 1.6,
+                                                    fontStyle: 'italic',
+                                                    borderLeft: '3px solid #f59e0b',
+                                                    paddingLeft: 10,
+                                                }}>
+                                                    {feedback}
+                                                </p>
+                                            ) : !isDisabled ? (
+                                                <input
+                                                    id="approvalFeedback"
+                                                    type="text"
+                                                    value={feedback}
+                                                    onChange={(e) => setFeedback(e.target.value)}
+                                                    placeholder="Add your feedback…"
+                                                    style={{
+                                                        border: 'none',
+                                                        borderBottom: '1px dashed var(--color-neutral-200)',
+                                                        background: 'transparent',
+                                                        fontSize: '13px',
+                                                        color: 'var(--color-neutral-700)',
+                                                        outline: 'none',
+                                                        padding: '4px 0',
+                                                        width: '100%',
+                                                    }}
+                                                />
+                                            ) : (
+                                                <span style={{ fontSize: '13px', color: 'var(--color-neutral-300)', fontStyle: 'italic' }}>
+                                                    No feedback provided.
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         <div className={styles['approval-detail__action-row']}>
-                            {canApproveReject && (isPending || isApproved) && (
+                            {(isPending || isApproved || isRejected) && allowActionByProcessStatus && (
                                 <Button
                                     variant="success"
                                     onClick={() => handleAction('approve')}
@@ -896,7 +1066,7 @@ export default function ApprovalDetailPage() {
                                 </Button>
                             )}
 
-                            {canApproveReject && (isPending || isRejected) && (
+                            {(isPending || isApproved || isRejected) && allowActionByProcessStatus && (
                                 <Button
                                     variant="danger"
                                     onClick={() => handleAction('reject')}

@@ -42,6 +42,7 @@ import {
     CalendarRange,
     LogIn,
     Banknote,
+    Car,
 } from 'lucide-react';
 
 import { useAuthStore } from '../../stores/auth-store';
@@ -112,6 +113,8 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/socialpost': Globe,
     '/profile': Contact,
     '/payslip/list': Banknote,
+    // Ferry Service
+    '/ferry': Car,
 };
 
 // ── Router → i18n translation key mapping ──
@@ -153,6 +156,7 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/rulesandreg': 'nav.rulesAndReg',
     '/objectdetection': 'nav.objectDetection',
     '/payslip/list': 'nav.payslip',
+    // Ferry Service — use API name directly (no i18n key needed, falls through to item.name)
 };
 
 // Fallback: shown when API hasn't loaded yet

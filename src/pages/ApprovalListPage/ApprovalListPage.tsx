@@ -344,7 +344,14 @@ export default function ApprovalListPage() {
                     {filteredApprovals.map((req, i) => {
                         const { Icon, bg, color } = getTypeVisual(req);
                         const reqName = req.name || req.eid || 'Employee';
-                        const typeDesc = req.requesttypedesc || req.requesttype || '';
+                        const typeDescRaw = req.requesttypedesc || req.requesttype || '';
+                        let typeDesc = typeDescRaw;
+                        const tDescLow = typeDescRaw.toLowerCase().replace(/\s+/g, '');
+                        if (tDescLow === 'ferrychange') typeDesc = 'Ferry Change';
+                        else if (tDescLow === 'ferryregistration' || tDescLow === 'ferryregisteration') typeDesc = 'Ferry Registeration';
+                        else if (tDescLow === 'ferryusercomplaint' || tDescLow === 'usercomplaint') typeDesc = 'Ferry User Complaint';
+                        else if (tDescLow === 'hrcomplaint' || tDescLow === 'ferryhrcomplaint') typeDesc = 'HR Complaint';
+
                         const subTypeDesc = req.requestsubtypedesc || '';
 
                         return (
@@ -352,10 +359,19 @@ export default function ApprovalListPage() {
                                 key={req.syskey || i}
                                 className={`${styles['approval-page__card']} ${selectedKeys.has(String(req.syskey)) ? styles['approval-page__card--selected'] : ''}`}
                                 style={{ animationDelay: `${i * 40}ms` }}
-                                onClick={() => navigate(
-                                    `/approvals/${req.syskey}`,
-                                    { state: { item: req } }
-                                )}
+                                onClick={() => {
+                                    const tStr = String(req.requesttype || '').toLowerCase();
+                                    const dStr = String(req.requesttypedesc || '').toLowerCase();
+                                    const isFerry = tStr.includes('ferry') || dStr.includes('ferry') || 
+                                                    tStr.includes('hr complaint') || dStr.includes('hr complaint') ||
+                                                    tStr.includes('hrcomplaint') || dStr.includes('hrcomplaint');
+                                                    
+                                    if (isFerry) {
+                                        navigate(`/ferry_approval/${req.syskey}`, { state: { item: req } });
+                                    } else {
+                                        navigate(`/approvals/${req.syskey}`, { state: { item: req } });
+                                    }
+                                }}
                             >
                                 {activeStatus === RequestStatus.Pending && (
                                     <div className={styles['checkbox-wrapper']} onClick={(e) => toggleSelect(String(req.syskey), e)}>
