@@ -13,6 +13,10 @@ import {
     Mail,
     Phone,
     Paperclip,
+    Edit3,
+    X,
+    Save,
+    Calendar
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { Textarea, Input } from '../../components/ui/Input/Input';
@@ -20,6 +24,7 @@ import { StatusBadge } from '../../components/ui/Badge/Badge';
 import ApprovalWorkflowModal from '../../components/modals/ApprovalWorkflowModal';
 import type { ApprovalDetailModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
+import mainClient from '../../lib/main-client';
 import {
     APPROVAL_DETAIL,
     SAVE_APPROVAL,
@@ -28,12 +33,49 @@ import {
     REQUEST_TYPES,
     FERRY_OFFICE_LOCATIONS,
     FERRY_CHANGE_TYPES,
-    FERRY_WORKING_HOURS
+    FERRY_WORKING_HOURS,
+    SAVE_REQUEST,
+    USER_PROFILE
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
 import styles from './FerryApprovalFormPage.module.css';
 
 /* ── Helpers ── */
+function toApiDate(d?: string) { return d ? d.replace(/-/g, '') : ''; }
+
+function fromApiDateInput(d?: string) {
+    if (!d || d.length < 8) return '';
+    if (d.includes('-')) return d.split('T')[0];
+    return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+}
+
+function formatDisplayDate(dateStr?: string) {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    if (!year || !month || !day) return dateStr;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const mIndex = Number(month) - 1;
+    if (isNaN(mIndex) || mIndex < 0 || mIndex > 11) return dateStr;
+    return `${day} ${months[mIndex]} ${year}`;
+}
+
+const DateInput = ({ id, label, value, onChange, readOnly }: any) => {
+    const [focused, setFocused] = useState(false);
+    return (
+        <Input
+            id={id}
+            label={label}
+            type={readOnly ? 'text' : (focused ? 'date' : 'text')}
+            value={readOnly || !focused ? formatDisplayDate(value) : value}
+            onChange={onChange}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            readOnly={readOnly}
+            placeholder={readOnly ? '' : 'Select date'}
+        />
+    );
+};
+
 function fromApiDate(d?: string) {
     if (!d || d.length < 8) return '';
     let year, month, day;
@@ -90,13 +132,52 @@ export default function FerryApprovalFormPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const qc = useQueryClient();
-    const { userId, domain } = useAuthStore();
+    const { userId, domain, user } = useAuthStore();
+    
+    // Fetch Employee Profile to get employee_syskey
+    const { data: employeeProfile } = useQuery({
+        queryKey: ['employee-profile', (user as any)?.userid || userId],
+        queryFn: async () => {
+            try {
+                const res = await mainClient.post(USER_PROFILE, { userid: (user as any)?.userid || userId });
+                return res.data?.data ?? res.data ?? null;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 5 * 60 * 1000,
+    });
 
     const [comment, setComment] = useState('');
     const [assignedFerrySyskey, setAssignedFerrySyskey] = useState('');
     const [driverPhone, setDriverPhone] = useState('');
     const [gpsInfo, setGpsInfo] = useState('');
     const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
+
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [editPhoneNumber, setEditPhoneNumber] = useState('');
+    const [editCurrentFerryNo, setEditCurrentFerryNo] = useState('');
+    const [editWorkingHourSyskey, setEditWorkingHourSyskey] = useState('');
+    const [editTownship, setEditTownship] = useState('');
+    const [editMainRoad, setEditMainRoad] = useState('');
+    const [editBusStop, setEditBusStop] = useState('');
+    const [editChangeTypeSyskey, setEditChangeTypeSyskey] = useState('');
+    const [editChangePurposeSyskey, setEditChangePurposeSyskey] = useState('');
+    const [editOfficeLocationSyskey, setEditOfficeLocationSyskey] = useState('');
+    const [editOfficeChangeStartDate, setEditOfficeChangeStartDate] = useState('');
+    const [editHomeAddress, setEditHomeAddress] = useState('');
+    const [editHomeMainRoad, setEditHomeMainRoad] = useState('');
+    const [editHomeBusStop, setEditHomeBusStop] = useState('');
+    const [editHomeChangeStartDate, setEditHomeChangeStartDate] = useState('');
+    const [editTemporaryReason, setEditTemporaryReason] = useState('');
+    const [editDesiredFerryNoSyskey, setEditDesiredFerryNoSyskey] = useState('');
+    const [editTempDateFrom, setEditTempDateFrom] = useState('');
+    const [editTempDateTo, setEditTempDateTo] = useState('');
+    const [editSuspDateFrom, setEditSuspDateFrom] = useState('');
+    const [editSuspDateTo, setEditSuspDateTo] = useState('');
+    const [editHrComplaintText, setEditHrComplaintText] = useState('');
+    const [editUserComplaintText, setEditUserComplaintText] = useState('');
+    const [editSelectedComplaints, setEditSelectedComplaints] = useState<string[]>([]);
 
     const goBack = () => {
         const from = (location.state as any)?.from || '/approvals';
@@ -176,7 +257,7 @@ export default function FerryApprovalFormPage() {
         staleTime: 5 * 60 * 1000,
     });
 
-    const detail = detailData?.datalist;
+    const detail: any = detailData?.datalist;
 
     useEffect(() => {
         if (detail) {
@@ -184,8 +265,44 @@ export default function FerryApprovalFormPage() {
             if (detail.driver_phoneno) setDriverPhone(detail.driver_phoneno);
             if (detail.gps_info) setGpsInfo(detail.gps_info);
             if (detail.comment) setComment(detail.comment);
+
+            // Populate edit states
+            setEditPhoneNumber(detail.phoneno || '');
+            setEditCurrentFerryNo(detail.ferryno || '');
+            setEditWorkingHourSyskey(String(detail.workinghour_syskey || detail.workinghour || ''));
+            setEditTownship(detail.township || '');
+            setEditMainRoad(detail.road || '');
+            setEditBusStop(detail.busstop || '');
+            
+            let ctSyskey = detail.changetypesyskey || detail.changetype_syskey || detail.changetype || '';
+            if (!ctSyskey && detail.changetypecode) ctSyskey = changeTypes.find((t: any) => t.code === detail.changetypecode)?.syskey || ctSyskey;
+            setEditChangeTypeSyskey(String(ctSyskey || ''));
+
+            let cpSyskey = detail.changepurpose_syskey || detail.changepurposesyskey || detail.changepurpose || '';
+            if (!cpSyskey && detail.changepurposecode) cpSyskey = changePurposes.find((t: any) => t.code === detail.changepurposecode)?.syskey || cpSyskey;
+            setEditChangePurposeSyskey(String(cpSyskey || ''));
+
+            setEditOfficeLocationSyskey(String(detail.locationsyskey || detail.location_syskey || detail.officelocation || ''));
+            setEditHomeAddress(detail.address || '');
+            setEditHomeMainRoad(detail.road || '');
+            setEditHomeBusStop(detail.busstop || '');
+            setEditDesiredFerryNoSyskey(String(detail.changeferrysyskey || detail.changeferry_syskey || detail.changeferry || ''));
+            setEditTemporaryReason(detail.remark || '');
+            setEditHrComplaintText(detail.remark || '');
+            setEditUserComplaintText(detail.remark || '');
+
+            if (detail.startdate) {
+                const f = fromApiDateInput(detail.startdate);
+                setEditOfficeChangeStartDate(f); setEditHomeChangeStartDate(f);
+                setEditTempDateFrom(f); setEditSuspDateFrom(f);
+            }
+            if (detail.enddate) {
+                const f = fromApiDateInput(detail.enddate);
+                setEditTempDateTo(f); setEditSuspDateTo(f);
+            }
+            if (detail.ferrycomplaint) setEditSelectedComplaints(String(detail.ferrycomplaint).split(',').filter(Boolean));
         }
-    }, [detail]);
+    }, [detail, changeTypes.length, changePurposes.length]);
     
     const resolvedOfficeLocation = useMemo(() => {
         if (detail?.locationname) return detail.locationname;
@@ -218,6 +335,36 @@ export default function FerryApprovalFormPage() {
     const stepLevelData = detailData?.stepLevelData || detail?.stepLevelData || [];
     const approvalTypeRaw = detail?.approvaltype;
     const isStepLevel = approvalTypeRaw === '1' || approvalTypeRaw === 1;
+
+    const { isStepApproverLevel, disableStepApprovalButtons } = useMemo(() => {
+        const _savedUserName = String((user as any)?.username || (user as any)?.name || '').trim().toLowerCase();
+        const _savedUserID = String((user as any)?.userid || userId || '').trim().toLowerCase();
+        const _savedRole = String((user as any)?.role || '').trim().toLowerCase();
+
+        if (!isStepLevel) {
+            return { isStepApproverLevel: false, disableStepApprovalButtons: false };
+        }
+
+        const matchingSteps = stepLevelData.filter((step: any) => {
+            const stepName = String(step.rankrole_specificperson || step.name || '').trim().toLowerCase();
+            const approvedById = String(step.approvedby_userid || '').trim().toLowerCase();
+            return stepName === _savedUserName ||
+                   stepName === _savedRole ||
+                   stepName === _savedUserID ||
+                   (_savedUserName !== '' && stepName.includes(_savedUserName)) ||
+                   (approvedById !== '' && approvedById === _savedUserID);
+        });
+
+        const isMatched = matchingSteps.length > 0;
+        const stepMatch = isMatched ? matchingSteps[0] : null;
+
+        const shouldDisable = stepMatch != null && stepLevelData.some((next: any) => 
+            Number(next.level) > Number(stepMatch.level) && 
+            (String(next.status) === '2' || next.status === 2 || String(next.status) === '3' || next.status === 3)
+        );
+
+        return { isStepApproverLevel: isMatched, disableStepApprovalButtons: shouldDisable };
+    }, [isStepLevel, stepLevelData, user, userId]);
 
     const resolvedChangePurpose = useMemo(() => {
         if (detail?.changepurposedesc) return detail.changepurposedesc;
@@ -334,8 +481,112 @@ export default function FerryApprovalFormPage() {
         submitMutation.mutate('3');
     };
 
+    const saveEditMutation = useMutation({
+        mutationFn: async () => {
+            const base: any = {
+                syskey,
+                requesttype: requestTypes.find((r: any) => r.description?.toLowerCase() === (detail.requesttypedesc || ferryTypeDesc)?.toLowerCase() || String(r.syskey) === String(detail.requesttype) || r.description?.toLowerCase().replace(/\s+/g, '') === detail.requesttype?.toLowerCase().replace(/\s+/g, ''))?.syskey || detail.requesttype,
+                requesttypedesc: detail.requesttypedesc || ferryTypeDesc || '',
+                requeststatus: '1',
+                employeeid: detail.eid || '',
+                employee_syskey: (employeeProfile as any)?.syskey || detail.employee_syskey || '',
+                userid: userId,
+                domain: domain || 'dev',
+                selectedApprovers: detailApprovers.map((a: any) => ({
+                    syskey: a.syskey,
+                    name: a.name,
+                    userid: a.userid ?? '',
+                    eid: a.employeeid ?? a.eid ?? '',
+                    status: '4',
+                })),
+                attachment: detail.attachment || [],
+            };
 
-    if (isLoading) {
+            if (ferryType === FerryRequestType.registration) {
+                base.workinghour_syskey = editWorkingHourSyskey;
+                base.road = editMainRoad;
+                base.busstop = editBusStop;
+                base.township = editTownship;
+                base.phoneno = editPhoneNumber;
+                base.ferryno = editCurrentFerryNo;
+                base.remark = editTemporaryReason; // usually mapped to remark
+            } else if (ferryType === FerryRequestType.usercomplaint) {
+                base.ferrycomplaint = [...editSelectedComplaints].sort().join(',');
+                base.ferryno = editCurrentFerryNo;
+                base.phoneno = editPhoneNumber;
+                base.remark = editUserComplaintText;
+            } else if (ferryType === FerryRequestType.hrcomplaint) {
+                base.remark = editHrComplaintText;
+                base.ferryno = editCurrentFerryNo;
+                base.phoneno = editPhoneNumber;
+            } else {
+                // Change
+                base.ferryno = editCurrentFerryNo;
+                base.changetype_syskey = editChangeTypeSyskey;
+                base.phoneno = editPhoneNumber;
+                base.changepurpose_syskey = '';
+                base.locationsyskey = '';
+                base.locationname = '';
+                base.startdate = '';
+                base.enddate = '';
+                base.address = '';
+                base.road = '';
+                base.busstop = '';
+                base.township = '';
+                base.changeferry_syskey = '';
+
+                const isP = editChangeTypeSyskey && changeTypes.find((t: any) => String(t.syskey) === editChangeTypeSyskey)?.code === 'PC';
+                const isT = editChangeTypeSyskey && changeTypes.find((t: any) => String(t.syskey) === editChangeTypeSyskey)?.code === 'TC';
+                const pOpt = changePurposes.find((p: any) => String(p.syskey) === editChangePurposeSyskey);
+                const isOffice = pOpt?.code === 'OL' || (pOpt?.description || '').includes('Office');
+                const isHome = pOpt?.code === 'HA' || (pOpt?.description || '').includes('Home');
+
+                if (isP) {
+                    base.changepurpose_syskey = editChangePurposeSyskey;
+                    if (isOffice) {
+                        base.locationsyskey = editOfficeLocationSyskey;
+                        const loc = officeLocations.find((o: any) => String(o.syskey) === editOfficeLocationSyskey);
+                        base.locationname = loc?.name || loc?.officeLocationName || loc?.description || '';
+                        base.startdate = toApiDate(editOfficeChangeStartDate);
+                    } else if (isHome) {
+                        base.address = editHomeAddress;
+                        base.road = editHomeMainRoad;
+                        base.busstop = editHomeBusStop;
+                        base.startdate = toApiDate(editHomeChangeStartDate);
+                    }
+                } else if (isT) {
+                    base.remark = editTemporaryReason;
+                    base.changeferry_syskey = editDesiredFerryNoSyskey;
+                    base.startdate = toApiDate(editTempDateFrom);
+                    base.enddate = toApiDate(editTempDateTo);
+                } else {
+                    base.startdate = toApiDate(editSuspDateFrom);
+                    base.enddate = toApiDate(editSuspDateTo);
+                }
+            }
+
+            const res = await apiClient.post(`${SAVE_REQUEST}/${syskey}`, base);
+            if (res.data?.statuscode !== 300 && res.data?.statuscode !== '300') {
+                 throw new Error(res.data?.message || 'Update failed');
+            }
+            return res.data;
+        },
+        onSuccess: () => {
+            toast.success('Ferry request updated successfully');
+            qc.invalidateQueries({ queryKey: ['approvals'] });
+            qc.invalidateQueries({ queryKey: ['approval-detail', syskey] });
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        },
+        onError: (err: any) => {
+            toast.error(err.message || 'Update failed');
+        }
+    });
+
+    const handleSaveEdit = () => {
+        saveEditMutation.mutate();
+    };if (isLoading) {
         return (
             <div className={styles['approval-detail']}>
                 <div className={styles['approval-detail__card']}>
@@ -383,7 +634,17 @@ export default function FerryApprovalFormPage() {
                             </span>
                         </div>
                     </div>
-                    <StatusBadge status={String(detail.requeststatus || detail.status || '1')} />
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        {isPending && !isEditMode && (
+                            <button
+                                onClick={() => setIsEditMode(true)}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: '#0c4a6e', fontWeight: 600, fontSize: 13 }}
+                            >
+                                <Edit3 size={16} /> Edit
+                            </button>
+                        )}
+                        <StatusBadge status={String(detail.requeststatus || detail.status || '1')} />
+                    </div>
                 </div>
 
                 {/* ── Body ── */}
@@ -421,16 +682,43 @@ export default function FerryApprovalFormPage() {
                     {ferryType === FerryRequestType.registration && (
                         <div className={styles['approval-detail__section']}>
                             <div className={styles['approval-detail__grid']} style={{ marginBottom: 24 }}>
-                                <Field label="Contact Phone Number" value={detail.contactphone || detail.phoneno} />
-                                <Field label="Current Assigned Ferry Number" value={resolvedCurrentFerry} />
+                                {isEditMode ? (
+                                    <>
+                                        <Input label="Contact Phone Number *" value={editPhoneNumber} onChange={e => setEditPhoneNumber(e.target.value)} />
+                                        <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
+                                    </>
+                                ) : (
+                                    <>
+                                        <Field label="Contact Phone Number" value={detail.contactphone || detail.phoneno} />
+                                        <Field label="Current Assigned Ferry Number" value={resolvedCurrentFerry} />
+                                    </>
+                                )}
                             </div>
                             
                             <h4 className={styles['approval-detail__section-title']}>Registration Details</h4>
                             <div className={styles['approval-detail__grid']}>
-                                <Field label="Working Hours" value={resolvedWorkingHour} />
-                                <Field label="Township" value={detail.township} />
-                                <Field label="Main Road" value={detail.road} />
-                                <Field label="Nearest Bus Stop" value={detail.busstop} />
+                                {isEditMode ? (
+                                    <>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-neutral-700)', marginBottom: 6 }}>Working Hours *</label>
+                                            <select style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid var(--color-neutral-300)', background: '#fff', fontSize: 14 }}
+                                                value={editWorkingHourSyskey} onChange={e => setEditWorkingHourSyskey(e.target.value)}>
+                                                <option value="">— Select working hours —</option>
+                                                {workingHours.map((wh: any) => <option key={wh.syskey} value={wh.syskey}>{wh.description}</option>)}
+                                            </select>
+                                        </div>
+                                        <Input label="Township *" value={editTownship} onChange={e => setEditTownship(e.target.value)} />
+                                        <Input label="Main Road *" value={editMainRoad} onChange={e => setEditMainRoad(e.target.value)} />
+                                        <Input label="Nearest Bus Stop *" value={editBusStop} onChange={e => setEditBusStop(e.target.value)} />
+                                    </>
+                                ) : (
+                                    <>
+                                        <Field label="Working Hours" value={resolvedWorkingHour} />
+                                        <Field label="Township" value={detail.township} />
+                                        <Field label="Main Road" value={detail.road} />
+                                        <Field label="Nearest Bus Stop" value={detail.busstop} />
+                                    </>
+                                )}
                             </div>
                         </div>
                     )}
@@ -440,69 +728,144 @@ export default function FerryApprovalFormPage() {
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>Change Request Details</h4>
                             <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr', marginBottom: 'var(--space-4)' }}>
-                                <Field label="Change Type" value={resolvedChangeType} />
+                                {isEditMode ? (
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-neutral-700)', marginBottom: 6 }}>Change Type *</label>
+                                        <select style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid var(--color-neutral-300)', background: '#fff', fontSize: 14 }}
+                                            value={editChangeTypeSyskey} onChange={e => { setEditChangeTypeSyskey(e.target.value); setEditChangePurposeSyskey(''); setEditOfficeLocationSyskey(''); }}>
+                                            <option value="">— Select change type —</option>
+                                            {changeTypes.map((ct: any) => <option key={ct.syskey} value={ct.syskey}>{ct.description}</option>)}
+                                        </select>
+                                    </div>
+                                ) : (
+                                    <Field label="Change Type" value={resolvedChangeType} />
+                                )}
                             </div>
                             <div className={styles['approval-detail__grid']}>
-                                <Field label="Contact Phone Number" value={detail.contactphone || detail.phoneno} />
-                                <Field label="Current Assigned Ferry" value={resolvedCurrentFerry} />
+                                {isEditMode ? (
+                                    <>
+                                        <Input label="Contact Phone Number *" value={editPhoneNumber} onChange={e => setEditPhoneNumber(e.target.value)} />
+                                        <Input label="Current Assigned Ferry" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
+                                    </>
+                                ) : (
+                                    <>
+                                        <Field label="Contact Phone Number" value={detail.contactphone || detail.phoneno} />
+                                        <Field label="Current Assigned Ferry" value={resolvedCurrentFerry} />
+                                    </>
+                                )}
                             </div>
                                 
                             {/* Temporary */}
-                            {isTemporary && (
+                            {(isEditMode ? (editChangeTypeSyskey && changeTypes.find((t: any) => String(t.syskey) === editChangeTypeSyskey)?.code === 'TC') : isTemporary) && (
                                 <>
-                                    {detail.remark && (
-                                        <div style={{ marginTop: 16, marginBottom: 16 }}>
-                                            <h4 className={styles['approval-detail__section-title']}>Reason for Change Request (Business Requirement)</h4>
+                                    <div style={{ marginTop: 16, marginBottom: 16 }}>
+                                        <h4 className={styles['approval-detail__section-title']}>Reason for Change Request (Business Requirement)</h4>
+                                        {isEditMode ? (
+                                            <Textarea value={editTemporaryReason} onChange={e => setEditTemporaryReason(e.target.value)} placeholder="Please specify reason..." rows={3} />
+                                        ) : (
                                             <div className={styles['approval-detail__remark']}>{detail.remark}</div>
+                                        )}
+                                    </div>
+                                    <div className={styles['approval-detail__grid']}>
+                                        {isEditMode ? (
+                                            <>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-neutral-700)', marginBottom: 6 }}>Desired Ferry Number</label>
+                                                    <select style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid var(--color-neutral-300)', background: '#fff', fontSize: 14 }}
+                                                        value={editDesiredFerryNoSyskey} onChange={e => setEditDesiredFerryNoSyskey(e.target.value)}>
+                                                        <option value="">— Select ferry number —</option>
+                                                        {ferryNos.map((fn: any) => <option key={fn.syskey} value={fn.syskey}>{fn.carno || fn.description || fn.ferryCarNo || fn.syskey}</option>)}
+                                                    </select>
+                                                </div>
+                                                <DateInput label="Desired Date From *" value={editTempDateFrom} onChange={(e: any) => setEditTempDateFrom(e.target.value)} />
+                                                <DateInput label="Desired Date To *" value={editTempDateTo} onChange={(e: any) => setEditTempDateTo(e.target.value)} />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Field label="Desired Ferry Number" value={resolvedDesiredFerry} />
+                                                {detail.startdate && <Field label="Desired Date From" value={fromApiDate(detail.startdate)} />}
+                                                {detail.enddate && <Field label="Desired Date To" value={fromApiDate(detail.enddate)} />}
+                                            </>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Permanent Change */}
+                            {(isEditMode ? (editChangeTypeSyskey && changeTypes.find((t: any) => String(t.syskey) === editChangeTypeSyskey)?.code === 'PC') : (!isTemporary && !isShiftChange && !isSuspension)) && (
+                                <div style={{ marginTop: 16 }}>
+                                    <h4 className={styles['approval-detail__section-title']}>Permanent Change for Business/Personal Requirement</h4>
+                                    
+                                    {isEditMode ? (
+                                        <div className={styles['approval-detail__grid']} style={{ gridTemplateColumns: '1fr' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-neutral-700)', marginBottom: 6 }}>Purpose of Change</label>
+                                                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                                    {changePurposes.map((cp: any) => (
+                                                        <label key={cp.syskey} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
+                                                            <input type="radio" value={cp.syskey} checked={editChangePurposeSyskey === String(cp.syskey)} onChange={() => { setEditChangePurposeSyskey(String(cp.syskey)); setEditOfficeLocationSyskey(''); }} />
+                                                            {cp.description}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {(editChangePurposeSyskey && (changePurposes.find((p: any) => String(p.syskey) === editChangePurposeSyskey)?.code === 'OL' || (changePurposes.find((p: any) => String(p.syskey) === editChangePurposeSyskey)?.description || '').includes('Office'))) && (
+                                                <div className={styles['approval-detail__grid']} style={{ marginTop: 14 }}>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-neutral-700)', marginBottom: 6 }}>New Office Location *</label>
+                                                        <select style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid var(--color-neutral-300)', background: '#fff', fontSize: 14 }}
+                                                            value={editOfficeLocationSyskey} onChange={e => setEditOfficeLocationSyskey(e.target.value)}>
+                                                            <option value="">— Select office location —</option>
+                                                            {officeLocations.map((ol: any) => <option key={ol.syskey} value={ol.syskey}>{ol.name || ol.officeLocationName || ol.description}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <DateInput label="Desired Start Date *" value={editOfficeChangeStartDate} onChange={(e: any) => setEditOfficeChangeStartDate(e.target.value)} />
+                                                </div>
+                                            )}
+
+                                            {(editChangePurposeSyskey && (changePurposes.find((p: any) => String(p.syskey) === editChangePurposeSyskey)?.code === 'HA' || (changePurposes.find((p: any) => String(p.syskey) === editChangePurposeSyskey)?.description || '').includes('Home'))) && (
+                                                <div className={styles['approval-detail__grid']} style={{ marginTop: 14 }}>
+                                                    <div style={{ gridColumn: '1 / -1' }}>
+                                                        <Input label="New Home Address *" value={editHomeAddress} onChange={e => setEditHomeAddress(e.target.value)} />
+                                                    </div>
+                                                    <Input label="Main Road *" value={editHomeMainRoad} onChange={e => setEditHomeMainRoad(e.target.value)} />
+                                                    <Input label="Nearest Bus Stop *" value={editHomeBusStop} onChange={e => setEditHomeBusStop(e.target.value)} />
+                                                    <DateInput label="Desired Start Date *" value={editHomeChangeStartDate} onChange={(e: any) => setEditHomeChangeStartDate(e.target.value)} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className={styles['approval-detail__grid']}>
+                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                <Field label="Purpose of Change" value={resolvedChangePurpose} />
+                                            </div>
+                                            {resolvedOfficeLocation && <Field label="New Office Location" value={resolvedOfficeLocation} />}
+                                            {detail.startdate && <Field label="Desired Start Date of Change" value={fromApiDate(detail.startdate)} />}
+                                            {detail.address && <div style={{ gridColumn: '1 / -1' }}><Field label="New Home Address" value={detail.address} /></div>}
+                                            {detail.road && <Field label="Main Road" value={detail.road} />}
+                                            {detail.busstop && <Field label="Nearest Bus Stop" value={detail.busstop} />}
                                         </div>
                                     )}
-                                    <div className={styles['approval-detail__grid']}>
-                                        <Field label="Desired Ferry Number" value={resolvedDesiredFerry} />
-                                        {detail.startdate && <Field label="Desired Date From" value={fromApiDate(detail.startdate)} />}
-                                        {detail.enddate && <Field label="Desired Date To" value={fromApiDate(detail.enddate)} />}
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Shift Change */}
-                            {isShiftChange && (
-                                <>
-                                    <div className={styles['approval-detail__grid']} style={{ marginTop: 16 }}>
-                                        <Field label="Purpose of Change" value={resolvedChangePurpose} />
-                                        {resolvedOfficeLocation && <Field label="New Office Location" value={resolvedOfficeLocation} />}
-                                        {detail.startdate && <Field label="Desired Start Date" value={fromApiDate(detail.startdate)} />}
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Office/Home Location Change */}
-                            {!isTemporary && !isShiftChange && !isSuspension && (
-                                <div style={{ marginTop: 16 }}>
-                                    <h4 className={styles['approval-detail__section-title']}>
-                                        Permanent Change for Business/Personal Requirement
-                                    </h4>
-                                    <div className={styles['approval-detail__grid']}>
-                                        <div style={{ gridColumn: '1 / -1' }}>
-                                            <Field label="Purpose of Change" value={resolvedChangePurpose} />
-                                        </div>
-                                        {resolvedOfficeLocation && <Field label="New Office Location" value={resolvedOfficeLocation} />}
-                                        {detail.startdate && <Field label="Desired Start Date of Change" value={fromApiDate(detail.startdate)} />}
-                                        {detail.address && <div style={{ gridColumn: '1 / -1' }}><Field label="New Home Address" value={detail.address} /></div>}
-                                        {detail.road && <Field label="Main Road" value={detail.road} />}
-                                        {detail.busstop && <Field label="Nearest Bus Stop" value={detail.busstop} />}
-                                    </div>
                                 </div>
                             )}
 
                             {/* Suspension */}
-                            {isSuspension && (
+                            {(isEditMode ? (editChangeTypeSyskey && (changeTypes.find((t: any) => String(t.syskey) === editChangeTypeSyskey)?.code === 'TS' || changeTypes.find((t: any) => String(t.syskey) === editChangeTypeSyskey)?.description?.toLowerCase()?.includes('suspension'))) : isSuspension) && (
                                 <div style={{ marginTop: 16 }}>
-                                    <h4 className={styles['approval-detail__section-title']}>
-                                        Temporary Suspension for Ferry Usage
-                                    </h4>
+                                    <h4 className={styles['approval-detail__section-title']}>Temporary Suspension for Ferry Usage</h4>
                                     <div className={styles['approval-detail__grid']}>
-                                        {detail.startdate && <Field label="Desired Date For Suspension From" value={fromApiDate(detail.startdate)} />}
-                                        {detail.enddate && <Field label="Desired Date For Suspension To" value={fromApiDate(detail.enddate)} />}
+                                        {isEditMode ? (
+                                            <>
+                                                <DateInput label="Desired Date For Suspension From *" value={editSuspDateFrom} onChange={(e: any) => setEditSuspDateFrom(e.target.value)} />
+                                                <DateInput label="Desired Date For Suspension To *" value={editSuspDateTo} onChange={(e: any) => setEditSuspDateTo(e.target.value)} />
+                                            </>
+                                        ) : (
+                                            <>
+                                                {detail.startdate && <Field label="Desired Date For Suspension From" value={fromApiDate(detail.startdate)} />}
+                                                {detail.enddate && <Field label="Desired Date For Suspension To" value={fromApiDate(detail.enddate)} />}
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -514,40 +877,43 @@ export default function FerryApprovalFormPage() {
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>User Complaint</h4>
                             <div className={styles['approval-detail__grid']} style={{ marginBottom: 16 }}>
-                                <Field label="Current Assigned Ferry Number" value={resolvedCurrentFerry} />
+                                {isEditMode ? (
+                                    <>
+                                        <Input label="Contact Phone Number *" value={editPhoneNumber} onChange={e => setEditPhoneNumber(e.target.value)} />
+                                        <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
+                                    </>
+                                ) : (
+                                    <Field label="Current Assigned Ferry Number" value={resolvedCurrentFerry} />
+                                )}
                             </div>
-                            <div style={{
-                                display: 'flex', flexDirection: 'column', gap: 0,
-                                border: '1px solid var(--color-neutral-200)', borderRadius: 8, overflow: 'hidden',
-                            }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 0, border: '1px solid var(--color-neutral-200)', borderRadius: 8, overflow: 'hidden' }}>
                                 {COMPLAINT_OPTS.map((opt, i) => {
-                                    const checked = selectedComplaints.includes(opt.id);
+                                    const checked = isEditMode ? editSelectedComplaints.includes(opt.id) : selectedComplaints.includes(opt.id);
                                     return (
                                         <label key={opt.id} style={{
-                                            display: 'flex', alignItems: 'center', gap: 10,
-                                            padding: '12px 14px', cursor: 'default',
-                                            fontSize: 13, color: 'var(--color-neutral-700)',
-                                            background: checked ? 'var(--color-primary-50)' : '#fff',
+                                            display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', cursor: isEditMode ? 'pointer' : 'default',
+                                            fontSize: 13, color: 'var(--color-neutral-700)', background: checked ? 'var(--color-primary-50)' : '#fff',
                                             borderBottom: i < COMPLAINT_OPTS.length - 1 ? '1px solid var(--color-neutral-100)' : 'none',
                                         }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={checked}
-                                                disabled
-                                                style={{ accentColor: 'var(--color-primary-600)', width: 16, height: 16, flexShrink: 0 }}
-                                                readOnly
-                                            />
+                                            <input type="checkbox" checked={checked} disabled={!isEditMode}
+                                                onChange={() => {
+                                                    if (!isEditMode) return;
+                                                    setEditSelectedComplaints(p => p.includes(opt.id) ? p.filter(c => c !== opt.id) : [...p, opt.id]);
+                                                }}
+                                                style={{ accentColor: 'var(--color-primary-600)', width: 16, height: 16, flexShrink: 0 }} />
                                             <span>{opt.label}</span>
                                         </label>
                                     );
                                 })}
                             </div>
-                            {detail.remark && (
-                                <div style={{ marginTop: 16 }}>
-                                    <div className={styles['approval-detail__field-label']} style={{ marginBottom: 4 }}>Complaint Description</div>
+                            <div style={{ marginTop: 16 }}>
+                                <div className={styles['approval-detail__field-label']} style={{ marginBottom: 4 }}>Complaint Description</div>
+                                {isEditMode ? (
+                                    <Textarea value={editUserComplaintText} onChange={e => setEditUserComplaintText(e.target.value)} rows={3} />
+                                ) : (
                                     <div className={styles['approval-detail__remark']}>{detail.remark}</div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -555,9 +921,19 @@ export default function FerryApprovalFormPage() {
                     {ferryType === FerryRequestType.hrcomplaint && (
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>HR Complaint</h4>
+                            {isEditMode && (
+                                <div className={styles['approval-detail__grid']} style={{ marginBottom: 16 }}>
+                                    <Input label="Contact Phone Number *" value={editPhoneNumber} onChange={e => setEditPhoneNumber(e.target.value)} />
+                                    <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
+                                </div>
+                            )}
                             <div>
                                 <div className={styles['approval-detail__field-label']} style={{ marginBottom: 4 }}>Complaint Description</div>
-                                <div className={styles['approval-detail__remark']}>{detail.remark || '—'}</div>
+                                {isEditMode ? (
+                                    <Textarea value={editHrComplaintText} onChange={e => setEditHrComplaintText(e.target.value)} rows={3} />
+                                ) : (
+                                    <div className={styles['approval-detail__remark']}>{detail.remark || '—'}</div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -687,24 +1063,36 @@ export default function FerryApprovalFormPage() {
 
                 {/* Approval Action */}
                 <div className={styles['approval-detail__actions']}>
-                    <div className={styles['approval-detail__action-row']}>
-                        <Button
-                            variant="success"
-                            onClick={handleApprove}
-                            disabled={submitMutation.isPending || isApproved}
-                        >
-                            {submitMutation.isPending && submitMutation.variables === '2' ? <Loader2 size={16} className={styles['spin']} /> : <CheckCircle size={16} />}
-                            Approve
-                        </Button>
-                        <Button
-                            variant="danger"
-                            onClick={handleReject}
-                            disabled={submitMutation.isPending || isRejected}
-                        >
-                            {submitMutation.isPending && submitMutation.variables === '3' ? <Loader2 size={16} className={styles['spin']} /> : <XCircle size={16} />}
-                            Reject
-                        </Button>
-                    </div>
+                    {isEditMode ? (
+                        <div className={styles['approval-detail__action-row']}>
+                            <Button variant="outline" onClick={() => setIsEditMode(false)} disabled={saveEditMutation.isPending} style={{ flex: 1, borderColor: 'var(--color-neutral-300)', color: 'var(--color-neutral-700)' }}>
+                                <X size={16} /> Cancel
+                            </Button>
+                            <Button variant="primary" onClick={handleSaveEdit} disabled={saveEditMutation.isPending} style={{ flex: 1 }}>
+                                {saveEditMutation.isPending ? <Loader2 size={16} className={styles['spin']} /> : <Save size={16} />}
+                                Save
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className={styles['approval-detail__action-row']}>
+                            <Button
+                                variant="success"
+                                onClick={handleApprove}
+                                disabled={submitMutation.isPending || isApproved || disableStepApprovalButtons}
+                            >
+                                {submitMutation.isPending && submitMutation.variables === '2' ? <Loader2 size={16} className={styles['spin']} /> : <CheckCircle size={16} />}
+                                Approve
+                            </Button>
+                            <Button
+                                variant="danger"
+                                onClick={handleReject}
+                                disabled={submitMutation.isPending || isRejected || disableStepApprovalButtons}
+                            >
+                                {submitMutation.isPending && submitMutation.variables === '3' ? <Loader2 size={16} className={styles['spin']} /> : <XCircle size={16} />}
+                                Reject
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
