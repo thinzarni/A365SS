@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -22,7 +22,7 @@ import {
 import { Button } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
-import { RequestStatus, type ApprovalDetailModel, type TypesModel, type Approver } from '../../types/models';
+import { RequestStatus, type ApprovalDetailModel, type TypesModel, type Approver, type StepLevelData } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import {
     APPROVAL_DETAIL,
@@ -40,6 +40,7 @@ import {
     GET_REVIEW_PROCESS_STATUS,
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
+import ApprovalWorkflowModal from '../../components/modals/ApprovalWorkflowModal';
 import styles from './ApprovalDetailPage.module.css';
 
 /** Convert "yyyymmdd" → "dd/mm/yyyy" for display */
@@ -88,11 +89,14 @@ function getTypeVisual(data: Record<string, unknown>) {
 }
 
 function Field({ label, value }: { label: string; value: string | number | undefined | null }) {
+    const display = (value === null || value === undefined || String(value).trim() === '' || String(value) === 'null' || String(value) === 'undefined')
+        ? null
+        : value;
     return (
         <div className={styles['approval-detail__field']}>
             <span className={styles['approval-detail__field-label']}>{label}</span>
-            <span className={`${styles['approval-detail__field-value']} ${!value ? styles['approval-detail__field-value--empty'] : ''}`}>
-                {value || '—'}
+            <span className={`${styles['approval-detail__field-value']} ${!display ? styles['approval-detail__field-value--empty'] : ''}`}>
+                {display ?? '—'}
             </span>
         </div>
     );
@@ -107,7 +111,7 @@ export default function ApprovalDetailPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const { domain } = useAuthStore();
+    const { domain, userId, user } = useAuthStore();
 
     const [comment, setComment] = useState('');
     const [confirmedAmount, setConfirmedAmount] = useState('');
@@ -332,6 +336,39 @@ export default function ApprovalDetailPage() {
         actionMutation.mutate(status);
     };
 
+    /* ═══════════ Step-level disable logic (must be before early returns) ═══════════ */
+    const stepLevelData = (
+        (detail as any)?.stepLevelData ||
+        (detail?.datalist as any)?.stepLevelData ||
+        []
+    ) as StepLevelData[];
+
+    const disableStepApprovalButtons = useMemo(() => {
+        if (!stepLevelData.length) return false;
+        const savedName = String((user as any)?.username || (user as any)?.name || '').trim().toLowerCase();
+        const savedId   = String((user as any)?.userid || userId || '').trim().toLowerCase();
+        const savedRole = String((user as any)?.role || '').trim().toLowerCase();
+
+        const matchingSteps = stepLevelData.filter((step) => {
+            const stepName     = String((step as any).rankrole_specificperson || (step as any).name || '').trim().toLowerCase();
+            const approvedById = String((step as any).approvedby_userid || '').trim().toLowerCase();
+            return stepName === savedName ||
+                   stepName === savedRole ||
+                   stepName === savedId ||
+                   (savedName !== '' && stepName.includes(savedName)) ||
+                   (approvedById !== '' && approvedById === savedId);
+        });
+
+        if (!matchingSteps.length) return false;
+        const stepMatch = matchingSteps[0];
+
+        return stepLevelData.some((next) =>
+            Number(next.level) > Number(stepMatch.level) &&
+            (String(next.status) === '2' || next.status === 2 ||
+             String(next.status) === '3' || next.status === 3)
+        );
+    }, [stepLevelData, user, userId]);
+
     /* ═══════════════════════ Loading / Empty ═══════════════════ */
 
     if (isLoading) {
@@ -371,6 +408,11 @@ export default function ApprovalDetailPage() {
     const isApproved = String(d.requeststatus) === RequestStatus.Approved;
     const isRejected = String(d.requeststatus) === RequestStatus.Rejected;
     const showActionBar = isPending || isApproved || isRejected;
+
+
+    // Approval type: '1' = step-level workflow, '0' (or anything else) = flat approver list
+    const approvalTypeRaw = d.approvaltype;
+    const isStepLevel = approvalTypeRaw === '1' || approvalTypeRaw === 1;
 
     // Dictionary Mappings
     const currencyName = currencyList.find(c => c.syskey === d.currencytype)?.description || d.currencytype || '';
@@ -706,8 +748,14 @@ export default function ApprovalDetailPage() {
                         </div>
                     )}
 
-                    {/* Approvers */}
-                    {approverList && approverList.length > 0 && (
+                    {/* Approvers — step-by-step workflow when stepLevelData exists, flat list otherwise */}
+                    {stepLevelData.length > 0 && (
+                        <div className={styles['approval-detail__section']}>
+                            <ApprovalWorkflowModal steps={stepLevelData} />
+                        </div>
+                    )}
+
+                    {stepLevelData.length === 0 && approverList && approverList.length > 0 && (
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>
                                 <Users size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
@@ -944,7 +992,7 @@ export default function ApprovalDetailPage() {
                             )}
 
                             {/* ── User Feedbacks ── */}
-                            {(isPending || isApproved || isRejected) && (() => {
+                            {(isApproved || isRejected) && (() => {
                                 const isDisabled = isApproved || isRejected;
                                 return (
                                     <div style={{
@@ -1059,7 +1107,7 @@ export default function ApprovalDetailPage() {
                                     variant="success"
                                     onClick={() => handleAction('approve')}
                                     loading={actionMutation.isPending && actionMutation.variables === 'approve'}
-                                    disabled={isApproved}
+                                    disabled={isApproved || disableStepApprovalButtons}
                                 >
                                     <CheckCircle size={16} />
                                     {t('request.approve')}
@@ -1071,7 +1119,7 @@ export default function ApprovalDetailPage() {
                                     variant="danger"
                                     onClick={() => handleAction('reject')}
                                     loading={actionMutation.isPending && actionMutation.variables === 'reject'}
-                                    disabled={isRejected}
+                                    disabled={isRejected || disableStepApprovalButtons}
                                 >
                                     <XCircle size={16} />
                                     {t('request.reject')}

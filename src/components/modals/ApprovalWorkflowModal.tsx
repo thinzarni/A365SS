@@ -109,7 +109,7 @@ export default function ApprovalWorkflowModal({ steps }: ApprovalWorkflowModalPr
                                         </div>
                                     )}
 
-                                    {step.approvedby && (
+                                    {step.approvedby && step.approvedby !== 'null' && step.approvedby.trim() !== '' && !step.approvedby.toLowerCase().includes('null') && (
                                         <div className={styles['workflow__detail-row']}>
                                             <User size={14} />
                                             <span>
@@ -118,7 +118,7 @@ export default function ApprovalWorkflowModal({ steps }: ApprovalWorkflowModalPr
                                         </div>
                                     )}
 
-                                    {step.remark && (
+                                    {step.remark && step.remark !== 'null' && step.remark.trim() !== '' && !step.remark.toLowerCase().includes('null') && (
                                         <div className={styles['workflow__detail-row']}>
                                             <MessageSquare size={14} />
                                             <span>
