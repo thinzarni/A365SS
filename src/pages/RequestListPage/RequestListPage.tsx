@@ -450,6 +450,17 @@ export default function RequestListPage() {
                                 Import / Export
                             </Button>
                         )} */}
+                        {isAttendancePage && (
+                            <Button
+                                variant="ghost"
+                                loading={exporting}
+                                onClick={() => setShowExportConfirm(true)}
+                                style={{ background: 'var(--color-neutral-0)', border: '1px solid var(--color-neutral-300)' }}
+                            >
+                                {exporting ? <Loader2 className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />}
+                                Export Excel
+                            </Button>
+                    )}
                         <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')}>
                             <Plus size={16} />
                             {t('request.newRequest')}
@@ -528,20 +539,7 @@ export default function RequestListPage() {
                         </div>
                     )}
 
-                    {isAttendancePage && (
-                        <div className={styles['filter-group']} style={{ display: 'flex', alignItems: 'flex-end' }}>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                loading={exporting}
-                                onClick={() => setShowExportConfirm(true)}
-                                style={{ border: '1px solid var(--color-neutral-200)', height: '42px' }}
-                            >
-                                {exporting ? <Loader2 className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />}
-                                Export Excel
-                            </Button>
-                        </div>
-                    )}
+                    
                 </div>
             )}
 
