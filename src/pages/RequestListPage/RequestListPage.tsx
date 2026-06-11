@@ -123,7 +123,6 @@ export default function RequestListPage() {
     const [fromDate, setFromDate] = useState<string>(dateToInput(DEFAULT_FROM_DATE));
     const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
     const [requestType, setRequestType] = useState<string>('');
-    const [attType] = useState(''); // Fetch all attendance types by default
     const [didInitDates, setDidInitDates] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
@@ -131,6 +130,8 @@ export default function RequestListPage() {
     const [showExportConfirm, setShowExportConfirm] = useState(false);
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
     const [sortColumn, setSortColumn] = useState<'date' | 'time'>('date');
+    // Attendance-specific: filter by Remote (1) or Backdate (2) — default Backdate
+    const [attendanceRequestType, setAttendanceRequestType] = useState<'1' | '2'>('2');
 
     // Fetch shift data for transition dates
     const { data: shiftData, isLoading: shiftLoading } = useQuery({
@@ -188,20 +189,12 @@ export default function RequestListPage() {
     }, [requestTypes]);
 
     const { data: allRequests = [], isLoading: requestsLoading } = useQuery<RequestModel[]>({
-        queryKey: ['requests', fromDate, toDate, requestType, attType, location.pathname, activeStatus],
+        queryKey: ['requests', fromDate, toDate, requestType, attendanceRequestType, location.pathname, activeStatus],
         queryFn: async () => {
             if (isAttendancePage) {
                 const reqStatus = activeStatus === RequestStatus.All ? '' : String(activeStatus);
-                const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
-                    userid: userId || '',
-                    domain: domain || 'dev',
-                    fromdate: fromDate.replace(/-/g, ''),
-                    todate: toDate.replace(/-/g, ''),
-                    status: reqStatus,
-                    type: attType,
-                });
-                const list = res.data?.data || res.data?.datalist || [];
-                return list.map((item: any) => ({
+
+                const mapItem = (item: any) => ({
                     syskey: item.syskey,
                     eid: item.employee_id,
                     name: item.employee_name,
@@ -223,7 +216,21 @@ export default function RequestListPage() {
                     longitude: item.longitude,
                     processstatus: item.processstatus || item.claimProcessStatus || '',
                     attendancereason: item.attendancereason,
-                }));
+                });
+
+                const payload = {
+                    userid: userId || '',
+                    domain: domain || 'dev',
+                    fromdate: fromDate.replace(/-/g, ''),
+                    todate: toDate.replace(/-/g, ''),
+                    status: reqStatus,
+                    type: attendanceRequestType,
+                };
+
+                const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, payload);
+                const list = (res.data?.data || res.data?.datalist || [])
+                    .filter((item: any) => Number(item.status) !== 0); // exclude status 0
+                return list.map(mapItem);
             }
 
             const res = await apiClient.post(GET_REQUEST_LIST, {
@@ -295,7 +302,7 @@ export default function RequestListPage() {
 
     // Summary stats
     const { data: generalSummaryData = [] } = useQuery<RequestModel[]>({
-        queryKey: ['summaryRequests', fromDate, toDate, requestType, attType, location.pathname],
+        queryKey: ['summaryRequests', fromDate, toDate, requestType, attendanceRequestType, location.pathname],
         queryFn: async () => {
             if (isAttendancePage) {
                 const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
@@ -303,20 +310,23 @@ export default function RequestListPage() {
                     domain: domain || 'dev',
                     fromdate: fromDate.replace(/-/g, ''),
                     todate: toDate.replace(/-/g, ''),
-                    status: '', // Fetch all for steady summary counts
-                    type: attType,
+                    status: '',
+                    type: attendanceRequestType,
                 });
-                const list = res.data?.data || res.data?.datalist || [];
-                return list.map((item: any) => ({
-                    requeststatus: String(item.status || '1'),
-                }));
+                const list = (res.data?.data || res.data?.datalist || [])
+                    .filter((item: any) => Number(item.status) !== 0); // exclude status 0
+                return list.map((item: any) => {
+                    // Check multiple possible field names; ?? avoids treating 0 as falsy
+                    const rawStatus = item.status ?? item.requeststatus ?? item.approvalstatus ?? 1;
+                    return { requeststatus: String(rawStatus) };
+                });
             }
 
             const res = await apiClient.post(GET_REQUEST_LIST, {
                 fromdate: fromDate.replace(/-/g, ''),
                 todate: toDate.replace(/-/g, ''),
                 type: isSubtypeView ? '' : requestType,
-                status: "0", // All statuses
+                status: "0",
             });
             const datalist: any[] = res.data?.datalist || res.data?.data || [];
             const all: RequestModel[] = datalist.map(item => ({
@@ -333,7 +343,6 @@ export default function RequestListPage() {
             return all;
         },
         enabled: didInitDates,
-        staleTime: 30 * 1000,
     });
 
     const stats = useMemo(() => {
@@ -539,7 +548,23 @@ export default function RequestListPage() {
                         </div>
                     )}
 
-                    
+                    {isAttendancePage && (
+                        <div className={styles['filter-group']}>
+                            <label className={styles['filter-label']}>Request Type</label>
+                            <div className={styles['filter-pills']}>
+                                {([['1', 'Remote'], ['2', 'Backdate']] as const).map(([val, label]) => (
+                                    <button
+                                        key={val}
+                                        onClick={() => setAttendanceRequestType(val)}
+                                        className={`${styles['filter-pill']} ${attendanceRequestType === val ? styles['filter-pill--active'] : ''}`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                 </div>
             )}
 

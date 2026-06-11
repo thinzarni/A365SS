@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft,
-    Bus,
     Car,
     CheckCircle,
     XCircle,
@@ -176,32 +175,34 @@ export default function FerryApprovalFormPage() {
         staleTime: 5 * 60 * 1000,
     });
 
-    const detail = detailData?.datalist;
+    // Cast to 'any' here because ApprovalModel has [key:string]:unknown index signature
+    // which would make every property access 'unknown' and un-renderable in JSX.
+    const detail: any = detailData?.datalist as any;
 
     useEffect(() => {
         if (detail) {
-            if (detail.changeferry_syskey || detail.changeferry) setAssignedFerrySyskey(String(detail.changeferry_syskey || detail.changeferry));
-            if (detail.driver_phoneno) setDriverPhone(detail.driver_phoneno);
-            if (detail.gps_info) setGpsInfo(detail.gps_info);
-            if (detail.comment) setComment(detail.comment);
+            const d = detail as any;
+            if (d.changeferry_syskey || d.changeferry) setAssignedFerrySyskey(String(d.changeferry_syskey || d.changeferry));
+            if (d.driver_phoneno) setDriverPhone(String(d.driver_phoneno));
+            if (d.gps_info) setGpsInfo(String(d.gps_info));
+            if (d.comment) setComment(String(d.comment));
         }
     }, [detail]);
     
-    const resolvedOfficeLocation = useMemo(() => {
-        if (detail?.locationname) return detail.locationname;
+    const resolvedOfficeLocation = useMemo((): string => {
+        if (detail?.locationname) return String(detail.locationname);
         const loc = detail?.location || detail?.officelocation;
         if (!loc) return '';
         const found = officeLocations.find((l: any) => String(l.syskey) === String(loc));
-        return found ? (found.description || found.code || found.locationname || loc) : loc;
+        return found ? String(found.description || found.code || found.locationname || loc) : String(loc);
     }, [detail?.locationname, detail?.location, detail?.officelocation, officeLocations]);
-    const ferryTypeDesc = useMemo(() => {
-        if (detail?.requesttypedesc) return detail.requesttypedesc;
+    const ferryTypeDesc = useMemo((): string => {
+        if (detail?.requesttypedesc) return String(detail.requesttypedesc);
         if (!detail?.requesttype) return '';
         const found = requestTypes.find((r: any) => String(r.syskey) === String(detail.requesttype));
-        return found ? (found.description || found.code || detail.requesttype) : detail.requesttype;
+        return found ? String(found.description || found.code || detail.requesttype) : String(detail.requesttype || '');
     }, [detail?.requesttypedesc, detail?.requesttype, requestTypes]);
     const ferryType = descToFerryType(ferryTypeDesc);
-    const isPending = String(detail?.requeststatus || detail?.status) === '1';
     const isApproved = String(detail?.requeststatus || detail?.status) === '2';
     const isRejected = String(detail?.requeststatus || detail?.status) === '3';
 
@@ -214,57 +215,58 @@ export default function FerryApprovalFormPage() {
         return ferryTypeDesc || 'Ferry Request';
     }, [ferryTypeDesc]);
 
-    const detailApprovers = detailData?.approverList || detail?.approverList || [];
-    const stepLevelData = detailData?.stepLevelData || detail?.stepLevelData || [];
+    const detailApprovers = (detailData as any)?.approverList || (detail as any)?.approverList || [];
+    const stepLevelData = (detailData as any)?.stepLevelData || (detail as any)?.stepLevelData || [];
     const approvalTypeRaw = detail?.approvaltype;
     const isStepLevel = approvalTypeRaw === '1' || approvalTypeRaw === 1;
 
-    const resolvedChangePurpose = useMemo(() => {
-        if (detail?.changepurposedesc) return detail.changepurposedesc;
+    const resolvedChangePurpose = useMemo((): string => {
+        if (detail?.changepurposedesc) return String(detail.changepurposedesc);
         const cPurpose = detail?.changepurpose || detail?.changepurpose_syskey;
         if (!cPurpose) return '';
         const found = changePurposes.find((p: any) => String(p.syskey || p.changepurpose_syskey) === String(cPurpose));
-        return found ? (found.description || found.code || cPurpose) : cPurpose;
+        return found ? String(found.description || found.code || cPurpose) : String(cPurpose);
     }, [detail?.changepurposedesc, detail?.changepurpose, detail?.changepurpose_syskey, changePurposes]);
 
-    // Parse Data
-    const reqName = detail?.name || detail?.employee_name || detail?.eid || 'Employee';
-    const selectedComplaints = useMemo(() => {
-        if (!detail?.ferrycomplaint) return [];
-        return detail.ferrycomplaint.split(',').map((s: string) => s.trim()).filter(Boolean);
-    }, [detail?.ferrycomplaint]);
+    // d is already 'any' since detail is 'any'
+    const d = detail;
+    const reqName = String(d?.name || d?.employee_name || d?.eid || 'Employee');
+    const selectedComplaints = useMemo((): string[] => {
+        if (!d?.ferrycomplaint) return [];
+        return String(d.ferrycomplaint).split(',').map((s: string) => s.trim()).filter(Boolean);
+    }, [d?.ferrycomplaint]);
 
-    const resolvedChangeType = useMemo(() => {
-        if (detail?.changetypedesc) return detail.changetypedesc;
+    const resolvedChangeType = useMemo((): string => {
+        if (detail?.changetypedesc) return String(detail.changetypedesc);
         const cType = detail?.changetype || detail?.changetype_syskey;
         if (!cType) return '';
         const found = changeTypes.find((t: any) => String(t.syskey || t.changetype_syskey) === String(cType));
-        return found ? (found.description || found.code || cType) : cType;
+        return found ? String(found.description || found.code || cType) : String(cType);
     }, [detail?.changetypedesc, detail?.changetype, detail?.changetype_syskey, changeTypes]);
 
-    const resolvedWorkingHour = useMemo(() => {
-        if (detail?.workinghourdesc) return detail.workinghourdesc;
+    const resolvedWorkingHour = useMemo((): string => {
+        if (detail?.workinghourdesc) return String(detail.workinghourdesc);
         const wHour = detail?.workinghour || detail?.workinghour_syskey;
         if (!wHour) return '';
         const found = workingHours.find((w: any) => String(w.syskey || w.workinghour_syskey) === String(wHour));
-        return found ? (found.description || found.code || wHour) : wHour;
+        return found ? String(found.description || found.code || wHour) : String(wHour);
     }, [detail?.workinghourdesc, detail?.workinghour, detail?.workinghour_syskey, workingHours]);
 
-    const resolvedDesiredFerry = useMemo(() => {
-        if (detail?.changeferrydesc) return detail.changeferrydesc;
+    const resolvedDesiredFerry = useMemo((): string => {
+        if (detail?.changeferrydesc) return String(detail.changeferrydesc);
         const cFerry = detail?.changeferry || detail?.changeferry_syskey;
         if (!cFerry) return '';
         const found = ferryNos.find((f: any) => String(f.syskey) === String(cFerry));
-        return found ? (found.carno || found.description || found.ferryCarNo || cFerry) : cFerry;
+        return found ? String(found.carno || found.description || found.ferryCarNo || cFerry) : String(cFerry);
     }, [detail?.changeferrydesc, detail?.changeferry, detail?.changeferry_syskey, ferryNos]);
 
-    const resolvedCurrentFerry = useMemo(() => {
+    const resolvedCurrentFerry = useMemo((): string => {
         const fallback = detail?.currentferryno || detail?.currentferry || detail?.ferryno;
         const syskey = detail?.currentferry_syskey || detail?.ferrysyskey || detail?.ferry_syskey;
-        if (!syskey && fallback) return fallback;
+        if (!syskey && fallback) return String(fallback);
         if (!syskey) return '';
         const found = ferryNos.find((f: any) => String(f.syskey) === String(syskey));
-        return found ? (found.carno || found.description || found.ferryCarNo || fallback || syskey) : (fallback || syskey);
+        return found ? String(found.carno || found.description || found.ferryCarNo || fallback || syskey) : String(fallback || syskey);
     }, [detail?.currentferryno, detail?.currentferry, detail?.ferryno, detail?.currentferry_syskey, detail?.ferrysyskey, detail?.ferry_syskey, ferryNos]);
 
     const isTemporary = resolvedChangeType?.toLowerCase().includes('temporary') && !resolvedChangeType?.toLowerCase().includes('suspension');
@@ -379,7 +381,7 @@ export default function FerryApprovalFormPage() {
                         <div className={styles['approval-detail__title-group']}>
                             <h2>{displayTitle}</h2>
                             <span>
-                                {detail.refno ? `Ref #${detail.refno}` : 'Company ferry / bus service'}
+                                {(d.refno) ? `Ref #${d.refno}` : 'Company ferry / bus service'}
                             </span>
                         </div>
                     </div>
@@ -399,7 +401,7 @@ export default function FerryApprovalFormPage() {
                                 <div className={styles['approval-detail__requester-info']}>
                                     <div className={styles['approval-detail__requester-name']}>{reqName}</div>
                                     <div className={styles['approval-detail__requester-meta']}>
-                                        {detail.eid && <span>{detail.eid}</span>}
+                                        {d.eid && <span>{String(d.eid)}</span>}
                                     </div>
                                 </div>
                             </div>
@@ -407,11 +409,11 @@ export default function FerryApprovalFormPage() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#0f172a', fontWeight: 500 }}>
                                     <Mail size={14} color="#0284c7" />
-                                    <span>{(detail.email && detail.email.includes('@')) ? detail.email : '—'}</span>
+                                    <span>{(d.email && String(d.email).includes('@')) ? String(d.email) : '—'}</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#0f172a', fontWeight: 500 }}>
                                     <Phone size={14} color="#0284c7" />
-                                    <span>{detail.phoneno || '—'}</span>
+                                    <span>{String(d.phoneno || '—')}</span>
                                 </div>
                             </div>
                         </div>
@@ -421,16 +423,16 @@ export default function FerryApprovalFormPage() {
                     {ferryType === FerryRequestType.registration && (
                         <div className={styles['approval-detail__section']}>
                             <div className={styles['approval-detail__grid']} style={{ marginBottom: 24 }}>
-                                <Field label="Contact Phone Number" value={detail.contactphone || detail.phoneno} />
+                                <Field label="Contact Phone Number" value={String(d.contactphone || d.phoneno || '')} />
                                 <Field label="Current Assigned Ferry Number" value={resolvedCurrentFerry} />
                             </div>
                             
                             <h4 className={styles['approval-detail__section-title']}>Registration Details</h4>
                             <div className={styles['approval-detail__grid']}>
                                 <Field label="Working Hours" value={resolvedWorkingHour} />
-                                <Field label="Township" value={detail.township} />
-                                <Field label="Main Road" value={detail.road} />
-                                <Field label="Nearest Bus Stop" value={detail.busstop} />
+                                <Field label="Township" value={String(d.township || '')} />
+                                <Field label="Main Road" value={String(d.road || '')} />
+                                <Field label="Nearest Bus Stop" value={String(d.busstop || '')} />
                             </div>
                         </div>
                     )}
@@ -443,23 +445,23 @@ export default function FerryApprovalFormPage() {
                                 <Field label="Change Type" value={resolvedChangeType} />
                             </div>
                             <div className={styles['approval-detail__grid']}>
-                                <Field label="Contact Phone Number" value={detail.contactphone || detail.phoneno} />
+                                <Field label="Contact Phone Number" value={String(d.contactphone || d.phoneno || '')} />
                                 <Field label="Current Assigned Ferry" value={resolvedCurrentFerry} />
                             </div>
                                 
                             {/* Temporary */}
                             {isTemporary && (
                                 <>
-                                    {detail.remark && (
+                                    {d.remark && (
                                         <div style={{ marginTop: 16, marginBottom: 16 }}>
                                             <h4 className={styles['approval-detail__section-title']}>Reason for Change Request (Business Requirement)</h4>
-                                            <div className={styles['approval-detail__remark']}>{detail.remark}</div>
+                                            <div className={styles['approval-detail__remark']}>{String(d.remark)}</div>
                                         </div>
                                     )}
                                     <div className={styles['approval-detail__grid']}>
                                         <Field label="Desired Ferry Number" value={resolvedDesiredFerry} />
-                                        {detail.startdate && <Field label="Desired Date From" value={fromApiDate(detail.startdate)} />}
-                                        {detail.enddate && <Field label="Desired Date To" value={fromApiDate(detail.enddate)} />}
+                                        {d.startdate && <Field label="Desired Date From" value={fromApiDate(String(d.startdate))} />}
+                                        {d.enddate && <Field label="Desired Date To" value={fromApiDate(String(d.enddate))} />}
                                     </div>
                                 </>
                             )}
@@ -470,7 +472,7 @@ export default function FerryApprovalFormPage() {
                                     <div className={styles['approval-detail__grid']} style={{ marginTop: 16 }}>
                                         <Field label="Purpose of Change" value={resolvedChangePurpose} />
                                         {resolvedOfficeLocation && <Field label="New Office Location" value={resolvedOfficeLocation} />}
-                                        {detail.startdate && <Field label="Desired Start Date" value={fromApiDate(detail.startdate)} />}
+                                        {d.startdate && <Field label="Desired Start Date" value={fromApiDate(String(d.startdate))} />}
                                     </div>
                                 </>
                             )}
@@ -486,10 +488,10 @@ export default function FerryApprovalFormPage() {
                                             <Field label="Purpose of Change" value={resolvedChangePurpose} />
                                         </div>
                                         {resolvedOfficeLocation && <Field label="New Office Location" value={resolvedOfficeLocation} />}
-                                        {detail.startdate && <Field label="Desired Start Date of Change" value={fromApiDate(detail.startdate)} />}
-                                        {detail.address && <div style={{ gridColumn: '1 / -1' }}><Field label="New Home Address" value={detail.address} /></div>}
-                                        {detail.road && <Field label="Main Road" value={detail.road} />}
-                                        {detail.busstop && <Field label="Nearest Bus Stop" value={detail.busstop} />}
+                                        {d.startdate && <Field label="Desired Start Date of Change" value={fromApiDate(String(d.startdate))} />}
+                                        {d.address && <div style={{ gridColumn: '1 / -1' }}><Field label="New Home Address" value={String(d.address)} /></div>}
+                                        {d.road && <Field label="Main Road" value={String(d.road)} />}
+                                        {d.busstop && <Field label="Nearest Bus Stop" value={String(d.busstop)} />}
                                     </div>
                                 </div>
                             )}
@@ -501,8 +503,8 @@ export default function FerryApprovalFormPage() {
                                         Temporary Suspension for Ferry Usage
                                     </h4>
                                     <div className={styles['approval-detail__grid']}>
-                                        {detail.startdate && <Field label="Desired Date For Suspension From" value={fromApiDate(detail.startdate)} />}
-                                        {detail.enddate && <Field label="Desired Date For Suspension To" value={fromApiDate(detail.enddate)} />}
+                                        {d.startdate && <Field label="Desired Date For Suspension From" value={fromApiDate(String(d.startdate))} />}
+                                        {d.enddate && <Field label="Desired Date For Suspension To" value={fromApiDate(String(d.enddate))} />}
                                     </div>
                                 </div>
                             )}
@@ -542,10 +544,10 @@ export default function FerryApprovalFormPage() {
                                     );
                                 })}
                             </div>
-                            {detail.remark && (
+                            {d.remark && (
                                 <div style={{ marginTop: 16 }}>
                                     <div className={styles['approval-detail__field-label']} style={{ marginBottom: 4 }}>Complaint Description</div>
-                                    <div className={styles['approval-detail__remark']}>{detail.remark}</div>
+                                    <div className={styles['approval-detail__remark']}>{String(d.remark)}</div>
                                 </div>
                             )}
                         </div>
@@ -557,7 +559,7 @@ export default function FerryApprovalFormPage() {
                             <h4 className={styles['approval-detail__section-title']}>HR Complaint</h4>
                             <div>
                                 <div className={styles['approval-detail__field-label']} style={{ marginBottom: 4 }}>Complaint Description</div>
-                                <div className={styles['approval-detail__remark']}>{detail.remark || '—'}</div>
+                                <div className={styles['approval-detail__remark']}>{String(d.remark || '—')}</div>
                             </div>
                         </div>
                     )}

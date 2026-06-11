@@ -13,7 +13,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft, Bus, Car, Loader2,
-    Phone, MapPin, CheckCircle2, XCircle, Clock,
+    Phone, CheckCircle2, XCircle, Clock,
     UserCheck, Paperclip, Calendar,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
@@ -64,6 +64,8 @@ interface FerrySetupItem {
     syskey: string;
     code: string;
     description: string;
+    name?: string;
+    carno?: string;
     officeLocationName?: string;
     ferryCarNo?: string;
 }

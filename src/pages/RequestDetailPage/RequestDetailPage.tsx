@@ -663,7 +663,7 @@ export default function RequestDetailPage() {
                     )}
 
                     {/* Approved By */}
-                    {(detail.approvaltype === '0' || detail.approvaltype === 0) && approverList.length > 0 && (
+                    {(detail.approvaltype === '0' || String(detail.approvaltype) === '0') && approverList.length > 0 && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Approvers</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

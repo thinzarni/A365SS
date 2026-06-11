@@ -9,8 +9,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
-    ArrowLeft, Bus, Car, Loader2,
-    Phone, MapPin, Clock,
+    ArrowLeft, Car, Loader2,
+    Phone, Clock,
     UserCheck, Paperclip, CheckCircle2, XCircle,
     Edit, Trash2,
 } from 'lucide-react';
@@ -28,7 +28,7 @@ import {
     USER_PROFILE,
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
-import { displayDate } from '../../lib/date-utils';
+
 import styles from './FerryRequestPage.module.css';
 
 /* ─── helpers ─────────────────────────────────────── */

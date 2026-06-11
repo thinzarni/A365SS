@@ -31,7 +31,6 @@ import {
     DELETE_REQUEST,
 } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
-import { useAuthStore } from '../../stores/auth-store';
 import { displayDate } from '../../lib/date-utils';
 import { useTranslation } from 'react-i18next';
 import styles from '../RequestListPage/RequestListPage.module.css';
@@ -81,7 +80,6 @@ export default function FerryRequestListPage() {
     const navigate  = useNavigate();
     const { t }     = useTranslation();
     const qc        = useQueryClient();
-    const { user, userId } = useAuthStore();
 
     /* ── Filter state ── */
     const [fromDate,    setFromDate]    = useState(monthStart);
@@ -176,22 +174,6 @@ export default function FerryRequestListPage() {
         },
         onError: () => toast.error('Delete failed'),
     });
-
-    /* ── selfRequest check (mirrors Flutter) ── */
-    function canDelete(item: any) {
-        const s = String(item.requeststatus);
-        if (s === '2' || s === '3') return false;
-        const myEid = (user as any)?.employee_id ?? (user as any)?.eid ?? userId ?? '';
-        if (item.eid && item.eid !== '' && item.eid !== myEid) return false;
-        return true;
-    }
-
-    /* ─── Detail cell ─── */
-    function detailCell(req: any) {
-        if (req.remark) return req.remark.length > 50 ? req.remark.slice(0, 50) + '…' : req.remark;
-        if (req.duration != null && req.duration !== '') return `${req.duration} day(s)`;
-        return '—';
-    }
 
     /* ═══════════════════════════════════════════════
        RENDER — mirrors RequestListPage JSX exactly

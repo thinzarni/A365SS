@@ -69,19 +69,7 @@ function nowTimeStr(): string {
 
 
 
-/* ── Calculate leave duration from dates + AM/PM periods ── */
-function calcLeaveDuration(startDate: string, endDate: string, startPeriod: string, endPeriod: string): string {
-    const s = new Date(startDate);
-    const e = endDate ? new Date(endDate) : new Date(startDate);
-    if (isNaN(s.getTime()) || isNaN(e.getTime())) return '';
-    const daysDiff = Math.floor((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff < 0) return '';
-    // Each date+period = half-day index: AM=0, PM=1
-    // totalHalves counts from start period to end period inclusive
-    const totalHalves = (daysDiff * 2) + (startPeriod === 'PM' ? -1 : 0) + (endPeriod === 'AM' ? 0 : 1) + 1;
-    const dur = totalHalves * 0.5;
-    return dur > 0 ? String(dur) : '0.5';
-}
+
 
 /* ── Map API description → internal key for conditional form rendering ── */
 const DESC_TO_KEY: Record<string, string> = {

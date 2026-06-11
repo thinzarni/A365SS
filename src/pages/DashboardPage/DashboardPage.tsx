@@ -17,12 +17,12 @@ import {
     CalendarCheck,
     Activity,
     TreePalm,
-    CalendarDays,
-    ClipboardList,
-    CheckSquare,
-    Receipt,
-    Calendar,
-    Users,
+    // CalendarDays,
+    // ClipboardList,
+    // CheckSquare,
+    // Receipt,
+    // Calendar,
+    // Users,
     MapPin,
     ChevronRight,
     ImageIcon,
@@ -158,17 +158,17 @@ function parseTimeStr(t: string): Date | null {
 }
 
 /* ── Quick Action Items ── */
-const quickActions = [
-    { path: '/leave', icon: TreePalm, label: 'Leave', bg: '#fef3c7', color: '#d97706' },
-    { path: '/claims', icon: Receipt, label: 'Claims', bg: '#fce7f3', color: '#db2777' },
-    { path: '/holidays', icon: CalendarDays, label: 'Holidays', bg: 'var(--color-primary-100)', color: 'var(--color-primary-600)' },
-    { path: '/approvals', icon: CheckSquare, label: 'Approvals', bg: '#dcfce7', color: '#16a34a' },
-    { path: '/requests', icon: ClipboardList, label: 'Requests', bg: '#f3e8ff', color: '#7c3aed' },
-    { path: '/reservations', icon: Calendar, label: 'Reservations', bg: '#e0e7ff', color: '#4338ca' },
-    { path: '/leave-summary', icon: TreePalm, label: 'Leave Summary', bg: '#ccfbf1', color: '#0d9488' },
-    { path: '/team', icon: Users, label: 'Team', bg: '#fef9c3', color: '#ca8a04' },
-    { path: '/attendanceapproval', icon: UserCheck, label: 'Attendance Approval', bg: '#ecfeff', color: '#0891b2' },
-];
+// const quickActions = [
+//     { path: '/leave', icon: TreePalm, label: 'Leave', bg: '#fef3c7', color: '#d97706' },
+//     { path: '/claims', icon: Receipt, label: 'Claims', bg: '#fce7f3', color: '#db2777' },
+//     { path: '/holidays', icon: CalendarDays, label: 'Holidays', bg: 'var(--color-primary-100)', color: 'var(--color-primary-600)' },
+//     { path: '/approvals', icon: CheckSquare, label: 'Approvals', bg: '#dcfce7', color: '#16a34a' },
+//     { path: '/requests', icon: ClipboardList, label: 'Requests', bg: '#f3e8ff', color: '#7c3aed' },
+//     { path: '/reservations', icon: Calendar, label: 'Reservations', bg: '#e0e7ff', color: '#4338ca' },
+//     { path: '/leave-summary', icon: TreePalm, label: 'Leave Summary', bg: '#ccfbf1', color: '#0d9488' },
+//     { path: '/team', icon: Users, label: 'Team', bg: '#fef9c3', color: '#ca8a04' },
+//     { path: '/attendanceapproval', icon: UserCheck, label: 'Attendance Approval', bg: '#ecfeff', color: '#0891b2' },
+// ];
 
 const STATUS_LABELS: Record<string, string> = {
     '0': 'All',
@@ -672,7 +672,7 @@ export default function DashboardPage() {
             <div style={{ marginBottom: '2rem' }} />
 
             {/* ── Quick Actions ── */}
-            <section>
+            {/* <section>
                 <div className={styles.sectionHeader}>
                     <h2 className={styles.sectionTitle}>{t('dashboard.quickActions')}</h2>
                 </div>
@@ -700,7 +700,7 @@ export default function DashboardPage() {
                         );
                     })}
                 </div>
-            </section>
+            </section> */}
         </div>
     );
 }
