@@ -50,9 +50,10 @@ export default function ClaimDetailPage() {
     });
 
     const { data: claimTypeList = [] } = useQuery<TypesModel[]>({
-        queryKey: ['claimTypeList'],
+        queryKey: ['claimTypeList', (claim as any)?.employee_syskey || ''],
         queryFn: async () => {
-            const res = await apiClient.get(CLAIM_TYPES);
+            const params = (claim as any)?.employee_syskey ? { employee_syskey: (claim as any).employee_syskey } : {};
+            const res = await apiClient.get(CLAIM_TYPES, { params });
             return res.data?.datalist || [];
         },
         enabled: !!claim,

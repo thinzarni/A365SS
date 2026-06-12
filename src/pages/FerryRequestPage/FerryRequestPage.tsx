@@ -14,7 +14,7 @@ import toast from 'react-hot-toast';
 import {
     ArrowLeft, Bus, Car, Loader2,
     Phone, MapPin, CheckCircle2, XCircle, Clock,
-    UserCheck, Paperclip, Calendar,
+    UserCheck, Paperclip, Calendar, Trash2,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -39,6 +39,8 @@ import {
 } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
 import { useAuthStore } from '../../stores/auth-store';
+import { appConfig } from '../../config/app-config';
+import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import styles from './FerryRequestPage.module.css';
 
 /* ─────────────────────────────────────────────────
@@ -66,6 +68,8 @@ interface FerrySetupItem {
     description: string;
     officeLocationName?: string;
     ferryCarNo?: string;
+    carno?: string;
+    name?: string;
 }
 
 /* ─────────────────────────────────────────────────
@@ -278,6 +282,8 @@ export default function FerryRequestPage() {
     const [hrComplaintText, setHrComplaintText] = useState('');
     const [userComplaintText, setUserComplaintText] = useState('');
 
+    const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
+
     // Field-level validation errors (Registration)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -376,6 +382,10 @@ export default function FerryRequestPage() {
         if (d.ferrycomplaint) {
             setSelectedComplaints(String(d.ferrycomplaint).split(',').filter(Boolean));
         }
+        
+        if (d.attachment) {
+            setExistingAttachments(Array.isArray(d.attachment) ? d.attachment : []);
+        }
         const mapToMember = (list: any[]): MemberItem[] =>
             (list ?? []).map(m => ({
                 syskey: m.syskey ?? '',
@@ -449,9 +459,14 @@ export default function FerryRequestPage() {
     /* ── Submit ── */
     const { mutate: submitRequest, isPending: submitting } = useMutation({
         mutationFn: async () => {
-            const attachment = await uploadFiles();
+            const uploadedFiles = await uploadFiles();
             const opt = selectedOpt ?? ferryTypeOptions.find(o => o.value === selectedType);
             if (!opt) throw new Error('Please select a request type');
+            
+            const attachment = [
+                ...existingAttachments.map((a: any) => typeof a === 'string' ? a : a),
+                ...uploadedFiles
+            ].filter(Boolean);
 
             const base: Record<string, unknown> = {
                 syskey: !isNew ? (detail?.syskey || id) : '0',
@@ -994,6 +1009,24 @@ export default function FerryRequestPage() {
                                 <Paperclip size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                                 Attachments
                             </h3>
+                            {existingAttachments.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                                    {existingAttachments.map((att: any, i: number) => {
+                                        const name = typeof att === 'string' ? `File ${i + 1}` : att.filename || att.fileName || att.name || `File ${i + 1}`;
+                                        return (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                                                <button type="button" onClick={() => downloadOrOpenAttachment(att)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#0c4a6e', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                                    <Paperclip size={13} />
+                                                    {name}
+                                                </button>
+                                                <button type="button" onClick={() => setExistingAttachments(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                             <FileUpload files={files} onChange={setFiles} />
                         </section>
                     )}

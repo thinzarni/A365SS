@@ -325,7 +325,7 @@ export default function FerryApprovalFormPage() {
     const displayTitle = useMemo(() => {
         const desc = (ferryTypeDesc || '').toLowerCase().replace(/\s+/g, '');
         if (desc === 'ferrychange') return 'Ferry Change';
-        if (desc === 'ferryregistration' || desc === 'ferryregisteration') return 'Ferry Registeration';
+        if (desc === 'ferryregistration' || desc === 'ferryregisteration') return 'Ferry Registration';
         if (desc === 'ferryusercomplaint' || desc === 'usercomplaint') return 'Ferry User Complaint';
         if (desc === 'hrcomplaint' || desc === 'ferryhrcomplaint') return 'HR Complaint';
         return ferryTypeDesc || 'Ferry Request';

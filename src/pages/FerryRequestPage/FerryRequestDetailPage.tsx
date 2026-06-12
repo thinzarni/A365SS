@@ -29,6 +29,8 @@ import {
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
 import { displayDate } from '../../lib/date-utils';
+import { appConfig } from '../../config/app-config';
+import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import styles from './FerryRequestPage.module.css';
 
 /* ─── helpers ─────────────────────────────────────── */
@@ -117,6 +119,8 @@ export default function FerryRequestDetailPage() {
             return res.data ?? null;
         },
         enabled: !!id,
+        staleTime: 0,
+        refetchOnMount: 'always',
     });
 
     const dl = detailRes?.datalist;
@@ -437,20 +441,19 @@ export default function FerryRequestDetailPage() {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                     {attachArr.map((att: any, i: number) => {
                                         const isStr = typeof att === 'string';
-                                        const url  = isStr ? att : (att.signedURL || att.url || att.filepath || att.filePath || '');
                                         const name = isStr ? `File ${i + 1}` : (att.filename || att.fileName || att.name || `File ${i + 1}`);
                                         return (
-                                            <a key={i} href={url || undefined} target="_blank" rel="noreferrer"
+                                            <button key={i} type="button" onClick={() => downloadOrOpenAttachment(att)}
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: 8,
                                                     padding: '10px 12px', borderRadius: 8,
                                                     border: '1px solid #e2e8f0', background: '#f8fafc',
-                                                    fontSize: 13, color: url ? '#0c4a6e' : '#334155',
-                                                    textDecoration: url ? 'underline' : 'none',
+                                                    fontSize: 13, color: '#0c4a6e',
+                                                    textDecoration: 'underline', cursor: 'pointer'
                                                 }}>
                                                 <Paperclip size={13} />
                                                 {name}
-                                            </a>
+                                            </button>
                                         );
                                     })}
                                 </div>
