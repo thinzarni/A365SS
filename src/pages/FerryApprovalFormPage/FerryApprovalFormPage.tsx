@@ -113,11 +113,14 @@ const COMPLAINT_OPTS = [
 ];
 
 function Field({ label, value }: { label: string; value: string | number | undefined | null }) {
+    const display = (value === null || value === undefined || String(value).trim() === '' || String(value) === 'null' || String(value) === 'undefined')
+        ? null
+        : value;
     return (
         <div className={styles['approval-detail__field']}>
             <span className={styles['approval-detail__field-label']}>{label}</span>
-            <span className={`${styles['approval-detail__field-value']} ${!value ? styles['approval-detail__field-value--empty'] : ''}`}>
-                {value || '—'}
+            <span className={`${styles['approval-detail__field-value']} ${!display ? styles['approval-detail__field-value--empty'] : ''}`}>
+                {display ?? '—'}
             </span>
         </div>
     );
