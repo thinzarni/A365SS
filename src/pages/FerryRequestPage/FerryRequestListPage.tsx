@@ -8,7 +8,7 @@
  * New request → /ferry/new  |  Row tap → /ferry/:id
  */
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -20,6 +20,7 @@ import {
     ArrowUp,
     Car,
     Trash2,
+    Building2,
 } from 'lucide-react';
 import { Button, Input, Select } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
@@ -50,11 +51,6 @@ function monthEnd() {
     return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
 }
 
-function isFerryType(desc: string) {
-    const d = (desc ?? '').toLowerCase();
-    return d.includes('ferry') || d.includes('hr compliant') || d.includes('hr complaint');
-}
-
 const STATUS_TABS = [
     { key: 0,  label: 'status.all' },
     { key: 1,  label: 'status.pending' },
@@ -79,9 +75,21 @@ function ferryTypeBadge(desc: string) {
 ═══════════════════════════════════════════════════════════ */
 export default function FerryRequestListPage() {
     const navigate  = useNavigate();
+    const location  = useLocation();
     const { t }     = useTranslation();
     const qc        = useQueryClient();
     const { user, userId } = useAuthStore();
+
+    const isHrComplaintView = location.pathname.startsWith('/hr_complaint') || location.pathname.startsWith('/hrcomplaint');
+    const basePath = isHrComplaintView ? (location.pathname.startsWith('/hr_complaint') ? '/hr_complaint' : '/hrcomplaint') : '/ferry_request';
+
+    function isMatchedType(desc: string) {
+        const d = (desc ?? '').toLowerCase();
+        if (isHrComplaintView) {
+            return d.includes('hr compliant') || d.includes('hr complaint') || d.includes('hrcomplaint');
+        }
+        return d.includes('ferry');
+    }
 
     /* ── Filter state ── */
     const [fromDate,    setFromDate]    = useState(monthStart);
@@ -107,8 +115,8 @@ export default function FerryRequestListPage() {
 
     const ferryTypes = useMemo(() => [
         { syskey: '', description: 'All Types' } as TypesModel,
-        ...allTypes.filter(t => isFerryType(t.description)),
-    ], [allTypes]);
+        ...allTypes.filter(t => isMatchedType(t.description)),
+    ], [allTypes, isHrComplaintView]);
 
     const typeOptions = ferryTypes.map(t => ({ value: t.syskey, label: t.description }));
 
@@ -123,7 +131,7 @@ export default function FerryRequestListPage() {
                 status:   activeStatus === 0 ? '0' : String(activeStatus),
             });
             const all: any[] = res.data?.datalist ?? res.data?.data ?? [];
-            return all.filter(r => isFerryType(r.requesttypedesc ?? r.requesttype ?? ''));
+            return all.filter(r => isMatchedType(r.requesttypedesc ?? r.requesttype ?? ''));
         },
         staleTime: 0,
     });
@@ -204,17 +212,21 @@ export default function FerryRequestListPage() {
                 <div className="page-header__row">
                     <div>
                         <h1 className="page-header__title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Car size={22} style={{ color: 'var(--color-primary-600)' }} />
-                            Ferry Request / Complaint
+                            {isHrComplaintView ? (
+                                <Building2 size={22} style={{ color: 'var(--color-primary-600)' }} />
+                            ) : (
+                                <Car size={22} style={{ color: 'var(--color-primary-600)' }} />
+                            )}
+                            {isHrComplaintView ? 'HR Complaint' : 'Ferry Request'}
                         </h1>
                         <p className="page-header__subtitle">
-                            {displayList.length} ferry request{displayList.length === 1 ? '' : 's'}
+                            {displayList.length} {isHrComplaintView ? 'complaint' : 'ferry request'}{displayList.length === 1 ? '' : 's'}
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <Button onClick={() => navigate('/ferry_request/new')}>
+                        <Button onClick={() => navigate(`${basePath}/new`)}>
                             <Plus size={16} />
-                            New Ferry Request
+                            {isHrComplaintView ? 'New HR Complaint' : 'New Ferry Request'}
                         </Button>
                     </div>
                 </div>
@@ -279,7 +291,7 @@ export default function FerryRequestListPage() {
             {/* ── List Card (table) ── */}
             <div className={styles['requests-list-card']}>
                 <div className={styles['requests-list-card__header']}>
-                    <h3 className={styles['requests-list-card__title']}>Ferry Requests</h3>
+                    <h3 className={styles['requests-list-card__title']}>{isHrComplaintView ? 'HR Complaints' : 'Ferry Requests'}</h3>
                     <div className={styles['requests-list-card__actions']}>
                         {/* Filter toggle */}
                         <button
@@ -317,10 +329,10 @@ export default function FerryRequestListPage() {
                     <div className="empty-state" style={{ padding: '2rem' }}>
                         <ClipboardList size={48} className="empty-state__icon" />
                         <h3 className="empty-state__title">{t('request.noRequests')}</h3>
-                        <p className="empty-state__desc">No ferry requests found for the selected filters.</p>
-                        <Button onClick={() => navigate('/ferry_request/new')} style={{ marginTop: '0.5rem' }}>
+                        <p className="empty-state__desc">No {isHrComplaintView ? 'HR complaints' : 'ferry requests'} found for the selected filters.</p>
+                        <Button onClick={() => navigate(`${basePath}/new`)} style={{ marginTop: '0.5rem' }}>
                             <Plus size={16} />
-                            New Ferry Request
+                            {isHrComplaintView ? 'New HR Complaint' : 'New Ferry Request'}
                         </Button>
                     </div>
                 ) : (
@@ -355,7 +367,7 @@ export default function FerryRequestListPage() {
                                     const { cls, icon } = ferryTypeBadge(typeDesc);
                                     return (
                                         <tr key={req.syskey || i}
-                                            onClick={() => navigate(`/ferry_request/${req.syskey}`, { state: { from: '/ferry_request' } })}>
+                                            onClick={() => navigate(`${basePath}/${req.syskey}`, { state: { from: location.pathname } })}>
                                             <td>{req.eid || '—'}</td>
                                             <td>{req.name || '—'}</td>
                                             <td>{req.refno || '—'}</td>
@@ -391,8 +403,8 @@ export default function FerryRequestListPage() {
                     if (deleteTarget) doDelete(deleteTarget.syskey);
                     setDeleteTarget(null);
                 }}
-                title="Delete Ferry Request"
-                message={`Delete this ${deleteTarget?.requesttypedesc ?? 'ferry'} request? This cannot be undone.`}
+                title={isHrComplaintView ? 'Delete HR Complaint' : 'Delete Ferry Request'}
+                                message={`Delete this ${deleteTarget?.requesttypedesc ?? (isHrComplaintView ? 'HR complaint' : 'ferry')} request? This cannot be undone.`}
                 confirmLabel="Delete"
                 loading={deleting}
                 variant="danger"

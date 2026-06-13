@@ -65,7 +65,7 @@ const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: s
     '/offinlieu': { filter: 'off in lieu', label: 'Off in Lieu', newLabel: 'New Off in Lieu', newPath: '/offinlieu/new' },
     '/attendancerequest': { filter: 'attendance', label: 'Attendance Request', newLabel: 'New Attendance Request', newPath: '/attendancerequest/new' },
     // ── Ferry Service (company bus/ferry) ──
-    '/ferry': { filter: 'ferry|hr compliant|hr complaint', label: 'Ferry Request / Complaint', newLabel: 'New Ferry Request', newPath: '/ferry/new' },
+    '/ferry': { filter: 'ferry', label: 'Ferry Request', newLabel: 'New Ferry Request', newPath: '/ferry/new' },
 };
 
 
@@ -87,7 +87,7 @@ function getTypeVariant(typedesc: string): string {
     if (lower.includes('travel')) return 'travel';
     if (lower.includes('claim') || lower.includes('cash') || lower.includes('advance')) return 'claim';
     if (lower.includes('attendance') || lower.includes('time in') || lower.includes('time out')) return 'attendance';
-    if (lower.includes('ferry') || lower.includes('hr compliant') || lower.includes('hr complaint')) return 'ferry';
+    if (lower.includes('ferry')) return 'ferry';
     return 'default';
 }
 

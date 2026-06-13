@@ -720,6 +720,27 @@ export default function FerryApprovalFormPage() {
                                         <Field label="Township" value={detail.township} />
                                         <Field label="Main Road" value={detail.road} />
                                         <Field label="Nearest Bus Stop" value={detail.busstop} />
+                                        {isApproved && (
+                                            <>
+                                                {(detail.device_phoneno || detail.device_phone || detail.devicephone) && (
+                                                    <Field label="Device Phone Number" value={detail.device_phoneno || detail.device_phone || detail.devicephone} />
+                                                )}
+                                                {(detail.driver_name || detail.drivername) && (
+                                                    <Field label="Driver Name" value={detail.driver_name || detail.drivername} />
+                                                )}
+                                                {(detail.driver_phoneno || detail.driver_phone || detail.driverphone || driverPhone) && (
+                                                    <Field label="Driver Phone Number" value={detail.driver_phoneno || detail.driver_phone || detail.driverphone || driverPhone} />
+                                                )}
+                                                {(detail.gps_info || detail.gpsInfo || detail.gps || gpsInfo) && (
+                                                    <Field label="GPS Information" value={detail.gps_info || detail.gpsInfo || detail.gps || gpsInfo} />
+                                                )}
+                                                {(detail.comment || detail.approver_comment || comment) && (
+                                                    <div style={{ gridColumn: '1 / -1' }}>
+                                                        <Field label="Approver Comment / Remark" value={detail.comment || detail.approver_comment || comment} />
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
                                     </>
                                 )}
                             </div>
@@ -917,6 +938,11 @@ export default function FerryApprovalFormPage() {
                                     <div className={styles['approval-detail__remark']}>{detail.remark}</div>
                                 )}
                             </div>
+                            {isApproved && (detail.comment || detail.approver_comment || comment) && (
+                                <div style={{ marginTop: 16 }}>
+                                    <Field label="Approver Comment / Remark" value={detail.comment || detail.approver_comment || comment} />
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -938,6 +964,11 @@ export default function FerryApprovalFormPage() {
                                     <div className={styles['approval-detail__remark']}>{detail.remark || '—'}</div>
                                 )}
                             </div>
+                            {isApproved && (detail.comment || detail.approver_comment || comment) && (
+                                <div style={{ marginTop: 16 }}>
+                                    <Field label="Approver Comment / Remark" value={detail.comment || detail.approver_comment || comment} />
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -995,7 +1026,7 @@ export default function FerryApprovalFormPage() {
                     )}
 
                     {/* Approver Action Details */}
-                    {displayTitle !== 'HR Complaint' && displayTitle !== 'Ferry Change' && (
+                    {isPending && displayTitle !== 'HR Complaint' && displayTitle !== 'Ferry Change' && (
                         <div className={styles['approval-detail__section']} style={{ marginTop: 24, padding: 20, background: 'var(--color-primary-50)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-primary-200)' }}>
                             <h4 className={styles['approval-detail__section-title']} style={{ color: 'var(--color-primary-700)' }}>
                                 Approver Action Details

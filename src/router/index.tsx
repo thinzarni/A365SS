@@ -143,6 +143,15 @@ export const router = createBrowserRouter([
                     { path: '/ferry_request/new', element: <FerryRequestPage /> },
                     { path: '/ferry_request/edit/:id', element: <FerryRequestPage /> },
                     { path: '/ferry_request/:id', element: <FerryRequestDetailPage /> },
+                    // ── HR Complaint Request Flow ──
+                    { path: '/hr_complaint', element: <FerryRequestListPage /> },
+                    { path: '/hr_complaint/new', element: <FerryRequestPage /> },
+                    { path: '/hr_complaint/edit/:id', element: <FerryRequestPage /> },
+                    { path: '/hr_complaint/:id', element: <FerryRequestDetailPage /> },
+                    { path: '/hrcomplaint', element: <FerryRequestListPage /> },
+                    { path: '/hrcomplaint/new', element: <FerryRequestPage /> },
+                    { path: '/hrcomplaint/edit/:id', element: <FerryRequestPage /> },
+                    { path: '/hrcomplaint/:id', element: <FerryRequestDetailPage /> },
                     // ── Attendance subtypes — use existing approval pages ──
                     { path: '/attendanceapproval', element: <AttendanceApprovalListPage /> },
                     { path: '/attendanceapproval/:id/:type', element: <AttendanceApprovalDetailPage /> },

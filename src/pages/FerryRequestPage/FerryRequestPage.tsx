@@ -8,13 +8,13 @@
  * contains "ferry" or "hr compliant" — exactly as Flutter does.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft, Bus, Car, Loader2,
     Phone, MapPin, CheckCircle2, XCircle, Clock,
-    UserCheck, Paperclip, Calendar, Trash2,
+    UserCheck, Paperclip, Calendar, Trash2, Building2,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -130,9 +130,13 @@ const COMPLAINT_OPTS = [
 ═══════════════════════════════════════════════════ */
 export default function FerryRequestPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams<{ id: string }>();
     const queryClient = useQueryClient();
     const { user, userId, domain } = useAuthStore();
+
+    const isHrComplaintView = location.pathname.startsWith('/hr_complaint') || location.pathname.startsWith('/hrcomplaint');
+    const basePath = isHrComplaintView ? (location.pathname.startsWith('/hr_complaint') ? '/hr_complaint' : '/hrcomplaint') : '/ferry_request';
 
     const isNew = !id;
 
@@ -149,7 +153,10 @@ export default function FerryRequestPage() {
     const ferryTypeOptions: FerryTypeOption[] = (() => {
         const raw = allRequestTypes.filter((t) => {
             const d = (t.description ?? '').toLowerCase();
-            return d.includes('ferry') || d.includes('hr compliant') || d.includes('hr complaint');
+            if (isHrComplaintView) {
+                return d.includes('hr compliant') || d.includes('hr complaint') || d.includes('hrcomplaint');
+            }
+            return d.includes('ferry');
         });
         const options: FerryTypeOption[] = raw.map((t) => ({
             label: t.description,
@@ -157,8 +164,9 @@ export default function FerryRequestPage() {
             syskey: t.syskey,
             approvaltype: (t as any).approvaltype ?? null,
         }));
-        const ORDER = [FerryRequestType.registration, FerryRequestType.change,
-            FerryRequestType.usercomplaint, FerryRequestType.hrcomplaint];
+        const ORDER = isHrComplaintView
+            ? [FerryRequestType.hrcomplaint]
+            : [FerryRequestType.registration, FerryRequestType.change, FerryRequestType.usercomplaint];
         options.sort((a, b) => ORDER.indexOf(a.value) - ORDER.indexOf(b.value));
         return options;
     })();
@@ -243,7 +251,9 @@ export default function FerryRequestPage() {
        FORM STATE
     ═══════════════════════════════════════════════ */
     const [selectedOpt, setSelectedOpt] = useState<FerryTypeOption | null>(null);
-    const [selectedType, setSelectedType] = useState<FerryRequestType>(FerryRequestType.registration);
+    const [selectedType, setSelectedType] = useState<FerryRequestType>(
+        isHrComplaintView ? FerryRequestType.hrcomplaint : FerryRequestType.registration
+    );
     const [approvalType, setApprovalType] = useState<string | null>('0');
 
     // Common
@@ -557,9 +567,9 @@ export default function FerryRequestPage() {
             await apiClient.post(endpoint, base);
         },
         onSuccess: () => {
-            toast.success('Ferry request submitted successfully');
+            toast.success(isHrComplaintView ? 'HR complaint submitted successfully' : 'Ferry request submitted successfully');
             queryClient.invalidateQueries({ queryKey: ['requests'] });
-            navigate('/ferry_request');
+            navigate(basePath);
         },
         onError: (e: any) => toast.error(e?.response?.data?.message ?? e?.message ?? 'Submission failed'),
     });
@@ -583,19 +593,25 @@ export default function FerryRequestPage() {
             {/* ── Header ── */}
             <div className={styles.header}>
                 <div className={styles.headerLeft}>
-                    <button className={styles.backBtn} onClick={() => navigate(isNew ? '/ferry_request' : `/ferry_request/${id}`)}>
+                    <button className={styles.backBtn} onClick={() => navigate(isNew ? basePath : `${basePath}/${id}`)}>
                         <ArrowLeft size={20} />
                     </button>
                     <div className={styles.headerIcon}>
-                        <Car size={22} color="#0c4a6e" />
+                        {isHrComplaintView ? (
+                            <Building2 size={22} color="#0c4a6e" />
+                        ) : (
+                            <Car size={22} color="#0c4a6e" />
+                        )}
                     </div>
                     <div>
                         <h1 className={styles.headerTitle}>
-                            {isNew ? `New ${selectedOpt?.label || 'Ferry Request'}` : (detail?.requesttypedesc || selectedOpt?.label || 'Ferry Request')}
+                            {isNew ? `New ${selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request')}` : (detail?.requesttypedesc || selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request'))}
                         </h1>
-                        {!isNew && detail?.refno
-                            ? <p className={styles.headerSub}>Ref # {detail.refno}</p>
-                            : <p className={styles.headerSub}>Company ferry / bus service</p>}
+                        {!isNew && detail?.refno ? (
+                            <p className={styles.headerSub}>Ref # {detail.refno}</p>
+                        ) : (
+                            !isHrComplaintView ? <p className={styles.headerSub}>Company ferry / bus service</p> : null
+                        )}
                     </div>
                 </div>
                 {!isNew && <StatusBadge status={String(detail?.requeststatus ?? '1')} />}
@@ -611,7 +627,11 @@ export default function FerryRequestPage() {
                     {/* ── 1. Request Type (from API, filtered ferry/HR) ── */}
                     <section className={styles.section}>
                         <h3 className={styles.sectionTitle}>
-                            <Bus size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                            {isHrComplaintView ? (
+                                <Building2 size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                            ) : (
+                                <Bus size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                            )}
                             Request Type
                         </h3>
                         {ferryTypeOptions.length === 0 ? (
@@ -1002,6 +1022,8 @@ export default function FerryRequestPage() {
 
 
 
+
+
                     {/* ── Attachments ── */}
                     {!isReadOnly && (
                         <section className={styles.section}>
@@ -1086,7 +1108,7 @@ export default function FerryRequestPage() {
                     {/* ── Action Bar ── */}
                     {!isReadOnly && (
                         <div className={styles.actionBar}>
-                            <Button variant="secondary" onClick={() => navigate(isNew ? '/ferry_request' : `/ferry_request/${id}`)}>Cancel</Button>
+                            <Button variant="secondary" onClick={() => navigate(isNew ? basePath : `${basePath}/${id}`)}>Cancel</Button>
                             <Button id="ferry-submit-btn"
                                 onClick={() => { if (validateForm()) submitRequest(); }}
                                 disabled={submitting}
