@@ -20,6 +20,8 @@ import {
     FileSpreadsheet,
     ArrowDown,
     ArrowUp,
+    CheckCircle2,
+    Circle,
 } from 'lucide-react';
 import { Button, Input, Select } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
@@ -122,6 +124,7 @@ export default function RequestListPage() {
     const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
     const [fromDate, setFromDate] = useState<string>(dateToInput(DEFAULT_FROM_DATE));
     const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
+    const [isAllDate, setIsAllDate] = useState(true);
     const [requestType, setRequestType] = useState<string>('');
     const [didInitDates, setDidInitDates] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
@@ -189,12 +192,20 @@ export default function RequestListPage() {
     }, [requestTypes]);
 
     const { data: allRequests = [], isLoading: requestsLoading } = useQuery<RequestModel[]>({
-        queryKey: ['requests', fromDate, toDate, requestType, attendanceRequestType, location.pathname, activeStatus],
+        queryKey: ['requests', fromDate, toDate, isAllDate, requestType, attType, location.pathname, activeStatus],
         queryFn: async () => {
             if (isAttendancePage) {
                 const reqStatus = activeStatus === RequestStatus.All ? '' : String(activeStatus);
-
-                const mapItem = (item: any) => ({
+                const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
+                    userid: userId || '',
+                    domain: domain || 'dev',
+                    fromdate: isAllDate ? "" : fromDate.replace(/-/g, ''),
+                    todate: isAllDate ? "" : toDate.replace(/-/g, ''),
+                    status: reqStatus,
+                    type: attType,
+                });
+                const list = res.data?.data || res.data?.datalist || [];
+                return list.map((item: any) => ({
                     syskey: item.syskey,
                     eid: item.employee_id,
                     name: item.employee_name,
@@ -234,8 +245,8 @@ export default function RequestListPage() {
             }
 
             const res = await apiClient.post(GET_REQUEST_LIST, {
-                fromdate: fromDate.replace(/-/g, ''),
-                todate: toDate.replace(/-/g, ''),
+                fromdate: isAllDate ? "" : fromDate.replace(/-/g, ''),
+                todate: isAllDate ? "" : toDate.replace(/-/g, ''),
                 type: isSubtypeView ? '' : requestType,
                 status: activeStatus === RequestStatus.All ? "0" : String(activeStatus),
             });
@@ -518,18 +529,42 @@ export default function RequestListPage() {
             {(!isSubtypeView || isAttendancePage) && filterOpen && (
                 <div className={styles['filters-row']}>
                     <div className={styles['filter-group']}>
-                        <label className={styles['filter-label']}>Date Range</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                            <label className={styles['filter-label']} style={{ marginBottom: 0 }}>Date Range</label>
+                            <button
+                                type="button"
+                                onClick={() => setIsAllDate(!isAllDate)}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                                    fontSize: 12, fontWeight: 600,
+                                    padding: '4px 12px', borderRadius: 16,
+                                    border: '1px solid',
+                                    borderColor: isAllDate ? '#0ea5e9' : '#cbd5e1',
+                                    backgroundColor: isAllDate ? '#e0f2fe' : '#f8fafc',
+                                    color: isAllDate ? '#0369a1' : '#64748b',
+                                    cursor: 'pointer', transition: 'all 0.2s ease',
+                                    outline: 'none',
+                                }}
+                            >
+                                {isAllDate ? <CheckCircle2 size={15} strokeWidth={2.5} /> : <Circle size={15} strokeWidth={2} />}
+                                All Dates
+                            </button>
+                        </div>
                         <div className={styles['filter-inputs']}>
                             <Input
-                                type="date"
-                                value={fromDate}
+                                type={isAllDate ? "text" : "date"}
+                                value={isAllDate ? "" : fromDate}
+                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
+                                disabled={isAllDate}
                                 onChange={(e) => setFromDate(e.target.value)}
                                 className={styles['filter-date']}
                             />
                             <span className={styles['filter-separator']}>→</span>
                             <Input
-                                type="date"
-                                value={toDate}
+                                type={isAllDate ? "text" : "date"}
+                                value={isAllDate ? "" : toDate}
+                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
+                                disabled={isAllDate}
                                 onChange={(e) => setToDate(e.target.value)}
                                 className={styles['filter-date']}
                             />

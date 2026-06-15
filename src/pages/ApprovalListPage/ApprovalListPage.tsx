@@ -21,6 +21,7 @@ import {
     RotateCcw,
     CheckCircle2,
     XCircle,
+    Circle,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
@@ -101,6 +102,7 @@ export default function ApprovalListPage() {
     const [showFilter, setShowFilter] = useState(false);
     const [fromDate, setFromDate] = useState(defaultFromDate);
     const [toDate, setToDate] = useState(defaultToDate);
+    const [isAllDate, setIsAllDate] = useState(true);
     const [didInitDates, setDidInitDates] = useState(false);
     const { userId, domain } = useAuthStore();
     const queryClient = useQueryClient();
@@ -130,13 +132,13 @@ export default function ApprovalListPage() {
     }, [shiftData, shiftLoading, didInitDates]);
 
     const { data: allApprovals = [], isLoading: approvalsLoading } = useQuery<RequestModel[]>({
-        queryKey: ['approvals', fromDate, toDate, activeStatus],
+        queryKey: ['approvals', fromDate, toDate, isAllDate, activeStatus],
         queryFn: async () => {
 
 
             const body: Record<string, unknown> = {
-                fromdate: fromDate,
-                todate: toDate,
+                fromdate: isAllDate ? "" : fromDate,
+                todate: isAllDate ? "" : toDate,
                 type: '',
                 status: activeStatus,
             };
@@ -264,13 +266,36 @@ export default function ApprovalListPage() {
             {/* ── Date Filter ── */}
             {showFilter && (
                 <div className={styles['approval-page__filter-panel']}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                        <label className={styles['approval-page__filter-label']} style={{ marginBottom: 0 }}>Date Range</label>
+                        <button
+                            type="button"
+                            onClick={() => setIsAllDate(!isAllDate)}
+                            style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                fontSize: 12, fontWeight: 600,
+                                padding: '4px 12px', borderRadius: 16,
+                                border: '1px solid',
+                                borderColor: isAllDate ? '#0ea5e9' : '#cbd5e1',
+                                backgroundColor: isAllDate ? '#e0f2fe' : '#f8fafc',
+                                color: isAllDate ? '#0369a1' : '#64748b',
+                                cursor: 'pointer', transition: 'all 0.2s ease',
+                                outline: 'none',
+                            }}
+                        >
+                            {isAllDate ? <CheckCircle2 size={15} strokeWidth={2.5} /> : <Circle size={15} strokeWidth={2} />}
+                            All Dates
+                        </button>
+                    </div>
                     <div className={styles['approval-page__filter-row']}>
                         <div className={styles['approval-page__filter-field']}>
                             <label className={styles['approval-page__filter-label']}>From</label>
                             <input
-                                type="date"
+                                type={isAllDate ? "text" : "date"}
                                 className={styles['approval-page__filter-input']}
-                                value={toInputDate(fromDate)}
+                                value={isAllDate ? "" : toInputDate(fromDate)}
+                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
+                                disabled={isAllDate}
                                 onChange={(e) => {
                                     if (e.target.value) setFromDate(fromInputDate(e.target.value));
                                 }}
@@ -279,9 +304,11 @@ export default function ApprovalListPage() {
                         <div className={styles['approval-page__filter-field']}>
                             <label className={styles['approval-page__filter-label']}>To</label>
                             <input
-                                type="date"
+                                type={isAllDate ? "text" : "date"}
                                 className={styles['approval-page__filter-input']}
-                                value={toInputDate(toDate)}
+                                value={isAllDate ? "" : toInputDate(toDate)}
+                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
+                                disabled={isAllDate}
                                 onChange={(e) => {
                                     if (e.target.value) setToDate(fromInputDate(e.target.value));
                                 }}

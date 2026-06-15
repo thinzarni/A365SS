@@ -278,7 +278,7 @@ const MOD_OPTIONS = ['New', 'Correct', 'Update'];
 // ── Main Component ─────────────────────────────────────────────────────
 export default function ProfilePage() {
     const { t } = useTranslation();
-    const { user, domain, userId: loggedInUserId } = useAuthStore();
+    const { user, domain, userId: loggedInUserId, setUser } = useAuthStore();
     const { userId: urlUserId } = useParams();
 
     const { data: menuData } = useQuery({
@@ -327,6 +327,13 @@ export default function ProfilePage() {
             queryClient.invalidateQueries({ queryKey: key });
         });
     }, [activeTab, queryClient, profile?.userid, profile?.eid]);
+
+    // ── Global Profile Sync ──
+    useEffect(() => {
+        if (profile && isOwnProfile) {
+            setUser({ ...user, ...profile } as any);
+        }
+    }, [profile, isOwnProfile, setUser]);
 
     // Change password state
     const [showChangePwd, setShowChangePwd] = useState(false);

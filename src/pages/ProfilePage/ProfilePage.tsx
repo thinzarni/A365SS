@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -37,7 +37,7 @@ interface ProfileData {
 export default function ProfilePage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const { user, domain } = useAuthStore();
+    const { user, domain, setUser } = useAuthStore();
     const { userId: urlUserId } = useParams();
 
     const { data: menuData } = useQuery({
@@ -126,6 +126,13 @@ export default function ProfilePage() {
         },
         staleTime: 5 * 60 * 1000,
     });
+
+    // ── Global Profile Sync ──
+    useEffect(() => {
+        if (profile && isOwnProfile) {
+            setUser({ ...user, ...profile } as any);
+        }
+    }, [profile, isOwnProfile, setUser]);
 
     if (isLoading) {
         return (

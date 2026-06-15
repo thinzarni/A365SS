@@ -27,13 +27,9 @@ export default function LoginPage() {
     const [mode, setMode] = useState<AuthMode>('password');
     const [employeeId, setEmployeeId] = useState('');
 
-    /** On blur: silently uppercase Employee ID unless it looks like an e-mail address */
-    const isEmailFormat = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-    const handleEmployeeIdBlur = () => {
-        if (!isEmailFormat(employeeId)) {
-            setEmployeeId(prev => prev.toUpperCase());
-        }
-    };
+    /** Normalize Employee ID for backend: uppercase unless it's an e-mail address */
+    const normalizeEmployeeId = (value: string) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : value.toUpperCase();
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -228,10 +224,11 @@ export default function LoginPage() {
 
                 // Profile fetch (non-blocking)
                 try {
-                    const { default: apiClient } = await import('../../lib/api-client');
-                    const profileRes = await apiClient.get('/api/employees/profile');
-                    const profile = profileRes.data?.datalist || profileRes.data?.data;
-                    if (profile) setUser(profile);
+                    const { default: mainClient } = await import('../../lib/main-client');
+                    const { USER_PROFILE } = await import('../../config/api-routes');
+                    const profileRes = await mainClient.post(USER_PROFILE, { userid: userId });
+                    const profile = profileRes.data?.datalist || profileRes.data?.data || profileRes.data;
+                    if (profile) setUser({ ...useAuthStore.getState().user, ...profile } as any);
                 } catch { /* non-blocking */ }
 
                 navigate('/dashboard');
@@ -273,8 +270,9 @@ export default function LoginPage() {
 
         setLoading(true);
         try {
+            const normalizedId = normalizeEmployeeId(employeeId);
             const b64Password = btoa(unescape(encodeURIComponent(password)));
-            const payload = await makeSignInPayload(employeeId, 2, b64Password);
+            const payload = await makeSignInPayload(normalizedId, 2, b64Password);
             const res = await authClient.post('signin', payload);
             const data = res.data;
 
@@ -286,7 +284,7 @@ export default function LoginPage() {
                     // ── OTP 2FA required — navigate to verify page ──
                     navigate('/verify-otp', {
                         state: {
-                            userId: employeeId,
+                            userId: normalizedId,
                             session: sessionId,
                             b64Password, // for resend
                         },
@@ -310,14 +308,15 @@ export default function LoginPage() {
         setError('');
         setLoading(true);
         try {
-            const payload = await makeSignInPayload(employeeId, 2); // reqType=2: OTP, no password
+            const normalizedId = normalizeEmployeeId(employeeId);
+            const payload = await makeSignInPayload(normalizedId, 2); // reqType=2: OTP, no password
             const res = await authClient.post('signin', payload);
             if (res.data.status === 200 || res.status === 200) {
                 const nested = res.data.data;
                 const sessionId = nested?.session_id || res.data.session_id;
                 if (sessionId) {
                     navigate('/verify-otp', {
-                        state: { userId: employeeId, session: sessionId },
+                        state: { userId: normalizedId, session: sessionId },
                     });
                 } else {
                     await completeLogin(res.data);
@@ -393,7 +392,6 @@ export default function LoginPage() {
                                 type="text"
                                 value={employeeId}
                                 onChange={(e) => setEmployeeId(e.target.value)}
-                                onBlur={handleEmployeeIdBlur}
                                 placeholder="Enter Employee ID"
                                 icon={<IdCardIcon size={18} />}
                                 required
@@ -434,7 +432,6 @@ export default function LoginPage() {
                                 type="text"
                                 value={employeeId}
                                 onChange={(e) => setEmployeeId(e.target.value)}
-                                onBlur={handleEmployeeIdBlur}
                                 placeholder="Enter Employee ID"
                                 icon={<Mail size={18} />}
                                 required

@@ -66,7 +66,7 @@ export const FERRY_CHANGE_TYPES = `${hxmPrefix}request/getrequestchangetypes`;
 export const FERRY_CHANGE_PURPOSES = `${hxmPrefix}request/getrequestchangepurposes`;
 export const FERRY_OFFICE_LOCATIONS = `${hxmPrefix}request/getofficelocation`;
 export const FERRY_ASSIGNED_FERRY_NO = `${hxmPrefix}request/getassignferryno`;
-
+export const FERRY_CURRENT_ASSIGNED = `${hxmPrefix}assignedferry/currentferry`;
 
 // ── Attendance Overrides (Mobile) ──
 export const SAVE_ATTENDANCE_REQ = 'api/attendancerequest/saveattendancerequest';

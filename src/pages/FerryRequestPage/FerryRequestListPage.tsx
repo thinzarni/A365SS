@@ -21,6 +21,8 @@ import {
     Car,
     Trash2,
     Building2,
+    CheckCircle2,
+    Circle,
 } from 'lucide-react';
 import { Button, Input, Select } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
@@ -92,6 +94,7 @@ export default function FerryRequestListPage() {
     /* ── Filter state ── */
     const [fromDate,    setFromDate]    = useState(monthStart);
     const [toDate,      setToDate]      = useState(monthEnd);
+    const [isAllDate,   setIsAllDate]   = useState(true);
     const [typeSyskey,  setTypeSyskey]  = useState('');
     const [activeStatus,setActiveStatus]= useState<number>(1);
     const [filterOpen,  setFilterOpen]  = useState(false);
@@ -120,11 +123,11 @@ export default function FerryRequestListPage() {
 
     /* ── Fetch list ── */
     const { data: rawList = [], isLoading, refetch } = useQuery<any[]>({
-        queryKey: ['ferryList', fromDate, toDate, typeSyskey, activeStatus],
+        queryKey: ['ferryList', fromDate, toDate, isAllDate, typeSyskey, activeStatus, isHrComplaintView],
         queryFn:  async () => {
             const res = await apiClient.post(GET_REQUEST_LIST, {
-                fromdate: toApiDate(fromDate),
-                todate:   toApiDate(toDate),
+                fromdate: isAllDate ? "" : toApiDate(fromDate),
+                todate:   isAllDate ? "" : toApiDate(toDate),
                 type:     typeSyskey,
                 status:   activeStatus === 0 ? '0' : String(activeStatus),
             });
@@ -132,6 +135,22 @@ export default function FerryRequestListPage() {
             return all.filter(r => isMatchedType(r.requesttypedesc ?? r.requesttype ?? ''));
         },
         staleTime: 0,
+    });
+
+    /* ── Global Stats Fetch ── */
+    const { data: globalStatsList = [] } = useQuery<any[]>({
+        queryKey: ['ferryListGlobalStats', isHrComplaintView],
+        queryFn: async () => {
+            const res = await apiClient.post(GET_REQUEST_LIST, {
+                fromdate: "",
+                todate: "",
+                type: "",
+                status: "0",
+            });
+            const all: any[] = res.data?.datalist ?? res.data?.data ?? [];
+            return all.filter(r => isMatchedType(r.requesttypedesc ?? r.requesttype ?? ''));
+        },
+        staleTime: 5 * 60 * 1000,
     });
 
     /* ── Sort + display ── */
@@ -153,11 +172,11 @@ export default function FerryRequestListPage() {
 
     /* ── Stats ── */
     const stats = useMemo(() => ({
-        total:    rawList.length,
-        pending:  rawList.filter(r => String(r.requeststatus) === '1').length,
-        approved: rawList.filter(r => String(r.requeststatus) === '2').length,
-        rejected: rawList.filter(r => String(r.requeststatus) === '3').length,
-    }), [rawList]);
+        total:    globalStatsList.length,
+        pending:  globalStatsList.filter(r => String(r.requeststatus) === '1').length,
+        approved: globalStatsList.filter(r => String(r.requeststatus) === '2').length,
+        rejected: globalStatsList.filter(r => String(r.requeststatus) === '3').length,
+    }), [globalStatsList]);
 
     /* ── Sort toggle ── */
     function toggleSort(col: SortCol) {
@@ -247,14 +266,38 @@ export default function FerryRequestListPage() {
             {filterOpen && (
                 <div className={styles['filters-row']}>
                     <div className={styles['filter-group']}>
-                        <label className={styles['filter-label']}>Date Range</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                            <label className={styles['filter-label']} style={{ marginBottom: 0 }}>Date Range</label>
+                            <button
+                                type="button"
+                                onClick={() => setIsAllDate(!isAllDate)}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                                    fontSize: 12, fontWeight: 600,
+                                    padding: '4px 12px', borderRadius: 16,
+                                    border: '1px solid',
+                                    borderColor: isAllDate ? '#0ea5e9' : '#cbd5e1',
+                                    backgroundColor: isAllDate ? '#e0f2fe' : '#f8fafc',
+                                    color: isAllDate ? '#0369a1' : '#64748b',
+                                    cursor: 'pointer', transition: 'all 0.2s ease',
+                                    outline: 'none',
+                                }}
+                            >
+                                {isAllDate ? <CheckCircle2 size={15} strokeWidth={2.5} /> : <Circle size={15} strokeWidth={2} />}
+                                All Dates
+                            </button>
+                        </div>
                         <div className={styles['filter-inputs']}>
-                            <Input type="date" value={fromDate}
+                            <Input type={isAllDate ? "text" : "date"} value={isAllDate ? "" : fromDate}
+                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
                                 onChange={e => setFromDate(e.target.value)}
+                                disabled={isAllDate}
                                 className={styles['filter-date']} />
                             <span className={styles['filter-separator']}>→</span>
-                            <Input type="date" value={toDate}
+                            <Input type={isAllDate ? "text" : "date"} value={isAllDate ? "" : toDate}
+                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
                                 onChange={e => setToDate(e.target.value)}
+                                disabled={isAllDate}
                                 className={styles['filter-date']} />
                         </div>
                     </div>

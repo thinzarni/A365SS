@@ -13,6 +13,13 @@ import {
     Phone, Clock,
     UserCheck, Paperclip, CheckCircle2, XCircle,
     Edit, Trash2, Building2,
+    File,
+    FileText,
+    Image as ImageIcon,
+    FileSpreadsheet,
+    FileArchive,
+    FileVideo,
+    FileAudio,
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
@@ -25,6 +32,7 @@ import {
     GET_REQUEST_DETAIL,
     DELETE_REQUEST,
     FERRY_WORKING_HOURS,
+    FERRY_CURRENT_ASSIGNED,
     USER_PROFILE,
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
@@ -64,7 +72,7 @@ function fromApiDate(d: string) {
 }
 
 const COMPLAINT_OPTS = [
-    { id: '1', label: 'Driver Behaviour' },
+    { id: '1', label: 'Driver Behavior' },
     { id: '2', label: 'Vehicle Condition' },
     { id: '3', label: 'Other' },
 ];
@@ -143,6 +151,26 @@ export default function FerryRequestDetailPage() {
         staleTime: 5 * 60 * 1000,
     });
     const ep = employeeProfile as any;
+
+    /* ── Current Assigned Ferry (for ferryno) ── */
+    const { data: currentAssignedFerry } = useQuery({
+        queryKey: ['current-assigned-ferry', profileUserId, domain],
+        queryFn: async () => {
+            try {
+                const res = await apiClient.get(FERRY_CURRENT_ASSIGNED, { params: { userid: profileUserId, domain } });
+                const dl = res.data?.datalist;
+                if (Array.isArray(dl) && dl.length > 0) {
+                    return dl[0]?.ferryno ?? dl[0]?.ferryNo ?? '';
+                }
+                const d = res.data?.data || res.data;
+                return d?.ferryno ?? d?.ferryNo ?? '';
+            } catch {
+                return '';
+            }
+        },
+        enabled: !!profileUserId,
+        staleTime: 5 * 60 * 1000,
+    });
 
     /* ── Working Hours list (to resolve syskey → description) ── */
     const { data: workingHours = [] } = useQuery<any[]>({
@@ -303,7 +331,7 @@ export default function FerryRequestDetailPage() {
                         {ferryType === FerryRequestType.registration && (
                             <div className={styles.grid} style={{ marginTop: 16 }}>
                                 {(detail?.phoneno || ep?.phoneno || ep?.phone) && <ReadField label="Contact Phone Number" value={detail?.phoneno || ep?.phoneno || ep?.phone} />}
-                                {(detail?.ferryno || ep?.ferryno) && <ReadField label="Assigned Ferry Number" value={detail?.ferryno || ep?.ferryno} />}
+                                {(currentAssignedFerry || detail?.ferryno || ep?.ferryno) && <ReadField label="Assigned Ferry Number" value={currentAssignedFerry || detail?.ferryno || ep?.ferryno} />}
                                 {workingHourDesc && (
                                     <div className={styles.fullCol}>
                                         <ReadField label="Working Hours" value={workingHourDesc} />
@@ -353,7 +381,7 @@ export default function FerryRequestDetailPage() {
                             </h3>
                             <div className={styles.grid}>
                                 {(detail?.phoneno || ep?.phoneno || ep?.phone) && <ReadField label="Contact Phone Number" value={detail?.phoneno || ep?.phoneno || ep?.phone} />}
-                                {(detail?.ferryno || ep?.ferryno) && <ReadField label="Assigned Ferry Number" value={detail?.ferryno || ep?.ferryno} />}
+                                {(currentAssignedFerry || detail?.ferryno || ep?.ferryno) && <ReadField label="Assigned Ferry Number" value={currentAssignedFerry || detail?.ferryno || ep?.ferryno} />}
                                 {detail?.changetypedesc && (
                                     <div className={styles.fullCol}>
                                         <ReadField label="Change Type" value={detail.changetypedesc} />
@@ -410,15 +438,15 @@ export default function FerryRequestDetailPage() {
                     {/* ── 5. User Complaint ── */}
                     {ferryType === FerryRequestType.usercomplaint && (
                         <section className={styles.section}>
+                            {(currentAssignedFerry || detail?.ferryno || ep?.ferryno) && (
+                                <div className={styles.fullCol} style={{ marginBottom: 16 }}>
+                                    <ReadField label="Assigned Ferry Number" value={currentAssignedFerry || detail?.ferryno || ep?.ferryno} />
+                                </div>
+                            )}
                             <h3 className={styles.sectionTitle}>
                                 <Phone size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                                 User Complaint
                             </h3>
-                            {(detail?.ferryno || ep?.ferryno) && (
-                                <div style={{ marginBottom: 16 }}>
-                                    <ReadField label="Assigned Ferry Number" value={detail?.ferryno || ep?.ferryno} />
-                                </div>
-                            )}
                             <div style={{
                                 display: 'flex', flexDirection: 'column', gap: 0,
                                 border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden',
@@ -487,19 +515,63 @@ export default function FerryRequestDetailPage() {
                                 </h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                     {attachArr.map((att: any, i: number) => {
-                                        const isStr = typeof att === 'string';
-                                        const name = isStr ? `File ${i + 1}` : (att.filename || att.fileName || att.name || `File ${i + 1}`);
+                                        // Extract true filename robustly
+                                        let rawName = '';
+                                        if (typeof att === 'string') {
+                                            rawName = att;
+                                        } else if (att && typeof att === 'object') {
+                                            const potentialName = att.filename || att.fileName || att.name || att.filepath || att.filePath || att.url || att.signedURL;
+                                            if (typeof potentialName === 'string') {
+                                                rawName = potentialName;
+                                            } else if (Array.isArray(potentialName) && potentialName.length > 0 && typeof potentialName[0] === 'string') {
+                                                rawName = potentialName[0];
+                                            }
+                                        }
+                                        
+                                        let displayName = typeof rawName === 'string' ? rawName : '';
+                                        
+                                        if (displayName) {
+                                            displayName = displayName.split('/').pop() || displayName;
+                                            displayName = displayName.split('\\').pop() || displayName;
+                                            displayName = displayName.split('?')[0]; // remove query params
+                                        }
+                                        
+                                        displayName = displayName || `File ${i + 1}`;
+                                        
+                                        // Ensure it's absolutely a string
+                                        if (typeof displayName !== 'string') {
+                                            displayName = `File ${i + 1}`;
+                                        }
+
+                                        // Determine icon based on extension
+                                        const ext = displayName.split('.').pop()?.toLowerCase() || '';
+                                        let FileIcon = File;
+                                        if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                                            FileIcon = ImageIcon;
+                                        } else if (['pdf', 'doc', 'docx', 'txt'].includes(ext)) {
+                                            FileIcon = FileText;
+                                        } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                                            FileIcon = FileSpreadsheet;
+                                        } else if (['zip', 'rar', 'tar', 'gz'].includes(ext)) {
+                                            FileIcon = FileArchive;
+                                        } else if (['mp4', 'avi', 'mov', 'mkv'].includes(ext)) {
+                                            FileIcon = FileVideo;
+                                        } else if (['mp3', 'wav'].includes(ext)) {
+                                            FileIcon = FileAudio;
+                                        }
+
                                         return (
                                             <button key={i} type="button" onClick={() => downloadOrOpenAttachment(att)}
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: 8,
                                                     padding: '10px 12px', borderRadius: 8,
-                                                    border: '1px solid #e2e8f0', background: '#f8fafc',
-                                                    fontSize: 13, color: '#0c4a6e',
-                                                    textDecoration: 'underline', cursor: 'pointer'
-                                                }}>
-                                                <Paperclip size={13} />
-                                                {name}
+                                                    border: '1px solid var(--color-primary-200)', background: 'var(--color-primary-50)',
+                                                    fontSize: 13, color: 'var(--color-primary-600)', fontWeight: 500,
+                                                    cursor: 'pointer', textAlign: 'left'
+                                                }}
+                                                title={displayName}>
+                                                <FileIcon size={16} color="var(--color-primary-500)" />
+                                                <span style={{ fontWeight: 500 }}>{displayName}</span>
                                             </button>
                                         );
                                     })}

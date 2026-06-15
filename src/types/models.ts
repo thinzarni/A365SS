@@ -334,6 +334,10 @@ export interface UserProfile {
   usersyskey?: string;
   role?: string;
   eid: string;
+  phoneno?: string;
+  phone?: string;
+  joineddate?: string;
+  rank?: string;
 }
 
 export interface ApiResponse<T = unknown> {
