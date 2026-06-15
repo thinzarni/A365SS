@@ -26,6 +26,14 @@ export default function LoginPage() {
 
     const [mode, setMode] = useState<AuthMode>('password');
     const [employeeId, setEmployeeId] = useState('');
+
+    /** On blur: silently uppercase Employee ID unless it looks like an e-mail address */
+    const isEmailFormat = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    const handleEmployeeIdBlur = () => {
+        if (!isEmailFormat(employeeId)) {
+            setEmployeeId(prev => prev.toUpperCase());
+        }
+    };
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -385,6 +393,7 @@ export default function LoginPage() {
                                 type="text"
                                 value={employeeId}
                                 onChange={(e) => setEmployeeId(e.target.value)}
+                                onBlur={handleEmployeeIdBlur}
                                 placeholder="Enter Employee ID"
                                 icon={<IdCardIcon size={18} />}
                                 required
@@ -425,6 +434,7 @@ export default function LoginPage() {
                                 type="text"
                                 value={employeeId}
                                 onChange={(e) => setEmployeeId(e.target.value)}
+                                onBlur={handleEmployeeIdBlur}
                                 placeholder="Enter Employee ID"
                                 icon={<Mail size={18} />}
                                 required

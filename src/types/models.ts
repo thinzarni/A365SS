@@ -244,10 +244,31 @@ export interface ApprovalDetailModel {
   isCarWayAdmin: boolean;
   accompanyPersonList: Approver[];
   memberList: Approver[];
+  approverList?: Approver[];
+  stepLevelData?: StepLevelData[];
 }
 
 export interface ApprovalModel {
   syskey: string;
+  name?: string;
+  email?: string;
+  refno?: number;
+  eid?: string;
+  requeststatus?: number | string;
+  requesttype?: string;
+  requestsubtype?: string | null;
+  startdate?: string;
+  enddate?: string;
+  approver?: string;
+  ferrycomplaint?: string;
+  comment?: string;
+  approvedby?: string | null;
+  approvaltype?: string | number;
+  rejectreason?: string | null;
+  remark?: string;
+  stepLevelData?: StepLevelData[];
+  attachment?: Array<Record<string, unknown>> | string[];
+  approverList?: Approver[];
   [key: string]: unknown;
 }
 

@@ -8,13 +8,13 @@
  * contains "ferry" or "hr compliant" — exactly as Flutter does.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft, Bus, Car, Loader2,
-    Phone, CheckCircle2, XCircle, Clock,
-    UserCheck, Paperclip, Calendar,
+    Phone, MapPin, CheckCircle2, XCircle, Clock,
+    UserCheck, Paperclip, Calendar, Trash2, Building2,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -39,6 +39,8 @@ import {
 } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
 import { useAuthStore } from '../../stores/auth-store';
+import { appConfig } from '../../config/app-config';
+import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import styles from './FerryRequestPage.module.css';
 
 /* ─────────────────────────────────────────────────
@@ -68,6 +70,8 @@ interface FerrySetupItem {
     carno?: string;
     officeLocationName?: string;
     ferryCarNo?: string;
+    carno?: string;
+    name?: string;
 }
 
 /* ─────────────────────────────────────────────────
@@ -128,9 +132,13 @@ const COMPLAINT_OPTS = [
 ═══════════════════════════════════════════════════ */
 export default function FerryRequestPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams<{ id: string }>();
     const queryClient = useQueryClient();
     const { user, userId, domain } = useAuthStore();
+
+    const isHrComplaintView = location.pathname.startsWith('/hr_complaint') || location.pathname.startsWith('/hrcomplaint');
+    const basePath = isHrComplaintView ? (location.pathname.startsWith('/hr_complaint') ? '/hr_complaint' : '/hrcomplaint') : '/ferry_request';
 
     const isNew = !id;
 
@@ -147,7 +155,10 @@ export default function FerryRequestPage() {
     const ferryTypeOptions: FerryTypeOption[] = (() => {
         const raw = allRequestTypes.filter((t) => {
             const d = (t.description ?? '').toLowerCase();
-            return d.includes('ferry') || d.includes('hr compliant') || d.includes('hr complaint');
+            if (isHrComplaintView) {
+                return d.includes('hr compliant') || d.includes('hr complaint') || d.includes('hrcomplaint');
+            }
+            return d.includes('ferry');
         });
         const options: FerryTypeOption[] = raw.map((t) => ({
             label: t.description,
@@ -155,8 +166,9 @@ export default function FerryRequestPage() {
             syskey: t.syskey,
             approvaltype: (t as any).approvaltype ?? null,
         }));
-        const ORDER = [FerryRequestType.registration, FerryRequestType.change,
-            FerryRequestType.usercomplaint, FerryRequestType.hrcomplaint];
+        const ORDER = isHrComplaintView
+            ? [FerryRequestType.hrcomplaint]
+            : [FerryRequestType.registration, FerryRequestType.change, FerryRequestType.usercomplaint];
         options.sort((a, b) => ORDER.indexOf(a.value) - ORDER.indexOf(b.value));
         return options;
     })();
@@ -241,7 +253,9 @@ export default function FerryRequestPage() {
        FORM STATE
     ═══════════════════════════════════════════════ */
     const [selectedOpt, setSelectedOpt] = useState<FerryTypeOption | null>(null);
-    const [selectedType, setSelectedType] = useState<FerryRequestType>(FerryRequestType.registration);
+    const [selectedType, setSelectedType] = useState<FerryRequestType>(
+        isHrComplaintView ? FerryRequestType.hrcomplaint : FerryRequestType.registration
+    );
     const [approvalType, setApprovalType] = useState<string | null>('0');
 
     // Common
@@ -279,6 +293,8 @@ export default function FerryRequestPage() {
     // HR Complaint
     const [hrComplaintText, setHrComplaintText] = useState('');
     const [userComplaintText, setUserComplaintText] = useState('');
+
+    const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
 
     // Field-level validation errors (Registration)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -378,6 +394,10 @@ export default function FerryRequestPage() {
         if (d.ferrycomplaint) {
             setSelectedComplaints(String(d.ferrycomplaint).split(',').filter(Boolean));
         }
+        
+        if (d.attachment) {
+            setExistingAttachments(Array.isArray(d.attachment) ? d.attachment : []);
+        }
         const mapToMember = (list: any[]): MemberItem[] =>
             (list ?? []).map(m => ({
                 syskey: m.syskey ?? '',
@@ -451,9 +471,14 @@ export default function FerryRequestPage() {
     /* ── Submit ── */
     const { mutate: submitRequest, isPending: submitting } = useMutation({
         mutationFn: async () => {
-            const attachment = await uploadFiles();
+            const uploadedFiles = await uploadFiles();
             const opt = selectedOpt ?? ferryTypeOptions.find(o => o.value === selectedType);
             if (!opt) throw new Error('Please select a request type');
+            
+            const attachment = [
+                ...existingAttachments.map((a: any) => typeof a === 'string' ? a : a),
+                ...uploadedFiles
+            ].filter(Boolean);
 
             const base: Record<string, unknown> = {
                 syskey: !isNew ? (detail?.syskey || id) : '0',
@@ -544,9 +569,9 @@ export default function FerryRequestPage() {
             await apiClient.post(endpoint, base);
         },
         onSuccess: () => {
-            toast.success('Ferry request submitted successfully');
+            toast.success(isHrComplaintView ? 'HR complaint submitted successfully' : 'Ferry request submitted successfully');
             queryClient.invalidateQueries({ queryKey: ['requests'] });
-            navigate('/ferry_request');
+            navigate(basePath);
         },
         onError: (e: any) => toast.error(e?.response?.data?.message ?? e?.message ?? 'Submission failed'),
     });
@@ -570,19 +595,25 @@ export default function FerryRequestPage() {
             {/* ── Header ── */}
             <div className={styles.header}>
                 <div className={styles.headerLeft}>
-                    <button className={styles.backBtn} onClick={() => navigate(isNew ? '/ferry_request' : `/ferry_request/${id}`)}>
+                    <button className={styles.backBtn} onClick={() => navigate(isNew ? basePath : `${basePath}/${id}`)}>
                         <ArrowLeft size={20} />
                     </button>
                     <div className={styles.headerIcon}>
-                        <Car size={22} color="#0c4a6e" />
+                        {isHrComplaintView ? (
+                            <Building2 size={22} color="#0c4a6e" />
+                        ) : (
+                            <Car size={22} color="#0c4a6e" />
+                        )}
                     </div>
                     <div>
                         <h1 className={styles.headerTitle}>
-                            {isNew ? `New ${selectedOpt?.label || 'Ferry Request'}` : (detail?.requesttypedesc || selectedOpt?.label || 'Ferry Request')}
+                            {isNew ? `New ${selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request')}` : (detail?.requesttypedesc || selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request'))}
                         </h1>
-                        {!isNew && detail?.refno
-                            ? <p className={styles.headerSub}>Ref # {detail.refno}</p>
-                            : <p className={styles.headerSub}>Company ferry / bus service</p>}
+                        {!isNew && detail?.refno ? (
+                            <p className={styles.headerSub}>Ref # {detail.refno}</p>
+                        ) : (
+                            !isHrComplaintView ? <p className={styles.headerSub}>Company ferry / bus service</p> : null
+                        )}
                     </div>
                 </div>
                 {!isNew && <StatusBadge status={String(detail?.requeststatus ?? '1')} />}
@@ -598,7 +629,11 @@ export default function FerryRequestPage() {
                     {/* ── 1. Request Type (from API, filtered ferry/HR) ── */}
                     <section className={styles.section}>
                         <h3 className={styles.sectionTitle}>
-                            <Bus size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                            {isHrComplaintView ? (
+                                <Building2 size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                            ) : (
+                                <Bus size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                            )}
                             Request Type
                         </h3>
                         {ferryTypeOptions.length === 0 ? (
@@ -989,6 +1024,8 @@ export default function FerryRequestPage() {
 
 
 
+
+
                     {/* ── Attachments ── */}
                     {!isReadOnly && (
                         <section className={styles.section}>
@@ -996,6 +1033,24 @@ export default function FerryRequestPage() {
                                 <Paperclip size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                                 Attachments
                             </h3>
+                            {existingAttachments.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                                    {existingAttachments.map((att: any, i: number) => {
+                                        const name = typeof att === 'string' ? `File ${i + 1}` : att.filename || att.fileName || att.name || `File ${i + 1}`;
+                                        return (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                                                <button type="button" onClick={() => downloadOrOpenAttachment(att)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#0c4a6e', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                                    <Paperclip size={13} />
+                                                    {name}
+                                                </button>
+                                                <button type="button" onClick={() => setExistingAttachments(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                             <FileUpload files={files} onChange={setFiles} />
                         </section>
                     )}
@@ -1055,7 +1110,7 @@ export default function FerryRequestPage() {
                     {/* ── Action Bar ── */}
                     {!isReadOnly && (
                         <div className={styles.actionBar}>
-                            <Button variant="secondary" onClick={() => navigate(isNew ? '/ferry_request' : `/ferry_request/${id}`)}>Cancel</Button>
+                            <Button variant="secondary" onClick={() => navigate(isNew ? basePath : `${basePath}/${id}`)}>Cancel</Button>
                             <Button id="ferry-submit-btn"
                                 onClick={() => { if (validateForm()) submitRequest(); }}
                                 disabled={submitting}

@@ -12,7 +12,7 @@ import {
     ArrowLeft, Car, Loader2,
     Phone, Clock,
     UserCheck, Paperclip, CheckCircle2, XCircle,
-    Edit, Trash2,
+    Edit, Trash2, Building2,
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
@@ -28,23 +28,25 @@ import {
     USER_PROFILE,
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
-
+import { displayDate } from '../../lib/date-utils';
+import { appConfig } from '../../config/app-config';
+import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import styles from './FerryRequestPage.module.css';
 
 /* ─── helpers ─────────────────────────────────────── */
 const FerryRequestType = {
-    registration  : 'registration',
-    change        : 'change',
-    usercomplaint : 'usercomplaint',
-    hrcomplaint   : 'hrcomplaint',
+    registration: 'registration',
+    change: 'change',
+    usercomplaint: 'usercomplaint',
+    hrcomplaint: 'hrcomplaint',
 } as const;
 type FerryRequestType = typeof FerryRequestType[keyof typeof FerryRequestType];
 
 function descToFerryType(desc: string): FerryRequestType {
     const d = desc.toLowerCase();
     if (d.includes('registration') || d.includes('new')) return FerryRequestType.registration;
-    if (d.includes('change'))                              return FerryRequestType.change;
-    if (d.includes('hr'))                                  return FerryRequestType.hrcomplaint;
+    if (d.includes('change')) return FerryRequestType.change;
+    if (d.includes('hr')) return FerryRequestType.hrcomplaint;
     return FerryRequestType.usercomplaint;
 }
 
@@ -97,16 +99,19 @@ function ReadField({ label, value, minLines }: { label: string; value?: string |
    Component
 ═══════════════════════════════════════════════════ */
 export default function FerryRequestDetailPage() {
-    const navigate    = useNavigate();
-    const location    = useLocation();
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    const isHrComplaintView = location.pathname.startsWith('/hr_complaint') || location.pathname.startsWith('/hrcomplaint');
+    const basePath = isHrComplaintView ? (location.pathname.startsWith('/hr_complaint') ? '/hr_complaint' : '/hrcomplaint') : '/ferry_request';
 
     const goBack = () => {
-        const from = (location.state as any)?.from || '/ferry_request';
+        const from = (location.state as any)?.from || basePath;
         navigate(from);
     };
-    const { id }      = useParams<{ id: string }>();
+    const { id } = useParams<{ id: string }>();
     const { user, userId, domain } = useAuthStore();
-    const qc          = useQueryClient();
+    const qc = useQueryClient();
     const [showDelete, setShowDelete] = useState(false);
 
     /* ── Fetch ── */
@@ -117,12 +122,14 @@ export default function FerryRequestDetailPage() {
             return res.data ?? null;
         },
         enabled: !!id,
+        staleTime: 0,
+        refetchOnMount: 'always',
     });
 
     const dl = detailRes?.datalist;
-    const detail: any            = Array.isArray(dl) ? (dl[0] || {}) : (dl || {});
+    const detail: any = Array.isArray(dl) ? (dl[0] || {}) : (dl || {});
     const detailApprovers: any[] = detail?.approverList ?? detailRes?.approverList ?? [];
-    const stepLevelData: any[]   = detail?.stepLevelData ?? detailRes?.stepLevelData ?? [];
+    const stepLevelData: any[] = detail?.stepLevelData ?? detailRes?.stepLevelData ?? [];
 
     /* ── Employee Profile (from API, keyed on the request owner's userid) ── */
     const profileUserId = detail?.userid || detail?.eid || '';
@@ -154,25 +161,25 @@ export default function FerryRequestDetailPage() {
     )?.description ?? detail?.workinghour_desc ?? '';
 
     /* ── Derived ── */
-    const status      = String(detail?.requeststatus ?? '1');
-    const isPending   = status === '1';
+    const status = String(detail?.requeststatus ?? '1');
+    const isPending = status === '1';
     const approvalTypeRaw = detail?.approvaltype;
     const isStepLevel = approvalTypeRaw === '1' || approvalTypeRaw === 1;
 
-    const ferryType   = descToFerryType(detail?.requesttypedesc ?? '');
+    const ferryType = descToFerryType(detail?.requesttypedesc ?? '');
 
     const selectedComplaints: string[] = detail?.ferrycomplaint
         ? String(detail.ferrycomplaint).split(',').filter(Boolean)
         : [];
 
     /* Change sub-type codes */
-    const changeTypeCode    = (detail?.changetypecode ?? '').toUpperCase();
+    const changeTypeCode = (detail?.changetypecode ?? '').toUpperCase();
     const changePurposeCode = (detail?.changepurposecode ?? '').toUpperCase();
-    const isPermanent   = changeTypeCode === 'PC' || (detail?.changetypedesc ?? '').toLowerCase().includes('permanent');
-    const isTemporary   = changeTypeCode === 'TC' || (detail?.changetypedesc ?? '').toLowerCase().includes('temporary');
-    const isSuspension  = !isPermanent && !isTemporary && (!!detail?.changetypesyskey || (detail?.changetypedesc ?? '').toLowerCase().includes('suspension'));
+    const isPermanent = changeTypeCode === 'PC' || (detail?.changetypedesc ?? '').toLowerCase().includes('permanent');
+    const isTemporary = changeTypeCode === 'TC' || (detail?.changetypedesc ?? '').toLowerCase().includes('temporary');
+    const isSuspension = !isPermanent && !isTemporary && (!!detail?.changetypesyskey || (detail?.changetypedesc ?? '').toLowerCase().includes('suspension'));
     const isOfficeLocation = changePurposeCode === 'OL' || (detail?.changepurposedesc ?? '').includes('Office');
-    const isHomeAddress    = changePurposeCode === 'HA' || (detail?.changepurposedesc ?? '').includes('Home');
+    const isHomeAddress = changePurposeCode === 'HA' || (detail?.changepurposedesc ?? '').includes('Home');
 
     /* ── Can edit / delete ── */
     const myEid = (user as any)?.employee_id ?? (user as any)?.eid ?? userId ?? '';
@@ -209,13 +216,19 @@ export default function FerryRequestDetailPage() {
                         <ArrowLeft size={20} />
                     </button>
                     <div className={styles.headerIcon}>
-                        <Car size={22} color="#0c4a6e" />
+                        {isHrComplaintView ? (
+                            <Building2 size={22} color="#0c4a6e" />
+                        ) : (
+                            <Car size={22} color="#0c4a6e" />
+                        )}
                     </div>
                     <div>
-                        <h1 className={styles.headerTitle}>{detail?.requesttypedesc || 'Ferry Request'}</h1>
-                        {detail?.refno
-                            ? <p className={styles.headerSub}>Ref # {detail.refno}</p>
-                            : <p className={styles.headerSub}>Company ferry / bus service</p>}
+                        <h1 className={styles.headerTitle}>{detail?.requesttypedesc || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request')}</h1>
+                        {detail?.refno ? (
+                            <p className={styles.headerSub}>Ref # {detail.refno}</p>
+                        ) : (
+                            !isHrComplaintView ? <p className={styles.headerSub}>Company ferry / bus service</p> : null
+                        )}
                     </div>
                 </div>
                 <StatusBadge status={status} />
@@ -298,9 +311,37 @@ export default function FerryRequestDetailPage() {
                                         <ReadField label="Working Hours" value={workingHourDesc} />
                                     </div>
                                 )}
-                                {detail?.township && <ReadField label="Township"         value={detail.township} />}
-                                {detail?.road     && <ReadField label="Main Road"        value={detail.road} />}
-                                {detail?.busstop  && <ReadField label="Nearest Bus Stop" value={detail.busstop} />}
+                                {detail?.township && <ReadField label="Township" value={detail.township} />}
+                                {detail?.road && <ReadField label="Main Road" value={detail.road} />}
+                                {detail?.busstop && <ReadField label="Nearest Bus Stop" value={detail.busstop} />}
+
+                                {status === '2' && (
+                                    <>
+                                        <div className={styles.fullCol} style={{ height: 1, background: '#e2e8f0', margin: '8px 0' }} />
+                                        <div className={styles.fullCol} style={{ fontSize: 13, fontWeight: 700, color: '#0c4a6e', marginBottom: 2 }}>
+                                            🚌 Ferry Assignment Details
+                                        </div>
+                                        {(detail?.device_phoneno || detail?.device_phone || detail?.devicephone) && (
+                                            <ReadField label="Device Phone Number" value={detail.device_phoneno || detail.device_phone || detail.devicephone} />
+                                        )}
+                                        {(detail?.driver_name || detail?.drivername) && (
+                                            <ReadField label="Driver Name" value={detail.driver_name || detail.drivername} />
+                                        )}
+                                        {(detail?.driver_phoneno || detail?.driver_phone || detail?.driverphone) && (
+                                            <ReadField label="Driver Phone Number" value={detail.driver_phoneno || detail.driver_phone || detail.driverphone} />
+                                        )}
+                                        {(detail?.gps_info || detail?.gpsInfo || detail?.gps) && (
+                                            <div className={styles.fullCol}>
+                                                <ReadField label="GPS Information" value={detail.gps_info || detail.gpsInfo || detail.gps} />
+                                            </div>
+                                        )}
+                                        {(detail?.comment || detail?.approver_comment) && (
+                                            <div className={styles.fullCol}>
+                                                <ReadField label="Approver Comment" value={detail.comment || detail.approver_comment} />
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         )}
                     </section>
@@ -332,7 +373,7 @@ export default function FerryRequestDetailPage() {
                                         </div>
                                     )}
                                     {detail?.startdate && <ReadField label="Desired Date From" value={fromApiDate(detail.startdate)} />}
-                                    {detail?.enddate   && <ReadField label="Desired Date To"   value={fromApiDate(detail.enddate)} />}
+                                    {detail?.enddate && <ReadField label="Desired Date To" value={fromApiDate(detail.enddate)} />}
                                 </>)}
 
                                 {/* Permanent */}
@@ -343,13 +384,13 @@ export default function FerryRequestDetailPage() {
                                         </div>
                                     )}
                                     {isOfficeLocation && (<>
-                                        {detail?.locationname  && <ReadField label="New Office Location" value={detail.locationname} />}
-                                        {detail?.startdate     && <ReadField label="Desired Start Date" value={fromApiDate(detail.startdate)} />}
+                                        {detail?.locationname && <ReadField label="New Office Location" value={detail.locationname} />}
+                                        {detail?.startdate && <ReadField label="Desired Start Date" value={fromApiDate(detail.startdate)} />}
                                     </>)}
                                     {isHomeAddress && (<>
-                                        {detail?.address  && <div className={styles.fullCol}><ReadField label="New Home Address" value={detail.address} /></div>}
-                                        {detail?.road     && <ReadField label="Main Road"        value={detail.road} />}
-                                        {detail?.busstop  && <ReadField label="Nearest Bus Stop" value={detail.busstop} />}
+                                        {detail?.address && <div className={styles.fullCol}><ReadField label="New Home Address" value={detail.address} /></div>}
+                                        {detail?.road && <ReadField label="Main Road" value={detail.road} />}
+                                        {detail?.busstop && <ReadField label="Nearest Bus Stop" value={detail.busstop} />}
                                         {detail?.startdate && <ReadField label="Desired Start Date" value={fromApiDate(detail.startdate)} />}
                                     </>)}
                                 </>)}
@@ -362,7 +403,7 @@ export default function FerryRequestDetailPage() {
                                         </h4>
                                     </div>
                                     {detail?.startdate && <ReadField label="Desired Date For Suspension From" value={fromApiDate(detail.startdate)} />}
-                                    {detail?.enddate   && <ReadField label="Desired Date For Suspension To"   value={fromApiDate(detail.enddate)} />}
+                                    {detail?.enddate && <ReadField label="Desired Date For Suspension To" value={fromApiDate(detail.enddate)} />}
                                 </>)}
                             </div>
                         </section>
@@ -411,6 +452,11 @@ export default function FerryRequestDetailPage() {
                                     <ReadField label="Complaint Description" value={detail.remark} minLines={3} />
                                 </div>
                             )}
+                            {status === '2' && (detail?.comment || detail?.approver_comment) && (
+                                <div style={{ marginTop: 16 }}>
+                                    <ReadField label="Approver Comment" value={detail.comment || detail.approver_comment} />
+                                </div>
+                            )}
                         </section>
                     )}
 
@@ -419,15 +465,22 @@ export default function FerryRequestDetailPage() {
                         <section className={styles.section}>
                             <h3 className={styles.sectionTitle}>HR Complaint</h3>
                             <ReadField label="Complaint Description" value={detail?.remark || '—'} minLines={3} />
+                            {status === '2' && (detail?.comment || detail?.approver_comment) && (
+                                <div style={{ marginTop: 16 }}>
+                                    <ReadField label="Approver Comment" value={detail.comment || detail.approver_comment} />
+                                </div>
+                            )}
                         </section>
                     )}
+
+
 
                     {/* ── 8. Attachments ── */}
                     {(() => {
                         const attachRaw = detail?.attachment || detailRes?.attachmentList || detailRes?.attachList || [];
                         const attachArr = Array.isArray(attachRaw) ? attachRaw : [];
                         if (attachArr.length === 0) return null;
-                        
+
                         return (
                             <section className={styles.section}>
                                 <h3 className={styles.sectionTitle}>
@@ -437,20 +490,19 @@ export default function FerryRequestDetailPage() {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                     {attachArr.map((att: any, i: number) => {
                                         const isStr = typeof att === 'string';
-                                        const url  = isStr ? att : (att.signedURL || att.url || att.filepath || att.filePath || '');
                                         const name = isStr ? `File ${i + 1}` : (att.filename || att.fileName || att.name || `File ${i + 1}`);
                                         return (
-                                            <a key={i} href={url || undefined} target="_blank" rel="noreferrer"
+                                            <button key={i} type="button" onClick={() => downloadOrOpenAttachment(att)}
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: 8,
                                                     padding: '10px 12px', borderRadius: 8,
                                                     border: '1px solid #e2e8f0', background: '#f8fafc',
-                                                    fontSize: 13, color: url ? '#0c4a6e' : '#334155',
-                                                    textDecoration: url ? 'underline' : 'none',
+                                                    fontSize: 13, color: '#0c4a6e',
+                                                    textDecoration: 'underline', cursor: 'pointer'
                                                 }}>
                                                 <Paperclip size={13} />
                                                 {name}
-                                            </a>
+                                            </button>
                                         );
                                     })}
                                 </div>
@@ -484,7 +536,7 @@ export default function FerryRequestDetailPage() {
                                     </div>
                                     <div style={{ marginLeft: 'auto' }}>
                                         {(a.status === '2' || a.status === 2) && <CheckCircle2 size={18} color="#22c55e" />}
-                                        {(a.status === '3' || a.status === 3) && <XCircle     size={18} color="#ef4444" />}
+                                        {(a.status === '3' || a.status === 3) && <XCircle size={18} color="#ef4444" />}
                                     </div>
                                 </div>
                             ))}
@@ -497,7 +549,7 @@ export default function FerryRequestDetailPage() {
                             <Button variant="danger" size="sm" onClick={() => setShowDelete(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <Trash2 size={14} /> Delete
                             </Button>
-                            <Button size="sm" onClick={() => navigate(`/ferry_request/edit/${id}`)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Button size="sm" onClick={() => navigate(`${basePath}/edit/${id}`)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <Edit size={14} /> Edit
                             </Button>
                         </div>
@@ -510,8 +562,8 @@ export default function FerryRequestDetailPage() {
                 open={showDelete}
                 onClose={() => setShowDelete(false)}
                 onConfirm={() => { doDelete(); setShowDelete(false); }}
-                title="Delete Ferry Request"
-                message="This will permanently delete this ferry request. This action cannot be undone."
+                title={isHrComplaintView ? 'Delete HR Complaint' : 'Delete Ferry Request'}
+                message={`This will permanently delete this ${isHrComplaintView ? 'HR complaint' : 'ferry request'}. This action cannot be undone.`}
                 confirmLabel="Delete"
                 loading={deleting}
                 variant="danger"

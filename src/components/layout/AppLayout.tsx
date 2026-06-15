@@ -115,6 +115,8 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/payslip/list': Banknote,
     // Ferry Service
     '/ferry': Car,
+    '/hr_complaint': Building2,
+    '/hrcomplaint': Building2,
 };
 
 // ── Router → i18n translation key mapping ──

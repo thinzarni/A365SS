@@ -2214,15 +2214,31 @@ async function openAttachment(fileName: string | undefined | null): Promise<void
         link.href = url;
         // For viewable types (images, PDF) — open inline; others trigger download
         const ct = response.headers['content-type'] || '';
+        
+        // If the backend returned a JSON error instead of a file
+        if (ct.includes('application/json')) {
+            const text = await blob.text();
+            try {
+                const json = JSON.parse(text);
+                toast.error(json.message || json.error || 'File not found');
+            } catch {
+                toast.error('File not found');
+            }
+            return;
+        }
+
         if (ct.startsWith('image/') || ct === 'application/pdf') {
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
             link.click();
         } else {
             link.download = fileName.split('/').pop() || 'attachment';
+            document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
         }
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        // Use 5 minute timeout for "Save As" prompts
+        setTimeout(() => URL.revokeObjectURL(url), 300000);
     } catch {
         toast.error('Failed to open attachment');
     }

@@ -27,6 +27,8 @@ import type { RequestDetailModel, Approver } from '../../types/models';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
+import { appConfig } from '../../config/app-config';
+import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import { useAuthStore } from '../../stores/auth-store';
 import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, SAVE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS, GET_ATTENDANCE_REASON, TRAVEL_TYPE_LIST, VEHICLE_USE_LIST, PRODUCT_LIST, PROJECT_LIST } from '../../config/api-routes';
 import { flavor } from '../../config/features';
@@ -145,6 +147,8 @@ export default function RequestDetailPage() {
             };
         },
         enabled: !!id,
+        staleTime: 0,
+        refetchOnMount: 'always',
     });
 
     const { data: currencyList = [] } = useQuery<TypesModel[]>({
@@ -557,14 +561,13 @@ export default function RequestDetailPage() {
                             <h4 className={styles['request-detail__section-title']}>Attachments</h4>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
                                 {detail.attachment.map((att: any, i: number) => {
-                                    const url = typeof att === 'string' ? att : (att as any).signedURL || (att as any).url || '';
                                     const name = typeof att === 'string' ? `File ${i + 1}` : (att as any).filename || `File ${i + 1}`;
-                                    return url ? (
-                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                                            style={{ fontSize: 'var(--text-sm)', color: 'var(--color-primary)', textDecoration: 'underline' }}>
+                                    return (
+                                        <button key={i} type="button" onClick={() => downloadOrOpenAttachment(att)}
+                                            style={{ fontSize: 'var(--text-sm)', color: 'var(--color-primary)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                                             {name}
-                                        </a>
-                                    ) : <span key={i} style={{ fontSize: 'var(--text-sm)', color: 'var(--color-neutral-500)' }}>{name}</span>;
+                                        </button>
+                                    );
                                 })}
                             </div>
                         </div>

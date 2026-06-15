@@ -14,6 +14,7 @@ import {
     Banknote,
     FileText,
     Building2,
+    Trash2,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -48,6 +49,8 @@ import type { LeaveType, TeamMember } from '../../types/models';
 import { formatAmount, unformatAmount } from '../../lib/format-utils';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
+import { appConfig } from '../../config/app-config';
+import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import { flavor } from '../../config/features';
 import styles from './NewRequestPage.module.css';
 import React from 'react';
@@ -430,6 +433,7 @@ export default function NewRequestPage() {
     const [accompanyPersons, setAccompanyPersons] = useState<MemberItem[]>([]);
     const [handovers, setHandovers] = useState<MemberItem[]>([]);
     const [files, setFiles] = useState<File[]>([]);
+    const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
 
     // ── Auto-fetch leave duration from policy API ──
     useEffect(() => {
@@ -590,6 +594,9 @@ export default function NewRequestPage() {
         if (d.employee_syskey && String(d.employee_syskey) !== String(user?.syskey || user?.usersyskey)) {
             setSelectedMemberSyskey(String(d.employee_syskey));
         }
+
+        // Attachments
+        setExistingAttachments(Array.isArray(d.attachment) ? d.attachment : []);
     }, [editData, user]);
 
     // ── API Queries for lookups ──
@@ -728,9 +735,12 @@ export default function NewRequestPage() {
     });
 
     const { data: claimTypeList = [] } = useQuery<TypesModel[]>({
-        queryKey: ['claimTypeList'],
+        queryKey: ['claimTypeList', selectedMemberInfo?.syskey],
         queryFn: async () => {
-            const res = await apiClient.get(CLAIM_TYPES);
+            const params = selectedMemberInfo?.syskey && selectedMemberInfo.syskey !== '0' 
+                ? { employee_syskey: selectedMemberInfo.syskey } 
+                : {};
+            const res = await apiClient.get(CLAIM_TYPES, { params });
             return res.data?.datalist || [];
         },
         enabled: selectedType === 'cashadvance' || selectedType === 'claim',
@@ -748,6 +758,20 @@ export default function NewRequestPage() {
     // Taxi-type claim types show fromPlace/toPlace
     const isTaxiClaimType = ['taxi fare', 'ferry taxi', 'onsite taxi'].includes(claimTypeDesc.trim().toLowerCase());
     const isBenefitBonusClaimType = ['benefit allowance', 'bonus allowance'].includes(claimTypeDesc.trim().toLowerCase());
+
+    // Auto-populate remaining balance and claim type desc when claim type or list changes
+    useEffect(() => {
+        if (selectedType === 'claim' && claimType && claimTypeList.length > 0) {
+            const sel = claimTypeList.find(ct => ct.syskey === claimType);
+            if (sel) {
+                setClaimTypeDesc(sel.description || '');
+                // only update balance if we haven't already OR if it's the right type
+                if (sel.remaining_balance != null) {
+                    setRemainingBalance(String(sel.remaining_balance));
+                }
+            }
+        }
+    }, [selectedType, claimType, claimTypeList]);
 
     // Reset sub-fields when type changes; auto-default subType for ALL types
     // In edit mode, skip clearing leave-specific fields — they are already restored from editData
@@ -966,7 +990,10 @@ export default function NewRequestPage() {
                 })),
                 selectedAcconpanyPersons: [],   // always sent
                 selectedHandovers: [],
-                attachment: attachmentFileNames,
+                attachment: [
+                    ...existingAttachments,
+                    ...attachmentFileNames
+                ].filter(Boolean),
                 ottype: 0,
             };
 
@@ -2040,6 +2067,32 @@ export default function NewRequestPage() {
                                             onChange={setFiles}
                                             accept=".pdf,.docx,.jpg,.png"
                                         />
+                                        {existingAttachments.length > 0 && (
+                                            <div style={{ marginTop: '12px' }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-neutral-700)', marginBottom: '8px' }}>
+                                                    Existing Attachments
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {existingAttachments.map((att, i) => {
+                                                        const name = typeof att === 'string' ? `File ${i + 1}` : att.filename || att.fileName || att.name || `File ${i + 1}`;
+                                                        return (
+                                                            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--color-neutral-50)', border: '1px solid var(--color-neutral-200)', borderRadius: '6px' }}>
+                                                                <button type="button" onClick={() => downloadOrOpenAttachment(att)} style={{ fontSize: '13px', color: '#0c4a6e', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                                                    {name}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setExistingAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', display: 'flex', alignItems: 'center', padding: 4 }}
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
