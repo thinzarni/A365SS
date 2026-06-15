@@ -18,6 +18,12 @@ import {
     Star,
     Send,
     Edit,
+    File,
+    Image as ImageIcon,
+    FileSpreadsheet,
+    FileArchive,
+    FileVideo,
+    FileAudio,
 } from 'lucide-react';
 import { Button, Textarea } from '../../components/ui';
 import ApprovalWorkflowModal from '../../components/modals/ApprovalWorkflowModal';
@@ -460,18 +466,25 @@ export default function RequestDetailPage() {
                     )}
 
                     {detail.requesttypedesc?.toLowerCase().includes('travel') && (() => {
-                        // Resolve UUIDs → readable names using lookup lists
-                        const modeNames = Array.isArray(detail.modeoftravel)
-                            ? detail.modeoftravel.map((id: string) =>
-                                travelTypeList.find(t => t.syskey === id)?.description || id
-                              ).join(', ')
-                            : String(detail.modeoftravel || '');
+                        // Helper to safely parse array of objects or strings to a comma-separated string
+                        const parseListToString = (listData: any, listLookup: any[]) => {
+                            if (!listData) return '';
+                            if (Array.isArray(listData)) {
+                                return listData.map((item: any) => {
+                                    const key = typeof item === 'object' && item !== null ? (item.syskey || item.id) : item;
+                                    const fallback = typeof item === 'object' && item !== null ? (item.description || item.name || '') : item;
+                                    return listLookup.find(t => t.syskey === key)?.description || fallback || String(key);
+                                }).filter(Boolean).join(', ');
+                            }
+                            if (typeof listData === 'object' && listData !== null) {
+                                return listData.description || listData.name || String(listData.syskey || '');
+                            }
+                            return String(listData);
+                        };
 
-                        const vehicleNames = Array.isArray(detail.vehicleuse)
-                            ? detail.vehicleuse.map((id: string) =>
-                                vehicleUseList.find(v => v.syskey === id)?.description || id
-                              ).join(', ')
-                            : String(detail.vehicleuse || '');
+                        // Resolve UUIDs → readable names using lookup lists safely
+                        const modeNames = parseListToString(detail.modeoftravel, travelTypeList);
+                        const vehicleNames = parseListToString(detail.vehicleuse, vehicleUseList);
 
                         const productName = productList.find(p => p.syskey === detail.product)?.description
                             || (detail as any).productdesc || detail.product || '';
@@ -559,13 +572,76 @@ export default function RequestDetailPage() {
                     {detail.attachment && detail.attachment.length > 0 && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Attachments</h4>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                                 {detail.attachment.map((att: any, i: number) => {
-                                    const name = typeof att === 'string' ? `File ${i + 1}` : (att as any).filename || `File ${i + 1}`;
+                                    // Extract true filename robustly
+                                    let rawName = '';
+                                    if (typeof att === 'string') {
+                                        rawName = att;
+                                    } else if (att && typeof att === 'object') {
+                                        const potentialName = att.filename || att.fileName || att.name || att.filepath || att.filePath || att.url || att.signedURL;
+                                        if (typeof potentialName === 'string') {
+                                            rawName = potentialName;
+                                        } else if (Array.isArray(potentialName) && potentialName.length > 0 && typeof potentialName[0] === 'string') {
+                                            rawName = potentialName[0];
+                                        }
+                                    }
+                                    
+                                    let displayName = typeof rawName === 'string' ? rawName : '';
+                                    
+                                    if (displayName) {
+                                        displayName = displayName.split('/').pop() || displayName;
+                                        displayName = displayName.split('\\').pop() || displayName;
+                                        displayName = displayName.split('?')[0]; // remove query params
+                                    }
+                                    
+                                    displayName = displayName || `File ${i + 1}`;
+                                    
+                                    // Ensure it's absolutely a string to prevent [object Object] rendering issues
+                                    if (typeof displayName !== 'string') {
+                                        displayName = `File ${i + 1}`;
+                                    }
+
+                                    // Determine icon based on extension
+                                    const ext = displayName.split('.').pop()?.toLowerCase() || '';
+                                    let FileIcon = File;
+                                    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                                        FileIcon = ImageIcon;
+                                    } else if (['pdf', 'doc', 'docx', 'txt'].includes(ext)) {
+                                        FileIcon = FileText;
+                                    } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                                        FileIcon = FileSpreadsheet;
+                                    } else if (['zip', 'rar', 'tar', 'gz'].includes(ext)) {
+                                        FileIcon = FileArchive;
+                                    } else if (['mp4', 'avi', 'mov', 'mkv'].includes(ext)) {
+                                        FileIcon = FileVideo;
+                                    } else if (['mp3', 'wav'].includes(ext)) {
+                                        FileIcon = FileAudio;
+                                    }
+
                                     return (
                                         <button key={i} type="button" onClick={() => downloadOrOpenAttachment(att)}
-                                            style={{ fontSize: 'var(--text-sm)', color: 'var(--color-primary)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                                            {name}
+                                            style={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                gap: '8px', 
+                                                fontSize: 'var(--text-sm)', 
+                                                color: 'var(--color-primary-600)', 
+                                                background: 'var(--color-primary-50)', 
+                                                border: '1px solid var(--color-primary-200)', 
+                                                borderRadius: '6px',
+                                                cursor: 'pointer', 
+                                                padding: '8px 12px',
+                                                width: 'fit-content',
+                                                transition: 'background-color 0.2s',
+                                                textAlign: 'left'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-primary-100)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--color-primary-50)'}
+                                            title={displayName}
+                                        >
+                                            <FileIcon size={16} color="var(--color-primary-500)" />
+                                            <span style={{ fontWeight: 500 }}>{displayName}</span>
                                         </button>
                                     );
                                 })}

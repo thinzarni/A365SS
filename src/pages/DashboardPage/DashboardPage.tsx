@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
-import { ADMIN_MEMBER_LIST, ADMIN_CARD_DATA } from '../../config/api-routes';
+import { ADMIN_MEMBER_LIST, ADMIN_CARD_DATA, USER_PROFILE } from '../../config/api-routes';
 import styles from './DashboardPage.module.css';
 import AttendanceOverviewChart from '../../components/admin-attendance/AttendanceOverviewChart';
 import UserCard from '../../components/admin-attendance/UserCard';
@@ -268,13 +268,32 @@ function LiveHeader({ user, timeIn, timeOut, workingHours }: LiveHeaderProps) {
 /* ── Component ── */
 export default function DashboardPage() {
     const { t, i18n } = useTranslation();
-    const { user, userId, domain } = useAuthStore();
+    const { user, userId, domain, setUser } = useAuthStore();
     
     // Static date for API queries
     const [today] = useState(() => new Date());
     const [selectedStatus, setSelectedStatus] = useState<string>('0');
 
     const todayStr = formatDateYYYYMMDD(today);
+
+    // ── Global Profile Sync ──
+    useQuery({
+        queryKey: ['dashboard-profile-sync', userId],
+        queryFn: async () => {
+            if (!userId) return null;
+            try {
+                const res = await mainClient.post(USER_PROFILE, { userid: userId });
+                const profileData = res.data?.data ?? res.data ?? null;
+                if (profileData) {
+                    setUser({ ...useAuthStore.getState().user, ...profileData } as any);
+                }
+                return profileData;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 5 * 60 * 1000,
+    });
 
     // ── Fetch admin card data ──
     const { data: adminCardData, isLoading: adminLoading } = useQuery({

@@ -15,6 +15,12 @@ import {
     FileText,
     Building2,
     Trash2,
+    File,
+    Image as ImageIcon,
+    FileSpreadsheet,
+    FileArchive,
+    FileVideo,
+    FileAudio,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -1003,7 +1009,13 @@ export default function NewRequestPage() {
                 selectedAcconpanyPersons: [],   // always sent
                 selectedHandovers: [],
                 attachment: [
-                    ...existingAttachments,
+                    ...existingAttachments.map(att => {
+                        if (typeof att === 'string') return att;
+                        if (att && typeof att === 'object') {
+                            return att.filepath || att.filePath || att.filename || att.fileName || att.name || '';
+                        }
+                        return '';
+                    }),
                     ...attachmentFileNames
                 ].filter(Boolean),
                 ottype: 0,
@@ -2086,18 +2098,86 @@ export default function NewRequestPage() {
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                     {existingAttachments.map((att, i) => {
-                                                        const name = typeof att === 'string' ? `File ${i + 1}` : att.filename || att.fileName || att.name || `File ${i + 1}`;
+                                                        // Extract true filename robustly
+                                                        let rawName = '';
+                                                        if (typeof att === 'string') {
+                                                            rawName = att;
+                                                        } else if (att && typeof att === 'object') {
+                                                            const potentialName = att.filename || att.fileName || att.name || att.filepath || att.filePath || att.url || att.signedURL;
+                                                            if (typeof potentialName === 'string') {
+                                                                rawName = potentialName;
+                                                            } else if (Array.isArray(potentialName) && potentialName.length > 0 && typeof potentialName[0] === 'string') {
+                                                                rawName = potentialName[0];
+                                                            }
+                                                        }
+                                                        
+                                                        let displayName = typeof rawName === 'string' ? rawName : '';
+                                                        
+                                                        if (displayName) {
+                                                            displayName = displayName.split('/').pop() || displayName;
+                                                            displayName = displayName.split('\\').pop() || displayName;
+                                                            displayName = displayName.split('?')[0]; // remove query params
+                                                        }
+                                                        
+                                                        displayName = displayName || `File ${i + 1}`;
+                                                        
+                                                        // Ensure it's absolutely a string to prevent [object Object] rendering issues
+                                                        if (typeof displayName !== 'string') {
+                                                            displayName = `File ${i + 1}`;
+                                                        }
+
+                                                        // Determine icon based on extension
+                                                        const ext = displayName.split('.').pop()?.toLowerCase() || '';
+                                                        let FileIcon = File;
+                                                        if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                                                            FileIcon = ImageIcon;
+                                                        } else if (['pdf', 'doc', 'docx', 'txt'].includes(ext)) {
+                                                            FileIcon = FileText;
+                                                        } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                                                            FileIcon = FileSpreadsheet;
+                                                        } else if (['zip', 'rar', 'tar', 'gz'].includes(ext)) {
+                                                            FileIcon = FileArchive;
+                                                        } else if (['mp4', 'avi', 'mov', 'mkv'].includes(ext)) {
+                                                            FileIcon = FileVideo;
+                                                        } else if (['mp3', 'wav'].includes(ext)) {
+                                                            FileIcon = FileAudio;
+                                                        }
+
                                                         return (
-                                                            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--color-neutral-50)', border: '1px solid var(--color-neutral-200)', borderRadius: '6px' }}>
-                                                                <button type="button" onClick={() => downloadOrOpenAttachment(att)} style={{ fontSize: '13px', color: '#0c4a6e', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                                                                    {name}
+                                                            <div key={i} style={{ 
+                                                                display: 'flex', 
+                                                                alignItems: 'center', 
+                                                                justifyContent: 'space-between', 
+                                                                padding: '8px 12px', 
+                                                                background: 'var(--color-primary-50)', 
+                                                                border: '1px solid var(--color-primary-200)', 
+                                                                borderRadius: '6px' 
+                                                            }}>
+                                                                <button type="button" onClick={() => downloadOrOpenAttachment(att)} 
+                                                                    style={{ 
+                                                                        display: 'flex', 
+                                                                        alignItems: 'center', 
+                                                                        gap: '8px', 
+                                                                        fontSize: 'var(--text-sm)', 
+                                                                        color: 'var(--color-primary-600)', 
+                                                                        background: 'none', 
+                                                                        border: 'none', 
+                                                                        cursor: 'pointer', 
+                                                                        padding: 0,
+                                                                        textAlign: 'left'
+                                                                    }}
+                                                                    title={displayName}
+                                                                >
+                                                                    <FileIcon size={16} color="var(--color-primary-500)" />
+                                                                    <span style={{ fontWeight: 500 }}>{displayName}</span>
                                                                 </button>
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setExistingAttachments(prev => prev.filter((_, idx) => idx !== i))}
-                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', display: 'flex', alignItems: 'center', padding: 4 }}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger-500)', display: 'flex', alignItems: 'center', padding: 4 }}
+                                                                    title="Remove Attachment"
                                                                 >
-                                                                    <Trash2 size={14} />
+                                                                    <Trash2 size={16} />
                                                                 </button>
                                                             </div>
                                                         );

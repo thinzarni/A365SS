@@ -13,8 +13,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft, Bus, Car, Loader2,
-    Phone, MapPin, CheckCircle2, XCircle, Clock,
-    UserCheck, Paperclip, Calendar, Trash2, Building2,
+    Calendar, Phone, MapPin, Clock,
+    UserCheck, Paperclip, CheckCircle2, XCircle,
+    Edit, Trash2, Building2,
+    File,
+    Image as ImageIcon,
+    FileSpreadsheet,
+    FileArchive,
+    FileVideo,
+    FileAudio,
+    FileText,
+    RefreshCw, Megaphone, Briefcase
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -35,13 +44,16 @@ import {
     FERRY_CHANGE_PURPOSES,
     FERRY_OFFICE_LOCATIONS,
     FERRY_ASSIGNED_FERRY_NO,
+    FERRY_CURRENT_ASSIGNED,
     USER_PROFILE,
 } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
+import { displayDate } from '../../lib/date-utils';
 import { useAuthStore } from '../../stores/auth-store';
 import { appConfig } from '../../config/app-config';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import styles from './FerryRequestPage.module.css';
+import newReqStyles from '../NewRequestPage/NewRequestPage.module.css';
 
 /* ─────────────────────────────────────────────────
    Types
@@ -76,6 +88,13 @@ interface FerrySetupItem {
    Helpers
 ───────────────────────────────────────────────── */
 function toApiDate(d: string) { return d ? d.replace(/-/g, '') : ''; }
+
+const FERRY_TYPE_VISUAL: Record<string, { icon: any; color: string; bgColor: string }> = {
+    [FerryRequestType.registration]: { icon: FileText, color: '#16a34a', bgColor: '#f0fdf4' },
+    [FerryRequestType.change]: { icon: RefreshCw, color: '#2563eb', bgColor: '#eff6ff' },
+    [FerryRequestType.usercomplaint]: { icon: Megaphone, color: '#ea580c', bgColor: '#fff7ed' },
+    [FerryRequestType.hrcomplaint]: { icon: Building2, color: '#9333ea', bgColor: '#faf5ff' },
+};
 
 function fromApiDate(d: string) {
     if (!d || d.length < 8) return '';
@@ -120,7 +139,7 @@ function descToFerryType(desc: string): FerryRequestType {
 }
 
 const COMPLAINT_OPTS = [
-    { id: '1', label: 'Driver Behaviour' },
+    { id: '1', label: 'Driver Behavior' },
     { id: '2', label: 'Vehicle Condition' },
     { id: '3', label: 'Other' },
 ];
@@ -217,7 +236,28 @@ export default function FerryRequestPage() {
         staleTime: 10 * 60 * 1000,
     });
 
-    /* ───────── Employee Profile (for ferryno) ───────── */
+    /* ───────── Current Assigned Ferry (for ferryno) ───────── */
+    const actualUserId = (user as any)?.userid || userId;
+    const { data: currentAssignedFerry } = useQuery({
+        queryKey: ['current-assigned-ferry', actualUserId, domain],
+        queryFn: async () => {
+            try {
+                const res = await apiClient.get(FERRY_CURRENT_ASSIGNED, { params: { userid: actualUserId, domain } });
+                const dl = res.data?.datalist;
+                if (Array.isArray(dl) && dl.length > 0) {
+                    return dl[0]?.ferryno ?? dl[0]?.ferryNo ?? '';
+                }
+                const d = res.data?.data || res.data;
+                return d?.ferryno ?? d?.ferryNo ?? '';
+            } catch {
+                return '';
+            }
+        },
+        enabled: !!actualUserId,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    /* ───────── Employee Profile (fallback for ferryno) ───────── */
     const { data: employeeProfile } = useQuery({
         queryKey: ['employee-profile', (user as any)?.userid],
         queryFn: async () => {
@@ -228,10 +268,18 @@ export default function FerryRequestPage() {
                 return null;
             }
         },
+        enabled: !user?.phoneno && !user?.phone && !user?.joineddate,
         staleTime: 5 * 60 * 1000,
     });
 
-    const profileFerryNo: string = (employeeProfile as any)?.ferryno ?? '';
+    const epData = employeeProfile as any;
+    const profileFerryNo: string = currentAssignedFerry || epData?.ferryno || '';
+    const displayPhone = user?.phoneno || user?.phone || epData?.phoneno || epData?.phone || '';
+    const displayRank = user?.rank || epData?.rank || '';
+    const displayDept = user?.department || epData?.department || '';
+    const displayJoinDate = user?.joineddate || epData?.joineddate || '';
+    const displaySyskey = user?.syskey || user?.usersyskey || epData?.syskey || '';
+    const displayEid = user?.eid || user?.employee_id || epData?.eid || '';
 
     /* ───────── Detail (edit mode) ───────── */
     const { data: detailRes, isLoading: detailLoading } = useQuery({
@@ -474,7 +522,13 @@ export default function FerryRequestPage() {
             if (!opt) throw new Error('Please select a request type');
             
             const attachment = [
-                ...existingAttachments.map((a: any) => typeof a === 'string' ? a : a),
+                ...existingAttachments.map((a: any) => {
+                    if (typeof a === 'string') return a;
+                    if (a && typeof a === 'object') {
+                        return a.filepath || a.filePath || a.filename || a.fileName || a.name || '';
+                    }
+                    return '';
+                }),
                 ...uploadedFiles
             ].filter(Boolean);
 
@@ -486,14 +540,8 @@ export default function FerryRequestPage() {
                 remark,
                 reason: remark,
                 description: remark,
-                employeeid: (employeeProfile as any)?.eid
-                    ?? (user as any)?.employee_id
-                    ?? (user as any)?.eid
-                    ?? '',
-                employee_syskey: (employeeProfile as any)?.syskey
-                    ?? (user as any)?.syskey
-                    ?? (user as any)?.usersyskey
-                    ?? '',
+                employeeid: displayEid,
+                employee_syskey: displaySyskey,
                 userid: userId,
                 domain,
                 attachment,
@@ -517,12 +565,12 @@ export default function FerryRequestPage() {
                 const sorted = [...selectedComplaints].sort();
                 base.ferrycomplaint = sorted.join(',');
                 base.ferryno = currentFerryNo || profileFerryNo;
-                base.phoneno = phoneNumber;
+                base.phoneno = phoneNumber || displayPhone;
                 base.remark = userComplaintText;
             } else if (selectedType === FerryRequestType.hrcomplaint) {
                 base.remark = hrComplaintText;
                 base.ferryno = currentFerryNo || profileFerryNo;
-                base.phoneno = phoneNumber;
+                base.phoneno = phoneNumber || displayPhone;
             } else {
                 // Ferry Change
                 base.ferryno = currentFerryNo;
@@ -589,32 +637,24 @@ export default function FerryRequestPage() {
     const isReadOnly = isApproved || isRejected;
 
     return (
-        <div className={styles.page}>
-            {/* ── Header ── */}
-            <div className={styles.header}>
-                <div className={styles.headerLeft}>
-                    <button className={styles.backBtn} onClick={() => navigate(isNew ? basePath : `${basePath}/${id}`)}>
-                        <ArrowLeft size={20} />
-                    </button>
-                    <div className={styles.headerIcon}>
-                        {isHrComplaintView ? (
-                            <Building2 size={22} color="#0c4a6e" />
-                        ) : (
-                            <Car size={22} color="#0c4a6e" />
-                        )}
+        <div className={newReqStyles['new-request']}>
+            <button className={newReqStyles['new-request__back']} onClick={() => navigate(isNew ? basePath : `${basePath}/${id}`)}>
+                <ArrowLeft size={16} />
+                Back
+            </button>
+
+            <div className="page-header">
+                <h1 className="page-header__title">
+                    {isNew ? `New ${selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request')}` : (detail?.requesttypedesc || selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request'))}
+                </h1>
+                <p className="page-header__subtitle">
+                    {!isNew && detail?.refno ? `Ref # ${detail.refno}` : (!isHrComplaintView ? 'Company ferry / bus service' : 'Fill out the form below')}
+                </p>
+                {!isNew && (
+                    <div style={{ marginTop: '12px' }}>
+                        <StatusBadge status={String(detail?.requeststatus ?? '1')} />
                     </div>
-                    <div>
-                        <h1 className={styles.headerTitle}>
-                            {isNew ? `New ${selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request')}` : (detail?.requesttypedesc || selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request'))}
-                        </h1>
-                        {!isNew && detail?.refno ? (
-                            <p className={styles.headerSub}>Ref # {detail.refno}</p>
-                        ) : (
-                            !isHrComplaintView ? <p className={styles.headerSub}>Company ferry / bus service</p> : null
-                        )}
-                    </div>
-                </div>
-                {!isNew && <StatusBadge status={String(detail?.requeststatus ?? '1')} />}
+                )}
             </div>
 
             {(!isNew && detailLoading) ? (
@@ -622,56 +662,66 @@ export default function FerryRequestPage() {
                     <Loader2 size={32} className={styles.spin} color="#0c4a6e" />
                 </div>
             ) : (
-                <div className={styles.formBody}>
+                <div className={newReqStyles['new-request__card']}>
 
                     {/* ── 1. Request Type (from API, filtered ferry/HR) ── */}
-                    <section className={styles.section}>
-                        <h3 className={styles.sectionTitle}>
-                            {isHrComplaintView ? (
-                                <Building2 size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                            ) : (
-                                <Bus size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                            )}
-                            Request Type
-                        </h3>
-                        {ferryTypeOptions.length === 0 ? (
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                {[0,1,2,3].map(i => (
-                                    <div key={i} style={{ flex: 1, height: 60, borderRadius: 10,
-                                        background: '#f1f5f9', animation: 'pulse 1.5s infinite' }} />
-                                ))}
+                    <div className={newReqStyles['new-request__section']}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)', paddingBottom: 'var(--space-2)', borderBottom: '1px solid var(--color-neutral-100)' }}>
+                            <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--color-neutral-800)', margin: 0 }}>
+                                Request Type
+                            </h3>
+                        </div>
+                        <div className={newReqStyles['new-request__type-carousel-wrap']}>
+                            <div className={newReqStyles['new-request__type-grid']} style={{ paddingBottom: 'var(--space-2)' }}>
+                                {ferryTypeOptions.length === 0 ? (
+                                    Array.from({ length: 4 }).map((_, i) => (
+                                        <div key={i} style={{ flex: '0 0 120px', height: '100px', borderRadius: 'var(--radius-xl)', background: 'var(--color-neutral-100)', animation: 'pulse 1.5s infinite', animationDelay: `${i * 0.08}s` }} />
+                                    ))
+                                ) : (
+                                    ferryTypeOptions.map(opt => {
+                                        const isActive = selectedType === opt.value;
+                                        const vis = FERRY_TYPE_VISUAL[opt.value] || { icon: FileText, color: '#64748b', bgColor: '#f1f5f9' };
+                                        const Icon = vis.icon;
+                                        return (
+                                            <div
+                                                key={opt.syskey}
+                                                id={`ferry-type-${opt.value}`}
+                                                onClick={() => {
+                                                    if (isReadOnly) return;
+                                                    setSelectedOpt(opt);
+                                                    setSelectedType(opt.value);
+                                                    setApprovalType(opt.approvaltype ?? '0');
+                                                }}
+                                                className={`${newReqStyles['new-request__type-card']} ${isActive ? newReqStyles['new-request__type-card--active'] : ''}`}
+                                                style={{
+                                                    ...(isActive ? { borderColor: vis.color, boxShadow: `0 0 0 3px ${vis.color}22` } : {}),
+                                                    ...(isReadOnly ? { opacity: 0.7, cursor: 'not-allowed' } : {})
+                                                }}
+                                            >
+                                                <div className={newReqStyles['new-request__type-card-icon']} style={{ background: isActive ? vis.color + '22' : vis.bgColor, color: vis.color }}>
+                                                    <Icon size={22} />
+                                                </div>
+                                                <span className={newReqStyles['new-request__type-card-label']} style={{
+                                                    ...(isActive ? { color: vis.color } : {}),
+                                                    whiteSpace: 'normal',
+                                                    overflow: 'visible',
+                                                    textOverflow: 'clip',
+                                                    maxWidth: '120px',
+                                                    lineHeight: '1.2'
+                                                }}>
+                                                    {opt.label}
+                                                </span>
+                                            </div>
+                                        );
+                                    })
+                                )}
                             </div>
-                        ) : (
-                            <div className={styles.typeGrid}>
-                                {ferryTypeOptions.map(opt => (
-                                    <button
-                                        key={opt.syskey}
-                                        id={`ferry-type-${opt.value}`}
-                                        type="button"
-                                        disabled={isReadOnly}
-                                        className={`${styles.typeCard} ${selectedType === opt.value ? styles.typeCardActive : ''}`}
-                                        onClick={() => {
-                                            setSelectedOpt(opt);
-                                            setSelectedType(opt.value);
-                                            setApprovalType(opt.approvaltype ?? '0');
-                                        }}
-                                    >
-                                        <span style={{ fontSize: 20 }}>
-                                            {opt.value === FerryRequestType.registration && '📋'}
-                                            {opt.value === FerryRequestType.change && '🔄'}
-                                            {opt.value === FerryRequestType.usercomplaint && '📣'}
-                                            {opt.value === FerryRequestType.hrcomplaint && '👔'}
-                                        </span>
-                                        <span className={styles.typeCardLabel}>{opt.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </section>
+                        </div>
+                    </div>
 
                     {/* ── 2. Employee Info ── */}
-                    <section className={styles.section}>
-                        <h3 className={styles.sectionTitle}>
+                    <section className={newReqStyles['new-request__section']}>
+                        <h3 className={newReqStyles['new-request__section-title']}>
                             <UserCheck size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                             Employee
                         </h3>
@@ -692,9 +742,12 @@ export default function FerryRequestPage() {
                                         )}
                                     </div>
                                     {/* Rank below name */}
-                                    {(employeeProfile as any)?.rank && (
-                                        <div style={{ fontSize: 12, color: '#0369a1', marginTop: 2 }}>
-                                            {(employeeProfile as any).rank}
+                                    {displayRank && (
+                                        <div>
+                                            <div style={{ fontSize: 11, fontWeight: 600, color: '#0369a1', marginBottom: 2, letterSpacing: '0.03em' }}>Rank</div>
+                                            <div style={{ fontSize: 13, fontWeight: 500, color: '#0c4a6e' }}>
+                                                {displayRank}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -706,26 +759,26 @@ export default function FerryRequestPage() {
 
                             {/* Department + Join Date */}
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                {(employeeProfile as any)?.department && (
+                                {displayDept && (
                                     <div>
                                         <div style={{ fontSize: 11, fontWeight: 600, color: '#0369a1', marginBottom: 2, letterSpacing: '0.03em' }}>Department</div>
                                         <div style={{ fontSize: 13, fontWeight: 500, color: '#0c4a6e' }}>
-                                            {(employeeProfile as any).department}
+                                            {displayDept}
                                         </div>
                                     </div>
                                 )}
-                                {(employeeProfile as any)?.joineddate && (
+                                {displayJoinDate && (
                                     <div>
                                         <div style={{ fontSize: 11, fontWeight: 600, color: '#0369a1', marginBottom: 2, letterSpacing: '0.03em' }}>Join Date</div>
                                         <div style={{ fontSize: 13, fontWeight: 500, color: '#0c4a6e' }}>
-                                            {(employeeProfile as any).joineddate}
+                                            {displayJoinDate}
                                         </div>
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        {/* Phone + Current Ferry No shown for Registration & Change */}
+                        {/* Phone + Current Ferry No */}
                         {(selectedType === FerryRequestType.registration || selectedType === FerryRequestType.change) && (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14 }}>
                                 <Input id="ferry-phone" label="Contact Phone Number *" type="tel"
@@ -742,12 +795,25 @@ export default function FerryRequestPage() {
                             </div>
                         )}
 
+                        {/* Current Ferry No only (placed on left) for Complaints */}
+                        {(selectedType === FerryRequestType.usercomplaint || selectedType === FerryRequestType.hrcomplaint) && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14 }}>
+                                {(profileFerryNo || currentFerryNo) && (
+                                    <Input id="ferry-current-no" label="Current Ferry Number"
+                                        value={currentFerryNo || profileFerryNo}
+                                        onChange={e => setCurrentFerryNo(e.target.value)}
+                                        readOnly />
+                                )}
+                                <div /> {/* Empty div to keep it strictly on the left half */}
+                            </div>
+                        )}
+
                         {/* ════════════════════════════════
                             REGISTRATION (Merged into upper box)
                         ════════════════════════════════ */}
                         {selectedType === FerryRequestType.registration && (
-                            <div className={styles.grid} style={{ marginTop: 14 }}>
-                                <div className={styles.fullCol}>
+                            <div className={newReqStyles['new-request__grid']} style={{ marginTop: 14 }}>
+                                <div className={newReqStyles['new-request__full']}>
                                     <label className={styles.fieldLabel}>
                                         Working Hours <span style={{ color: '#ef4444' }}>*</span>
                                     </label>
@@ -783,13 +849,13 @@ export default function FerryRequestPage() {
                         CHANGE
                     ════════════════════════════════ */}
                     {selectedType === FerryRequestType.change && (
-                        <section className={styles.section}>
-                            <h3 className={styles.sectionTitle}>
+                        <section className={newReqStyles['new-request__section']}>
+                            <h3 className={newReqStyles['new-request__section-title']}>
                                 <Clock size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                                 Change Details
                             </h3>
-                            <div className={styles.grid}>
-                                <div className={styles.fullCol}>
+                            <div className={newReqStyles['new-request__grid']}>
+                                <div className={newReqStyles['new-request__full']}>
                                     <label className={styles.fieldLabel}>
                                         Change Type <span style={{ color: '#ef4444' }}>*</span>
                                     </label>
@@ -809,7 +875,7 @@ export default function FerryRequestPage() {
 
                                 {/* Temporary Change */}
                                 {isTemporary && changeTypeSyskey && (<>
-                                    <div className={styles.fullCol}>
+                                    <div className={newReqStyles['new-request__full']}>
                                         <Textarea id="ferry-temp-reason"
                                             label="Reason for Change Request (Business Requirements) *"
                                             value={temporaryReason}
@@ -818,7 +884,7 @@ export default function FerryRequestPage() {
                                             rows={3}
                                             readOnly={isReadOnly} />
                                     </div>
-                                    <div className={styles.fullCol}>
+                                    <div className={newReqStyles['new-request__full']}>
                                         <label className={styles.fieldLabel}>Desired Ferry Number</label>
                                         <select id="ferry-desired-no" className={styles.select}
                                             value={desiredFerryNoSyskey} disabled={isReadOnly}
@@ -843,7 +909,7 @@ export default function FerryRequestPage() {
 
                                 {/* Permanent Change */}
                                 {isPermanent && changeTypeSyskey && (
-                                    <div className={styles.fullCol}>
+                                    <div className={newReqStyles['new-request__full']}>
                                         <p className={styles.sectionSubtitle}>Purpose of Change</p>
                                         <div className={styles.radioGroup}>
                                             {changePurposes.map(cp => (
@@ -863,8 +929,8 @@ export default function FerryRequestPage() {
 
                                         {/* Office Location sub-fields */}
                                         {isOfficeLocation && changePurposeSyskey && (
-                                            <div className={styles.grid} style={{ marginTop: 14 }}>
-                                                <div className={styles.fullCol}>
+                                            <div className={newReqStyles['new-request__grid']} style={{ marginTop: 14 }}>
+                                                <div className={newReqStyles['new-request__full']}>
                                                     <label className={styles.fieldLabel}>New Office Location *</label>
                                                     <select id="ferry-office-loc"
                                                         className={`${styles.select} ${fieldErrors.officeLocationSyskey ? styles.selectError : ''}`}
@@ -894,8 +960,8 @@ export default function FerryRequestPage() {
 
                                         {/* Home Address sub-fields */}
                                         {isHomeAddress && changePurposeSyskey && (
-                                            <div className={styles.grid} style={{ marginTop: 14 }}>
-                                                <div className={styles.fullCol}>
+                                            <div className={newReqStyles['new-request__grid']} style={{ marginTop: 14 }}>
+                                                <div className={newReqStyles['new-request__full']}>
                                                     <Input id="ferry-home-addr" label="New Home Address *"
                                                         value={homeAddress} placeholder="Full address"
                                                         onChange={e => { setHomeAddress(e.target.value); clearFieldError('homeAddress'); }}
@@ -932,7 +998,7 @@ export default function FerryRequestPage() {
 
                                 {/* Temporary Suspension */}
                                 {isSuspension && changeTypeSyskey && (<>
-                                    <div className={styles.fullCol} style={{ marginTop: 8, marginBottom: 4 }}>
+                                    <div className={newReqStyles['new-request__full']} style={{ marginTop: 8, marginBottom: 4 }}>
                                         <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#334155' }}>
                                             Temporary Suspension For Ferry Usage
                                         </h4>
@@ -954,8 +1020,8 @@ export default function FerryRequestPage() {
                         USER COMPLAINT
                     ════════════════════════════════ */}
                     {selectedType === FerryRequestType.usercomplaint && (
-                        <section className={styles.section}>
-                            <h3 className={styles.sectionTitle}>
+                        <section className={newReqStyles['new-request__section']}>
+                            <h3 className={newReqStyles['new-request__section-title']}>
                                 <Phone size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                                 User Complaint
                             </h3>
@@ -1008,8 +1074,8 @@ export default function FerryRequestPage() {
                         HR COMPLAINT
                     ════════════════════════════════ */}
                     {selectedType === FerryRequestType.hrcomplaint && (
-                        <section className={styles.section}>
-                            <h3 className={styles.sectionTitle}>HR Complaint</h3>
+                        <section className={newReqStyles['new-request__section']}>
+                            <h3 className={newReqStyles['new-request__section-title']}>HR Complaint</h3>
                             <Textarea id="ferry-hr-text" label="Complaint Description *"
                                 value={hrComplaintText}
                                 onChange={e => setHrComplaintText(e.target.value)}
@@ -1026,22 +1092,93 @@ export default function FerryRequestPage() {
 
                     {/* ── Attachments ── */}
                     {!isReadOnly && (
-                        <section className={styles.section}>
-                            <h3 className={styles.sectionTitle}>
+                        <section className={newReqStyles['new-request__section']}>
+                            <h3 className={newReqStyles['new-request__section-title']}>
                                 <Paperclip size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                                 Attachments
                             </h3>
                             {existingAttachments.length > 0 && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                                     {existingAttachments.map((att: any, i: number) => {
-                                        const name = typeof att === 'string' ? `File ${i + 1}` : att.filename || att.fileName || att.name || `File ${i + 1}`;
+                                        // Extract true filename robustly
+                                        let rawName = '';
+                                        if (typeof att === 'string') {
+                                            rawName = att;
+                                        } else if (att && typeof att === 'object') {
+                                            const potentialName = att.filename || att.fileName || att.name || att.filepath || att.filePath || att.url || att.signedURL;
+                                            if (typeof potentialName === 'string') {
+                                                rawName = potentialName;
+                                            } else if (Array.isArray(potentialName) && potentialName.length > 0 && typeof potentialName[0] === 'string') {
+                                                rawName = potentialName[0];
+                                            }
+                                        }
+                                        
+                                        let displayName = typeof rawName === 'string' ? rawName : '';
+                                        
+                                        if (displayName) {
+                                            displayName = displayName.split('/').pop() || displayName;
+                                            displayName = displayName.split('\\').pop() || displayName;
+                                            displayName = displayName.split('?')[0]; // remove query params
+                                        }
+                                        
+                                        displayName = displayName || `File ${i + 1}`;
+                                        
+                                        // Ensure it's absolutely a string
+                                        if (typeof displayName !== 'string') {
+                                            displayName = `File ${i + 1}`;
+                                        }
+
+                                        // Determine icon based on extension
+                                        const ext = displayName.split('.').pop()?.toLowerCase() || '';
+                                        let FileIcon = File;
+                                        if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                                            FileIcon = ImageIcon;
+                                        } else if (['pdf', 'doc', 'docx', 'txt'].includes(ext)) {
+                                            FileIcon = FileText;
+                                        } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                                            FileIcon = FileSpreadsheet;
+                                        } else if (['zip', 'rar', 'tar', 'gz'].includes(ext)) {
+                                            FileIcon = FileArchive;
+                                        } else if (['mp4', 'avi', 'mov', 'mkv'].includes(ext)) {
+                                            FileIcon = FileVideo;
+                                        } else if (['mp3', 'wav'].includes(ext)) {
+                                            FileIcon = FileAudio;
+                                        }
+
                                         return (
-                                            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                                                <button type="button" onClick={() => downloadOrOpenAttachment(att)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#0c4a6e', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                                                    <Paperclip size={13} />
-                                                    {name}
+                                            <div key={i} style={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'space-between', 
+                                                padding: '8px 12px', 
+                                                background: 'var(--color-primary-50)', 
+                                                border: '1px solid var(--color-primary-200)', 
+                                                borderRadius: '6px' 
+                                            }}>
+                                                <button type="button" onClick={() => downloadOrOpenAttachment(att)} 
+                                                    style={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        gap: '8px', 
+                                                        fontSize: 'var(--text-sm)', 
+                                                        color: 'var(--color-primary-600)', 
+                                                        background: 'none', 
+                                                        border: 'none', 
+                                                        cursor: 'pointer', 
+                                                        padding: 0,
+                                                        textAlign: 'left'
+                                                    }}
+                                                    title={displayName}
+                                                >
+                                                    <FileIcon size={16} color="var(--color-primary-500)" />
+                                                    <span style={{ fontWeight: 500 }}>{displayName}</span>
                                                 </button>
-                                                <button type="button" onClick={() => setExistingAttachments(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setExistingAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger-500)', display: 'flex', alignItems: 'center', padding: 4 }}
+                                                    title="Remove Attachment"
+                                                >
                                                     <Trash2 size={16} />
                                                 </button>
                                             </div>
@@ -1055,8 +1192,8 @@ export default function FerryRequestPage() {
 
                     {/* ── Approvers (manual approval only) ── */}
                     {approvalType === '0' && !isReadOnly && (
-                        <section className={styles.section}>
-                            <h3 className={styles.sectionTitle}>
+                        <section className={newReqStyles['new-request__section']}>
+                            <h3 className={newReqStyles['new-request__section-title']}>
                                 <UserCheck size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                                 Approvers
                             </h3>
@@ -1075,15 +1212,15 @@ export default function FerryRequestPage() {
 
                     {/* ── Step-Level Workflow Tracker (approvalType === '1') ── */}
                     {!isNew && (detail?.approvaltype === '1' || detail?.approvaltype === 1) && stepLevelData.length > 0 && (
-                        <section className={styles.section}>
+                        <section className={newReqStyles['new-request__section']}>
                             <ApprovalWorkflowModal steps={stepLevelData} />
                         </section>
                     )}
 
                     {/* ── Read-only approver list (approvalType === '0') ── */}
                     {!isNew && (detail?.approvaltype === '0' || detail?.approvaltype === 0 || !detail?.approvaltype) && detailApprovers.length > 0 && (
-                        <section className={styles.section}>
-                            <h3 className={styles.sectionTitle}>Approvers</h3>
+                        <section className={newReqStyles['new-request__section']}>
+                            <h3 className={newReqStyles['new-request__section-title']}>Approvers</h3>
                             {detailApprovers.map((a: any) => (
                                 <div key={a.userid ?? a.syskey} style={{
                                     display: 'flex', alignItems: 'center', gap: 12,

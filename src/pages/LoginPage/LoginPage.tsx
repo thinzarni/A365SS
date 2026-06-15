@@ -220,10 +220,11 @@ export default function LoginPage() {
 
                 // Profile fetch (non-blocking)
                 try {
-                    const { default: apiClient } = await import('../../lib/api-client');
-                    const profileRes = await apiClient.get('/api/employees/profile');
-                    const profile = profileRes.data?.datalist || profileRes.data?.data;
-                    if (profile) setUser(profile);
+                    const { default: mainClient } = await import('../../lib/main-client');
+                    const { USER_PROFILE } = await import('../../config/api-routes');
+                    const profileRes = await mainClient.post(USER_PROFILE, { userid: userId });
+                    const profile = profileRes.data?.datalist || profileRes.data?.data || profileRes.data;
+                    if (profile) setUser({ ...useAuthStore.getState().user, ...profile } as any);
                 } catch { /* non-blocking */ }
 
                 navigate('/dashboard');
