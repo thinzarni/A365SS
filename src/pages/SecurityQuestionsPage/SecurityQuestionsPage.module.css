@@ -1,41 +1,54 @@
+/* ══════════════════════════════════════
+   Container & Background
+══════════════════════════════════════ */
 .container {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--color-neutral-50);
     padding: var(--space-6);
+    background:
+        radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 80%, rgba(59, 130, 246, 0.07) 0%, transparent 60%),
+        var(--color-neutral-50);
 }
 
+/* ══════════════════════════════════════
+   Card
+══════════════════════════════════════ */
 .card {
     background: var(--color-neutral-0);
     border: 1px solid var(--color-neutral-100);
-    border-radius: var(--radius-2xl);
+    border-radius: 24px;
     padding: var(--space-8);
     width: 100%;
-    max-width: 560px;
-    box-shadow: var(--shadow-lg);
+    max-width: 580px;
+    box-shadow:
+        0 4px 6px -1px rgba(0, 0, 0, 0.04),
+        0 20px 50px -10px rgba(0, 0, 0, 0.08);
+    animation: cardIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* ── Loading state ── */
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* ══════════════════════════════════════
+   Loading
+══════════════════════════════════════ */
 .loadingBar {
     height: 3px;
-    background: linear-gradient(90deg, var(--color-primary-400), var(--color-primary-600));
+    background: linear-gradient(90deg, var(--color-primary-400), var(--color-primary-600), var(--color-primary-400));
+    background-size: 200% 100%;
     border-radius: var(--radius-full);
     margin-bottom: var(--space-6);
-    animation: pulse 1.5s ease-in-out infinite;
+    animation: shimmer 1.5s ease-in-out infinite;
 }
 
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.4;
-    }
+@keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 .loadingText {
@@ -44,7 +57,9 @@
     font-size: var(--text-sm);
 }
 
-/* ── Header ── */
+/* ══════════════════════════════════════
+   Header
+══════════════════════════════════════ */
 .header {
     text-align: center;
     margin-bottom: var(--space-8);
@@ -54,12 +69,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 64px;
-    height: 64px;
+    width: 72px;
+    height: 72px;
     border-radius: var(--radius-full);
-    background: rgba(59, 130, 246, 0.1);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(59, 130, 246, 0.15));
     color: var(--color-primary-600);
     margin-bottom: var(--space-4);
+    box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.06);
 }
 
 .title {
@@ -75,47 +91,171 @@
     color: var(--color-neutral-500);
     line-height: var(--leading-relaxed);
     max-width: 380px;
-    margin: 0 auto;
+    margin: 0 auto var(--space-5);
 }
 
-/* ── Form ── */
+/* Progress dots */
+.progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+}
+
+.progressDot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-neutral-200);
+    transition: all 0.25s ease;
+}
+
+.progressDot--active {
+    width: 24px;
+    background: linear-gradient(90deg, var(--color-primary-500), #6366f1);
+}
+
+.progressDot--done {
+    background: var(--color-primary-400);
+    width: 20px;
+}
+
+/* ══════════════════════════════════════
+   Form
+══════════════════════════════════════ */
 .form {
     display: flex;
     flex-direction: column;
-    gap: var(--space-5);
+    gap: var(--space-4);
 }
 
+/* Question slot card */
 .questionItem {
-    background: var(--color-neutral-50);
+    background: var(--color-neutral-0);
     border: 1px solid var(--color-neutral-100);
+    border-left: 3px solid var(--color-primary-400);
     border-radius: var(--radius-xl);
-    padding: var(--space-5);
+    padding: var(--space-6);
     display: flex;
     flex-direction: column;
+    gap: var(--space-5);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.2s ease, border-left-color 0.2s ease;
+}
+
+.questionItem:focus-within {
+    border-left-color: var(--color-primary-600);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.08);
+}
+
+/* Slot header */
+.slotHeader {
+    display: flex;
+    align-items: center;
     gap: var(--space-3);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--color-neutral-100);
 }
 
-.questionLabel {
-    display: inline-block;
-    font-size: var(--text-xs);
-    font-weight: var(--font-bold);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--color-primary-600);
-    background: rgba(59, 130, 246, 0.08);
-    padding: 3px 10px;
+.slotBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
     border-radius: var(--radius-full);
-    width: fit-content;
+    background: linear-gradient(135deg, var(--color-primary-500), #6366f1);
+    color: #fff;
+    font-size: 12px;
+    font-weight: var(--font-bold);
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+    transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
-.questionText {
-    font-size: var(--text-base);
+.slotTitle {
+    font-size: var(--text-sm);
     font-weight: var(--font-semibold);
-    color: var(--color-neutral-800);
-    line-height: var(--leading-normal);
-    margin: 0;
+    color: var(--color-neutral-700);
 }
 
+/* ══════════════════════════════════════
+   Select Dropdown
+══════════════════════════════════════ */
+.selectWrap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.selectLabel {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--color-neutral-700);
+}
+
+.selectInner {
+    position: relative;
+}
+
+.select {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--color-neutral-0);
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-lg);
+    padding: 0 var(--space-10) 0 var(--space-5);
+    height: 48px;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-neutral-900);
+    line-height: var(--leading-normal);
+    cursor: pointer;
+    outline: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.select option:first-child {
+    color: var(--color-neutral-400);
+}
+
+.select:hover:not(:disabled) {
+    border-color: var(--color-neutral-300);
+    background: var(--color-neutral-50);
+}
+
+.select:focus {
+    border-color: var(--color-primary-500);
+    box-shadow: 0 0 0 3px rgb(99 102 241 / 0.12);
+    background: var(--color-neutral-0);
+}
+
+.select:focus + .selectIcon {
+    color: var(--color-primary-500);
+    transform: translateY(-50%) rotate(180deg);
+}
+
+.select:disabled {
+    background: var(--color-neutral-50);
+    color: var(--color-neutral-400);
+    cursor: not-allowed;
+    border-style: dashed;
+}
+
+.selectIcon {
+    position: absolute;
+    right: var(--space-3);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-neutral-400);
+    pointer-events: none;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+/* ══════════════════════════════════════
+   Empty / Submit
+══════════════════════════════════════ */
 .emptyText {
     text-align: center;
     color: var(--color-neutral-400);
@@ -125,19 +265,24 @@
 
 .submitBtn {
     width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
     margin-top: var(--space-2);
 }
 
+/* ══════════════════════════════════════
+   Responsive
+══════════════════════════════════════ */
 @media (max-width: 600px) {
     .card {
         padding: var(--space-5);
+        border-radius: var(--radius-2xl);
     }
 
     .title {
         font-size: var(--text-xl);
+    }
+
+    .iconWrap {
+        width: 60px;
+        height: 60px;
     }
 }
