@@ -411,8 +411,8 @@ export default function ApprovalDetailPage() {
 
 
     // Approval type: '1' = step-level workflow, '0' (or anything else) = flat approver list
-    const approvalTypeRaw = d.approvaltype;
-    const isStepLevel = approvalTypeRaw === '1' || approvalTypeRaw === 1;
+    // const approvalTypeRaw = d.approvaltype;
+    // const _isStepLevel = approvalTypeRaw === '1' || approvalTypeRaw === 1;
 
     // Dictionary Mappings
     const currencyName = currencyList.find(c => c.syskey === d.currencytype)?.description || d.currencytype || '';

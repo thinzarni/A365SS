@@ -13,7 +13,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft, Bus, Car, Loader2,
-    Phone, MapPin, CheckCircle2, XCircle, Clock,
+    Phone, CheckCircle2, XCircle, Clock,
     UserCheck, Paperclip, Calendar, Trash2, Building2,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
@@ -39,7 +39,6 @@ import {
 } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
 import { useAuthStore } from '../../stores/auth-store';
-import { appConfig } from '../../config/app-config';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import styles from './FerryRequestPage.module.css';
 
@@ -70,8 +69,6 @@ interface FerrySetupItem {
     carno?: string;
     officeLocationName?: string;
     ferryCarNo?: string;
-    carno?: string;
-    name?: string;
 }
 
 /* ─────────────────────────────────────────────────
@@ -169,7 +166,7 @@ export default function FerryRequestPage() {
         const ORDER = isHrComplaintView
             ? [FerryRequestType.hrcomplaint]
             : [FerryRequestType.registration, FerryRequestType.change, FerryRequestType.usercomplaint];
-        options.sort((a, b) => ORDER.indexOf(a.value) - ORDER.indexOf(b.value));
+        options.sort((a, b) => (ORDER as string[]).indexOf(a.value) - (ORDER as string[]).indexOf(b.value));
         return options;
     })();
 

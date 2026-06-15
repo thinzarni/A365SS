@@ -49,7 +49,6 @@ import type { LeaveType, TeamMember } from '../../types/models';
 import { formatAmount, unformatAmount } from '../../lib/format-utils';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
-import { appConfig } from '../../config/app-config';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import { flavor } from '../../config/features';
 import styles from './NewRequestPage.module.css';

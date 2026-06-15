@@ -27,7 +27,6 @@ import type { RequestDetailModel, Approver } from '../../types/models';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
-import { appConfig } from '../../config/app-config';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import { useAuthStore } from '../../stores/auth-store';
 import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, SAVE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS, GET_ATTENDANCE_REASON, TRAVEL_TYPE_LIST, VEHICLE_USE_LIST, PRODUCT_LIST, PROJECT_LIST } from '../../config/api-routes';

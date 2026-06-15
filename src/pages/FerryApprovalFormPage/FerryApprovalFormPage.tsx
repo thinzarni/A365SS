@@ -14,8 +14,7 @@ import {
     Paperclip,
     Edit3,
     X,
-    Save,
-    Calendar
+    Save
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { Textarea, Input } from '../../components/ui/Input/Input';
@@ -322,6 +321,7 @@ export default function FerryApprovalFormPage() {
     const ferryType = descToFerryType(ferryTypeDesc);
     const isApproved = String(detail?.requeststatus || detail?.status) === '2';
     const isRejected = String(detail?.requeststatus || detail?.status) === '3';
+    const isPending = !isApproved && !isRejected;
 
     const displayTitle = useMemo(() => {
         const desc = (ferryTypeDesc || '').toLowerCase().replace(/\s+/g, '');
@@ -337,7 +337,7 @@ export default function FerryApprovalFormPage() {
     const approvalTypeRaw = detail?.approvaltype;
     const isStepLevel = approvalTypeRaw === '1' || approvalTypeRaw === 1;
 
-    const { isStepApproverLevel, disableStepApprovalButtons } = useMemo(() => {
+    const { isStepApproverLevel: _isStepApproverLevel, disableStepApprovalButtons } = useMemo(() => {
         const _savedUserName = String((user as any)?.username || (user as any)?.name || '').trim().toLowerCase();
         const _savedUserID = String((user as any)?.userid || userId || '').trim().toLowerCase();
         const _savedRole = String((user as any)?.role || '').trim().toLowerCase();

@@ -28,8 +28,6 @@ import {
     USER_PROFILE,
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
-import { displayDate } from '../../lib/date-utils';
-import { appConfig } from '../../config/app-config';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import styles from './FerryRequestPage.module.css';
 
