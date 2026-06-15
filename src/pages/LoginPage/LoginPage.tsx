@@ -26,6 +26,10 @@ export default function LoginPage() {
 
     const [mode, setMode] = useState<AuthMode>('password');
     const [employeeId, setEmployeeId] = useState('');
+
+    /** Normalize Employee ID for backend: uppercase unless it's an e-mail address */
+    const normalizeEmployeeId = (value: string) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : value.toUpperCase();
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -266,8 +270,9 @@ export default function LoginPage() {
 
         setLoading(true);
         try {
+            const normalizedId = normalizeEmployeeId(employeeId);
             const b64Password = btoa(unescape(encodeURIComponent(password)));
-            const payload = await makeSignInPayload(employeeId, 2, b64Password);
+            const payload = await makeSignInPayload(normalizedId, 2, b64Password);
             const res = await authClient.post('signin', payload);
             const data = res.data;
 
@@ -279,7 +284,7 @@ export default function LoginPage() {
                     // ── OTP 2FA required — navigate to verify page ──
                     navigate('/verify-otp', {
                         state: {
-                            userId: employeeId,
+                            userId: normalizedId,
                             session: sessionId,
                             b64Password, // for resend
                         },
@@ -303,14 +308,15 @@ export default function LoginPage() {
         setError('');
         setLoading(true);
         try {
-            const payload = await makeSignInPayload(employeeId, 2); // reqType=2: OTP, no password
+            const normalizedId = normalizeEmployeeId(employeeId);
+            const payload = await makeSignInPayload(normalizedId, 2); // reqType=2: OTP, no password
             const res = await authClient.post('signin', payload);
             if (res.data.status === 200 || res.status === 200) {
                 const nested = res.data.data;
                 const sessionId = nested?.session_id || res.data.session_id;
                 if (sessionId) {
                     navigate('/verify-otp', {
-                        state: { userId: employeeId, session: sessionId },
+                        state: { userId: normalizedId, session: sessionId },
                     });
                 } else {
                     await completeLogin(res.data);
