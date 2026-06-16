@@ -31,7 +31,8 @@ import mainClient from '../../lib/main-client';
 import {
     APPROVAL_LIST,
     ATTENDANCE_SHIFT_DATA,
-    MULTI_SAVE_APPROVAL
+    MULTI_SAVE_APPROVAL,
+    LEAVE_TYPES
 } from '../../config/api-routes';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../stores/auth-store';
@@ -131,10 +132,18 @@ export default function ApprovalListPage() {
         }
     }, [shiftData, shiftLoading, didInitDates]);
 
+    const { data: leaveTypeList = [] } = useQuery<{ syskey: string, description: string }[]>({
+        queryKey: ['leaveTypeList'],
+        queryFn: async () => {
+            const res = await apiClient.get(LEAVE_TYPES);
+            return res.data?.datalist || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
     const { data: allApprovals = [], isLoading: approvalsLoading } = useQuery<RequestModel[]>({
         queryKey: ['approvals', fromDate, toDate, isAllDate, activeStatus],
         queryFn: async () => {
-
 
             const body: Record<string, unknown> = {
                 fromdate: isAllDate ? "" : fromDate,
@@ -379,7 +388,15 @@ export default function ApprovalListPage() {
                         else if (tDescLow === 'ferryusercomplaint' || tDescLow === 'usercomplaint') typeDesc = 'Ferry User Complaint';
                         else if (tDescLow === 'hrcomplaint' || tDescLow === 'ferryhrcomplaint') typeDesc = 'HR Complaint';
 
-                        const subTypeDesc = req.requestsubtypedesc || '';
+                        const subTypeDescRaw = req.requestsubtypedesc || '';
+                        let subTypeDesc = subTypeDescRaw;
+                        
+                        if (tDescLow === 'leave' || typeDescRaw === 'Leave' || tDescLow.includes('leave')) {
+                            const matchedLeave = leaveTypeList.find(l => l.syskey === (req.requestsubtype || req.requestsubtypedesc));
+                            if (matchedLeave) {
+                                subTypeDesc = matchedLeave.description;
+                            }
+                        }
 
                         return (
                             <div

@@ -57,6 +57,7 @@ export default function AttendanceApprovalListPage() {
     const [showFilter, setShowFilter] = useState(false);
     const [fromDate, setFromDate] = useState(defaultFromDate);
     const [toDate, setToDate] = useState(defaultToDate);
+    const [isAllDate, setIsAllDate] = useState(true);
     const [didInitDates, setDidInitDates] = useState(false);
     const [attType, setAttType] = useState('2'); // Default to Backdate as per screenshot
     const { userId, domain } = useAuthStore();
@@ -83,11 +84,11 @@ export default function AttendanceApprovalListPage() {
     }, [shiftData, shiftLoading, didInitDates]);
 
     const { data: allApprovals = [], isLoading: approvalsLoading } = useQuery<RequestModel[]>({
-        queryKey: ['attendance-approvals', fromDate, toDate, attType, activeStatus],
+        queryKey: ['attendance-approvals', fromDate, toDate, isAllDate, attType, activeStatus],
         queryFn: async () => {
             const res = await mainClient.post(GET_ATTENDANCE_APPROVAL_LIST, {
-                fromdate: fromDate,
-                todate: toDate,
+                fromdate: isAllDate ? "" : fromDate,
+                todate: isAllDate ? "" : toDate,
                 type: attType,
                 status: activeStatus === RequestStatus.All ? '' : String(activeStatus),
                 userid: userId,
@@ -153,16 +154,27 @@ export default function AttendanceApprovalListPage() {
                 </button>
             </div>
 
-            {/* Filter Panel */}
             {showFilter && (
                 <div className={styles['filter-panel']}>
                     <div className={styles['filter-grid']}>
+                        <div className={styles['filter-item']}>
+                            <label className={styles['checkbox-label']}>
+                                <input
+                                    type="checkbox"
+                                    checked={isAllDate}
+                                    onChange={(e) => setIsAllDate(e.target.checked)}
+                                />
+                                All Dates
+                            </label>
+                        </div>
                         <div className={styles['filter-item']}>
                             <label>From Date</label>
                             <input
                                 type="date"
                                 value={toInputDate(fromDate)}
                                 onChange={(e) => setFromDate(fromInputDate(e.target.value))}
+                                disabled={isAllDate}
+                                style={{ opacity: isAllDate ? 0.5 : 1 }}
                             />
                         </div>
                         <div className={styles['filter-item']}>
@@ -171,6 +183,8 @@ export default function AttendanceApprovalListPage() {
                                 type="date"
                                 value={toInputDate(toDate)}
                                 onChange={(e) => setToDate(fromInputDate(e.target.value))}
+                                disabled={isAllDate}
+                                style={{ opacity: isAllDate ? 0.5 : 1 }}
                             />
                         </div>
                     </div>

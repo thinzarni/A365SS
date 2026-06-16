@@ -197,8 +197,9 @@
 
 .filter-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: auto 1fr 1fr;
     gap: 16px;
+    align-items: end;
 }
 
 .filter-item label {
@@ -209,12 +210,30 @@
     margin-bottom: 4px;
 }
 
-.filter-item input {
+.filter-item input[type="date"] {
     width: 100%;
     padding: 8px 12px;
     border-radius: 6px;
     border: 1px solid #e2e8f0;
     font-size: 14px;
+}
+
+.checkbox-label {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    color: #1e293b !important;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.checkbox-label input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    cursor: pointer;
 }
 
 .loading {

@@ -38,6 +38,7 @@ import {
     PRODUCT_LIST,
     PROJECT_LIST,
     GET_REVIEW_PROCESS_STATUS,
+    LEAVE_TYPES
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
 import ApprovalWorkflowModal from '../../components/modals/ApprovalWorkflowModal';
@@ -136,6 +137,15 @@ export default function ApprovalDetailPage() {
         queryKey: ['currencyTypeList'],
         queryFn: async () => {
             const res = await apiClient.get(CURRENCY_TYPES);
+            return res.data?.datalist || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: leaveTypeList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['leaveTypeList'],
+        queryFn: async () => {
+            const res = await apiClient.get(LEAVE_TYPES);
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,
@@ -427,8 +437,16 @@ export default function ApprovalDetailPage() {
             resolvedSubtype = claimTypesList.find(c => c.syskey === d.requestsubtype)?.description || d.requestsubtype;
         } else if (requestTypeString.includes('transportation')) {
             resolvedSubtype = transportationTypesList.find(c => c.syskey === d.requestsubtype)?.description || d.requestsubtype;
+        } else if (requestTypeString.includes('leave')) {
+            resolvedSubtype = leaveTypeList.find(c => c.syskey === d.requestsubtype)?.description || d.requestsubtype;
         } else {
             resolvedSubtype = d.requestsubtype;
+        }
+    } else if (resolvedSubtype && requestTypeString.includes('leave')) {
+        // Fallback: If resolvedSubtype contains the syskey instead of name, resolve it
+        const matchedLeave = leaveTypeList.find(c => c.syskey === resolvedSubtype);
+        if (matchedLeave) {
+            resolvedSubtype = matchedLeave.description;
         }
     }
 
