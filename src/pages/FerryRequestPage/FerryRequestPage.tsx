@@ -12,10 +12,9 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
-    ArrowLeft, Bus, Car, Loader2,
-    Calendar, Phone, MapPin, Clock,
-    UserCheck, Paperclip, CheckCircle2, XCircle,
-    Edit, Trash2, Building2,
+    ArrowLeft, Loader2,
+    Calendar, Phone, Clock,
+    UserCheck, Paperclip, CheckCircle2, XCircle, Trash2, Building2,
     File,
     Image as ImageIcon,
     FileSpreadsheet,
@@ -23,7 +22,7 @@ import {
     FileVideo,
     FileAudio,
     FileText,
-    RefreshCw, Megaphone, Briefcase
+    RefreshCw, Megaphone,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -48,7 +47,6 @@ import {
     USER_PROFILE,
 } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
-import { displayDate } from '../../lib/date-utils';
 import { useAuthStore } from '../../stores/auth-store';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import styles from './FerryRequestPage.module.css';
@@ -278,7 +276,7 @@ export default function FerryRequestPage() {
     const displayDept = user?.department || epData?.department || '';
     const displayJoinDate = user?.joineddate || epData?.joineddate || '';
     const displaySyskey = user?.syskey || user?.usersyskey || epData?.syskey || '';
-    const displayEid = user?.eid || user?.employee_id || epData?.eid || '';
+    const displayEid = user?.eid || epData?.eid || '';
 
     /* ───────── Detail (edit mode) ───────── */
     const { data: detailRes, isLoading: detailLoading } = useQuery({

@@ -37,19 +37,20 @@
 .filters-row {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-4);
+    gap: var(--space-5);
     background: var(--color-neutral-0);
     padding: var(--space-4) var(--space-5);
     border: 1px solid var(--color-neutral-100);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
-    align-items: flex-start; /* labels + controls align from top */
+    align-items: flex-end; /* controls (inputs, pills) share the same baseline */
 }
 
 .filter-group {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+    justify-content: flex-end; /* push controls to bottom so they align across groups */
 }
 
 .filter-label {

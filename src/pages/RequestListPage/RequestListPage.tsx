@@ -126,6 +126,8 @@ export default function RequestListPage() {
     const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
     const [isAllDate, setIsAllDate] = useState(true);
     const [requestType, setRequestType] = useState<string>('');
+    // Attendance-specific: filter by Remote (1) or Backdate (2) — default Backdate
+    const [attendanceRequestType, setAttendanceRequestType] = useState<'1' | '2'>('2');
     const [didInitDates, setDidInitDates] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
@@ -133,8 +135,6 @@ export default function RequestListPage() {
     const [showExportConfirm, setShowExportConfirm] = useState(false);
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
     const [sortColumn, setSortColumn] = useState<'date' | 'time'>('date');
-    // Attendance-specific: filter by Remote (1) or Backdate (2) — default Backdate
-    const [attendanceRequestType, setAttendanceRequestType] = useState<'1' | '2'>('2');
 
     // Fetch shift data for transition dates
     const { data: shiftData, isLoading: shiftLoading } = useQuery({
@@ -191,64 +191,54 @@ export default function RequestListPage() {
         return options;
     }, [requestTypes]);
 
+    const mapAttendanceItem = (item: any): RequestModel => ({
+        syskey: item.syskey,
+        eid: item.employee_id,
+        name: item.employee_name,
+        refno: item.syskey,
+        date: item.date,
+        startdate: item.date,
+        type: item.type,
+        atttype: item.atttype || item.attendancerequesttype,
+        requesttype: item.atttype || item.type,
+        requesttypedesc: item.type === '602' ? 'Time Out' : 'Time In',
+        requeststatus: String(item.status ?? item.requeststatus ?? 1),
+        requestsubtypedesc: item.time || `${item.intime || ''}${item.intime && item.outtime ? ' - ' : ''}${item.outtime || ''}`,
+        intime: item.intime,
+        outtime: item.outtime,
+        remark: item.description,
+        description: item.description,
+        location: item.location,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        processstatus: item.processstatus || item.claimProcessStatus || '',
+        attendancereason: item.attendancereason,
+    } as unknown as RequestModel);
+
     const { data: allRequests = [], isLoading: requestsLoading } = useQuery<RequestModel[]>({
-        queryKey: ['requests', fromDate, toDate, isAllDate, requestType, attType, location.pathname, activeStatus],
+        queryKey: ['requests', fromDate, toDate, isAllDate, requestType, attendanceRequestType, location.pathname, activeStatus],
         queryFn: async () => {
             if (isAttendancePage) {
                 const reqStatus = activeStatus === RequestStatus.All ? '' : String(activeStatus);
                 const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
                     userid: userId || '',
                     domain: domain || 'dev',
-                    fromdate: isAllDate ? "" : fromDate.replace(/-/g, ''),
-                    todate: isAllDate ? "" : toDate.replace(/-/g, ''),
-                    status: reqStatus,
-                    type: attType,
-                });
-                const list = res.data?.data || res.data?.datalist || [];
-                return list.map((item: any) => ({
-                    syskey: item.syskey,
-                    eid: item.employee_id,
-                    name: item.employee_name,
-                    refno: item.syskey,
-                    date: item.date,
-                    startdate: item.date,
-                    type: item.type,
-                    atttype: item.atttype || item.attendancerequesttype,
-                    requesttype: item.atttype || item.type,
-                    requesttypedesc: item.type === '602' ? 'Time Out' : 'Time In',
-                    requeststatus: String(item.status || '1'),
-                    requestsubtypedesc: item.time || `${item.intime || ''}${item.intime && item.outtime ? ' - ' : ''}${item.outtime || ''}`,
-                    intime: item.intime,
-                    outtime: item.outtime,
-                    remark: item.description,
-                    description: item.description,
-                    location: item.location,
-                    latitude: item.latitude,
-                    longitude: item.longitude,
-                    processstatus: item.processstatus || item.claimProcessStatus || '',
-                    attendancereason: item.attendancereason,
-                });
-
-                const payload = {
-                    userid: userId || '',
-                    domain: domain || 'dev',
-                    fromdate: fromDate.replace(/-/g, ''),
-                    todate: toDate.replace(/-/g, ''),
+                    fromdate: isAllDate ? '' : fromDate.replace(/-/g, ''),
+                    todate: isAllDate ? '' : toDate.replace(/-/g, ''),
                     status: reqStatus,
                     type: attendanceRequestType,
-                };
-
-                const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, payload);
-                const list = (res.data?.data || res.data?.datalist || [])
-                    .filter((item: any) => Number(item.status) !== 0); // exclude status 0
-                return list.map(mapItem);
+                });
+                const list: any[] = res.data?.data || res.data?.datalist || [];
+                return list
+                    .filter((item: any) => Number(item.status) !== 0)
+                    .map(mapAttendanceItem);
             }
 
             const res = await apiClient.post(GET_REQUEST_LIST, {
-                fromdate: isAllDate ? "" : fromDate.replace(/-/g, ''),
-                todate: isAllDate ? "" : toDate.replace(/-/g, ''),
+                fromdate: isAllDate ? '' : fromDate.replace(/-/g, ''),
+                todate: isAllDate ? '' : toDate.replace(/-/g, ''),
                 type: isSubtypeView ? '' : requestType,
-                status: activeStatus === RequestStatus.All ? "0" : String(activeStatus),
+                status: activeStatus === RequestStatus.All ? '0' : String(activeStatus),
             });
             const datalist: any[] = res.data?.datalist || res.data?.data || [];
             const all: RequestModel[] = datalist.map(item => ({
@@ -324,20 +314,19 @@ export default function RequestListPage() {
                     status: '',
                     type: attendanceRequestType,
                 });
-                const list = (res.data?.data || res.data?.datalist || [])
-                    .filter((item: any) => Number(item.status) !== 0); // exclude status 0
-                return list.map((item: any) => {
-                    // Check multiple possible field names; ?? avoids treating 0 as falsy
-                    const rawStatus = item.status ?? item.requeststatus ?? item.approvalstatus ?? 1;
-                    return { requeststatus: String(rawStatus) };
-                });
+                const list: any[] = res.data?.data || res.data?.datalist || [];
+                return list
+                    .filter((item: any) => Number(item.status) !== 0)
+                    .map((item: any) => ({
+                        requeststatus: String(item.status ?? item.requeststatus ?? 1),
+                    })) as RequestModel[];
             }
 
             const res = await apiClient.post(GET_REQUEST_LIST, {
                 fromdate: fromDate.replace(/-/g, ''),
                 todate: toDate.replace(/-/g, ''),
                 type: isSubtypeView ? '' : requestType,
-                status: "0",
+                status: '0',
             });
             const datalist: any[] = res.data?.datalist || res.data?.data || [];
             const all: RequestModel[] = datalist.map(item => ({
@@ -354,6 +343,7 @@ export default function RequestListPage() {
             return all;
         },
         enabled: didInitDates,
+        staleTime: 30 * 1000,
     });
 
     const stats = useMemo(() => {
@@ -585,7 +575,7 @@ export default function RequestListPage() {
 
                     {isAttendancePage && (
                         <div className={styles['filter-group']}>
-                            <label className={styles['filter-label']}>Request Type</label>
+                            {/* <label className={styles['filter-label']}>Request Type</label> */}
                             <div className={styles['filter-pills']}>
                                 {([['1', 'Remote'], ['2', 'Backdate']] as const).map(([val, label]) => (
                                     <button
@@ -599,7 +589,6 @@ export default function RequestListPage() {
                             </div>
                         </div>
                     )}
-
                 </div>
             )}
 
