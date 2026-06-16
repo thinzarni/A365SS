@@ -33,7 +33,6 @@ import type { RequestDetailModel, Approver } from '../../types/models';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
-import { appConfig } from '../../config/app-config';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import { useAuthStore } from '../../stores/auth-store';
 import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, SAVE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS, GET_ATTENDANCE_REASON, TRAVEL_TYPE_LIST, VEHICLE_USE_LIST, PRODUCT_LIST, PROJECT_LIST } from '../../config/api-routes';
@@ -742,7 +741,7 @@ export default function RequestDetailPage() {
                     )}
 
                     {/* Approved By */}
-                    {(detail.approvaltype === '0' || detail.approvaltype === 0) && approverList.length > 0 && (
+                    {(detail.approvaltype === '0' || String(detail.approvaltype) === '0') && approverList.length > 0 && (
                         <div className={styles['request-detail__section']}>
                             <h4 className={styles['request-detail__section-title']}>Approvers</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

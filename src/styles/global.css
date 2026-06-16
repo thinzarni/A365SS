@@ -17,6 +17,7 @@ html {
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
 }
 
 /* Apply Myanmar font when language is set to 'my' */
@@ -33,6 +34,7 @@ body {
     color: var(--color-neutral-900);
     background: var(--color-neutral-50);
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
 #root {

@@ -34,7 +34,6 @@ import {
     DELETE_REQUEST,
 } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
-import { useAuthStore } from '../../stores/auth-store';
 import { displayDate } from '../../lib/date-utils';
 import { useTranslation } from 'react-i18next';
 import styles from '../RequestListPage/RequestListPage.module.css';
@@ -51,6 +50,13 @@ function monthEnd() {
     const n = new Date();
     const last = new Date(n.getFullYear(), n.getMonth() + 1, 0);
     return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
+}
+
+function formatFilterDate(val: string) {
+    if (!val) return '';
+    const parts = val.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return val;
 }
 
 const STATUS_TABS = [
@@ -80,7 +86,6 @@ export default function FerryRequestListPage() {
     const location  = useLocation();
     const { t }     = useTranslation();
     const qc        = useQueryClient();
-    const { user, userId } = useAuthStore();
 
     const isHrComplaintView = location.pathname.startsWith('/hr_complaint') || location.pathname.startsWith('/hrcomplaint');
     const basePath = isHrComplaintView ? (location.pathname.startsWith('/hr_complaint') ? '/hr_complaint' : '/hrcomplaint') : '/ferry_request';
@@ -102,6 +107,9 @@ export default function FerryRequestListPage() {
     const [filterOpen,  setFilterOpen]  = useState(false);
     const [sortCol,     setSortCol]     = useState<SortCol>('date');
     const [sortDir,     setSortDir]     = useState<'asc'|'desc'>('desc');
+
+    const [fromFocused, setFromFocused] = useState(false);
+    const [toFocused, setToFocused] = useState(false);
 
     /* delete confirm */
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
@@ -204,22 +212,6 @@ export default function FerryRequestListPage() {
         onError: () => toast.error('Delete failed'),
     });
 
-    /* ── selfRequest check (mirrors Flutter) ── */
-    function canDelete(item: any) {
-        const s = String(item.requeststatus);
-        if (s === '2' || s === '3') return false;
-        const myEid = (user as any)?.employee_id ?? (user as any)?.eid ?? userId ?? '';
-        if (item.eid && item.eid !== '' && item.eid !== myEid) return false;
-        return true;
-    }
-
-    /* ─── Detail cell ─── */
-    function detailCell(req: any) {
-        if (req.remark) return req.remark.length > 50 ? req.remark.slice(0, 50) + '…' : req.remark;
-        if (req.duration != null && req.duration !== '') return `${req.duration} day(s)`;
-        return '—';
-    }
-
     /* ═══════════════════════════════════════════════
        RENDER — mirrors RequestListPage JSX exactly
     ═══════════════════════════════════════════════ */
@@ -306,15 +298,21 @@ export default function FerryRequestListPage() {
                             </button>
                         </div>
                         <div className={styles['filter-inputs']}>
-                            <Input type={isAllDate ? "text" : "date"} value={isAllDate ? "" : fromDate}
-                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
+                            <Input type={isAllDate ? "text" : (fromFocused ? "date" : "text")} 
+                                value={isAllDate ? "" : (fromFocused ? fromDate : formatFilterDate(fromDate))}
+                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
                                 onChange={e => setFromDate(e.target.value)}
+                                onFocus={() => setFromFocused(true)}
+                                onBlur={() => setFromFocused(false)}
                                 disabled={isAllDate}
                                 className={styles['filter-date']} />
                             <span className={styles['filter-separator']}>→</span>
-                            <Input type={isAllDate ? "text" : "date"} value={isAllDate ? "" : toDate}
-                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
+                            <Input type={isAllDate ? "text" : (toFocused ? "date" : "text")} 
+                                value={isAllDate ? "" : (toFocused ? toDate : formatFilterDate(toDate))}
+                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
                                 onChange={e => setToDate(e.target.value)}
+                                onFocus={() => setToFocused(true)}
+                                onBlur={() => setToFocused(false)}
                                 disabled={isAllDate}
                                 className={styles['filter-date']} />
                         </div>

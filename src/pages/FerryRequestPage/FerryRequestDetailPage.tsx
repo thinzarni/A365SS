@@ -9,8 +9,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
-    ArrowLeft, Bus, Car, Loader2,
-    Phone, MapPin, Clock,
+    ArrowLeft, Car, Loader2,
+    Phone, Clock,
     UserCheck, Paperclip, CheckCircle2, XCircle,
     Edit, Trash2, Building2,
     File,
@@ -34,10 +34,12 @@ import {
     FERRY_WORKING_HOURS,
     FERRY_CURRENT_ASSIGNED,
     USER_PROFILE,
+    FERRY_ASSIGNED_FERRY_NO,
+    FERRY_CHANGE_TYPES,
+    FERRY_CHANGE_PURPOSES,
+    FERRY_OFFICE_LOCATIONS,
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
-import { displayDate } from '../../lib/date-utils';
-import { appConfig } from '../../config/app-config';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import styles from './FerryRequestPage.module.css';
 
@@ -164,6 +166,9 @@ export default function FerryRequestDetailPage() {
                 if (Array.isArray(dl) && dl.length > 0) {
                     return dl[0]?.ferryno ?? dl[0]?.ferryNo ?? '';
                 }
+                if (dl && typeof dl === 'object' && !Array.isArray(dl)) {
+                    return (dl as any).ferryno ?? (dl as any).ferryNo ?? '';
+                }
                 const d = res.data?.data || res.data;
                 return d?.ferryno ?? d?.ferryNo ?? '';
             } catch {
@@ -188,26 +193,81 @@ export default function FerryRequestDetailPage() {
         (wh: any) => wh.syskey === detail?.workinghour_syskey
     )?.description ?? detail?.workinghour_desc ?? '';
 
+    const ferryType = descToFerryType(detail?.requesttypedesc ?? '');
+
+    /* ── Ferry Numbers (for Assignment / Desired Ferry) ── */
+    const { data: ferryNos = [] } = useQuery<any[]>({
+        queryKey: ['ferryNos'],
+        queryFn: async () => {
+            const res = await apiClient.get(FERRY_ASSIGNED_FERRY_NO, { params: { userid: userId, domain } });
+            return res.data?.datalist ?? [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    /* ── Change Types ── */
+    const { data: changeTypes = [] } = useQuery<any[]>({
+        queryKey: ['ferryChangeTypes'],
+        queryFn: async () => {
+            const res = await apiClient.get(FERRY_CHANGE_TYPES, { params: { userid: userId, domain } });
+            return res.data?.datalist ?? [];
+        },
+        staleTime: 10 * 60 * 1000,
+        enabled: ferryType === FerryRequestType.change,
+    });
+
+    /* ── Change Purposes ── */
+    const { data: changePurposes = [] } = useQuery<any[]>({
+        queryKey: ['ferryChangePurposes'],
+        queryFn: async () => {
+            const res = await apiClient.get(FERRY_CHANGE_PURPOSES, { params: { userid: userId, domain } });
+            return res.data?.datalist ?? [];
+        },
+        staleTime: 10 * 60 * 1000,
+        enabled: ferryType === FerryRequestType.change,
+    });
+
+    /* ── Office Locations ── */
+    const { data: officeLocations = [] } = useQuery<any[]>({
+        queryKey: ['ferryOfficeLocations'],
+        queryFn: async () => {
+            const res = await apiClient.get(FERRY_OFFICE_LOCATIONS, { params: { userid: userId, domain } });
+            return res.data?.datalist ?? [];
+        },
+        staleTime: 10 * 60 * 1000,
+        enabled: ferryType === FerryRequestType.change,
+    });
+
     /* ── Derived ── */
     const status = String(detail?.requeststatus ?? '1');
     const isPending = status === '1';
     const approvalTypeRaw = detail?.approvaltype;
     const isStepLevel = approvalTypeRaw === '1' || approvalTypeRaw === 1;
 
-    const ferryType = descToFerryType(detail?.requesttypedesc ?? '');
-
     const selectedComplaints: string[] = detail?.ferrycomplaint
         ? String(detail.ferrycomplaint).split(',').filter(Boolean)
         : [];
 
-    /* Change sub-type codes */
-    const changeTypeCode = (detail?.changetypecode ?? '').toUpperCase();
-    const changePurposeCode = (detail?.changepurposecode ?? '').toUpperCase();
-    const isPermanent = changeTypeCode === 'PC' || (detail?.changetypedesc ?? '').toLowerCase().includes('permanent');
-    const isTemporary = changeTypeCode === 'TC' || (detail?.changetypedesc ?? '').toLowerCase().includes('temporary');
-    const isSuspension = !isPermanent && !isTemporary && (!!detail?.changetypesyskey || (detail?.changetypedesc ?? '').toLowerCase().includes('suspension'));
-    const isOfficeLocation = changePurposeCode === 'OL' || (detail?.changepurposedesc ?? '').includes('Office');
-    const isHomeAddress = changePurposeCode === 'HA' || (detail?.changepurposedesc ?? '').includes('Home');
+    /* Change sub-type codes & resolved values */
+    const resolvedChangeType = changeTypes.find((t: any) => String(t.syskey) === String(detail?.changetype || detail?.changetype_syskey));
+    const changeTypeCode = (detail?.changetypecode || resolvedChangeType?.code || '').toUpperCase();
+    const resolvedChangeTypeDesc = detail?.changetypedesc || resolvedChangeType?.description || '';
+
+    const resolvedChangePurpose = changePurposes.find((p: any) => String(p.syskey) === String(detail?.changepurpose || detail?.changepurpose_syskey));
+    const changePurposeCode = (detail?.changepurposecode || resolvedChangePurpose?.code || '').toUpperCase();
+    const resolvedChangePurposeDesc = detail?.changepurposedesc || resolvedChangePurpose?.description || '';
+
+    const isPermanent = changeTypeCode === 'PC' || resolvedChangeTypeDesc.toLowerCase().includes('permanent');
+    const isTemporary = changeTypeCode === 'TC' || resolvedChangeTypeDesc.toLowerCase().includes('temporary');
+    const isSuspension = !isPermanent && !isTemporary && (!!detail?.changetypesyskey || resolvedChangeTypeDesc.toLowerCase().includes('suspension'));
+    const isOfficeLocation = changePurposeCode === 'OL' || resolvedChangePurposeDesc.includes('Office');
+    const isHomeAddress = changePurposeCode === 'HA' || resolvedChangePurposeDesc.includes('Home');
+
+    const resolvedOfficeLocation = officeLocations.find((l: any) => String(l.syskey) === String(detail?.officelocation || detail?.officelocation_syskey));
+    const resolvedLocationName = detail?.locationname || resolvedOfficeLocation?.description || '';
+
+    const resolvedChangeFerry = ferryNos.find((f: any) => String(f.syskey) === String(detail?.changeferry || detail?.changeferry_syskey));
+    const resolvedChangeFerryDesc = detail?.changeferrydesc || resolvedChangeFerry?.carno || resolvedChangeFerry?.description || resolvedChangeFerry?.ferryCarNo || detail?.changeferry || detail?.changeferry_syskey || '';
 
     /* ── Can edit / delete ── */
     const myEid = (user as any)?.employee_id ?? (user as any)?.eid ?? userId ?? '';
@@ -343,12 +403,17 @@ export default function FerryRequestDetailPage() {
                                 {detail?.road && <ReadField label="Main Road" value={detail.road} />}
                                 {detail?.busstop && <ReadField label="Nearest Bus Stop" value={detail.busstop} />}
 
-                                {status === '2' && (
+                                {(detail?.changeferry_desc || detail?.changeferry_syskey || detail?.changeferry || detail?.device_phoneno || detail?.device_phone || detail?.devicephone || detail?.driver_name || detail?.drivername || detail?.driver_phoneno || detail?.driver_phone || detail?.driverphone || detail?.gps_info || detail?.gpsInfo || detail?.gps || detail?.other_info || detail?.otherinfo || detail?.comment || detail?.approver_comment) && (
                                     <>
                                         <div className={styles.fullCol} style={{ height: 1, background: '#e2e8f0', margin: '8px 0' }} />
                                         <div className={styles.fullCol} style={{ fontSize: 13, fontWeight: 700, color: '#0c4a6e', marginBottom: 2 }}>
                                             🚌 Ferry Assignment Details
                                         </div>
+                                        {(resolvedChangeFerryDesc) && (
+                                            <div className={styles.fullCol}>
+                                                <ReadField label="Assigned Ferry Number" value={resolvedChangeFerryDesc} />
+                                            </div>
+                                        )}
                                         {(detail?.device_phoneno || detail?.device_phone || detail?.devicephone) && (
                                             <ReadField label="Device Phone Number" value={detail.device_phoneno || detail.device_phone || detail.devicephone} />
                                         )}
@@ -361,6 +426,11 @@ export default function FerryRequestDetailPage() {
                                         {(detail?.gps_info || detail?.gpsInfo || detail?.gps) && (
                                             <div className={styles.fullCol}>
                                                 <ReadField label="GPS Information" value={detail.gps_info || detail.gpsInfo || detail.gps} />
+                                            </div>
+                                        )}
+                                        {(detail?.other_info || detail?.otherinfo) && (
+                                            <div className={styles.fullCol}>
+                                                <ReadField label="Other Information" value={detail.other_info || detail.otherinfo} />
                                             </div>
                                         )}
                                         {(detail?.comment || detail?.approver_comment) && (
@@ -384,9 +454,9 @@ export default function FerryRequestDetailPage() {
                             <div className={styles.grid}>
                                 {(detail?.phoneno || ep?.phoneno || ep?.phone) && <ReadField label="Contact Phone Number" value={detail?.phoneno || ep?.phoneno || ep?.phone} />}
                                 {(currentAssignedFerry || detail?.ferryno || ep?.ferryno) && <ReadField label="Assigned Ferry Number" value={currentAssignedFerry || detail?.ferryno || ep?.ferryno} />}
-                                {detail?.changetypedesc && (
+                                {resolvedChangeTypeDesc && (
                                     <div className={styles.fullCol}>
-                                        <ReadField label="Change Type" value={detail.changetypedesc} />
+                                        <ReadField label="Change Type" value={resolvedChangeTypeDesc} />
                                     </div>
                                 )}
 
@@ -395,9 +465,9 @@ export default function FerryRequestDetailPage() {
                                     <div className={styles.fullCol}>
                                         <ReadField label="Reason for Change Request (Business Requirements)" value={detail?.remark} minLines={3} />
                                     </div>
-                                    {detail?.changeferrydesc && (
+                                    {resolvedChangeFerryDesc && (
                                         <div className={styles.fullCol}>
-                                            <ReadField label="Desired Ferry Number" value={detail.changeferrydesc} />
+                                            <ReadField label="Desired Ferry Number" value={resolvedChangeFerryDesc} />
                                         </div>
                                     )}
                                     {detail?.startdate && <ReadField label="Desired Date From" value={fromApiDate(detail.startdate)} />}
@@ -406,13 +476,13 @@ export default function FerryRequestDetailPage() {
 
                                 {/* Permanent */}
                                 {isPermanent && (<>
-                                    {detail?.changepurposedesc && (
+                                    {resolvedChangePurposeDesc && (
                                         <div className={styles.fullCol}>
-                                            <ReadField label="Purpose of Change" value={detail.changepurposedesc} />
+                                            <ReadField label="Purpose of Change" value={resolvedChangePurposeDesc} />
                                         </div>
                                     )}
                                     {isOfficeLocation && (<>
-                                        {detail?.locationname && <ReadField label="New Office Location" value={detail.locationname} />}
+                                        {resolvedLocationName && <ReadField label="New Office Location" value={resolvedLocationName} />}
                                         {detail?.startdate && <ReadField label="Desired Start Date" value={fromApiDate(detail.startdate)} />}
                                     </>)}
                                     {isHomeAddress && (<>

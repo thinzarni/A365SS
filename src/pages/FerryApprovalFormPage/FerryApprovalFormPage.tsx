@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft,
-    Bus,
     Car,
     CheckCircle,
     XCircle,
@@ -15,8 +14,7 @@ import {
     Paperclip,
     Edit3,
     X,
-    Save,
-    Calendar
+    Save
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { Textarea, Input } from '../../components/ui/Input/Input';
@@ -155,6 +153,7 @@ export default function FerryApprovalFormPage() {
     const [assignedFerrySyskey, setAssignedFerrySyskey] = useState('');
     const [driverPhone, setDriverPhone] = useState('');
     const [gpsInfo, setGpsInfo] = useState('');
+    const [otherInfo, setOtherInfo] = useState('');
     const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
 
     const [isEditMode, setIsEditMode] = useState(false);
@@ -267,6 +266,7 @@ export default function FerryApprovalFormPage() {
             if (detail.changeferry_syskey || detail.changeferry) setAssignedFerrySyskey(String(detail.changeferry_syskey || detail.changeferry));
             if (detail.driver_phoneno) setDriverPhone(detail.driver_phoneno);
             if (detail.gps_info) setGpsInfo(detail.gps_info);
+            if (detail.other_info || detail.otherinfo || detail.comment) setOtherInfo(detail.other_info || detail.otherinfo || detail.comment);
             if (detail.comment) setComment(detail.comment);
 
             // Populate edit states
@@ -307,23 +307,23 @@ export default function FerryApprovalFormPage() {
         }
     }, [detail, changeTypes.length, changePurposes.length]);
     
-    const resolvedOfficeLocation = useMemo(() => {
-        if (detail?.locationname) return detail.locationname;
+    const resolvedOfficeLocation = useMemo((): string => {
+        if (detail?.locationname) return String(detail.locationname);
         const loc = detail?.location || detail?.officelocation;
         if (!loc) return '';
         const found = officeLocations.find((l: any) => String(l.syskey) === String(loc));
-        return found ? (found.description || found.code || found.locationname || loc) : loc;
+        return found ? String(found.description || found.code || found.locationname || loc) : String(loc);
     }, [detail?.locationname, detail?.location, detail?.officelocation, officeLocations]);
-    const ferryTypeDesc = useMemo(() => {
-        if (detail?.requesttypedesc) return detail.requesttypedesc;
+    const ferryTypeDesc = useMemo((): string => {
+        if (detail?.requesttypedesc) return String(detail.requesttypedesc);
         if (!detail?.requesttype) return '';
         const found = requestTypes.find((r: any) => String(r.syskey) === String(detail.requesttype));
-        return found ? (found.description || found.code || detail.requesttype) : detail.requesttype;
+        return found ? String(found.description || found.code || detail.requesttype) : String(detail.requesttype || '');
     }, [detail?.requesttypedesc, detail?.requesttype, requestTypes]);
     const ferryType = descToFerryType(ferryTypeDesc);
-    const isPending = String(detail?.requeststatus || detail?.status) === '1';
     const isApproved = String(detail?.requeststatus || detail?.status) === '2';
     const isRejected = String(detail?.requeststatus || detail?.status) === '3';
+    const isPending = !isApproved && !isRejected;
 
     const displayTitle = useMemo(() => {
         const desc = (ferryTypeDesc || '').toLowerCase().replace(/\s+/g, '');
@@ -334,12 +334,12 @@ export default function FerryApprovalFormPage() {
         return ferryTypeDesc || 'Ferry Request';
     }, [ferryTypeDesc]);
 
-    const detailApprovers = detailData?.approverList || detail?.approverList || [];
-    const stepLevelData = detailData?.stepLevelData || detail?.stepLevelData || [];
+    const detailApprovers = (detailData as any)?.approverList || (detail as any)?.approverList || [];
+    const stepLevelData = (detailData as any)?.stepLevelData || (detail as any)?.stepLevelData || [];
     const approvalTypeRaw = detail?.approvaltype;
     const isStepLevel = approvalTypeRaw === '1' || approvalTypeRaw === 1;
 
-    const { isStepApproverLevel, disableStepApprovalButtons } = useMemo(() => {
+    const { isStepApproverLevel: _isStepApproverLevel, disableStepApprovalButtons } = useMemo(() => {
         const _savedUserName = String((user as any)?.username || (user as any)?.name || '').trim().toLowerCase();
         const _savedUserID = String((user as any)?.userid || userId || '').trim().toLowerCase();
         const _savedRole = String((user as any)?.role || '').trim().toLowerCase();
@@ -374,47 +374,48 @@ export default function FerryApprovalFormPage() {
         const cPurpose = detail?.changepurpose || detail?.changepurpose_syskey;
         if (!cPurpose) return '';
         const found = changePurposes.find((p: any) => String(p.syskey || p.changepurpose_syskey) === String(cPurpose));
-        return found ? (found.description || found.code || cPurpose) : cPurpose;
+        return found ? String(found.description || found.code || cPurpose) : String(cPurpose);
     }, [detail?.changepurposedesc, detail?.changepurpose, detail?.changepurpose_syskey, changePurposes]);
 
-    // Parse Data
-    const reqName = detail?.name || detail?.employee_name || detail?.eid || 'Employee';
-    const selectedComplaints = useMemo(() => {
-        if (!detail?.ferrycomplaint) return [];
-        return detail.ferrycomplaint.split(',').map((s: string) => s.trim()).filter(Boolean);
-    }, [detail?.ferrycomplaint]);
+    // d is already 'any' since detail is 'any'
+    const d = detail;
+    const reqName = String(d?.name || d?.employee_name || d?.eid || 'Employee');
+    const selectedComplaints = useMemo((): string[] => {
+        if (!d?.ferrycomplaint) return [];
+        return String(d.ferrycomplaint).split(',').map((s: string) => s.trim()).filter(Boolean);
+    }, [d?.ferrycomplaint]);
 
-    const resolvedChangeType = useMemo(() => {
-        if (detail?.changetypedesc) return detail.changetypedesc;
+    const resolvedChangeType = useMemo((): string => {
+        if (detail?.changetypedesc) return String(detail.changetypedesc);
         const cType = detail?.changetype || detail?.changetype_syskey;
         if (!cType) return '';
         const found = changeTypes.find((t: any) => String(t.syskey || t.changetype_syskey) === String(cType));
-        return found ? (found.description || found.code || cType) : cType;
+        return found ? String(found.description || found.code || cType) : String(cType);
     }, [detail?.changetypedesc, detail?.changetype, detail?.changetype_syskey, changeTypes]);
 
-    const resolvedWorkingHour = useMemo(() => {
-        if (detail?.workinghourdesc) return detail.workinghourdesc;
+    const resolvedWorkingHour = useMemo((): string => {
+        if (detail?.workinghourdesc) return String(detail.workinghourdesc);
         const wHour = detail?.workinghour || detail?.workinghour_syskey;
         if (!wHour) return '';
         const found = workingHours.find((w: any) => String(w.syskey || w.workinghour_syskey) === String(wHour));
-        return found ? (found.description || found.code || wHour) : wHour;
+        return found ? String(found.description || found.code || wHour) : String(wHour);
     }, [detail?.workinghourdesc, detail?.workinghour, detail?.workinghour_syskey, workingHours]);
 
-    const resolvedDesiredFerry = useMemo(() => {
-        if (detail?.changeferrydesc) return detail.changeferrydesc;
+    const resolvedDesiredFerry = useMemo((): string => {
+        if (detail?.changeferrydesc) return String(detail.changeferrydesc);
         const cFerry = detail?.changeferry || detail?.changeferry_syskey;
         if (!cFerry) return '';
         const found = ferryNos.find((f: any) => String(f.syskey) === String(cFerry));
-        return found ? (found.carno || found.description || found.ferryCarNo || cFerry) : cFerry;
+        return found ? String(found.carno || found.description || found.ferryCarNo || cFerry) : String(cFerry);
     }, [detail?.changeferrydesc, detail?.changeferry, detail?.changeferry_syskey, ferryNos]);
 
-    const resolvedCurrentFerry = useMemo(() => {
+    const resolvedCurrentFerry = useMemo((): string => {
         const fallback = detail?.currentferryno || detail?.currentferry || detail?.ferryno;
         const syskey = detail?.currentferry_syskey || detail?.ferrysyskey || detail?.ferry_syskey;
-        if (!syskey && fallback) return fallback;
+        if (!syskey && fallback) return String(fallback);
         if (!syskey) return '';
         const found = ferryNos.find((f: any) => String(f.syskey) === String(syskey));
-        return found ? (found.carno || found.description || found.ferryCarNo || fallback || syskey) : (fallback || syskey);
+        return found ? String(found.carno || found.description || found.ferryCarNo || fallback || syskey) : String(fallback || syskey);
     }, [detail?.currentferryno, detail?.currentferry, detail?.ferryno, detail?.currentferry_syskey, detail?.ferrysyskey, detail?.ferry_syskey, ferryNos]);
 
     const isTemporary = resolvedChangeType?.toLowerCase().includes('temporary') && !resolvedChangeType?.toLowerCase().includes('suspension');
@@ -422,6 +423,13 @@ export default function FerryApprovalFormPage() {
     const isSuspension = resolvedChangeType?.toLowerCase().includes('suspension') || String(detail?.changetype || detail?.changetype_syskey) === '71';
 
     // Validation for Action
+    const resolvedAssignedFerry = useMemo(() => {
+        const syskey = assignedFerrySyskey || detail?.changeferry_syskey || detail?.changeferry;
+        if (!syskey) return '';
+        const found = ferryNos.find((f: any) => String(f.syskey) === String(syskey));
+        return found ? String(found.carno || found.description || found.ferryCarNo || syskey) : String(syskey);
+    }, [assignedFerrySyskey, detail?.changeferry_syskey, detail?.changeferry, ferryNos]);
+
     const validateAction = (status: '2' | '3') => {
         const errors: Record<string, string> = {};
         
@@ -430,10 +438,9 @@ export default function FerryApprovalFormPage() {
                 if (!assignedFerrySyskey) errors.assignedFerrySyskey = 'Please select a ferry number to assign';
                 if (!driverPhone) errors.driverPhone = 'Please enter driver phone number';
                 if (!gpsInfo) errors.gpsInfo = 'Please enter GPS information';
-                if (!comment.trim()) errors.comment = 'Comment is required for approval';
             }
         } else if (status === '3') {
-            if (displayTitle !== 'HR Complaint' && displayTitle !== 'Ferry Change' && !comment.trim()) {
+            if (displayTitle !== 'HR Complaint' && displayTitle !== 'Ferry Change' && ferryType !== FerryRequestType.registration && !comment.trim()) {
                 errors.comment = 'Comment is required for rejection';
             }
         }
@@ -458,6 +465,7 @@ export default function FerryApprovalFormPage() {
                 payload.ferryno = selectedFerry ? (selectedFerry.carno || selectedFerry.description || selectedFerry.ferryCarNo || assignedFerrySyskey) : assignedFerrySyskey;
                 payload.driver_phoneno = driverPhone;
                 payload.gps_info = gpsInfo;
+                payload.comment = otherInfo.trim(); // use comment field for other information
             }
             const res = await apiClient.post(SAVE_APPROVAL, payload);
             if (res.data?.statuscode !== 300) throw new Error(res.data?.message || 'Save failed');
@@ -513,6 +521,10 @@ export default function FerryApprovalFormPage() {
                 base.phoneno = editPhoneNumber;
                 base.ferryno = editCurrentFerryNo;
                 base.remark = editTemporaryReason; // usually mapped to remark
+                base.changeferry_syskey = assignedFerrySyskey;
+                base.driver_phoneno = driverPhone;
+                base.gps_info = gpsInfo;
+                base.comment = otherInfo; // use comment field for other information
             } else if (ferryType === FerryRequestType.usercomplaint) {
                 base.ferrycomplaint = [...editSelectedComplaints].sort().join(',');
                 base.ferryno = editCurrentFerryNo;
@@ -633,7 +645,7 @@ export default function FerryApprovalFormPage() {
                         <div className={styles['approval-detail__title-group']}>
                             <h2>{displayTitle}</h2>
                             <span>
-                                {detail.refno ? `Ref #${detail.refno}` : 'Company ferry / bus service'}
+                                {(d.refno) ? `Ref #${d.refno}` : 'Company ferry / bus service'}
                             </span>
                         </div>
                     </div>
@@ -663,7 +675,7 @@ export default function FerryApprovalFormPage() {
                                 <div className={styles['approval-detail__requester-info']}>
                                     <div className={styles['approval-detail__requester-name']}>{reqName}</div>
                                     <div className={styles['approval-detail__requester-meta']}>
-                                        {detail.eid && <span>{detail.eid}</span>}
+                                        {d.eid && <span>{String(d.eid)}</span>}
                                     </div>
                                 </div>
                             </div>
@@ -671,11 +683,11 @@ export default function FerryApprovalFormPage() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#0f172a', fontWeight: 500 }}>
                                     <Mail size={14} color="#0284c7" />
-                                    <span>{(detail.email && detail.email.includes('@')) ? detail.email : '—'}</span>
+                                    <span>{(d.email && String(d.email).includes('@')) ? String(d.email) : '—'}</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#0f172a', fontWeight: 500 }}>
                                     <Phone size={14} color="#0284c7" />
-                                    <span>{detail.phoneno || '—'}</span>
+                                    <span>{String(d.phoneno || '—')}</span>
                                 </div>
                             </div>
                         </div>
@@ -688,12 +700,16 @@ export default function FerryApprovalFormPage() {
                                 {isEditMode ? (
                                     <>
                                         <Input label="Contact Phone Number *" value={editPhoneNumber} onChange={e => setEditPhoneNumber(e.target.value)} />
-                                        <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
+                                        {resolvedCurrentFerry && (
+                                            <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
+                                        )}
                                     </>
                                 ) : (
                                     <>
                                         <Field label="Contact Phone Number" value={detail.contactphone || detail.phoneno} />
-                                        <Field label="Current Assigned Ferry Number" value={resolvedCurrentFerry} />
+                                        {resolvedCurrentFerry && (
+                                            <Field label="Current Assigned Ferry Number" value={resolvedCurrentFerry} />
+                                        )}
                                     </>
                                 )}
                             </div>
@@ -720,8 +736,15 @@ export default function FerryApprovalFormPage() {
                                         <Field label="Township" value={detail.township} />
                                         <Field label="Main Road" value={detail.road} />
                                         <Field label="Nearest Bus Stop" value={detail.busstop} />
-                                        {isApproved && (
+                                        {(resolvedAssignedFerry || detail.device_phoneno || detail.device_phone || detail.devicephone || detail.driver_name || detail.drivername || detail.driver_phoneno || detail.driver_phone || detail.driverphone || driverPhone || detail.gps_info || detail.gpsInfo || detail.gps || gpsInfo || detail.other_info || detail.otherinfo || otherInfo || detail.comment || detail.approver_comment || comment) && (
                                             <>
+                                                <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
+                                                <div style={{ gridColumn: '1 / -1', fontSize: 13, fontWeight: 700, color: '#0c4a6e', marginBottom: 2 }}>
+                                                    🚌 Ferry Assignment Details
+                                                </div>
+                                                {resolvedAssignedFerry && (
+                                                    <Field label="Assigned Ferry Number" value={resolvedAssignedFerry} />
+                                                )}
                                                 {(detail.device_phoneno || detail.device_phone || detail.devicephone) && (
                                                     <Field label="Device Phone Number" value={detail.device_phoneno || detail.device_phone || detail.devicephone} />
                                                 )}
@@ -733,6 +756,9 @@ export default function FerryApprovalFormPage() {
                                                 )}
                                                 {(detail.gps_info || detail.gpsInfo || detail.gps || gpsInfo) && (
                                                     <Field label="GPS Information" value={detail.gps_info || detail.gpsInfo || detail.gps || gpsInfo} />
+                                                )}
+                                                {(detail.other_info || detail.otherinfo || otherInfo) && (
+                                                    <Field label="Other Information" value={detail.other_info || detail.otherinfo || otherInfo} />
                                                 )}
                                                 {(detail.comment || detail.approver_comment || comment) && (
                                                     <div style={{ gridColumn: '1 / -1' }}>
@@ -904,10 +930,12 @@ export default function FerryApprovalFormPage() {
                                 {isEditMode ? (
                                     <>
                                         <Input label="Contact Phone Number *" value={editPhoneNumber} onChange={e => setEditPhoneNumber(e.target.value)} />
-                                        <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
+                                        {resolvedCurrentFerry && (
+                                            <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
+                                        )}
                                     </>
                                 ) : (
-                                    <Field label="Current Assigned Ferry Number" value={resolvedCurrentFerry} />
+                                    resolvedCurrentFerry && <Field label="Current Assigned Ferry Number" value={resolvedCurrentFerry} />
                                 )}
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 0, border: '1px solid var(--color-neutral-200)', borderRadius: 8, overflow: 'hidden' }}>
@@ -953,7 +981,9 @@ export default function FerryApprovalFormPage() {
                             {isEditMode && (
                                 <div className={styles['approval-detail__grid']} style={{ marginBottom: 16 }}>
                                     <Input label="Contact Phone Number *" value={editPhoneNumber} onChange={e => setEditPhoneNumber(e.target.value)} />
-                                    <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
+                                    {resolvedCurrentFerry && (
+                                        <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
+                                    )}
                                 </div>
                             )}
                             <div>
@@ -1076,19 +1106,30 @@ export default function FerryApprovalFormPage() {
                                                 error={actionErrors.gpsInfo}
                                             />
                                         </div>
+
+                                        <div>
+                                            <Input
+                                                label="Other Information"
+                                                value={otherInfo}
+                                                onChange={e => setOtherInfo(e.target.value)}
+                                                placeholder="Enter other information"
+                                            />
+                                        </div>
                                     </>
                                 )}
 
-                                <div>
-                                    <Textarea
-                                        label="Comment *"
-                                        value={comment}
-                                        onChange={e => { setComment(e.target.value); setActionErrors(p => ({...p, comment: ''})); }}
-                                        placeholder="Enter approval/rejection comment here..."
-                                        rows={3}
-                                        error={actionErrors.comment}
-                                    />
-                                </div>
+                                {ferryType !== FerryRequestType.registration && (
+                                    <div>
+                                        <Textarea
+                                            label="Comment *"
+                                            value={comment}
+                                            onChange={e => { setComment(e.target.value); setActionErrors(p => ({...p, comment: ''})); }}
+                                            placeholder="Enter approval/rejection comment here..."
+                                            rows={3}
+                                            error={actionErrors.comment}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

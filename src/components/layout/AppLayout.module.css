@@ -537,12 +537,19 @@
     position: sticky;
     top: 0;
     z-index: var(--z-sticky);
+    /* Prevent header from ever exceeding its container width */
+    max-width: 100%;
+    box-sizing: border-box;
+    /* NOTE: overflow must NOT be hidden — avatar dropdown overflows the header bounds */
 }
 
 .main__header-left {
     display: flex;
     align-items: center;
     gap: var(--space-4);
+    /* Allow left side to shrink so right side (bell + avatar) always fits */
+    min-width: 0;
+    flex-shrink: 1;
 }
 
 .main__hamburger {
@@ -565,6 +572,9 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
+    /* Never shrink or wrap — bell and avatar must always be visible */
+    flex-shrink: 0;
+    flex-wrap: nowrap;
 }
 
 .main__lang-btn {
@@ -630,6 +640,7 @@
 /* ── Header Avatar Dropdown ── */
 .header__avatar-container {
     position: relative;
+    z-index: var(--z-overlay); /* ensure dropdown escapes header stacking context */
 }
 
 .header__avatar-btn {
@@ -676,7 +687,7 @@
     border-radius: var(--radius-lg);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
     border: 1px solid var(--color-neutral-200);
-    z-index: 200;
+    z-index: var(--z-toast); /* 400 — above sticky header (100) and overlay (200) */
     overflow: hidden;
     animation: avatarMenuIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
     transform-origin: top right;
@@ -835,6 +846,7 @@
 }
 
 @media (min-width: 769px) and (max-width: 1024px) {
+
     .sidebar {
         width: 220px;
     }
@@ -843,3 +855,22 @@
         margin-left: 220px;
     }
 }
+
+/* On very narrow screens: reduce header padding and hide lang button text */
+@media (max-width: 480px) {
+    .main__header {
+        padding: 0 var(--space-3);
+        gap: var(--space-1);
+    }
+
+    /* Hide "English" / "Myanmar" text — keep only the globe icon */
+    .main__lang-btn {
+        font-size: 0;
+        padding: var(--space-1) var(--space-2);
+        gap: 0;
+    }
+
+    .main__lang-btn svg {
+        margin-right: 0 !important;
+    }
+}

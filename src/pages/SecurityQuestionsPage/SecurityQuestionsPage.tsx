@@ -1,81 +1,96 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ShieldCheck, ChevronRight } from 'lucide-react';
+import { ShieldCheck, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import authClient from '../../lib/auth-client';
 import { APP_ID } from '../../lib/auth-token';
 import { toast } from 'react-hot-toast';
 import styles from './SecurityQuestionsPage.module.css';
 
-interface SecurityQuestion {
+interface QuestionItem {
     syskey: string;
     question: string;
+    status: number;
+}
+
+interface SlotState {
+    question_syskey: string;
     answer: string;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export default function SecurityQuestionsPage() {
-    const navigate = useNavigate();
-    const location = useLocation();
+    const navigate  = useNavigate();
+    const location  = useLocation();
 
-    // forgotPassword=true → verify answers then go to change password
-    // forgotPassword=false → save answers (fresh login setup)
     const forgotPassword = (location.state as any)?.forgotPassword === true;
 
-    const tempToken = sessionStorage.getItem('temp_iam_token') || '';
-    const tempUserId = sessionStorage.getItem('temp_user_id') || '';
+    const tempToken  = sessionStorage.getItem('temp_iam_token') || '';
+    const tempUserId = sessionStorage.getItem('temp_user_id')   || '';
 
-    const [questions, setQuestions] = useState<SecurityQuestion[]>([]);
-    const [answers, setAnswers] = useState<Record<string, string>>({});
-    const [loading, setLoading] = useState(false);
-    const [fetching, setFetching] = useState(true);
+    const [allQuestions, setAllQuestions] = useState<QuestionItem[]>([]);
+    const [slotCount,    setSlotCount]    = useState(0);
+    const [slots,        setSlots]        = useState<SlotState[]>([]);
+    const [loading,      setLoading]      = useState(false);
+    const [fetching,     setFetching]     = useState(true);
+    const [focusedSlot,  setFocusedSlot]  = useState<number | null>(null);
 
-    // Redirect if no temp token (user accessed page directly)
     useEffect(() => {
-        if (!tempToken) {
-            navigate('/login', { replace: true });
-        }
+        if (!tempToken) navigate('/login', { replace: true });
     }, [tempToken, navigate]);
 
-    // Fetch security questions on mount
     useEffect(() => {
         if (!tempToken) return;
-
         const fetchQuestions = async () => {
             setFetching(true);
             try {
-                const res = await authClient.get('securityQues/005', {
+                const res  = await authClient.get('securityQues/005', {
                     headers: { Authorization: `Bearer ${tempToken}` },
                 });
-                const data = res.data;
-                const list: SecurityQuestion[] = Array.isArray(data)
+                const data = res.data?.data || res.data || {};
+                const rawList: QuestionItem[] = Array.isArray(data)
                     ? data
-                    : (data?.data || data?.datalist || []);
-                setQuestions(list);
-                // Pre-fill empty answers map
-                const initialAnswers: Record<string, string> = {};
-                list.forEach((q: SecurityQuestion) => {
-                    initialAnswers[q.syskey] = q.answer || '';
-                });
-                setAnswers(initialAnswers);
+                    : (data?.questions || data?.datalist || []);
+
+                // Only active questions (status === 1)
+                const active = rawList.filter((q: any) => Number(q.status) === 1);
+                setAllQuestions(active);
+
+                // Slot count driven by API
+                const count = forgotPassword
+                    ? Number(data?.forgotpw_ques_count ?? 1)
+                    : Number(data?.security_ques_count ?? 1);
+                setSlotCount(count);
+                setSlots(Array.from({ length: count }, () => ({ question_syskey: '', answer: '' })));
             } catch (err: any) {
                 toast.error(err?.response?.data?.message || 'Failed to load security questions.');
             } finally {
                 setFetching(false);
             }
         };
-
         fetchQuestions();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tempToken]);
 
+    // Questions selected in OTHER slots (for dedup)
+    const selectedSyskeys = useMemo(
+        () => slots.map(s => s.question_syskey).filter(Boolean),
+        [slots],
+    );
+
+    const filledCount = slots.filter(s => s.question_syskey && s.answer.trim()).length;
+
+    const updateSlot = (idx: number, field: keyof SlotState, value: string) => {
+        setSlots(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        const answered = questions.filter(q => answers[q.syskey]?.trim());
-        if (answered.length < 1) {
-            toast.error('Please answer at least 1 question.');
+        const filled = slots.filter(s => s.question_syskey && s.answer.trim());
+        if (filled.length === 0) {
+            toast.error('Please answer at least one security question.');
             return;
         }
 
@@ -83,29 +98,25 @@ export default function SecurityQuestionsPage() {
         try {
             const payload = {
                 user_id: tempUserId,
-                questionAnswerList: answered.map(q => ({
-                    question_syskey: q.syskey,
-                    answer: answers[q.syskey].trim(),
+                questionAnswerList: filled.map(s => ({
+                    question_syskey: s.question_syskey,
+                    answer: s.answer.trim(),
                 })),
                 appid: APP_ID,
             };
 
-            // forgotPassword mode → check/verify answers; fresh-login mode → save answers
             const endpoint = forgotPassword ? 'checkAnswers' : 'securityAnswer';
             const res = await authClient.post(endpoint, payload, {
                 headers: { Authorization: `Bearer ${tempToken}` },
             });
 
             const status = res.data?.status ?? res.status;
-            console.log(res.data);
             if (status === 200 || status === 201) {
                 if (forgotPassword) {
-                    // Answers verified — go to change password
                     toast.success('Identity verified.');
                     navigate('/force-change-password', { replace: true });
                 } else {
                     toast.success('Security answers saved.');
-                    // Check if force password change is needed
                     const needsForcePwd = sessionStorage.getItem('force_password_change') === '1';
                     sessionStorage.removeItem('force_password_change');
                     if (needsForcePwd) {
@@ -120,7 +131,6 @@ export default function SecurityQuestionsPage() {
                 toast.error(res.data?.message || 'Failed. Please try again.');
             }
         } catch (err: any) {
-            // HTTP 400 = wrong answers (Axios throws on 4xx)
             if (err?.response?.status === 400) {
                 toast.error('Your answers are incorrect. Please try again.');
             } else {
@@ -148,44 +158,111 @@ export default function SecurityQuestionsPage() {
                 {/* Header */}
                 <div className={styles.header}>
                     <div className={styles.iconWrap}>
-                        <ShieldCheck size={32} />
+                        <ShieldCheck size={34} />
                     </div>
                     <h1 className={styles.title}>Security Questions</h1>
                     <p className={styles.subtitle}>
                         {forgotPassword
-                            ? 'Verify your identity by answering your security question(s).'
-                            : 'Answer at least one security question to secure your account.'}
+                            ? 'Answer at least one security question to verify your identity.'
+                            : 'Answer at least one security question to protect your account.'}
                     </p>
+
+                    {slotCount > 1 && (
+                        <div className={styles.progress}>
+                            {slots.map((s, i) => (
+                                <div
+                                    key={i}
+                                    className={[
+                                        styles.progressDot,
+                                        focusedSlot === i ? styles['progressDot--active'] : '',
+                                        (s.question_syskey && s.answer.trim()) ? styles['progressDot--done'] : '',
+                                    ].filter(Boolean).join(' ')}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className={styles.form}>
-                    {questions.map((q, idx) => (
-                        <div key={q.syskey} className={styles.questionItem}>
-                            <span className={styles.questionLabel}>Question {idx + 1}</span>
-                            <p className={styles.questionText}>{q.question}</p>
-                            <Input
-                                id={`answer-${q.syskey}`}
-                                label="Your answer"
-                                type="text"
-                                value={answers[q.syskey] || ''}
-                                onChange={e => setAnswers(prev => ({ ...prev, [q.syskey]: e.target.value }))}
-                                placeholder="Type your answer here…"
-                            />
-                        </div>
-                    ))}
+                    {slots.map((slot, idx) => {
+                        const available = allQuestions.filter(
+                            q => q.syskey === slot.question_syskey || !selectedSyskeys.includes(q.syskey),
+                        );
+                        const isDone = !!(slot.question_syskey && slot.answer.trim());
 
-                    {questions.length === 0 && (
+                        return (
+                            <div
+                                key={idx}
+                                className={styles.questionItem}
+                                onFocus={() => setFocusedSlot(idx)}
+                                onBlur={() => setFocusedSlot(null)}
+                                style={isDone ? { borderLeftColor: 'var(--color-success-500)' } : undefined}
+                            >
+                                <div className={styles.slotHeader}>
+                                    <span
+                                        className={styles.slotBadge}
+                                        style={isDone ? { background: 'var(--color-success-500)', boxShadow: '0 2px 6px rgba(34,197,94,0.3)' } : undefined}
+                                    >
+                                        {isDone ? '✓' : idx + 1}
+                                    </span>
+                                    <span className={styles.slotTitle}>
+                                        Question {idx + 1} of {slotCount}
+                                    </span>
+                                </div>
+
+                                {/* Question dropdown */}
+                                <div className={styles.selectWrap}>
+                                    <label className={styles.selectLabel}>Select question</label>
+                                    <div className={styles.selectInner}>
+                                        <select
+                                            className={styles.select}
+                                            value={slot.question_syskey}
+                                            onChange={e => updateSlot(idx, 'question_syskey', e.target.value)}
+                                        >
+                                            <option value="">— Choose a security question —</option>
+                                            {available.map(q => (
+                                                <option key={q.syskey} value={q.syskey}>
+                                                    {q.question}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown size={16} className={styles.selectIcon} />
+                                    </div>
+                                </div>
+
+                                {/* Answer input */}
+                                <Input
+                                    id={`answer-${idx}`}
+                                    label="Your answer"
+                                    type="text"
+                                    value={slot.answer}
+                                    onChange={e => updateSlot(idx, 'answer', e.target.value)}
+                                    placeholder="Type your answer here…"
+                                    disabled={!slot.question_syskey}
+                                />
+                            </div>
+                        );
+                    })}
+
+                    {allQuestions.length === 0 && (
                         <p className={styles.emptyText}>No security questions found.</p>
+                    )}
+
+                    {slotCount > 1 && (
+                        <p style={{ textAlign: 'center', fontSize: 'var(--text-xs)', color: 'var(--color-neutral-400)', margin: 0 }}>
+                            {filledCount} of {slotCount} answered · at least 1 required
+                        </p>
                     )}
 
                     <Button
                         type="submit"
                         loading={loading}
-                        disabled={loading || questions.length === 0}
+                        disabled={loading || allQuestions.length === 0}
                         className={styles.submitBtn}
                     >
-                        Submit Answers <ChevronRight size={16} />
+                        {forgotPassword ? 'Verify Identity' : 'Save Security Answers'}
+                        <ChevronRight size={16} />
                     </Button>
                 </form>
             </div>

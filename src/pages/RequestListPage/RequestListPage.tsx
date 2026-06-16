@@ -126,7 +126,8 @@ export default function RequestListPage() {
     const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
     const [isAllDate, setIsAllDate] = useState(true);
     const [requestType, setRequestType] = useState<string>('');
-    const [attType] = useState(''); // Fetch all attendance types by default
+    // Attendance-specific: filter by Remote (1) or Backdate (2) — default Backdate
+    const [attendanceRequestType, setAttendanceRequestType] = useState<'1' | '2'>('2');
     const [didInitDates, setDidInitDates] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
@@ -134,6 +135,8 @@ export default function RequestListPage() {
     const [showExportConfirm, setShowExportConfirm] = useState(false);
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
     const [sortColumn, setSortColumn] = useState<'date' | 'time'>('date');
+    const [fromFocused, setFromFocused] = useState(false);
+    const [toFocused, setToFocused] = useState(false);
 
     // Fetch shift data for transition dates
     const { data: shiftData, isLoading: shiftLoading } = useQuery({
@@ -190,50 +193,54 @@ export default function RequestListPage() {
         return options;
     }, [requestTypes]);
 
+    const mapAttendanceItem = (item: any): RequestModel => ({
+        syskey: item.syskey,
+        eid: item.employee_id,
+        name: item.employee_name,
+        refno: item.syskey,
+        date: item.date,
+        startdate: item.date,
+        type: item.type,
+        atttype: item.atttype || item.attendancerequesttype,
+        requesttype: item.atttype || item.type,
+        requesttypedesc: item.type === '602' ? 'Time Out' : 'Time In',
+        requeststatus: String(item.status ?? item.requeststatus ?? 1),
+        requestsubtypedesc: item.time || `${item.intime || ''}${item.intime && item.outtime ? ' - ' : ''}${item.outtime || ''}`,
+        intime: item.intime,
+        outtime: item.outtime,
+        remark: item.description,
+        description: item.description,
+        location: item.location,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        processstatus: item.processstatus || item.claimProcessStatus || '',
+        attendancereason: item.attendancereason,
+    } as unknown as RequestModel);
+
     const { data: allRequests = [], isLoading: requestsLoading } = useQuery<RequestModel[]>({
-        queryKey: ['requests', fromDate, toDate, isAllDate, requestType, attType, location.pathname, activeStatus],
+        queryKey: ['requests', fromDate, toDate, isAllDate, requestType, attendanceRequestType, location.pathname, activeStatus],
         queryFn: async () => {
             if (isAttendancePage) {
                 const reqStatus = activeStatus === RequestStatus.All ? '' : String(activeStatus);
                 const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
                     userid: userId || '',
                     domain: domain || 'dev',
-                    fromdate: isAllDate ? "" : fromDate.replace(/-/g, ''),
-                    todate: isAllDate ? "" : toDate.replace(/-/g, ''),
+                    fromdate: isAllDate ? '' : fromDate.replace(/-/g, ''),
+                    todate: isAllDate ? '' : toDate.replace(/-/g, ''),
                     status: reqStatus,
-                    type: attType,
+                    type: attendanceRequestType,
                 });
-                const list = res.data?.data || res.data?.datalist || [];
-                return list.map((item: any) => ({
-                    syskey: item.syskey,
-                    eid: item.employee_id,
-                    name: item.employee_name,
-                    refno: item.syskey,
-                    date: item.date,
-                    startdate: item.date,
-                    type: item.type,
-                    atttype: item.atttype || item.attendancerequesttype,
-                    requesttype: item.atttype || item.type,
-                    requesttypedesc: item.type === '602' ? 'Time Out' : 'Time In',
-                    requeststatus: String(item.status || '1'),
-                    requestsubtypedesc: item.time || `${item.intime || ''}${item.intime && item.outtime ? ' - ' : ''}${item.outtime || ''}`,
-                    intime: item.intime,
-                    outtime: item.outtime,
-                    remark: item.description,
-                    description: item.description,
-                    location: item.location,
-                    latitude: item.latitude,
-                    longitude: item.longitude,
-                    processstatus: item.processstatus || item.claimProcessStatus || '',
-                    attendancereason: item.attendancereason,
-                }));
+                const list: any[] = res.data?.data || res.data?.datalist || [];
+                return list
+                    .filter((item: any) => Number(item.status) !== 0)
+                    .map(mapAttendanceItem);
             }
 
             const res = await apiClient.post(GET_REQUEST_LIST, {
-                fromdate: isAllDate ? "" : fromDate.replace(/-/g, ''),
-                todate: isAllDate ? "" : toDate.replace(/-/g, ''),
+                fromdate: isAllDate ? '' : fromDate.replace(/-/g, ''),
+                todate: isAllDate ? '' : toDate.replace(/-/g, ''),
                 type: isSubtypeView ? '' : requestType,
-                status: activeStatus === RequestStatus.All ? "0" : String(activeStatus),
+                status: activeStatus === RequestStatus.All ? '0' : String(activeStatus),
             });
             const datalist: any[] = res.data?.datalist || res.data?.data || [];
             const all: RequestModel[] = datalist.map(item => ({
@@ -298,7 +305,7 @@ export default function RequestListPage() {
 
     // Summary stats
     const { data: generalSummaryData = [] } = useQuery<RequestModel[]>({
-        queryKey: ['summaryRequests', fromDate, toDate, requestType, attType, location.pathname],
+        queryKey: ['summaryRequests', fromDate, toDate, requestType, attendanceRequestType, location.pathname],
         queryFn: async () => {
             if (isAttendancePage) {
                 const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
@@ -306,20 +313,22 @@ export default function RequestListPage() {
                     domain: domain || 'dev',
                     fromdate: fromDate.replace(/-/g, ''),
                     todate: toDate.replace(/-/g, ''),
-                    status: '', // Fetch all for steady summary counts
-                    type: attType,
+                    status: '',
+                    type: attendanceRequestType,
                 });
-                const list = res.data?.data || res.data?.datalist || [];
-                return list.map((item: any) => ({
-                    requeststatus: String(item.status || '1'),
-                }));
+                const list: any[] = res.data?.data || res.data?.datalist || [];
+                return list
+                    .filter((item: any) => Number(item.status) !== 0)
+                    .map((item: any) => ({
+                        requeststatus: String(item.status ?? item.requeststatus ?? 1),
+                    })) as RequestModel[];
             }
 
             const res = await apiClient.post(GET_REQUEST_LIST, {
                 fromdate: fromDate.replace(/-/g, ''),
                 todate: toDate.replace(/-/g, ''),
                 type: isSubtypeView ? '' : requestType,
-                status: "0", // All statuses
+                status: '0',
             });
             const datalist: any[] = res.data?.datalist || res.data?.data || [];
             const all: RequestModel[] = datalist.map(item => ({
@@ -535,20 +544,24 @@ export default function RequestListPage() {
                         </div>
                         <div className={styles['filter-inputs']}>
                             <Input
-                                type={isAllDate ? "text" : "date"}
-                                value={isAllDate ? "" : fromDate}
-                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
+                                type={isAllDate ? "text" : (fromFocused ? "date" : "text")}
+                                value={isAllDate ? "" : (fromFocused ? fromDate : displayDate(fromDate))}
+                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
                                 disabled={isAllDate}
                                 onChange={(e) => setFromDate(e.target.value)}
+                                onFocus={() => setFromFocused(true)}
+                                onBlur={() => setFromFocused(false)}
                                 className={styles['filter-date']}
                             />
                             <span className={styles['filter-separator']}>→</span>
                             <Input
-                                type={isAllDate ? "text" : "date"}
-                                value={isAllDate ? "" : toDate}
-                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
+                                type={isAllDate ? "text" : (toFocused ? "date" : "text")}
+                                value={isAllDate ? "" : (toFocused ? toDate : displayDate(toDate))}
+                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
                                 disabled={isAllDate}
                                 onChange={(e) => setToDate(e.target.value)}
+                                onFocus={() => setToFocused(true)}
+                                onBlur={() => setToFocused(false)}
                                 className={styles['filter-date']}
                             />
                         </div>
@@ -566,7 +579,7 @@ export default function RequestListPage() {
                         </div>
                     )}
 
-                    
+
                 </div>
             )}
 
@@ -589,6 +602,19 @@ export default function RequestListPage() {
                                     <span className={styles['filter-toggle-btn__dot']} />
                                 )}
                             </button>
+                        )}
+                        {isAttendancePage && (
+                            <div className={styles['requests-att-types']}>
+                                {([['1', 'Remote'], ['2', 'Backdate']] as const).map(([val, label]) => (
+                                    <button
+                                        key={val}
+                                        onClick={() => setAttendanceRequestType(val)}
+                                        className={`${styles['requests-att-type-btn']} ${attendanceRequestType === val ? styles['requests-att-type-btn--active'] : ''}`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
                         )}
                         <div className={styles['requests-filter-tabs']}>
                             {statusTabs.map(({ key, label }) => (

@@ -105,6 +105,8 @@ export default function ApprovalListPage() {
     const [toDate, setToDate] = useState(defaultToDate);
     const [isAllDate, setIsAllDate] = useState(true);
     const [didInitDates, setDidInitDates] = useState(false);
+    const [fromFocused, setFromFocused] = useState(false);
+    const [toFocused, setToFocused] = useState(false);
     const { userId, domain } = useAuthStore();
     const queryClient = useQueryClient();
 
@@ -300,11 +302,13 @@ export default function ApprovalListPage() {
                         <div className={styles['approval-page__filter-field']}>
                             <label className={styles['approval-page__filter-label']}>From</label>
                             <input
-                                type={isAllDate ? "text" : "date"}
+                                type={isAllDate ? "text" : (fromFocused ? "date" : "text")}
                                 className={styles['approval-page__filter-input']}
-                                value={isAllDate ? "" : toInputDate(fromDate)}
-                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
+                                value={isAllDate ? "" : (fromFocused ? toInputDate(fromDate) : displayDate(fromDate))}
+                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
                                 disabled={isAllDate}
+                                onFocus={() => setFromFocused(true)}
+                                onBlur={() => setFromFocused(false)}
                                 onChange={(e) => {
                                     if (e.target.value) setFromDate(fromInputDate(e.target.value));
                                 }}
@@ -313,11 +317,13 @@ export default function ApprovalListPage() {
                         <div className={styles['approval-page__filter-field']}>
                             <label className={styles['approval-page__filter-label']}>To</label>
                             <input
-                                type={isAllDate ? "text" : "date"}
+                                type={isAllDate ? "text" : (toFocused ? "date" : "text")}
                                 className={styles['approval-page__filter-input']}
-                                value={isAllDate ? "" : toInputDate(toDate)}
-                                placeholder={isAllDate ? "MM/dd/yyyy" : undefined}
+                                value={isAllDate ? "" : (toFocused ? toInputDate(toDate) : displayDate(toDate))}
+                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
                                 disabled={isAllDate}
+                                onFocus={() => setToFocused(true)}
+                                onBlur={() => setToFocused(false)}
                                 onChange={(e) => {
                                     if (e.target.value) setToDate(fromInputDate(e.target.value));
                                 }}

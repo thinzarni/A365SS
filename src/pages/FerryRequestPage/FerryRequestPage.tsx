@@ -12,10 +12,9 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
-    ArrowLeft, Bus, Car, Loader2,
-    Calendar, Phone, MapPin, Clock,
-    UserCheck, Paperclip, CheckCircle2, XCircle,
-    Edit, Trash2, Building2,
+    ArrowLeft, Loader2,
+    Calendar, Phone, Clock,
+    UserCheck, Paperclip, CheckCircle2, XCircle, Trash2, Building2,
     File,
     Image as ImageIcon,
     FileSpreadsheet,
@@ -23,7 +22,7 @@ import {
     FileVideo,
     FileAudio,
     FileText,
-    RefreshCw, Megaphone, Briefcase
+    RefreshCw, Megaphone,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -48,9 +47,7 @@ import {
     USER_PROFILE,
 } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
-import { displayDate } from '../../lib/date-utils';
 import { useAuthStore } from '../../stores/auth-store';
-import { appConfig } from '../../config/app-config';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import styles from './FerryRequestPage.module.css';
 import newReqStyles from '../NewRequestPage/NewRequestPage.module.css';
@@ -78,10 +75,10 @@ interface FerrySetupItem {
     syskey: string;
     code: string;
     description: string;
+    name?: string;
+    carno?: string;
     officeLocationName?: string;
     ferryCarNo?: string;
-    carno?: string;
-    name?: string;
 }
 
 /* ─────────────────────────────────────────────────
@@ -186,7 +183,7 @@ export default function FerryRequestPage() {
         const ORDER = isHrComplaintView
             ? [FerryRequestType.hrcomplaint]
             : [FerryRequestType.registration, FerryRequestType.change, FerryRequestType.usercomplaint];
-        options.sort((a, b) => ORDER.indexOf(a.value) - ORDER.indexOf(b.value));
+        options.sort((a, b) => (ORDER as string[]).indexOf(a.value) - (ORDER as string[]).indexOf(b.value));
         return options;
     })();
 
@@ -247,6 +244,9 @@ export default function FerryRequestPage() {
                 if (Array.isArray(dl) && dl.length > 0) {
                     return dl[0]?.ferryno ?? dl[0]?.ferryNo ?? '';
                 }
+                if (dl && typeof dl === 'object' && !Array.isArray(dl)) {
+                    return (dl as any).ferryno ?? (dl as any).ferryNo ?? '';
+                }
                 const d = res.data?.data || res.data;
                 return d?.ferryno ?? d?.ferryNo ?? '';
             } catch {
@@ -279,7 +279,7 @@ export default function FerryRequestPage() {
     const displayDept = user?.department || epData?.department || '';
     const displayJoinDate = user?.joineddate || epData?.joineddate || '';
     const displaySyskey = user?.syskey || user?.usersyskey || epData?.syskey || '';
-    const displayEid = user?.eid || user?.employee_id || epData?.eid || '';
+    const displayEid = user?.eid || epData?.eid || '';
 
     /* ───────── Detail (edit mode) ───────── */
     const { data: detailRes, isLoading: detailLoading } = useQuery({

@@ -7,8 +7,11 @@ import {
     ChevronUp,
     FileText,
     Users,
+    CheckCircle2,
+    Circle,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
+import { Input } from '../../components/ui';
 import { RequestStatus } from '../../types/models';
 import type { RequestModel } from '../../types/models';
 import mainClient from '../../lib/main-client';
@@ -18,6 +21,7 @@ import {
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
 import styles from './AttendanceApprovalListPage.module.css';
+import reqStyles from '../RequestListPage/RequestListPage.module.css';
 
 /* ── Date helpers ── */
 function formatYYYYMMDD(d: Date): string {
@@ -59,6 +63,8 @@ export default function AttendanceApprovalListPage() {
     const [toDate, setToDate] = useState(defaultToDate);
     const [isAllDate, setIsAllDate] = useState(true);
     const [didInitDates, setDidInitDates] = useState(false);
+    const [fromFocused, setFromFocused] = useState(false);
+    const [toFocused, setToFocused] = useState(false);
     const [attType, setAttType] = useState('2'); // Default to Backdate as per screenshot
     const { userId, domain } = useAuthStore();
 
@@ -155,39 +161,59 @@ export default function AttendanceApprovalListPage() {
             </div>
 
             {showFilter && (
-                <div className={styles['filter-panel']}>
-                    <div className={styles['filter-grid']}>
-                        <div className={styles['filter-item']}>
-                            <label className={styles['checkbox-label']}>
-                                <input
-                                    type="checkbox"
-                                    checked={isAllDate}
-                                    onChange={(e) => setIsAllDate(e.target.checked)}
-                                />
+                <div className={reqStyles['filters-row']}>
+                    <div className={reqStyles['filter-group']}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                            <label className={reqStyles['filter-label']} style={{ marginBottom: 0 }}>Date Range</label>
+                            <button
+                                type="button"
+                                onClick={() => setIsAllDate(!isAllDate)}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                                    fontSize: 12, fontWeight: 600,
+                                    padding: '4px 12px', borderRadius: 16,
+                                    border: '1px solid',
+                                    borderColor: isAllDate ? '#0ea5e9' : '#cbd5e1',
+                                    backgroundColor: isAllDate ? '#e0f2fe' : '#f8fafc',
+                                    color: isAllDate ? '#0369a1' : '#64748b',
+                                    cursor: 'pointer', transition: 'all 0.2s ease',
+                                    outline: 'none',
+                                }}
+                            >
+                                {isAllDate ? <CheckCircle2 size={15} strokeWidth={2.5} /> : <Circle size={15} strokeWidth={2} />}
                                 All Dates
-                            </label>
+                            </button>
                         </div>
-                        <div className={styles['filter-item']}>
-                            <label>From Date</label>
-                            <input
-                                type="date"
-                                value={toInputDate(fromDate)}
-                                onChange={(e) => setFromDate(fromInputDate(e.target.value))}
+                        <div className={reqStyles['filter-inputs']}>
+                            <Input
+                                type={isAllDate ? "text" : (fromFocused ? "date" : "text")}
+                                value={isAllDate ? "" : (fromFocused ? toInputDate(fromDate) : displayDate(fromDate))}
+                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
+                                onChange={(e: any) => {
+                                    if (e.target.value) setFromDate(fromInputDate(e.target.value));
+                                }}
+                                onFocus={() => setFromFocused(true)}
+                                onBlur={() => setFromFocused(false)}
                                 disabled={isAllDate}
-                                style={{ opacity: isAllDate ? 0.5 : 1 }}
+                                className={reqStyles['filter-date']}
                             />
-                        </div>
-                        <div className={styles['filter-item']}>
-                            <label>To Date</label>
-                            <input
-                                type="date"
-                                value={toInputDate(toDate)}
-                                onChange={(e) => setToDate(fromInputDate(e.target.value))}
+                            <span className={reqStyles['filter-separator']}>→</span>
+                            <Input
+                                type={isAllDate ? "text" : (toFocused ? "date" : "text")}
+                                value={isAllDate ? "" : (toFocused ? toInputDate(toDate) : displayDate(toDate))}
+                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
+                                onChange={(e: any) => {
+                                    if (e.target.value) setToDate(fromInputDate(e.target.value));
+                                }}
+                                onFocus={() => setToFocused(true)}
+                                onBlur={() => setToFocused(false)}
                                 disabled={isAllDate}
-                                style={{ opacity: isAllDate ? 0.5 : 1 }}
+                                className={reqStyles['filter-date']}
                             />
                         </div>
                     </div>
+
+
                 </div>
             )}
 
@@ -210,17 +236,14 @@ export default function AttendanceApprovalListPage() {
                     ))}
                 </div>
 
-                <div className={styles['att-types']}>
-                    {[
-                        { key: '1', label: 'Remote' },
-                        { key: '2', label: 'Backdate' },
-                    ].map((type) => (
+                <div className={reqStyles['requests-att-types']}>
+                    {([['1', 'Remote'], ['2', 'Backdate']] as const).map(([val, label]) => (
                         <button
-                            key={type.key}
-                            className={`${styles['att-type-btn']} ${attType === type.key ? styles['att-type-btn--active'] : ''}`}
-                            onClick={() => setAttType(type.key)}
+                            key={val}
+                            onClick={() => setAttType(val)}
+                            className={`${reqStyles['requests-att-type-btn']} ${attType === val ? reqStyles['requests-att-type-btn--active'] : ''}`}
                         >
-                            {type.label}
+                            {label}
                         </button>
                     ))}
                 </div>
