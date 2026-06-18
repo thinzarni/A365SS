@@ -485,19 +485,34 @@ export default function FerryRequestPage() {
             if (!busStop.trim())     errors.busStop     = 'Nearest bus stop is required';
         }
 
-        if (selectedType === FerryRequestType.change && isPermanent) {
+        if (selectedType === FerryRequestType.change) {
             if (!phoneNumber.trim()) errors.phoneNumber = 'Contact phone number is required';
 
-            if (isHomeAddress) {
-                if (!homeAddress.trim())        errors.homeAddress        = 'New home address is required';
-                if (!homeMainRoad.trim())        errors.homeMainRoad       = 'Main road is required';
-                if (!homeBusStop.trim())         errors.homeBusStop        = 'Nearest bus stop is required';
-                if (!homeChangeStartDate.trim()) errors.homeChangeStartDate = 'Desired start date is required';
-            }
+            if (isPermanent) {
+                if (isHomeAddress) {
+                    if (!homeAddress.trim())        errors.homeAddress        = 'New home address is required';
+                    if (!homeMainRoad.trim())        errors.homeMainRoad       = 'Main road is required';
+                    if (!homeBusStop.trim())         errors.homeBusStop        = 'Nearest bus stop is required';
+                    if (!homeChangeStartDate.trim()) errors.homeChangeStartDate = 'Desired start date is required';
+                }
 
-            if (isOfficeLocation) {
-                if (!officeLocationSyskey.trim())    errors.officeLocationSyskey = 'Please select an office location';
-                if (!officeChangeStartDate.trim())   errors.officeChangeStartDate = 'Desired start date is required';
+                if (isOfficeLocation) {
+                    if (!officeLocationSyskey.trim())    errors.officeLocationSyskey = 'Please select an office location';
+                    if (!officeChangeStartDate.trim())   errors.officeChangeStartDate = 'Desired start date is required';
+                }
+            } else if (isTemporary) {
+                if (!temporaryReason.trim()) errors.temporaryReason = 'Reason is required';
+                if (!tempDateFrom.trim()) errors.tempDateFrom = 'Desired start date is required';
+                if (!tempDateTo.trim()) errors.tempDateTo = 'Desired end date is required';
+                if (tempDateFrom && tempDateTo && new Date(tempDateFrom) > new Date(tempDateTo)) {
+                    errors.tempDateTo = 'End date cannot be earlier than start date';
+                }
+            } else if (isSuspension) {
+                if (!suspDateFrom.trim()) errors.suspDateFrom = 'Desired start date is required';
+                if (!suspDateTo.trim()) errors.suspDateTo = 'Desired end date is required';
+                if (suspDateFrom && suspDateTo && new Date(suspDateFrom) > new Date(suspDateTo)) {
+                    errors.suspDateTo = 'End date cannot be earlier than start date';
+                }
             }
         }
 
@@ -879,10 +894,11 @@ export default function FerryRequestPage() {
                                         <Textarea id="ferry-temp-reason"
                                             label="Reason for Change Request (Business Requirements) *"
                                             value={temporaryReason}
-                                            onChange={e => setTemporaryReason(e.target.value)}
+                                            onChange={e => { setTemporaryReason(e.target.value); clearFieldError('temporaryReason'); }}
                                             placeholder="Please specify reason..."
                                             rows={3}
-                                            readOnly={isReadOnly} />
+                                            readOnly={isReadOnly}
+                                            error={fieldErrors.temporaryReason} />
                                     </div>
                                     <div className={newReqStyles['new-request__full']}>
                                         <label className={styles.fieldLabel}>Desired Ferry Number</label>
@@ -898,12 +914,14 @@ export default function FerryRequestPage() {
                                         </select>
                                     </div>
                                     <DateInput id="ferry-temp-from" label="Desired Date From *"
-                                        value={tempDateFrom} onChange={(e: any) => setTempDateFrom(e.target.value)}
+                                        value={tempDateFrom} onChange={(e: any) => { setTempDateFrom(e.target.value); clearFieldError('tempDateFrom'); }}
                                         readOnly={isReadOnly}
+                                        error={fieldErrors.tempDateFrom}
                                         rightIcon={<Calendar size={18} color="#94a3b8" />} />
                                     <DateInput id="ferry-temp-to" label="Desired Date To *"
-                                        value={tempDateTo} onChange={(e: any) => setTempDateTo(e.target.value)}
+                                        value={tempDateTo} onChange={(e: any) => { setTempDateTo(e.target.value); clearFieldError('tempDateTo'); }}
                                         readOnly={isReadOnly}
+                                        error={fieldErrors.tempDateTo}
                                         rightIcon={<Calendar size={18} color="#94a3b8" />} />
                                 </>)}
 
@@ -1004,12 +1022,14 @@ export default function FerryRequestPage() {
                                         </h4>
                                     </div>
                                     <DateInput id="ferry-susp-from" label="Desired Date For Suspension From *"
-                                        value={suspDateFrom} onChange={(e: any) => setSuspDateFrom(e.target.value)}
+                                        value={suspDateFrom} onChange={(e: any) => { setSuspDateFrom(e.target.value); clearFieldError('suspDateFrom'); }}
                                         readOnly={isReadOnly}
+                                        error={fieldErrors.suspDateFrom}
                                         rightIcon={<Calendar size={18} color="#94a3b8" />} />
                                     <DateInput id="ferry-susp-to" label="Desired Date For Suspension To *"
-                                        value={suspDateTo} onChange={(e: any) => setSuspDateTo(e.target.value)}
+                                        value={suspDateTo} onChange={(e: any) => { setSuspDateTo(e.target.value); clearFieldError('suspDateTo'); }}
                                         readOnly={isReadOnly}
+                                        error={fieldErrors.suspDateTo}
                                         rightIcon={<Calendar size={18} color="#94a3b8" />} />
                                 </>)}
                             </div>
