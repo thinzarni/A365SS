@@ -146,7 +146,6 @@ export default function ApprovalListPage() {
     const { data: allApprovals = [], isLoading: approvalsLoading } = useQuery<RequestModel[]>({
         queryKey: ['approvals', fromDate, toDate, isAllDate, activeStatus],
         queryFn: async () => {
-
             const body: Record<string, unknown> = {
                 fromdate: isAllDate ? "" : fromDate,
                 todate: isAllDate ? "" : toDate,
@@ -154,7 +153,19 @@ export default function ApprovalListPage() {
                 status: activeStatus,
             };
             const res = await apiClient.post(APPROVAL_LIST, body);
-            return res.data?.datalist || [];
+            const datalist: any[] = res.data?.datalist || [];
+
+            // The approval list API returns:
+            //   requesttype    = human-readable name ("claim", "leave", etc.)
+            //   requestsubtype = syskey UUID of the specific sub-type
+            // The multi-approve API expects:
+            //   requesttype    = syskey UUID  (swap from requestsubtype)
+            //   requesttypedesc = human-readable name (swap from requesttype)
+            return datalist.map((item: any) => ({
+                ...item,
+                requesttypedesc: item.requesttype || '',      // "claim" → requesttypedesc
+                requesttype: item.requestsubtype || item.requesttype || '', // syskey → requesttype
+            }));
         },
         enabled: didInitDates,
         staleTime: 0,
@@ -200,13 +211,51 @@ export default function ApprovalListPage() {
         mutationFn: async ({ status }: { status: '2' | '3' }) => {
             const selectedList = Array.from(selectedKeys).map(key => {
                 const req = pendingRequests.find(r => String(r.syskey) === key);
-                return req;
-            });
+                if (!req) return null;
+
+                // The approval list returns requesttype as a syskey UUID,
+                // which is exactly what the multi-approve API expects — pass through as-is.
+                const requesttype = (req as any).requesttype || '';
+
+                return {
+                    syskey: req.syskey,
+                    eid: (req as any).eid || '',
+                    name: req.name || '',
+                    refno: req.refno,
+                    startdate: req.startdate || (req as any).date || '',
+                    enddate: (req as any).enddate || req.startdate || (req as any).date || '',
+                    createddate: (req as any).createddate || '',
+                    requesttype,
+                    requesttypedesc: (req as any).requesttypedesc || '',
+                    requestsubtype: (req as any).requestsubtype || '',
+                    remark: (req as any).remark || '',
+                    isgoing: (req as any).isgoing ?? null,
+                    isreturn: (req as any).isreturn ?? null,
+                    isgoback: (req as any).isgoback ?? null,
+                    ottype: (req as any).ottype ?? 0,
+                    requestsubtypedesc: (req as any).requestsubtypedesc || '',
+                    approver: (req as any).approver || '',
+                    requeststatus: req.requeststatus,
+                    duration: (req as any).duration || null,
+                    amount: (req as any).amount ?? null,
+                    currencytype: (req as any).currencytype ?? null,
+                    currencytypedesc: (req as any).currencytypedesc || '',
+                    hour: (req as any).hour ?? null,
+                    approvedby: (req as any).approvedby || '',
+                    rosykey: (req as any).rosykey || '',
+                    approvaltype: (req as any).approvaltype || '',
+                    timein: (req as any).timein || '',
+                    timeout: (req as any).timeout || '',
+                    stepLevelData: (req as any).stepLevelData || [],
+                    createdtime: (req as any).createdtime || '',
+                };
+            }).filter(Boolean);
+
             const payload = {
                 userid: userId || '',
                 domain: domain || 'dev',
                 status: Number(status),
-                selectedRequestList: selectedList
+                selectedRequestList: selectedList,
             };
             const res = await apiClient.post(MULTI_SAVE_APPROVAL, payload);
             return res.data;

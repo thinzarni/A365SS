@@ -676,6 +676,7 @@
         "attendance": "တက်ရောက်မှု — {{date}}",
         "noRecords": "ဤနေ့အတွက် မှတ်တမ်းမရှိပါ",
         "workingDays": "အလုပ်ရက်",
+        "attSummary": "Attendance",
         "checkIns": "Check In",
         "activities": "လှုပ်ရှားမှုများ",
         "leaves": "ခွင့်ရက်",

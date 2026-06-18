@@ -1532,7 +1532,7 @@ export default function NewRequestPage() {
                                     ) : (
                                         // Generic fallback: wfh, reservation, and other types not explicitly handled
                                         <>
-                                            <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                            <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}  />
                                             <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                                             <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
                                             <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
@@ -1867,7 +1867,7 @@ export default function NewRequestPage() {
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Date & Time</h3>
                                 <div className={styles['new-request__grid']}>
-                                    <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                    <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}  />
                                     <Select
                                         id="startPeriod"
                                         label={t('request.startTime')}
@@ -1875,7 +1875,7 @@ export default function NewRequestPage() {
                                         onChange={(e) => setStartPeriod(e.target.value)}
                                         options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
                                     />
-                                    <Input id="endDate" label={t('request.endDate')} type="date" value={endDate || startDate} onChange={(e) => setEndDate(e.target.value)} />
+                                    <Input id="endDate" label={t('request.endDate')} type="date" value={endDate || startDate} onChange={(e) => setEndDate(e.target.value)}  />
                                     <Select
                                         id="endPeriod"
                                         label={t('request.endTime')}
@@ -2191,7 +2191,6 @@ export default function NewRequestPage() {
                                             (user as any)?.eid,
                                             (user as any)?.employee_id
                                         ].filter(Boolean) as string[]}
-                                        required
                                     />
                                 </div>
                             </>

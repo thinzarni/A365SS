@@ -662,6 +662,7 @@
         "attendance": "Attendance \u2014 {{date}}",
         "noRecords": "No records for this day",
         "workingDays": "Working Days",
+        "attSummary": "Attendance",
         "checkIns": "Check In",
         "activities": "Activities",
         "leaves": "Leaves",
