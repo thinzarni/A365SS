@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +14,8 @@ import {
     Paperclip,
     Edit3,
     X,
-    Save
+    Save,
+    CheckCircle2
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { Textarea, Input } from '../../components/ui/Input/Input';
@@ -49,28 +50,47 @@ function fromApiDateInput(d?: string) {
 
 function formatDisplayDate(dateStr?: string) {
     if (!dateStr) return '';
-    const [year, month, day] = dateStr.split('-');
-    if (!year || !month || !day) return dateStr;
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const mIndex = Number(month) - 1;
-    if (isNaN(mIndex) || mIndex < 0 || mIndex > 11) return dateStr;
-    return `${day} ${months[mIndex]} ${year}`;
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
 }
 
 const DateInput = ({ id, label, value, onChange, readOnly }: any) => {
-    const [focused, setFocused] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
     return (
-        <Input
-            id={id}
-            label={label}
-            type={readOnly ? 'text' : (focused ? 'date' : 'text')}
-            value={readOnly || !focused ? formatDisplayDate(value) : value}
-            onChange={onChange}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            readOnly={readOnly}
-            placeholder={readOnly ? '' : 'Select date'}
-        />
+        <div style={{ position: 'relative' }}>
+            <Input
+                id={id}
+                label={label}
+                type="text"
+                value={formatDisplayDate(value)}
+                onChange={() => {}}
+                onClick={() => {
+                    if (!readOnly && inputRef.current) {
+                        try {
+                            inputRef.current.showPicker();
+                        } catch (e) {}
+                    }
+                }}
+                readOnly={true}
+                placeholder="dd/MM/yyyy"
+                style={{ cursor: readOnly ? 'default' : 'pointer' }}
+            />
+            {!readOnly && (
+                <input
+                    type="date"
+                    ref={inputRef}
+                    value={value || ''}
+                    onChange={onChange}
+                    style={{
+                        position: 'absolute', bottom: 0, left: 10,
+                        width: 1, height: 1, opacity: 0, border: 0, padding: 0, pointerEvents: 'none'
+                    }}
+                />
+            )}
+        </div>
     );
 };
 
@@ -83,9 +103,7 @@ function fromApiDate(d?: string) {
     } else {
         year = d.slice(0, 4); month = d.slice(4, 6); day = d.slice(6, 8);
     }
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const mIdx = parseInt(month, 10) - 1;
-    return `${day} ${months[mIdx]} ${year}`;
+    return `${day}/${month}/${year}`;
 }
 
 const FerryRequestType = {
@@ -339,13 +357,13 @@ export default function FerryApprovalFormPage() {
     const approvalTypeRaw = detail?.approvaltype;
     const isStepLevel = approvalTypeRaw === '1' || approvalTypeRaw === 1;
 
-    const { isStepApproverLevel: _isStepApproverLevel, disableStepApprovalButtons } = useMemo(() => {
+    const { isStepApproverLevel: _isStepApproverLevel, disableStepApprovalButtons, stepStatus } = useMemo(() => {
         const _savedUserName = String((user as any)?.username || (user as any)?.name || '').trim().toLowerCase();
         const _savedUserID = String((user as any)?.userid || userId || '').trim().toLowerCase();
         const _savedRole = String((user as any)?.role || '').trim().toLowerCase();
 
         if (!isStepLevel) {
-            return { isStepApproverLevel: false, disableStepApprovalButtons: false };
+            return { isStepApproverLevel: false, disableStepApprovalButtons: false, stepStatus: null };
         }
 
         const matchingSteps = stepLevelData.filter((step: any) => {
@@ -366,7 +384,7 @@ export default function FerryApprovalFormPage() {
             (String(next.status) === '2' || next.status === 2 || String(next.status) === '3' || next.status === 3)
         );
 
-        return { isStepApproverLevel: isMatched, disableStepApprovalButtons: shouldDisable };
+        return { isStepApproverLevel: isMatched, disableStepApprovalButtons: shouldDisable, stepStatus: stepMatch ? String(stepMatch.status) : null };
     }, [isStepLevel, stepLevelData, user, userId]);
 
     const resolvedChangePurpose = useMemo(() => {
@@ -698,23 +716,13 @@ export default function FerryApprovalFormPage() {
                                 <div className={styles['approval-detail__requester-avatar']}>
                                     {reqName.charAt(0).toUpperCase()}
                                 </div>
-                                <div className={styles['approval-detail__requester-info']}>
+                                <div className={styles['approval-detail__requester-info']} style={{ flex: 1, minWidth: 0 }}>
                                     <div className={styles['approval-detail__requester-name']}>{reqName}</div>
                                     <div className={styles['approval-detail__requester-meta']}>
                                         {d.eid && <span>{String(d.eid)}</span>}
                                     </div>
                                 </div>
-                            </div>
-                            <div style={{ height: 1, background: '#bae6fd', margin: '12px 0' }} />
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#0f172a', fontWeight: 500 }}>
-                                    <Mail size={14} color="#0284c7" />
-                                    <span>{(d.email && String(d.email).includes('@')) ? String(d.email) : '—'}</span>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#0f172a', fontWeight: 500 }}>
-                                    <Phone size={14} color="#0284c7" />
-                                    <span>{String(d.phoneno || '—')}</span>
-                                </div>
+                                <CheckCircle2 size={20} color="#22c55e" style={{ flexShrink: 0 }} />
                             </div>
                         </div>
                     </div>
@@ -1173,7 +1181,7 @@ export default function FerryApprovalFormPage() {
                             <Button
                                 variant="success"
                                 onClick={handleApprove}
-                                disabled={submitMutation.isPending || isApproved || disableStepApprovalButtons}
+                                disabled={submitMutation.isPending || disableStepApprovalButtons || (isStepLevel ? stepStatus === '2' : isApproved)}
                             >
                                 {submitMutation.isPending && submitMutation.variables === '2' ? <Loader2 size={16} className={styles['spin']} /> : <CheckCircle size={16} />}
                                 Approve
@@ -1181,7 +1189,7 @@ export default function FerryApprovalFormPage() {
                             <Button
                                 variant="danger"
                                 onClick={handleReject}
-                                disabled={submitMutation.isPending || isRejected || disableStepApprovalButtons}
+                                disabled={submitMutation.isPending || disableStepApprovalButtons || (isStepLevel ? stepStatus === '3' : isRejected)}
                             >
                                 {submitMutation.isPending && submitMutation.variables === '3' ? <Loader2 size={16} className={styles['spin']} /> : <XCircle size={16} />}
                                 Reject

@@ -217,6 +217,49 @@ function TypeCarousel({
    Component
    ══════════════════════════════════════════════════════════════ */
 
+const DateInput = ({ id, label, value, onChange, readOnly, error, required }: any) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const formatDisplayDate = (d: string) => {
+        if (!d) return '';
+        const p = d.split('-');
+        if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+        return d;
+    };
+    return (
+        <div style={{ position: 'relative' }}>
+            <Input
+                id={id}
+                label={label}
+                type="text"
+                value={formatDisplayDate(value)}
+                onChange={() => {}}
+                onClick={() => {
+                    if (!readOnly && inputRef.current) {
+                        try { inputRef.current.showPicker(); } catch (e) {}
+                    }
+                }}
+                readOnly={true}
+                placeholder="dd/MM/yyyy"
+                error={error}
+                required={required}
+                style={{ cursor: readOnly ? 'default' : 'pointer' }}
+            />
+            {!readOnly && (
+                <input
+                    type="date"
+                    ref={inputRef}
+                    value={value || ''}
+                    onChange={onChange}
+                    style={{
+                        position: 'absolute', bottom: 0, left: 10,
+                        width: 1, height: 1, opacity: 0, border: 0, padding: 0, pointerEvents: 'none'
+                    }}
+                />
+            )}
+        </div>
+    );
+};
+
 export default function NewRequestPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
@@ -1455,7 +1498,7 @@ export default function NewRequestPage() {
                                             id="employee"
                                             label="Select Employee"
                                             value={selectedMemberSyskey}
-                                            onChange={(e) => setSelectedMemberSyskey(e.target.value)}
+                                            onChange={(e: any) => setSelectedMemberSyskey(e.target.value)}
                                             options={employeeOptions}
                                         />
                                         {selectedMemberSyskey !== '__SELF__' && (
@@ -1475,46 +1518,46 @@ export default function NewRequestPage() {
                                 <div className={styles['new-request__grid']}>
                                     {selectedType === 'travel' ? (
                                         <>
-                                            <Input id="departureDate" label="Departure Date" type="date" value={departureDate} onChange={(e) => setDepartureDate(e.target.value)} required />
-                                            <Input id="arrivalDate" label="Arrival Date" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} required />
+                                            <DateInput id="departureDate" label="Departure Date" value={departureDate} onChange={(e: any) => setDepartureDate(e.target.value)} required />
+                                            <DateInput id="arrivalDate" label="Arrival Date" value={arrivalDate} onChange={(e: any) => setArrivalDate(e.target.value)} required />
                                         </>
                                     ) : selectedType === 'overtime' ? (
                                         // Overtime: start/end date | start/end time | OT Day + OT Hours
                                         <>
-                                            <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                                            <DateInput id="startDate" label={t('request.startDate')} value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                            <DateInput id="endDate" label={t('request.endDate')} value={endDate} onChange={(e: any) => setEndDate(e.target.value)} />
+                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)} />
+                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)} />
                                             {/* OT Day + OT Hours — same row, below times */}
                                             <div className={styles['new-request__full']} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                                                 <Input id="otDays" label="OT Day" type="number" value={otDays} readOnly placeholder="auto" />
-                                                <Input id="hour" label="OT Hours" type="number" value={hour} onChange={(e) => setHour(e.target.value)} placeholder="auto-calculated" min="0" step="0.5" readOnly={!!(startTime && endTime)} />
+                                                <Input id="hour" label="OT Hours" type="number" value={hour} onChange={(e: any) => setHour(e.target.value)} placeholder="auto-calculated" min="0" step="0.5" readOnly={!!(startTime && endTime)} />
                                             </div>
                                         </>
                                     ) : selectedType === 'offinlieu' ? (
                                         // Off in Lieu: single date + start/end time (no duration) — mirrors mobile
                                         <>
-                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Input id="startTime" label="Start Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
-                                            <Input id="endTime" label="End Time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+                                            <DateInput id="startDate" label="Date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                            <Input id="startTime" label="Start Time" type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)} required />
+                                            <Input id="endTime" label="End Time" type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)} required />
                                         </>
                                     ) : GENERIC_TYPES.has(selectedType) || selectedType.startsWith('other_') ? (
                                         // General/Employee Requisition/Purchase/Attendance — single date + time
                                         <>
-                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Input id="startTime" label="Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                                            <DateInput id="startDate" label="Date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                            <Input id="startTime" label="Time" type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)} />
                                         </>
                                     ) : (selectedType === 'claim' || selectedType === 'cashadvance') ? (
                                         // Claim / Cash Advance: single date only — Flutter uses formData['date']
                                         <>
-                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                            <DateInput id="startDate" label="Date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
                                         </>
                                     ) : (selectedType === 'late' || selectedType === 'earlyout') ? (
                                         // Late / Early Out: single date + startTime + endTime + auto-calculated duration
                                         <>
-                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Input id="startTime" label="Start Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
-                                            <Input id="endTime" label="End Time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+                                            <DateInput id="startDate" label="Date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                            <Input id="startTime" label="Start Time" type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)} required />
+                                            <Input id="endTime" label="End Time" type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)} required />
                                             {startTime && endTime && (() => {
                                                 const [sh, sm] = startTime.split(':').map(Number);
                                                 const [eh, em] = endTime.split(':').map(Number);
@@ -1532,10 +1575,10 @@ export default function NewRequestPage() {
                                     ) : (
                                         // Generic fallback: wfh, reservation, and other types not explicitly handled
                                         <>
-                                            <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                                            <DateInput id="startDate" label={t('request.startDate')} value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                            <DateInput id="endDate" label={t('request.endDate')} value={endDate} onChange={(e: any) => setEndDate(e.target.value)} />
+                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)} />
+                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)} />
                                         </>
                                     )}
                                 </div>
@@ -1574,7 +1617,7 @@ export default function NewRequestPage() {
                                         id="transToPlace"
                                         label="Destination Place"
                                         value={transToPlace}
-                                        onChange={(e) => setTransToPlace(e.target.value)}
+                                        onChange={(e: any) => setTransToPlace(e.target.value)}
                                         placeholder="Enter destination…"
                                     />
 
@@ -1584,7 +1627,7 @@ export default function NewRequestPage() {
                                             id="transTripType"
                                             label="Travel Type"
                                             value={transTripType}
-                                            onChange={(e) => {
+                                            onChange={(e: any) => {
                                                 const sel = transportTypes.find(t => t.syskey === e.target.value);
                                                 setTransTripType(e.target.value);
                                                 setTransTripTypeDesc(sel?.description || '');
@@ -1598,13 +1641,13 @@ export default function NewRequestPage() {
                                     {transTripType === '0' && (
                                         <>
                                             <Input className={styles['new-request__full']} id="transOneWayStart" label="Start Location" value={transOneWayStart}
-                                                onChange={(e) => setTransOneWayStart(e.target.value)} placeholder="Start location…" />
+                                                onChange={(e: any) => setTransOneWayStart(e.target.value)} placeholder="Start location…" />
                                             <Input className={styles['new-request__full']} id="transOneWayEnd" label="End Location" value={transOneWayEnd}
-                                                onChange={(e) => setTransOneWayEnd(e.target.value)} placeholder="End location…" />
+                                                onChange={(e: any) => setTransOneWayEnd(e.target.value)} placeholder="End location…" />
                                             <Input id="transOneWayStartTime" label="Start Time" type="time" value={transOneWayStartTime}
-                                                onChange={(e) => setTransOneWayStartTime(e.target.value)} />
+                                                onChange={(e: any) => setTransOneWayStartTime(e.target.value)} />
                                             <Input id="transOneWayEndTime" label="End Time" type="time" value={transOneWayEndTime}
-                                                onChange={(e) => setTransOneWayEndTime(e.target.value)} />
+                                                onChange={(e: any) => setTransOneWayEndTime(e.target.value)} />
                                         </>
                                     )}
 
@@ -1613,22 +1656,22 @@ export default function NewRequestPage() {
                                         <>
                                             <div className={styles['new-request__full']} style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: 'var(--text-sm)' }}>Departure</div>
                                             <Input id="transDepartureStart" label="Start Location" value={transDepartureStart}
-                                                onChange={(e) => setTransDepartureStart(e.target.value)} placeholder="Departure start…" />
+                                                onChange={(e: any) => setTransDepartureStart(e.target.value)} placeholder="Departure start…" />
                                             <Input id="transDepartureEnd" label="End Location" value={transDepartureEnd}
-                                                onChange={(e) => setTransDepartureEnd(e.target.value)} placeholder="Departure end…" />
+                                                onChange={(e: any) => setTransDepartureEnd(e.target.value)} placeholder="Departure end…" />
                                             <Input id="transDepartureStartTime" label="Start Time" type="time" value={transDepartureStartTime}
-                                                onChange={(e) => setTransDepartureStartTime(e.target.value)} />
+                                                onChange={(e: any) => setTransDepartureStartTime(e.target.value)} />
                                             <Input id="transDepartureEndTime" label="End Time" type="time" value={transDepartureEndTime}
-                                                onChange={(e) => setTransDepartureEndTime(e.target.value)} />
+                                                onChange={(e: any) => setTransDepartureEndTime(e.target.value)} />
                                             <div className={styles['new-request__full']} style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: 'var(--text-sm)' }}>Arrival</div>
                                             <Input id="transArrivalStart" label="Start Location" value={transArrivalStart}
-                                                onChange={(e) => setTransArrivalStart(e.target.value)} placeholder="Arrival start…" />
+                                                onChange={(e: any) => setTransArrivalStart(e.target.value)} placeholder="Arrival start…" />
                                             <Input id="transArrivalEnd" label="End Location" value={transArrivalEnd}
-                                                onChange={(e) => setTransArrivalEnd(e.target.value)} placeholder="Arrival end…" />
+                                                onChange={(e: any) => setTransArrivalEnd(e.target.value)} placeholder="Arrival end…" />
                                             <Input id="transArrivalStartTime" label="Start Time" type="time" value={transArrivalStartTime}
-                                                onChange={(e) => setTransArrivalStartTime(e.target.value)} />
+                                                onChange={(e: any) => setTransArrivalStartTime(e.target.value)} />
                                             <Input id="transArrivalEndTime" label="End Time" type="time" value={transArrivalEndTime}
-                                                onChange={(e) => setTransArrivalEndTime(e.target.value)} />
+                                                onChange={(e: any) => setTransArrivalEndTime(e.target.value)} />
                                         </>
                                     )}
                                 </div>
@@ -1653,7 +1696,7 @@ export default function NewRequestPage() {
                                             id="orgUnitSubject"
                                             label="Unit Subject to Change:*"
                                             value={orgUnitSubject}
-                                            onChange={(e) => setOrgUnitSubject(e.target.value)}
+                                            onChange={(e: any) => setOrgUnitSubject(e.target.value)}
                                             options={orgUnitSubjects.map(item => ({
                                                 value: item.description,
                                                 label: item.description
@@ -1666,7 +1709,7 @@ export default function NewRequestPage() {
                                         id="orgChangeType"
                                         label="Type of Organization Change*"
                                         value={orgChangeType}
-                                        onChange={(e) => setOrgChangeType(e.target.value)}
+                                        onChange={(e: any) => setOrgChangeType(e.target.value)}
                                         options={orgChangeTypes.map(item => ({
                                             value: item.description,
                                             label: item.description
@@ -1676,10 +1719,10 @@ export default function NewRequestPage() {
 
                                     {/* ROW 3 */}
                                     <FileUpload label="Summary of Change**" files={files} onChange={setFiles} accept=".pdf,.docx,.jpg,.png" />
-                                    <Textarea id="orgComment" label="Comment for Summary Change**" value={orgComment} onChange={e => setOrgComment(e.target.value)} placeholder="Test" required />
+                                    <Textarea id="orgComment" label="Comment for Summary Change**" value={orgComment} onChange={(e: any) => setOrgComment(e.target.value)} placeholder="Test" required />
 
                                     {/* ROW 4 */}
-                                    <Textarea id="orgObjective" label="Objective of Change**" value={orgObjective} onChange={e => setOrgObjective(e.target.value)} placeholder="TEST" required />
+                                    <Textarea id="orgObjective" label="Objective of Change**" value={orgObjective} onChange={(e: any) => setOrgObjective(e.target.value)} placeholder="TEST" required />
                                     <FileUpload label="Employee Reassignment**" files={files} onChange={setFiles} accept=".pdf,.docx,.jpg,.png" />
 
                                     {/* ROW 5 */}
@@ -1695,7 +1738,7 @@ export default function NewRequestPage() {
                                         </div>
                                         {orgEffectiveFix === 'Yes' && (
                                             <div style={{ maxWidth: '50%' }}>
-                                                <Input id="orgProposedDate" label="Proposed Effective Date*" type="date" value={orgProposedDate} onChange={e => setOrgProposedDate(e.target.value)} required />
+                                                <DateInput id="orgProposedDate" label="Proposed Effective Date*" value={orgProposedDate} onChange={(e: any) => setOrgProposedDate(e.target.value)} required />
                                             </div>
                                         )}
                                     </div>
@@ -1713,9 +1756,9 @@ export default function NewRequestPage() {
                                         </div>
                                         {orgRelocation === 'Yes' && (
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-                                                <Input id="orgRelocationHeadcounts" label="Headcounts to relocate*" type="number" value={orgRelocationHeadcounts} onChange={e => setOrgRelocationHeadcounts(e.target.value)} required />
-                                                <Input id="orgRelocationFrom" label="Relocation [From]:*" value={orgRelocationFrom} onChange={e => setOrgRelocationFrom(e.target.value)} required />
-                                                <Input id="orgRelocationTo" label="Relocation [To]:*" value={orgRelocationTo} onChange={e => setOrgRelocationTo(e.target.value)} required />
+                                                <Input id="orgRelocationHeadcounts" label="Headcounts to relocate*" type="number" value={orgRelocationHeadcounts} onChange={(e: any) => setOrgRelocationHeadcounts(e.target.value)} required />
+                                                <Input id="orgRelocationFrom" label="Relocation [From]:*" value={orgRelocationFrom} onChange={(e: any) => setOrgRelocationFrom(e.target.value)} required />
+                                                <Input id="orgRelocationTo" label="Relocation [To]:*" value={orgRelocationTo} onChange={(e: any) => setOrgRelocationTo(e.target.value)} required />
                                             </div>
                                         )}
                                     </div>
@@ -1723,7 +1766,7 @@ export default function NewRequestPage() {
                                     <div className={styles['new-request__full']} style={{ height: '32px' }} /> {/* Spacing */}
 
                                     {/* ROW 7 */}
-                                    <Input id="orgApplicationDate" label="Application Date*" type="date" value={startDate} readOnly />
+                                    <DateInput id="orgApplicationDate" label="Application Date*" value={startDate} readOnly />
                                     <Input id="orgDepartment" label="Initiator's Department" value={user?.department || ''} readOnly />
 
                                     {/* ROW 8 */}
@@ -1750,7 +1793,7 @@ export default function NewRequestPage() {
                                         id="reservationType"
                                         label="Reservation Type"
                                         value={subType}
-                                        onChange={(e) => setSubType(e.target.value)}
+                                        onChange={(e: any) => setSubType(e.target.value)}
                                         options={reservationTypes.map((r) => ({ value: r.syskey, label: r.description }))}
                                         placeholder="Select type…"
                                     />
@@ -1758,7 +1801,7 @@ export default function NewRequestPage() {
                                         id="room"
                                         label="Rooms"
                                         value={room}
-                                        onChange={(e) => {
+                                        onChange={(e: any) => {
                                             setRoom(e.target.value);
                                             // Auto-fill maxPeople from the selected room
                                             const selected = roomTypes.find((r) => r.syskey === e.target.value);
@@ -1769,7 +1812,7 @@ export default function NewRequestPage() {
                                         options={roomTypes.map((r) => ({ value: r.syskey, label: r.description }))}
                                         placeholder="Select room…"
                                     />
-                                    <Input id="maxPeople" label="Max People" type="number" value={maxPeople} onChange={(e) => setMaxPeople(e.target.value)} placeholder="e.g. 10" />
+                                    <Input id="maxPeople" label="Max People" type="number" value={maxPeople} onChange={(e: any) => setMaxPeople(e.target.value)} placeholder="e.g. 10" />
                                 </div>
                                 <div style={{ marginTop: 'var(--space-4)' }}>
                                     <MemberPicker label="Meeting Participants" members={accompanyPersons} onChange={setAccompanyPersons} />
@@ -1782,27 +1825,27 @@ export default function NewRequestPage() {
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Travel Details</h3>
                                 <div className={styles['new-request__grid']}>
-                                    <Input id="travelDepartureTime" label="Departure Time" type="time" value={travelDepartureTime} onChange={(e) => setTravelDepartureTime(e.target.value)} />
-                                    <Input id="travelReturnTime" label="Planned Return" type="time" value={travelReturnTime} onChange={(e) => setTravelReturnTime(e.target.value)} />
+                                    <Input id="travelDepartureTime" label="Departure Time" type="time" value={travelDepartureTime} onChange={(e: any) => setTravelDepartureTime(e.target.value)} />
+                                    <Input id="travelReturnTime" label="Planned Return" type="time" value={travelReturnTime} onChange={(e: any) => setTravelReturnTime(e.target.value)} />
                                     {travelTypes.length > 0 && (
-                                        <Select id="modeOfTravel" label="Mode of Travel" value={modeOfTravel} onChange={(e) => setModeOfTravel(e.target.value)} options={travelTypes.map((t) => ({ value: t.syskey, label: t.description }))} placeholder="Select…" />
+                                        <Select id="modeOfTravel" label="Mode of Travel" value={modeOfTravel} onChange={(e: any) => setModeOfTravel(e.target.value)} options={travelTypes.map((t) => ({ value: t.syskey, label: t.description }))} placeholder="Select…" />
                                     )}
                                     {vehicleUseList.length > 0 && (
-                                        <Select id="vehicleUse" label="Vehicle Use" value={vehicleUse} onChange={(e) => setVehicleUse(e.target.value)} options={vehicleUseList.map((v) => ({ value: v.syskey, label: v.description }))} placeholder="Select…" />
+                                        <Select id="vehicleUse" label="Vehicle Use" value={vehicleUse} onChange={(e: any) => setVehicleUse(e.target.value)} options={vehicleUseList.map((v) => ({ value: v.syskey, label: v.description }))} placeholder="Select…" />
                                     )}
                                     {productList.length > 0 && (
-                                        <Select id="product" label="Product" value={product} onChange={(e) => setProduct(e.target.value)} options={productList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select…" />
+                                        <Select id="product" label="Product" value={product} onChange={(e: any) => setProduct(e.target.value)} options={productList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select…" />
                                     )}
                                     {projectList.length > 0 && (
-                                        <Select id="project" label="Project" value={project} onChange={(e) => setProject(e.target.value)} options={projectList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select…" />
+                                        <Select id="project" label="Project" value={project} onChange={(e: any) => setProject(e.target.value)} options={projectList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select…" />
                                     )}
-                                    <Input id="budget" label="Estimated Budget" type="text" inputMode="decimal" value={formatAmount(estimatedBudget)} onChange={(e) => setEstimatedBudget(unformatAmount(e.target.value))} placeholder="0" />
+                                    <Input id="budget" label="Estimated Budget" type="text" inputMode="decimal" value={formatAmount(estimatedBudget)} onChange={(e: any) => setEstimatedBudget(unformatAmount(e.target.value))} placeholder="0" />
                                     <div className={styles['new-request__full']}>
                                         <Textarea
                                             id="travelPurpose"
                                             label="Travel Purpose"
                                             value={travelPurpose}
-                                            onChange={(e) => setTravelPurpose(e.target.value)}
+                                            onChange={(e: any) => setTravelPurpose(e.target.value)}
                                             placeholder="Purpose of this travel…"
                                             required
                                         />
@@ -1820,10 +1863,10 @@ export default function NewRequestPage() {
                                 <h3 className={styles['new-request__section-title']}>Overtime Details</h3>
                                 <div className={styles['new-request__grid']}>
                                     {productList.length > 0 && (
-                                        <Select id="otProduct" label="Product" value={product} onChange={(e) => setProduct(e.target.value)} options={productList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select product…" />
+                                        <Select id="otProduct" label="Product" value={product} onChange={(e: any) => setProduct(e.target.value)} options={productList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select product…" />
                                     )}
                                     {projectList.length > 0 && (
-                                        <Select id="otProject" label="Project" value={project} onChange={(e) => setProject(e.target.value)} options={projectList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select project…" />
+                                        <Select id="otProject" label="Project" value={project} onChange={(e: any) => setProject(e.target.value)} options={projectList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select project…" />
                                     )}
                                 </div>
                             </div>
@@ -1838,7 +1881,7 @@ export default function NewRequestPage() {
                                         id="leaveType"
                                         label="Leave Type"
                                         value={leaveType}
-                                        onChange={(e) => setLeaveType(e.target.value)}
+                                        onChange={(e: any) => setLeaveType(e.target.value)}
                                         options={leaveTypeList.map((lt) => ({ value: lt.syskey, label: lt.description }))}
                                         placeholder="Select leave type…"
                                         required
@@ -1854,7 +1897,7 @@ export default function NewRequestPage() {
                                     id="leaveReason"
                                     label="Leave Reason"
                                     value={leaveReason}
-                                    onChange={(e) => setLeaveReason(e.target.value)}
+                                    onChange={(e: any) => setLeaveReason(e.target.value)}
                                     options={leaveReasonsList.map((r) => ({ value: r.syskey, label: r.description }))}
                                     placeholder="Choose your reason..."
                                     required
@@ -1867,20 +1910,20 @@ export default function NewRequestPage() {
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Date & Time</h3>
                                 <div className={styles['new-request__grid']}>
-                                    <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                    <DateInput id="startDate" label={t('request.startDate')} value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
                                     <Select
                                         id="startPeriod"
                                         label={t('request.startTime')}
                                         value={startPeriod}
-                                        onChange={(e) => setStartPeriod(e.target.value)}
+                                        onChange={(e: any) => setStartPeriod(e.target.value)}
                                         options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
                                     />
-                                    <Input id="endDate" label={t('request.endDate')} type="date" value={endDate || startDate} onChange={(e) => setEndDate(e.target.value)} />
+                                    <DateInput id="endDate" label={t('request.endDate')} value={endDate || startDate} onChange={(e: any) => setEndDate(e.target.value)} />
                                     <Select
                                         id="endPeriod"
                                         label={t('request.endTime')}
                                         value={endPeriod}
-                                        onChange={(e) => setEndPeriod(e.target.value)}
+                                        onChange={(e: any) => setEndPeriod(e.target.value)}
                                         options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
                                     />
                                     <div style={{ position: 'relative' }}>
@@ -1933,7 +1976,7 @@ export default function NewRequestPage() {
                                                 type="text"
                                                 inputMode="decimal"
                                                 value={duration}
-                                                onChange={(e) => setDuration(e.target.value)}
+                                                onChange={(e: any) => setDuration(e.target.value)}
                                                 placeholder="e.g. 1.5"
                                             />
                                         )}
@@ -1948,7 +1991,7 @@ export default function NewRequestPage() {
                                 <h3 className={styles['new-request__section-title']}>Work From Home</h3>
                                 <div className={styles['new-request__grid']}>
                                     <div className={styles['new-request__full']}>
-                                        <Input id="locationName" label="Location" value={locationName} onChange={(e) => setLocationName(e.target.value)} placeholder="Where you'll be working from" />
+                                        <Input id="locationName" label="Location" value={locationName} onChange={(e: any) => setLocationName(e.target.value)} placeholder="Where you'll be working from" />
                                     </div>
                                 </div>
                             </div>
@@ -1966,7 +2009,7 @@ export default function NewRequestPage() {
                                             id="claimType"
                                             label="Claim Type"
                                             value={claimType}
-                                            onChange={(e) => {
+                                            onChange={(e: any) => {
                                                 setClaimType(e.target.value);
                                                 const sel = claimTypeList.find(ct => ct.syskey === e.target.value);
                                                 setClaimTypeDesc(sel?.description || '');
@@ -1998,13 +2041,12 @@ export default function NewRequestPage() {
                                 )}
 
                                 {/* Row 2: Date */}
-                                <div style={{ marginBottom: 'var(--space-4)' }}>
-                                    <Input
+                                <div className={styles['new-request__grid']} style={{ marginBottom: 'var(--space-4)' }}>
+                                    <DateInput
                                         id="claimDate"
                                         label="Date"
-                                        type="date"
                                         value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
+                                        onChange={(e: any) => setStartDate(e.target.value)}
                                         required
                                     />
                                 </div>
@@ -2017,7 +2059,7 @@ export default function NewRequestPage() {
                                         type="text"
                                         inputMode="decimal"
                                         value={formatAmount(amount)}
-                                        onChange={(e) => setAmount(unformatAmount(e.target.value))}
+                                        onChange={(e: any) => setAmount(unformatAmount(e.target.value))}
                                         placeholder="0"
                                         required
                                     />
@@ -2025,7 +2067,7 @@ export default function NewRequestPage() {
                                         id="claimCurrency"
                                         label="Currency"
                                         value={currencyType}
-                                        onChange={(e) => setCurrencyType(e.target.value)}
+                                        onChange={(e: any) => setCurrencyType(e.target.value)}
                                         placeholder="Select currency"
                                         options={currencyList.map((c) => ({ value: c.syskey, label: c.description }))}
                                     />
@@ -2038,7 +2080,7 @@ export default function NewRequestPage() {
                                             id="claimFromPlace"
                                             label="From Place"
                                             value={claimFromPlace}
-                                            onChange={(e) => setClaimFromPlace(e.target.value)}
+                                            onChange={(e: any) => setClaimFromPlace(e.target.value)}
                                             placeholder="Origin"
                                             required
                                         />
@@ -2046,7 +2088,7 @@ export default function NewRequestPage() {
                                             id="claimToPlace"
                                             label="To Place"
                                             value={claimToPlace}
-                                            onChange={(e) => setClaimToPlace(e.target.value)}
+                                            onChange={(e: any) => setClaimToPlace(e.target.value)}
                                             placeholder="Destination"
                                             required
                                         />
@@ -2064,7 +2106,7 @@ export default function NewRequestPage() {
                                         id="remark"
                                         label={isBenefitBonusClaimType ? 'Reason' : t('request.remark')}
                                         value={remark}
-                                        onChange={(e) => setRemark(e.target.value)}
+                                        onChange={(e: any) => setRemark(e.target.value)}
                                         placeholder="Any additional notes or comments…"
                                     />
                                 </div>

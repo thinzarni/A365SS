@@ -7,7 +7,7 @@
  * Content filtered: requesttypedesc contains 'ferry' OR 'hr'
  * New request → /ferry/new  |  Row tap → /ferry/:id
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -110,6 +110,8 @@ export default function FerryRequestListPage() {
 
     const [fromFocused, setFromFocused] = useState(false);
     const [toFocused, setToFocused] = useState(false);
+    const fromRef = useRef<HTMLInputElement>(null);
+    const toRef = useRef<HTMLInputElement>(null);
 
     /* delete confirm */
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
@@ -298,23 +300,59 @@ export default function FerryRequestListPage() {
                             </button>
                         </div>
                         <div className={styles['filter-inputs']}>
-                            <Input type={isAllDate ? "text" : (fromFocused ? "date" : "text")} 
-                                value={isAllDate ? "" : (fromFocused ? fromDate : formatFilterDate(fromDate))}
-                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
-                                onChange={e => setFromDate(e.target.value)}
-                                onFocus={() => setFromFocused(true)}
-                                onBlur={() => setFromFocused(false)}
-                                disabled={isAllDate}
-                                className={styles['filter-date']} />
+                            <div style={{ position: 'relative', display: 'flex', flex: 1 }}>
+                                <Input 
+                                    type="text" 
+                                    value={isAllDate ? "" : formatFilterDate(fromDate)}
+                                    placeholder="dd/MM/yyyy"
+                                    onChange={() => {}}
+                                    onClick={() => {
+                                        if (!isAllDate && fromRef.current) {
+                                            try { fromRef.current.showPicker(); } catch(e) {}
+                                        }
+                                    }}
+                                    disabled={isAllDate}
+                                    readOnly={!isAllDate}
+                                    className={styles['filter-date']}
+                                    style={{ width: '100%', cursor: isAllDate ? 'default' : 'pointer' }}
+                                />
+                                {!isAllDate && (
+                                    <input 
+                                        type="date" 
+                                        ref={fromRef}
+                                        value={fromDate}
+                                        onChange={e => setFromDate(e.target.value)}
+                                        style={{ position: 'absolute', bottom: 0, left: 10, width: 1, height: 1, opacity: 0, border: 0, padding: 0, pointerEvents: 'none' }}
+                                    />
+                                )}
+                            </div>
                             <span className={styles['filter-separator']}>→</span>
-                            <Input type={isAllDate ? "text" : (toFocused ? "date" : "text")} 
-                                value={isAllDate ? "" : (toFocused ? toDate : formatFilterDate(toDate))}
-                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
-                                onChange={e => setToDate(e.target.value)}
-                                onFocus={() => setToFocused(true)}
-                                onBlur={() => setToFocused(false)}
-                                disabled={isAllDate}
-                                className={styles['filter-date']} />
+                            <div style={{ position: 'relative', display: 'flex', flex: 1 }}>
+                                <Input 
+                                    type="text" 
+                                    value={isAllDate ? "" : formatFilterDate(toDate)}
+                                    placeholder="dd/MM/yyyy"
+                                    onChange={() => {}}
+                                    onClick={() => {
+                                        if (!isAllDate && toRef.current) {
+                                            try { toRef.current.showPicker(); } catch(e) {}
+                                        }
+                                    }}
+                                    disabled={isAllDate}
+                                    readOnly={!isAllDate}
+                                    className={styles['filter-date']}
+                                    style={{ width: '100%', cursor: isAllDate ? 'default' : 'pointer' }}
+                                />
+                                {!isAllDate && (
+                                    <input 
+                                        type="date" 
+                                        ref={toRef}
+                                        value={toDate}
+                                        onChange={e => setToDate(e.target.value)}
+                                        style={{ position: 'absolute', bottom: 0, left: 10, width: 1, height: 1, opacity: 0, border: 0, padding: 0, pointerEvents: 'none' }}
+                                    />
+                                )}
+                            </div>
                         </div>
                     </div>
                     <div className={styles['filter-group']}>
