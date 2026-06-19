@@ -69,10 +69,7 @@ function fromApiDate(d: string) {
     } else {
         year = d.slice(0, 4); month = d.slice(4, 6); day = d.slice(6, 8);
     }
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const mIndex = Number(month) - 1;
-    if (isNaN(mIndex) || mIndex < 0 || mIndex > 11) return `${day}/${month}/${year}`;
-    return `${day} ${months[mIndex]} ${year}`;
+    return `${day}/${month}/${year}`;
 }
 
 const COMPLAINT_OPTS = [
@@ -356,12 +353,7 @@ export default function FerryRequestDetailPage() {
                                             </div>
                                         )}
                                     </div>
-                                    {/* Rank below name */}
-                                    {(ep?.rank || detail?.rank) && (
-                                        <div style={{ fontSize: 12, color: '#0369a1', marginTop: 2 }}>
-                                            {ep?.rank || detail?.rank}
-                                        </div>
-                                    )}
+
                                 </div>
                             </div>
 

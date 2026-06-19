@@ -7,7 +7,7 @@
  * Sub-types come from REQUEST_TYPES API filtered to items whose description
  * contains "ferry" or "hr compliant" — exactly as Flutter does.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -95,35 +95,61 @@ const FERRY_TYPE_VISUAL: Record<string, { icon: any; color: string; bgColor: str
 
 function fromApiDate(d: string) {
     if (!d || d.length < 8) return '';
-    if (d.includes('-')) return d.split('T')[0];
-    return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    let year, month, day;
+    if (d.includes('-')) {
+        const parts = d.split('T')[0].split('-');
+        year = parts[0]; month = parts[1]; day = parts[2];
+    } else {
+        year = d.slice(0, 4); month = d.slice(4, 6); day = d.slice(6, 8);
+    }
+    return `${day}/${month}/${year}`;
 }
 
 function formatDisplayDate(dateStr: string) {
     if (!dateStr) return '';
-    const [year, month, day] = dateStr.split('-');
-    if (!year || !month || !day) return dateStr;
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const mIndex = Number(month) - 1;
-    if (isNaN(mIndex) || mIndex < 0 || mIndex > 11) return dateStr;
-    return `${day} ${months[mIndex]} ${year}`;
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
 }
 
 const DateInput = ({ id, label, value, onChange, readOnly, error, rightIcon }: any) => {
-    const [focused, setFocused] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
     return (
-        <Input
-            id={id}
-            label={label}
-            type={readOnly ? 'text' : (focused ? 'date' : 'text')}
-            value={readOnly || !focused ? formatDisplayDate(value) : value}
-            onChange={onChange}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            readOnly={readOnly}
-            error={error}
-            rightIcon={(!focused && rightIcon) ? rightIcon : undefined}
-        />
+        <div style={{ position: 'relative' }}>
+            <Input
+                id={id}
+                label={label}
+                type="text"
+                value={formatDisplayDate(value)}
+                onChange={() => {}}
+                onClick={() => {
+                    if (!readOnly && inputRef.current) {
+                        try {
+                            inputRef.current.showPicker();
+                        } catch (e) {}
+                    }
+                }}
+                readOnly={true}
+                placeholder="dd/MM/yyyy"
+                error={error}
+                rightIcon={rightIcon}
+                style={{ cursor: readOnly ? 'default' : 'pointer' }}
+            />
+            {!readOnly && (
+                <input
+                    type="date"
+                    ref={inputRef}
+                    value={value || ''}
+                    onChange={onChange}
+                    style={{
+                        position: 'absolute', bottom: 0, left: 10,
+                        width: 1, height: 1, opacity: 0, border: 0, padding: 0, pointerEvents: 'none'
+                    }}
+                />
+            )}
+        </div>
     );
 };
 
@@ -662,14 +688,14 @@ export default function FerryRequestPage() {
                 <h1 className="page-header__title">
                     {isNew ? `New ${selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request')}` : (detail?.requesttypedesc || selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request'))}
                 </h1>
-                <p className="page-header__subtitle">
-                    {!isNew && detail?.refno ? `Ref # ${detail.refno}` : (!isHrComplaintView ? 'Company ferry / bus service' : 'Fill out the form below')}
-                </p>
-                {!isNew && (
-                    <div style={{ marginTop: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 4, marginBottom: 12 }}>
+                    <p className="page-header__subtitle" style={{ margin: 0 }}>
+                        {!isNew && detail?.refno ? `Ref # ${detail.refno}` : (!isHrComplaintView ? 'Company ferry / bus service' : 'Fill out the form below')}
+                    </p>
+                    {!isNew && (
                         <StatusBadge status={String(detail?.requeststatus ?? '1')} />
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
             {(!isNew && detailLoading) ? (
@@ -756,15 +782,7 @@ export default function FerryRequestPage() {
                                             </div>
                                         )}
                                     </div>
-                                    {/* Rank below name */}
-                                    {displayRank && (
-                                        <div>
-                                            <div style={{ fontSize: 11, fontWeight: 600, color: '#0369a1', marginBottom: 2, letterSpacing: '0.03em' }}>Rank</div>
-                                            <div style={{ fontSize: 13, fontWeight: 500, color: '#0c4a6e' }}>
-                                                {displayRank}
-                                            </div>
-                                        </div>
-                                    )}
+
                                 </div>
                                 <CheckCircle2 size={20} color="#22c55e" style={{ flexShrink: 0 }} />
                             </div>
