@@ -25,14 +25,15 @@ import {
 } from 'lucide-react';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
-import type { RequestModel } from '../../types/models';
+import type { RequestModel, TypesModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
 import {
     APPROVAL_LIST,
     ATTENDANCE_SHIFT_DATA,
     MULTI_SAVE_APPROVAL,
-    LEAVE_TYPES
+    LEAVE_TYPES,
+    REQUEST_TYPES
 } from '../../config/api-routes';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../stores/auth-store';
@@ -101,6 +102,7 @@ export default function ApprovalListPage() {
     const navigate = useNavigate();
     const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
     const [showFilter, setShowFilter] = useState(false);
+    const [selectedType, setSelectedType] = useState<string>('');
     const [fromDate, setFromDate] = useState(defaultFromDate);
     const [toDate, setToDate] = useState(defaultToDate);
     const [isAllDate, setIsAllDate] = useState(true);
@@ -143,14 +145,34 @@ export default function ApprovalListPage() {
         staleTime: 5 * 60 * 1000,
     });
 
+    // Fetch request types for the dropdown
+    const { data: requestTypes = [] } = useQuery<TypesModel[]>({
+        queryKey: ['requestTypes'],
+        queryFn: async () => {
+            const res = await apiClient.get(REQUEST_TYPES);
+            return res.data?.datalist || [];
+        }
+    });
+
+    const typeOptions = useMemo(() => {
+        const options: { value: string, label: string }[] = [];
+        options.push({ value: '', label: 'All Requests' });
+        
+        requestTypes.forEach(rt => {
+            options.push({ value: rt.syskey, label: rt.description });
+        });
+        
+        return options;
+    }, [requestTypes]);
+
     const { data: allApprovals = [], isLoading: approvalsLoading } = useQuery<RequestModel[]>({
-        queryKey: ['approvals', fromDate, toDate, isAllDate, activeStatus],
+        queryKey: ['approvals', fromDate, toDate, isAllDate, activeStatus, selectedType],
         queryFn: async () => {
 
             const body: Record<string, unknown> = {
                 fromdate: isAllDate ? "" : fromDate,
                 todate: isAllDate ? "" : toDate,
-                type: '',
+                type: selectedType,
                 status: activeStatus,
             };
             const res = await apiClient.post(APPROVAL_LIST, body);
@@ -263,71 +285,81 @@ export default function ApprovalListPage() {
                         </p>
                     </div>
                 </div>
-                <button
-                    className={styles['approval-page__filter-btn']}
-                    onClick={() => setShowFilter(!showFilter)}
-                    title="Filter by date"
-                >
-                    <Filter size={16} />
-                    <span>Filter</span>
-                    {showFilter ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
             </div>
 
             {/* ── Date Filter ── */}
             {showFilter && (
                 <div className={styles['approval-page__filter-panel']}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                        <label className={styles['approval-page__filter-label']} style={{ marginBottom: 0 }}>Date Range</label>
-                        <button
-                            type="button"
-                            onClick={() => setIsAllDate(!isAllDate)}
-                            style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 6,
-                                fontSize: 12, fontWeight: 600,
-                                padding: '4px 12px', borderRadius: 16,
-                                border: '1px solid',
-                                borderColor: isAllDate ? '#0ea5e9' : '#cbd5e1',
-                                backgroundColor: isAllDate ? '#e0f2fe' : '#f8fafc',
-                                color: isAllDate ? '#0369a1' : '#64748b',
-                                cursor: 'pointer', transition: 'all 0.2s ease',
-                                outline: 'none',
-                            }}
-                        >
-                            {isAllDate ? <CheckCircle2 size={15} strokeWidth={2.5} /> : <Circle size={15} strokeWidth={2} />}
-                            All Dates
-                        </button>
-                    </div>
-                    <div className={styles['approval-page__filter-row']}>
-                        <div className={styles['approval-page__filter-field']}>
-                            <label className={styles['approval-page__filter-label']}>From</label>
-                            <input
-                                type={isAllDate ? "text" : (fromFocused ? "date" : "text")}
-                                className={styles['approval-page__filter-input']}
-                                value={isAllDate ? "" : (fromFocused ? toInputDate(fromDate) : displayDate(fromDate))}
-                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
-                                disabled={isAllDate}
-                                onFocus={() => setFromFocused(true)}
-                                onBlur={() => setFromFocused(false)}
-                                onChange={(e) => {
-                                    if (e.target.value) setFromDate(fromInputDate(e.target.value));
-                                }}
-                            />
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24, flexWrap: 'wrap' }}>
+                        {/* Date Range Column */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <label className={styles['approval-page__filter-label']} style={{ marginBottom: 0 }}>Date Range</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAllDate(!isAllDate)}
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                                        fontSize: 12, fontWeight: 600,
+                                        padding: '4px 12px', borderRadius: 16,
+                                        border: '1px solid',
+                                        borderColor: isAllDate ? '#0ea5e9' : '#cbd5e1',
+                                        backgroundColor: isAllDate ? '#e0f2fe' : '#f8fafc',
+                                        color: isAllDate ? '#0369a1' : '#64748b',
+                                        cursor: 'pointer', transition: 'all 0.2s ease',
+                                        outline: 'none',
+                                    }}
+                                >
+                                    {isAllDate ? <CheckCircle2 size={15} strokeWidth={2.5} /> : <Circle size={15} strokeWidth={2} />}
+                                    All Dates
+                                </button>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <input
+                                    type={isAllDate ? "text" : (fromFocused ? "date" : "text")}
+                                    className={styles['approval-page__filter-input']}
+                                    style={{ minWidth: 140 }}
+                                    value={isAllDate ? "" : (fromFocused ? toInputDate(fromDate) : displayDate(fromDate))}
+                                    placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
+                                    disabled={isAllDate}
+                                    onFocus={() => setFromFocused(true)}
+                                    onBlur={() => setFromFocused(false)}
+                                    onChange={(e) => {
+                                        if (e.target.value) setFromDate(fromInputDate(e.target.value));
+                                    }}
+                                />
+                                <span style={{ color: '#94a3b8', fontSize: 14, fontWeight: 500 }}>→</span>
+                                <input
+                                    type={isAllDate ? "text" : (toFocused ? "date" : "text")}
+                                    className={styles['approval-page__filter-input']}
+                                    style={{ minWidth: 140 }}
+                                    value={isAllDate ? "" : (toFocused ? toInputDate(toDate) : displayDate(toDate))}
+                                    placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
+                                    disabled={isAllDate}
+                                    onFocus={() => setToFocused(true)}
+                                    onBlur={() => setToFocused(false)}
+                                    onChange={(e) => {
+                                        if (e.target.value) setToDate(fromInputDate(e.target.value));
+                                    }}
+                                />
+                            </div>
                         </div>
-                        <div className={styles['approval-page__filter-field']}>
-                            <label className={styles['approval-page__filter-label']}>To</label>
-                            <input
-                                type={isAllDate ? "text" : (toFocused ? "date" : "text")}
+
+                        {/* Request Type Column */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <label className={styles['approval-page__filter-label']} style={{ marginBottom: 0 }}>Request Type</label>
+                            <select 
                                 className={styles['approval-page__filter-input']}
-                                value={isAllDate ? "" : (toFocused ? toInputDate(toDate) : displayDate(toDate))}
-                                placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
-                                disabled={isAllDate}
-                                onFocus={() => setToFocused(true)}
-                                onBlur={() => setToFocused(false)}
-                                onChange={(e) => {
-                                    if (e.target.value) setToDate(fromInputDate(e.target.value));
-                                }}
-                            />
+                                style={{ minWidth: 180 }}
+                                value={selectedType}
+                                onChange={(e) => setSelectedType(e.target.value)}
+                            >
+                                {typeOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -348,7 +380,15 @@ export default function ApprovalListPage() {
                     ))}
                 </div>
 
-
+                <button
+                    className={styles['approval-page__filter-btn']}
+                    onClick={() => setShowFilter(!showFilter)}
+                    title="Filter requests"
+                >
+                    <Filter size={16} />
+                    <span>Filter</span>
+                    {showFilter ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
             </div>
 
             {/* ── List ── */}
@@ -390,7 +430,7 @@ export default function ApprovalListPage() {
                         let typeDesc = typeDescRaw;
                         const tDescLow = typeDescRaw.toLowerCase().replace(/\s+/g, '');
                         if (tDescLow === 'ferrychange') typeDesc = 'Ferry Change';
-                        else if (tDescLow === 'ferryregistration' || tDescLow === 'ferryregisteration') typeDesc = 'Ferry Registeration';
+                        else if (tDescLow === 'ferryregistration' ) typeDesc = 'Ferry Registration';
                         else if (tDescLow === 'ferryusercomplaint' || tDescLow === 'usercomplaint') typeDesc = 'Ferry User Complaint';
                         else if (tDescLow === 'hrcomplaint' || tDescLow === 'ferryhrcomplaint') typeDesc = 'HR Complaint';
 

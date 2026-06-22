@@ -353,8 +353,8 @@ export default function FerryRequestDetailPage() {
                                             </div>
                                         )}
                                     </div>
-
                                 </div>
+                                <CheckCircle2 size={20} color="#22c55e" style={{ flexShrink: 0 }} />
                             </div>
 
                             {/* Divider */}

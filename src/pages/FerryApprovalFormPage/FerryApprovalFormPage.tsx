@@ -346,7 +346,7 @@ export default function FerryApprovalFormPage() {
     const displayTitle = useMemo(() => {
         const desc = (ferryTypeDesc || '').toLowerCase().replace(/\s+/g, '');
         if (desc === 'ferrychange') return 'Ferry Change';
-        if (desc === 'ferryregistration' || desc === 'ferryregisteration') return 'Ferry Registration';
+        if (desc === 'ferryregistration' ) return 'Ferry Registration';
         if (desc === 'ferryusercomplaint' || desc === 'usercomplaint') return 'Ferry User Complaint';
         if (desc === 'hrcomplaint' || desc === 'ferryhrcomplaint') return 'HR Complaint';
         return ferryTypeDesc || 'Ferry Request';
@@ -620,6 +620,31 @@ export default function FerryApprovalFormPage() {
     });
 
     const handleSaveEdit = () => {
+        if (ferryType === FerryRequestType.usercomplaint || ferryType === FerryRequestType.hrcomplaint) {
+            if (ferryType === FerryRequestType.usercomplaint) {
+                if (editSelectedComplaints.length === 0) {
+                    toast.error('Please select at least one complaint type');
+                    return;
+                }
+                if (!editUserComplaintText || !editUserComplaintText.trim()) {
+                    toast.error('Complaint Description is required');
+                    return;
+                }
+            }
+
+            if (ferryType === FerryRequestType.hrcomplaint) {
+                if (!editHrComplaintText || !editHrComplaintText.trim()) {
+                    toast.error('Complaint Description is required');
+                    return;
+                }
+            }
+
+            if (!comment || !comment.trim()) {
+                toast.error('Comment is required');
+                return;
+            }
+        }
+
         if (ferryType === FerryRequestType.change) {
             const isT = editChangeTypeSyskey && changeTypes.find((t: any) => String(t.syskey) === editChangeTypeSyskey)?.code === 'TC';
             const isS = editChangeTypeSyskey && (changeTypes.find((t: any) => String(t.syskey) === editChangeTypeSyskey)?.code === 'TS' || changeTypes.find((t: any) => String(t.syskey) === editChangeTypeSyskey)?.description?.toLowerCase()?.includes('suspension'));
@@ -696,7 +721,7 @@ export default function FerryApprovalFormPage() {
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                         {isPending && !isEditMode && (
                             <button
-                                onClick={() => setIsEditMode(true)}
+                                onClick={() => { setIsEditMode(true); setActionErrors({}); }}
                                 style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: '#0c4a6e', fontWeight: 600, fontSize: 13 }}
                             >
                                 <Edit3 size={16} /> Edit

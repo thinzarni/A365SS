@@ -505,6 +505,7 @@ export default function FerryRequestPage() {
         const errors: Record<string, string> = {};
 
         if (selectedType === FerryRequestType.registration) {
+            if (!workingHourSyskey.trim()) errors.workingHourSyskey = 'Working hours is required';
             if (!phoneNumber.trim()) errors.phoneNumber = 'Contact phone number is required';
             if (!township.trim())    errors.township    = 'Township is required';
             if (!mainRoad.trim())    errors.mainRoad    = 'Main road is required';
@@ -850,14 +851,20 @@ export default function FerryRequestPage() {
                                     <label className={styles.fieldLabel}>
                                         Working Hours <span style={{ color: '#ef4444' }}>*</span>
                                     </label>
-                                    <select id="ferry-working-hours" className={styles.select}
+                                    <select id="ferry-working-hours" 
+                                        className={`${styles.select} ${fieldErrors.workingHourSyskey ? styles.selectError : ''}`}
                                         value={workingHourSyskey} disabled={isReadOnly}
-                                        onChange={e => setWorkingHourSyskey(e.target.value)}>
+                                        onChange={e => { setWorkingHourSyskey(e.target.value); clearFieldError('workingHourSyskey'); }}>
                                         <option value="">— Select working hours —</option>
                                         {workingHours.map(wh => (
                                             <option key={wh.syskey} value={wh.syskey}>{wh.description}</option>
                                         ))}
                                     </select>
+                                    {fieldErrors.workingHourSyskey && (
+                                        <span style={{ color: '#ef4444', fontSize: 12, marginTop: 4, display: 'block' }}>
+                                            {fieldErrors.workingHourSyskey}
+                                        </span>
+                                    )}
                                 </div>
                                 <Input id="ferry-township" label="Township *" value={township}
                                     placeholder="e.g. Hlaing"
