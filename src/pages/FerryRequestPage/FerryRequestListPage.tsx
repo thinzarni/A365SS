@@ -108,8 +108,6 @@ export default function FerryRequestListPage() {
     const [sortCol,     setSortCol]     = useState<SortCol>('date');
     const [sortDir,     setSortDir]     = useState<'asc'|'desc'>('desc');
 
-    const [fromFocused, setFromFocused] = useState(false);
-    const [toFocused, setToFocused] = useState(false);
     const fromRef = useRef<HTMLInputElement>(null);
     const toRef = useRef<HTMLInputElement>(null);
 

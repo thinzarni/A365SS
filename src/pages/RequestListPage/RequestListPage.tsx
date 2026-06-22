@@ -135,8 +135,7 @@ export default function RequestListPage() {
     const [showExportConfirm, setShowExportConfirm] = useState(false);
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
     const [sortColumn, setSortColumn] = useState<'date' | 'time'>('date');
-    const [fromFocused, setFromFocused] = useState(false);
-    const [toFocused, setToFocused] = useState(false);
+
     const fromRef = useRef<HTMLInputElement>(null);
     const toRef = useRef<HTMLInputElement>(null);
 

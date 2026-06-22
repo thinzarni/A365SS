@@ -521,7 +521,7 @@ function UserCard({ member, t }: { member: TeamMember; t: (key: string) => strin
                 {/* Stats row */}
                 <div className={styles.statsRow}>
                     <StatTile icon={<Clock size={16} />} value={attSummary} label={t('team.attSummary')} />
-                    <StatTile icon={<LogIn size={16} />} value={member.checkInCount} label={t('team.checkIns')} />
+                    <StatTile icon={<LogIn size={16} />} value={member.checkInCount ?? '0'} label={t('team.checkIns')} />
                     <StatTile icon={<Activity size={16} />} value={member.activityCount} label={t('team.activities')} />
                     <StatTile icon={<Palmtree size={16} />} value={member.leaveCount} label={t('team.leaves')} />
                 </div>

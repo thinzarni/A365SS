@@ -9,8 +9,6 @@ import {
     CheckCircle,
     XCircle,
     Loader2,
-    Mail,
-    Phone,
     Paperclip,
     Edit3,
     X,
