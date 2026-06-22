@@ -500,6 +500,12 @@ export default function FerryApprovalFormPage() {
         }
     });
 
+    // Comment box mirrors the disabled state of the action buttons
+    // (disabled only when both Approve AND Reject are disabled)
+    const approveButtonDisabled = submitMutation.isPending || disableStepApprovalButtons || (isStepLevel ? stepStatus === '2' : isApproved);
+    const rejectButtonDisabled  = submitMutation.isPending || disableStepApprovalButtons || (isStepLevel ? stepStatus === '3' : isRejected);
+    const bothActionButtonsDisabled = approveButtonDisabled && rejectButtonDisabled;
+
     const handleApprove = () => {
         if (!validateAction('2')) return;
         submitMutation.mutate('2');
@@ -1109,7 +1115,7 @@ export default function FerryApprovalFormPage() {
                     )}
 
                     {/* Approver Action Details */}
-                    {isPending && displayTitle !== 'Ferry Change' && (
+                    {((isPending && displayTitle !== 'Ferry Change') || ferryType === FerryRequestType.usercomplaint || ferryType === FerryRequestType.hrcomplaint) && (
                         <div className={styles['approval-detail__section']} style={{ marginTop: 24, padding: 20, background: 'var(--color-primary-50)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-primary-200)' }}>
                             <h4 className={styles['approval-detail__section-title']} style={{ color: 'var(--color-primary-700)' }}>
                                 Approver Action Details
@@ -1180,6 +1186,7 @@ export default function FerryApprovalFormPage() {
                                             placeholder="Enter approval/rejection comment here..."
                                             rows={3}
                                             error={actionErrors.comment}
+                                            disabled={bothActionButtonsDisabled}
                                         />
                                     </div>
                                 )}

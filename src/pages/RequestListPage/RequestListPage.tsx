@@ -163,17 +163,12 @@ export default function RequestListPage() {
     }, [shiftData, shiftLoading, didInitDates]);
 
     // Fetch request types for the dropdown
-    const EXCLUDED_REQUEST_TYPES = ['ferry', 'hr complaint'];
     const { data: requestTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['requestTypes'],
         queryFn: async () => {
             const res = await apiClient.get(REQUEST_TYPES);
             return res.data?.datalist || [];
         },
-        select: (data) => data.filter((rt) => {
-            const desc = (rt.description || '').toLowerCase();
-            return !EXCLUDED_REQUEST_TYPES.some((ex) => desc.includes(ex));
-        }),
     });
 
     const typeOptions = useMemo(() => {
