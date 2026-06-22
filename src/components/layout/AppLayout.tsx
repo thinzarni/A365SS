@@ -252,6 +252,8 @@ export default function AppLayout() {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
         return localStorage.getItem('sidebar-collapsed') === 'true';
     });
+    const [isProfileExpanded, setIsProfileExpanded] = useState(false);
+
 
     // Toggle sidebar collapse
     const toggleSidebarCollapse = (e: React.MouseEvent) => {
@@ -272,6 +274,24 @@ export default function AppLayout() {
 
     const location = useLocation();
     const isChatPage = location.pathname.startsWith('/chat');
+
+    // Profile sub-navigation items (mirrors ProfilePagePrd.tsx getTabs)
+    const PROFILE_SUBNAV = [
+        { id: 'employment', label: t('profile.tabs.employment', 'Employment'), icon: Briefcase },
+        { id: 'personal', label: t('profile.tabs.personal', 'Personal'), icon: User },
+        { id: 'emergency', label: t('profile.tabs.emergency', 'Emergency'), icon: Contact },
+        { id: 'experience', label: t('profile.tabs.experience', 'Experience'), icon: Building2 },
+        { id: 'qualification', label: t('profile.tabs.qualification', 'Qualification'), icon: BookOpen },
+        { id: 'family', label: t('profile.tabs.family', 'Family'), icon: Users },
+        { id: 'contact', label: t('profile.tabs.contact', 'Contact'), icon: MapPin },
+    ];
+
+    // Auto-expand Profile submenu whenever the route is /profile/*
+    useEffect(() => {
+        if (location.pathname.startsWith('/profile')) {
+            setIsProfileExpanded(true);
+        }
+    }, [location.pathname]);
 
     // Notification unread count + background polling
     const { unreadCount: notiUnreadCount, fetchNotifications } = useNotificationStore();
@@ -668,12 +688,73 @@ export default function AppLayout() {
                         // Resolve icon: use ROUTER_ICON_MAP if known, else generic LayoutList
                         const Icon = ROUTER_ICON_MAP[item.router] ?? LayoutList;
                         const isChat = item.router === '/chat';
+                        const isProfile = item.router === '/profile';
                         const unreadCount = useChatStore.getState().unreadCount;
                         // Resolve label: i18n key → API namemm (my only) → API name
                         const i18nKey = ROUTER_TO_I18N_KEY[item.router];
                         const label = i18nKey
                             ? t(i18nKey)
                             : (i18n.language === 'my' && item.namemm ? item.namemm : item.name);
+
+                        // ── Profile item: expandable submenu ──
+                        if (isProfile) {
+                            const isOnProfile = location.pathname.startsWith('/profile');
+                            return (
+                                <div key={item.syskey || item.router}>
+                                    {/* Parent toggle */}
+                                    <button
+                                        className={`${styles.sidebar__link} ${isOnProfile ? styles['sidebar__link--active'] : ''}`}
+                                        style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                                        onClick={() => {
+                                            if (isSidebarCollapsed) {
+                                                // Expand sidebar first, then expand submenu
+                                                setIsSidebarCollapsed(false);
+                                                localStorage.setItem('sidebar-collapsed', 'false');
+                                                setIsProfileExpanded(true);
+                                                navigate('/profile');
+                                            } else {
+                                                setIsProfileExpanded(prev => !prev);
+                                            }
+                                        }}
+                                    >
+                                        <div className={styles['sidebar__link-content']}>
+                                            <Icon size={20} className={styles['sidebar__link-icon']} />
+                                            <span className={styles['sidebar__link-text']}>{label}</span>
+                                            {!isSidebarCollapsed && (
+                                                isProfileExpanded
+                                                    ? <ChevronDown size={14} style={{ marginLeft: 'auto', opacity: 0.6 }} />
+                                                    : <ChevronRight size={14} style={{ marginLeft: 'auto', opacity: 0.6 }} />
+                                            )}
+                                        </div>
+                                    </button>
+
+                                    {/* Sub-items */}
+                                    {isProfileExpanded && !isSidebarCollapsed && (
+                                        <div style={{ paddingLeft: '30px' }}>
+                                            {PROFILE_SUBNAV.map(sub => {
+                                                const SubIcon = sub.icon;
+                                                return (
+                                                    <NavLink
+                                                        key={sub.id}
+                                                        to={`/profile/${sub.id}`}
+                                                        onClick={() => setSidebarOpen(false)}
+                                                        className={({ isActive }) =>
+                                                            `${styles.sidebar__link} ${isActive ? styles['sidebar__link--active'] : ''}`
+                                                        }
+                                                        style={{ fontSize: '13px' }}
+                                                    >
+                                                        <div className={styles['sidebar__link-content']} style={{ paddingLeft: '5px' }}>
+                                                            {/* <SubIcon size={16} className={styles['sidebar__link-icon']} /> */}
+                                                            <span className={styles['sidebar__link-text']}>{sub.label}</span>
+                                                        </div>
+                                                    </NavLink>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
 
                         return (
                             <NavLink

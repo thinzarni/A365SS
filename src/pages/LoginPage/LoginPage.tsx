@@ -367,7 +367,7 @@ export default function LoginPage() {
                         <p className={styles['login__form-desc']}>{t('auth.loginSubtitle')}</p>
                     </div>
 
-                    <div className={styles.login__tabs}>
+                    {/* <div className={styles.login__tabs}>
                         <button
                             className={`${styles.login__tab} ${mode === 'otp' ? styles['login__tab--active'] : ''}`}
                             onClick={() => { setMode('otp'); setError(''); }}
@@ -380,7 +380,7 @@ export default function LoginPage() {
                         >
                             {t('auth.password')}
                         </button>
-                    </div>
+                    </div> */}
 
                     {error && <div className={styles.login__error}>{error}</div>}
 
@@ -391,7 +391,7 @@ export default function LoginPage() {
                                 label={t('profile.employment.employeeId', 'Employee ID')}
                                 type="text"
                                 value={employeeId}
-                                onChange={(e) => setEmployeeId(e.target.value)}
+                                onChange={(e) => setEmployeeId(e.target.value.trim())}
                                 placeholder="Enter Employee ID"
                                 icon={<IdCardIcon size={18} />}
                                 required
@@ -401,7 +401,7 @@ export default function LoginPage() {
                                 label={t('auth.password')}
                                 type={showPassword ? 'text' : 'password'}
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                onChange={(e) => setPassword(e.target.value.trim())}
                                 placeholder="••••••••"
                                 icon={<Lock size={18} />}
                                 rightIcon={
@@ -431,7 +431,7 @@ export default function LoginPage() {
                                 label={t('profile.employment.employeeId', 'Employee ID')}
                                 type="text"
                                 value={employeeId}
-                                onChange={(e) => setEmployeeId(e.target.value)}
+                                onChange={(e) => setEmployeeId(e.target.value.trim())}
                                 placeholder="Enter Employee ID"
                                 icon={<Mail size={18} />}
                                 required

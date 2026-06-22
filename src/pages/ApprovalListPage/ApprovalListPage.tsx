@@ -172,6 +172,25 @@ export default function ApprovalListPage() {
         refetchOnMount: true,
     });
 
+    const { data: summaryApprovals = [] } = useQuery<RequestModel[]>({
+        queryKey: ['summaryApprovals', fromDate, toDate, isAllDate],
+        queryFn: async () => {
+            const body: Record<string, unknown> = {
+                fromdate: isAllDate ? "" : fromDate,
+                todate: isAllDate ? "" : toDate,
+                type: '',
+                status: RequestStatus.All, // Fetch all to calculate overall stats
+            };
+            const res = await apiClient.post(APPROVAL_LIST, body);
+            const datalist: any[] = res.data?.datalist || [];
+            return datalist.map((item: any) => ({
+                requeststatus: String(item.status ?? item.requeststatus ?? 1),
+            })) as RequestModel[];
+        },
+        enabled: didInitDates,
+        staleTime: 30 * 1000,
+    });
+
     const isLoading = shiftLoading || !didInitDates || approvalsLoading;
 
     // For attendance, filter locally so we can have stable summary counts across status tabs
@@ -276,19 +295,19 @@ export default function ApprovalListPage() {
     }, [activeStatus]);
 
 
-    /* Count by status for tab badges / summary header using all category-specific data */
+    /* Count by status for tab badges / summary header using summaryApprovals */
     const stats = useMemo(() => {
         let pending = 0;
         let approved = 0;
         let rejected = 0;
-        for (const r of allApprovals as any[]) {
+        for (const r of summaryApprovals) {
             const st = String(r.requeststatus);
             if (st === '1') pending++;
             if (st === '2') approved++;
             if (st === '3') rejected++;
         }
-        return { total: allApprovals.length, pending, approved, rejected };
-    }, [allApprovals]);
+        return { total: summaryApprovals.length, pending, approved, rejected };
+    }, [summaryApprovals]);
 
     const pendingCount = stats.pending;
 
@@ -321,6 +340,32 @@ export default function ApprovalListPage() {
                     <span>Filter</span>
                     {showFilter ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
+            </div>
+
+            {/* ── Summary cards ── */}
+            <div className={styles['approval-page__summary']}>
+                <div className={styles['approval-page__summary-card']}>
+                    <span className={styles['approval-page__summary-value']}>{stats.total}</span>
+                    <span className={styles['approval-page__summary-label']}>Total Requests</span>
+                </div>
+                <div className={styles['approval-page__summary-card']}>
+                    <span className={styles['approval-page__summary-value']} style={{ color: 'var(--color-warning-600)' }}>
+                        {stats.pending}
+                    </span>
+                    <span className={styles['approval-page__summary-label']}>Pending</span>
+                </div>
+                <div className={styles['approval-page__summary-card']}>
+                    <span className={styles['approval-page__summary-value']} style={{ color: 'var(--color-success-600)' }}>
+                        {stats.approved}
+                    </span>
+                    <span className={styles['approval-page__summary-label']}>Approved</span>
+                </div>
+                <div className={styles['approval-page__summary-card']}>
+                    <span className={styles['approval-page__summary-value']} style={{ color: 'var(--color-danger-600)' }}>
+                        {stats.rejected}
+                    </span>
+                    <span className={styles['approval-page__summary-label']}>Rejected</span>
+                </div>
             </div>
 
             {/* ── Date Filter ── */}

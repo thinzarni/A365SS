@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -279,7 +279,8 @@ const MOD_OPTIONS = ['New', 'Correct', 'Update'];
 export default function ProfilePage() {
     const { t } = useTranslation();
     const { user, domain, userId: loggedInUserId, setUser } = useAuthStore();
-    const { userId: urlUserId } = useParams();
+    const { userId: urlUserId, tab: urlTab } = useParams();
+    const navigate = useNavigate();
 
     const { data: menuData } = useQuery({
         queryKey: ['menu-items'],
@@ -291,8 +292,10 @@ export default function ProfilePage() {
     });
 
     const hasHrAccess = (menuData || []).some((m: any) => m.router === '/hrview' || m.router === '/employee');
-    const [activeTab, setActiveTab] = useState<TabId>('employment');
     const TABS = getTabs(t);
+    // Derive activeTab from URL param, fallback to 'employment'
+    const validTabIds = TABS.map(t => t.id) as string[];
+    const activeTab = (validTabIds.includes(urlTab || '') ? urlTab : 'employment') as TabId;
     const isOwnProfile = !urlUserId || urlUserId === user?.userid;
 
     const queryClient = useQueryClient();
@@ -466,7 +469,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Tab Navigation */}
-                <nav className={styles.tabNav} aria-label="Profile sections">
+                {/* <nav className={styles.tabNav} aria-label="Profile sections">
                     {TABS.map(tab => {
                         const Icon = tab.icon;
                         return (
@@ -475,7 +478,7 @@ export default function ProfilePage() {
                                 id={`tab-${tab.id}`}
                                 className={`${styles.tabBtn} ${activeTab === tab.id ? styles.tabBtn__active : ''}`}
                                 onClick={(e) => {
-                                    setActiveTab(tab.id);
+                                    navigate(`/profile/${tab.id}`);
                                     e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                                 }}
                             >
@@ -484,7 +487,7 @@ export default function ProfilePage() {
                             </button>
                         );
                     })}
-                </nav>
+                </nav> */}
 
                 <div className={styles.tabContent}>
                     {activeTab === 'employment' && <EmploymentTab profile={profile} />}
