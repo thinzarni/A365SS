@@ -360,6 +360,9 @@ export interface TeamMember {
   department: string;
   division: string;
   teamId: string;
+  mptposition?: string;
+  jobposition?: string;
+  office?: string;
   level: 'senior' | 'user' | 'junior' | '';
   /** Priority 1-6 = management level */
   priority: string;

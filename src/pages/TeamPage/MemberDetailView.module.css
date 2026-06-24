@@ -215,9 +215,17 @@
 
 .profileBadges {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 6px;
     margin-top: 6px;
+}
+
+.horizontalBadges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
 }
 
 .rankBadge {

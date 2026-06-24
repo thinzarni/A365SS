@@ -354,21 +354,29 @@ function MemberProfileCard({ member }: { member: TeamMember }) {
                         <h3 className={styles.profileName}>{member.userName}</h3>
                         <div className={styles.profileBadges}>
                             {member.rank && <span className={styles.rankBadge}>{member.rank}</span>}
-                            {member.department && (
-                                <span className={styles.deptBadge}>
-                                    <Building2 size={12} /> {member.department}
-                                </span>
-                            )}
+                            <div className={styles.horizontalBadges}>
+                                {member.department && (
+                                    <span className={styles.deptBadge}>
+                                        <Building2 size={12} /> {member.department}
+                                    </span>
+                                )}
+                                {member.teamId && (
+                                    <span className={styles.deptBadge}>
+                                        <Hash size={12} /> {member.teamId}
+                                    </span>
+                                )}
+                                {member.office && (
+                                    <span className={styles.deptBadge}>{member.office}</span>
+                                )}
+                                {member.division && (
+                                    <span className={styles.deptBadge}>{member.division}</span>
+                                )}
+                            </div>
                         </div>
                         <div className={styles.profileIds}>
                             {member.employeeId && (
                                 <span className={styles.idBadge}>
                                     <Briefcase size={11} /> {member.employeeId}
-                                </span>
-                            )}
-                            {member.teamId && (
-                                <span className={styles.idBadge}>
-                                    <Hash size={11} /> {member.teamId}
                                 </span>
                             )}
                         </div>

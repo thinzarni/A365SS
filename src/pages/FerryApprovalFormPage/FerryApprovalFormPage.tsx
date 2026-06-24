@@ -33,6 +33,7 @@ import {
     FERRY_OFFICE_LOCATIONS,
     FERRY_CHANGE_TYPES,
     FERRY_WORKING_HOURS,
+    FERRY_DRIVER_PHONE_NO,
     SAVE_REQUEST,
     USER_PROFILE
 } from '../../config/api-routes';
@@ -272,6 +273,16 @@ export default function FerryApprovalFormPage() {
         queryKey: ['getworkinghour', userId, domain],
         queryFn: async () => {
             const res = await apiClient.get(FERRY_WORKING_HOURS);
+            return res.data?.datalist || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // 8. Fetch Driver Phone Numbers
+    const { data: driverPhoneNos = [] } = useQuery({
+        queryKey: ['getdriverphoneno', userId, domain],
+        queryFn: async () => {
+            const res = await apiClient.get(FERRY_DRIVER_PHONE_NO);
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,
@@ -801,37 +812,6 @@ export default function FerryApprovalFormPage() {
                                         <Field label="Township" value={detail.township} />
                                         <Field label="Main Road" value={detail.road} />
                                         <Field label="Nearest Bus Stop" value={detail.busstop} />
-                                        {(resolvedAssignedFerry || detail.device_phoneno || detail.device_phone || detail.devicephone || detail.driver_name || detail.drivername || detail.driver_phoneno || detail.driver_phone || detail.driverphone || driverPhone || detail.gps_info || detail.gpsInfo || detail.gps || gpsInfo || detail.other_info || detail.otherinfo || otherInfo || detail.comment || detail.approver_comment || comment) && (
-                                            <>
-                                                <div style={{ gridColumn: '1 / -1', height: 1, background: '#e2e8f0', margin: '8px 0' }} />
-                                                <div style={{ gridColumn: '1 / -1', fontSize: 13, fontWeight: 700, color: '#0c4a6e', marginBottom: 2 }}>
-                                                    🚌 Ferry Assignment Details
-                                                </div>
-                                                {resolvedAssignedFerry && (
-                                                    <Field label="Assigned Ferry Number" value={resolvedAssignedFerry} />
-                                                )}
-                                                {(detail.device_phoneno || detail.device_phone || detail.devicephone) && (
-                                                    <Field label="Device Phone Number" value={detail.device_phoneno || detail.device_phone || detail.devicephone} />
-                                                )}
-                                                {(detail.driver_name || detail.drivername) && (
-                                                    <Field label="Driver Name" value={detail.driver_name || detail.drivername} />
-                                                )}
-                                                {(detail.driver_phoneno || detail.driver_phone || detail.driverphone || driverPhone) && (
-                                                    <Field label="Driver Phone Number" value={detail.driver_phoneno || detail.driver_phone || detail.driverphone || driverPhone} />
-                                                )}
-                                                {(detail.gps_info || detail.gpsInfo || detail.gps || gpsInfo) && (
-                                                    <Field label="GPS Information" value={detail.gps_info || detail.gpsInfo || detail.gps || gpsInfo} />
-                                                )}
-                                                {(detail.other_info || detail.otherinfo || otherInfo) && (
-                                                    <Field label="Other Information" value={detail.other_info || detail.otherinfo || otherInfo} />
-                                                )}
-                                                {(detail.comment || detail.approver_comment || comment) && (
-                                                    <div style={{ gridColumn: '1 / -1' }}>
-                                                        <Field label="Approver Comment / Remark" value={detail.comment || detail.approver_comment || comment} />
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
                                     </>
                                 )}
                             </div>
@@ -1147,13 +1127,26 @@ export default function FerryApprovalFormPage() {
                                         </div>
                                         
                                         <div>
-                                            <Input
-                                                label="Driver Phone Number *"
-                                                value={driverPhone}
+                                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-neutral-700)', marginBottom: 6 }}>
+                                                Driver Phone Number *
+                                            </label>
+                                            <select 
+                                                value={driverPhone} 
                                                 onChange={e => { setDriverPhone(e.target.value); setActionErrors(p => ({...p, driverPhone: ''})); }}
-                                                placeholder="Enter driver phone number"
-                                                error={actionErrors.driverPhone}
-                                            />
+                                                style={{
+                                                    width: '100%', padding: '10px 12px', borderRadius: 6,
+                                                    border: `1px solid ${actionErrors.driverPhone ? 'var(--color-danger-500)' : 'var(--color-neutral-300)'}`,
+                                                    background: '#fff', fontSize: 14, color: 'var(--color-neutral-900)'
+                                                }}
+                                            >
+                                                <option value="">— Select driver phone number —</option>
+                                                {driverPhoneNos.map((dp: any) => (
+                                                    <option key={dp.syskey} value={dp.driver_phoneno}>
+                                                        {dp.driver_name ? `${dp.driver_name} - ${dp.driver_phoneno}` : dp.driver_phoneno}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {actionErrors.driverPhone && <span style={{ color: 'var(--color-danger-500)', fontSize: 12, marginTop: 4, display: 'block' }}>{actionErrors.driverPhone}</span>}
                                         </div>
 
                                         <div>
@@ -1166,12 +1159,13 @@ export default function FerryApprovalFormPage() {
                                             />
                                         </div>
 
-                                        <div>
-                                            <Input
+                                        <div style={{ gridColumn: '1 / -1' }}>
+                                            <Textarea
                                                 label="Other Information"
                                                 value={otherInfo}
                                                 onChange={e => setOtherInfo(e.target.value)}
                                                 placeholder="Enter other information"
+                                                rows={3}
                                             />
                                         </div>
                                     </>
