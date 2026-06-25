@@ -291,6 +291,13 @@ export default function FerryApprovalFormPage() {
     const detail: any = detailData?.datalist;
 
     useEffect(() => {
+        if (detail?.driver_phoneno && driverPhoneNos.length > 0) {
+            const found = driverPhoneNos.find((dp: any) => String(dp.driver_phoneno) === String(detail.driver_phoneno) || String(dp.syskey) === String(detail.driver_phoneno));
+            if (found) setDriverPhone(String(found.syskey));
+        }
+    }, [detail?.driver_phoneno, driverPhoneNos]);
+
+    useEffect(() => {
         if (detail) {
             if (detail.changeferry_syskey || detail.changeferry) setAssignedFerrySyskey(String(detail.changeferry_syskey || detail.changeferry));
             if (detail.driver_phoneno) setDriverPhone(detail.driver_phoneno);
@@ -1141,7 +1148,7 @@ export default function FerryApprovalFormPage() {
                                             >
                                                 <option value="">— Select driver phone number —</option>
                                                 {driverPhoneNos.map((dp: any) => (
-                                                    <option key={dp.syskey} value={dp.driver_phoneno}>
+                                                    <option key={dp.syskey} value={dp.syskey}>
                                                         {dp.driver_name ? `${dp.driver_name} - ${dp.driver_phoneno}` : dp.driver_phoneno}
                                                     </option>
                                                 ))}

@@ -38,6 +38,7 @@ import {
     FERRY_CHANGE_TYPES,
     FERRY_CHANGE_PURPOSES,
     FERRY_OFFICE_LOCATIONS,
+    FERRY_DRIVER_PHONE_NO,
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
@@ -255,6 +256,16 @@ export default function FerryRequestDetailPage() {
         enabled: ferryType === FerryRequestType.change,
     });
 
+    /* ── Driver Phone Numbers ── */
+    const { data: driverPhoneNos = [] } = useQuery<any[]>({
+        queryKey: ['getdriverphoneno', userId, domain],
+        queryFn: async () => {
+            const res = await apiClient.get(FERRY_DRIVER_PHONE_NO);
+            return res.data?.datalist ?? [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
     /* ── Derived ── */
     const status = String(detail?.requeststatus ?? '1');
     const isPending = status === '1';
@@ -285,6 +296,9 @@ export default function FerryRequestDetailPage() {
 
     const resolvedChangeFerry = ferryNos.find((f: any) => String(f.syskey) === String(detail?.changeferry || detail?.changeferry_syskey));
     const resolvedChangeFerryDesc = detail?.changeferrydesc || resolvedChangeFerry?.carno || resolvedChangeFerry?.description || resolvedChangeFerry?.ferryCarNo || detail?.changeferry || detail?.changeferry_syskey || '';
+
+    const resolvedDriverPhone = driverPhoneNos.find((d: any) => String(d.syskey) === String(detail?.driver_phoneno || detail?.driver_phone || detail?.driverphone) || String(d.driver_phoneno) === String(detail?.driver_phoneno || detail?.driver_phone || detail?.driverphone));
+    const resolvedDriverPhoneDesc = resolvedDriverPhone ? (resolvedDriverPhone.driver_name ? `${resolvedDriverPhone.driver_name} - ${resolvedDriverPhone.driver_phoneno}` : resolvedDriverPhone.driver_phoneno) : (detail?.driver_phoneno || detail?.driver_phone || detail?.driverphone);
 
     /* ── Can edit / delete ── */
     const myEid = (user as any)?.employee_id ?? (user as any)?.eid ?? userId ?? '';
@@ -441,17 +455,17 @@ export default function FerryRequestDetailPage() {
                                             Approver Action Details
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-                                            {(resolvedChangeFerryDesc) && (
-                                                <SimpleTextField label="Assigned Ferry Number" value={resolvedChangeFerryDesc} />
-                                            )}
                                             {(detail?.device_phoneno || detail?.device_phone || detail?.devicephone) && (
                                                 <SimpleTextField label="Device Phone Number" value={detail.device_phoneno || detail.device_phone || detail.devicephone} />
                                             )}
                                             {(detail?.driver_name || detail?.drivername) && (
                                                 <SimpleTextField label="Driver Name" value={detail.driver_name || detail.drivername} />
                                             )}
-                                            {(detail?.driver_phoneno || detail?.driver_phone || detail?.driverphone) && (
-                                                <SimpleTextField label="Driver Phone Number" value={detail.driver_phoneno || detail.driver_phone || detail.driverphone} />
+                                            {(resolvedChangeFerryDesc) && (
+                                                <SimpleTextField label="Assigned Ferry Number" value={resolvedChangeFerryDesc} />
+                                            )}
+                                            {(resolvedDriverPhoneDesc) && (
+                                                <SimpleTextField label="Driver Phone Number" value={resolvedDriverPhoneDesc} />
                                             )}
                                             {(detail?.gps_info || detail?.gpsInfo || detail?.gps) && (
                                                 <div style={{ gridColumn: '1 / -1' }}>

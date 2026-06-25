@@ -287,6 +287,7 @@ export interface LeaveType {
   balance?: number;
   used?: number;
   remaining?: number;
+  approvaltype?: string | number;
 }
 
 export interface CarsModel {

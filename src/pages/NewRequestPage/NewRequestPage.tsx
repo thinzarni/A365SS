@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1334,12 +1334,31 @@ export default function NewRequestPage() {
         },
     });
 
+    const showApprovers = useMemo(() => {
+        if (selectedType === 'leave') {
+            const selectedLt = leaveTypeList.find((lt) => String(lt.syskey) === String(leaveType));
+            return selectedLt ? (String(selectedLt.approvaltype) === '0') : false;
+        }
+        if (selectedType === 'claim') {
+            const selectedCt = claimTypeList.find((ct) => String(ct.syskey) === String(claimType));
+            return selectedCt ? (String(selectedCt.approvaltype) === '0') : false;
+        }
+        const match = requestTypes.find((t) => {
+            if (selectedType.startsWith('other_')) {
+                return String(t.syskey) === selectedType.replace('other_', '');
+            }
+            return DESC_TO_KEY[(t.description || '').trim().toLowerCase()] === selectedType;
+        });
+        return match ? (String(match.approvaltype) === '0') : false;
+    }, [selectedType, leaveType, claimType, leaveTypeList, claimTypeList, requestTypes]);
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedType) {
             toast.error('Please select a request type');
             return;
         }
+
 
         if (selectedType === 'leave') {
             if (!leaveType) {
@@ -2218,24 +2237,25 @@ export default function NewRequestPage() {
                                 )}
 
                                 {/* ═════ 7. Approvers ═════ */}
-                                <div className={styles['new-request__section']}>
-                                    <MemberPicker
-                                        label="Approvers"
-                                        members={approvers}
-                                        onChange={setApprovers}
-                                        excludeSyskeys={[
-                                            selectedMemberInfo?.syskey,
-                                            selectedMemberInfo?.id,
-                                            selectedMemberInfo?.userid,
-                                            userId,
-                                            user?.usersyskey,
-                                            (user as any)?.syskey,
-                                            (user as any)?.eid,
-                                            (user as any)?.employee_id
-                                        ].filter(Boolean) as string[]}
-                                        required
-                                    />
-                                </div>
+                                {showApprovers && (
+                                    <div className={styles['new-request__section']}>
+                                        <MemberPicker
+                                            label="Approvers"
+                                            members={approvers}
+                                            onChange={setApprovers}
+                                            excludeSyskeys={[
+                                                selectedMemberInfo?.syskey,
+                                                selectedMemberInfo?.id,
+                                                selectedMemberInfo?.userid,
+                                                userId,
+                                                user?.usersyskey,
+                                                (user as any)?.syskey,
+                                                (user as any)?.eid,
+                                                (user as any)?.employee_id
+                                            ].filter(Boolean) as string[]}
+                                        />
+                                    </div>
+                                )}
                             </>
                         )}
 
