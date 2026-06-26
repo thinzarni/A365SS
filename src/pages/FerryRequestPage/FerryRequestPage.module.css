@@ -429,6 +429,41 @@
     padding-bottom: 8px;
 }
 
+/* ─── Attachments ─── */
+.attachmentList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.attachmentItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    border-radius: 8px;
+    color: #334155;
+    text-decoration: none;
+    transition: all 0.15s;
+}
+
+.attachmentItem:hover {
+    background: #f1f5f9;
+    border-color: #bae6fd;
+    color: #0284c7;
+}
+
+.attachmentItem span {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 600px) {
     .grid {
