@@ -15,12 +15,22 @@ import {
     Edit3,
     X,
     Save,
-    CheckCircle2
+    CheckCircle2,
+    File,
+    FileText,
+    Image as ImageIcon,
+    FileSpreadsheet,
+    FileArchive,
+    FileVideo,
+    FileAudio,
+    Trash2
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { Textarea, Input } from '../../components/ui/Input/Input';
+import FileUpload from '../../components/ui/FileUpload/FileUpload';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import ApprovalWorkflowModal from '../../components/modals/ApprovalWorkflowModal';
+import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import type { ApprovalDetailModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
@@ -35,7 +45,8 @@ import {
     FERRY_WORKING_HOURS,
     FERRY_DRIVER_PHONE_NO,
     SAVE_REQUEST,
-    USER_PROFILE
+    USER_PROFILE,
+    PHOTO_UPLOAD
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
 import styles from './FerryApprovalFormPage.module.css';
@@ -199,6 +210,8 @@ export default function FerryApprovalFormPage() {
     const [editHrComplaintText, setEditHrComplaintText] = useState('');
     const [editUserComplaintText, setEditUserComplaintText] = useState('');
     const [editSelectedComplaints, setEditSelectedComplaints] = useState<string[]>([]);
+    const [editExistingAttachments, setEditExistingAttachments] = useState<any[]>([]);
+    const [editFiles, setEditFiles] = useState<File[]>([]);
 
     const goBack = () => {
         const from = (location.state as any)?.from || '/approvals';
@@ -340,6 +353,10 @@ export default function FerryApprovalFormPage() {
                 setEditTempDateTo(f); setEditSuspDateTo(f);
             }
             if (detail.ferrycomplaint) setEditSelectedComplaints(String(detail.ferrycomplaint).split(',').filter(Boolean));
+            
+            if (detail.attachment) {
+                setEditExistingAttachments(Array.isArray(detail.attachment) ? detail.attachment : []);
+            }
         }
     }, [detail, changeTypes.length, changePurposes.length]);
     
@@ -534,8 +551,26 @@ export default function FerryApprovalFormPage() {
         submitMutation.mutate('3');
     };
 
+    const uploadFiles = async (): Promise<string[]> => {
+        if (!editFiles.length) return [];
+        const toBase64 = (f: File): Promise<string> => new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = () => res((reader.result as string).split(',')[1] ?? '');
+            reader.onerror = rej;
+            reader.readAsDataURL(f);
+        });
+        const results = await Promise.all(editFiles.map(async (f) => {
+            const base64String = await toBase64(f);
+            const r = await apiClient.post(PHOTO_UPLOAD, { base64String, base64filename: f.name });
+            return r.data?.fileName ?? r.data?.filename ?? '';
+        }));
+        return results.filter(Boolean);
+    };
+
     const saveEditMutation = useMutation({
         mutationFn: async () => {
+            const uploadedFiles = await uploadFiles();
+            
             const base: any = {
                 syskey,
                 requesttype: requestTypes.find((r: any) => r.description?.toLowerCase() === (detail.requesttypedesc || ferryTypeDesc)?.toLowerCase() || String(r.syskey) === String(detail.requesttype) || r.description?.toLowerCase().replace(/\s+/g, '') === detail.requesttype?.toLowerCase().replace(/\s+/g, ''))?.syskey || detail.requesttype,
@@ -552,7 +587,16 @@ export default function FerryApprovalFormPage() {
                     eid: a.employeeid ?? a.eid ?? '',
                     status: '4',
                 })),
-                attachment: detail.attachment || [],
+                attachment: [
+                    ...editExistingAttachments.map((a: any) => {
+                        if (typeof a === 'string') return a;
+                        if (a && typeof a === 'object') {
+                            return a.filepath || a.filePath || a.filename || a.fileName || a.name || '';
+                        }
+                        return '';
+                    }),
+                    ...uploadedFiles
+                ].filter(Boolean),
             };
 
             if (ferryType === FerryRequestType.registration) {
@@ -1049,23 +1093,162 @@ export default function FerryApprovalFormPage() {
                     )}
 
                     {/* Attachments */}
-                    {detail.attachment && Array.isArray(detail.attachment) && detail.attachment.length > 0 && (
+                    {(!isEditMode && detail.attachment && Array.isArray(detail.attachment) && detail.attachment.length > 0) && (
                         <div className={styles['approval-detail__section']}>
-                            <h4 className={styles['approval-detail__section-title']}>Attachments</h4>
-                            <div className={styles['approval-detail__attachment-list']}>
-                                {detail.attachment.map((at: any, idx: number) => (
-                                    <a
-                                        key={idx}
-                                        href={at.signedURL || at.url || '#'}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={styles['approval-detail__attachment-item']}
-                                    >
-                                        <Paperclip size={14} />
-                                        <span>{at.filename || at.name || `Attachment ${idx + 1}`}</span>
-                                    </a>
-                                ))}
+                            <h4 className={styles['approval-detail__section-title']}>
+                                <Paperclip size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                                Attachments
+                            </h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {detail.attachment.map((att: any, i: number) => {
+                                    // Extract true filename robustly
+                                    let rawName = '';
+                                    if (typeof att === 'string') {
+                                        rawName = att;
+                                    } else if (att && typeof att === 'object') {
+                                        const potentialName = att.filename || att.fileName || att.name || att.filepath || att.filePath || att.url || att.signedURL;
+                                        if (typeof potentialName === 'string') {
+                                            rawName = potentialName;
+                                        } else if (Array.isArray(potentialName) && potentialName.length > 0 && typeof potentialName[0] === 'string') {
+                                            rawName = potentialName[0];
+                                        }
+                                    }
+                                    
+                                    let displayName = typeof rawName === 'string' ? rawName : '';
+                                    
+                                    if (displayName) {
+                                        displayName = displayName.split('/').pop() || displayName;
+                                        displayName = displayName.split('\\').pop() || displayName;
+                                        displayName = displayName.split('?')[0]; // remove query params
+                                    }
+                                    
+                                    displayName = displayName || `File ${i + 1}`;
+                                    
+                                    // Ensure it's absolutely a string
+                                    if (typeof displayName !== 'string') {
+                                        displayName = `File ${i + 1}`;
+                                    }
+
+                                    // Determine icon based on extension
+                                    const ext = displayName.split('.').pop()?.toLowerCase() || '';
+                                    let FileIcon = File;
+                                    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                                        FileIcon = ImageIcon;
+                                    } else if (['pdf', 'doc', 'docx', 'txt'].includes(ext)) {
+                                        FileIcon = FileText;
+                                    } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                                        FileIcon = FileSpreadsheet;
+                                    } else if (['zip', 'rar', 'tar', 'gz'].includes(ext)) {
+                                        FileIcon = FileArchive;
+                                    } else if (['mp4', 'avi', 'mov', 'mkv'].includes(ext)) {
+                                        FileIcon = FileVideo;
+                                    } else if (['mp3', 'wav'].includes(ext)) {
+                                        FileIcon = FileAudio;
+                                    }
+
+                                    return (
+                                        <button key={i} type="button" onClick={() => downloadOrOpenAttachment(att)}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: 8,
+                                                padding: '10px 12px', borderRadius: 8,
+                                                border: '1px solid var(--color-primary-200)', background: 'var(--color-primary-50)',
+                                                fontSize: 13, color: 'var(--color-primary-600)', fontWeight: 500,
+                                                cursor: 'pointer', textAlign: 'left'
+                                            }}
+                                            title={displayName}>
+                                            <FileIcon size={16} color="var(--color-primary-500)" />
+                                            <span style={{ fontWeight: 500 }}>{displayName}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
+                        </div>
+                    )}
+
+                    {isEditMode && (
+                        <div className={styles['approval-detail__section']}>
+                            <h4 className={styles['approval-detail__section-title']}>
+                                <Paperclip size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                                Attachments
+                            </h4>
+                            {editExistingAttachments.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                                    {editExistingAttachments.map((att: any, i: number) => {
+                                        // Extract true filename robustly
+                                        let rawName = '';
+                                        if (typeof att === 'string') {
+                                            rawName = att;
+                                        } else if (att && typeof att === 'object') {
+                                            const potentialName = att.filename || att.fileName || att.name || att.filepath || att.filePath || att.url || att.signedURL;
+                                            if (typeof potentialName === 'string') {
+                                                rawName = potentialName;
+                                            } else if (Array.isArray(potentialName) && potentialName.length > 0 && typeof potentialName[0] === 'string') {
+                                                rawName = potentialName[0];
+                                            }
+                                        }
+                                        
+                                        let displayName = typeof rawName === 'string' ? rawName : '';
+                                        
+                                        if (displayName) {
+                                            displayName = displayName.split('/').pop() || displayName;
+                                            displayName = displayName.split('\\').pop() || displayName;
+                                            displayName = displayName.split('?')[0]; // remove query params
+                                        }
+                                        
+                                        displayName = displayName || `File ${i + 1}`;
+                                        
+                                        if (typeof displayName !== 'string') {
+                                            displayName = `File ${i + 1}`;
+                                        }
+
+                                        const ext = displayName.split('.').pop()?.toLowerCase() || '';
+                                        let FileIcon = File;
+                                        if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                                            FileIcon = ImageIcon;
+                                        } else if (['pdf', 'doc', 'docx', 'txt'].includes(ext)) {
+                                            FileIcon = FileText;
+                                        } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                                            FileIcon = FileSpreadsheet;
+                                        } else if (['zip', 'rar', 'tar', 'gz'].includes(ext)) {
+                                            FileIcon = FileArchive;
+                                        } else if (['mp4', 'avi', 'mov', 'mkv'].includes(ext)) {
+                                            FileIcon = FileVideo;
+                                        } else if (['mp3', 'wav'].includes(ext)) {
+                                            FileIcon = FileAudio;
+                                        }
+
+                                        return (
+                                            <div key={i} style={{ 
+                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                                                padding: '8px 12px', background: 'var(--color-primary-50)', 
+                                                border: '1px solid var(--color-primary-200)', borderRadius: '6px' 
+                                            }}>
+                                                <button type="button" onClick={() => downloadOrOpenAttachment(att)} 
+                                                    style={{ 
+                                                        display: 'flex', alignItems: 'center', gap: '8px', 
+                                                        fontSize: 'var(--text-sm)', color: 'var(--color-primary-600)', 
+                                                        background: 'none', border: 'none', cursor: 'pointer', 
+                                                        padding: 0, textAlign: 'left'
+                                                    }}
+                                                    title={displayName}
+                                                >
+                                                    <FileIcon size={16} color="var(--color-primary-500)" />
+                                                    <span style={{ fontWeight: 500 }}>{displayName}</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditExistingAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger-500)', display: 'flex', alignItems: 'center', padding: 4 }}
+                                                    title="Remove Attachment"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            <FileUpload files={editFiles} onChange={setEditFiles} />
                         </div>
                     )}
 
