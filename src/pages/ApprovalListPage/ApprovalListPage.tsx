@@ -195,12 +195,12 @@ export default function ApprovalListPage() {
     });
 
     const { data: summaryApprovals = [] } = useQuery<RequestModel[]>({
-        queryKey: ['summaryApprovals', fromDate, toDate, isAllDate],
+        queryKey: ['summaryApprovals', fromDate, toDate, isAllDate, selectedType],
         queryFn: async () => {
             const body: Record<string, unknown> = {
                 fromdate: isAllDate ? "" : fromDate,
                 todate: isAllDate ? "" : toDate,
-                type: '',
+                type: selectedType,
                 status: RequestStatus.All, // Fetch all to calculate overall stats
             };
             const res = await apiClient.post(APPROVAL_LIST, body);
