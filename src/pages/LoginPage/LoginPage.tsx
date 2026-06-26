@@ -24,7 +24,7 @@ export default function LoginPage() {
     const { instance, inProgress } = useMsal();
     const { login, setUser, setLanguage, language, isAuthenticated } = useAuthStore();
 
-    const [mode, setMode] = useState<AuthMode>('password');
+    const [mode] = useState<AuthMode>('password');
     const [employeeId, setEmployeeId] = useState('');
 
     /** Normalize Employee ID for backend: uppercase unless it's an e-mail address */

@@ -732,7 +732,7 @@ export default function AppLayout() {
                                     {isProfileExpanded && !isSidebarCollapsed && (
                                         <div style={{ paddingLeft: '30px' }}>
                                             {PROFILE_SUBNAV.map(sub => {
-                                                const SubIcon = sub.icon;
+                                                // const SubIcon = sub.icon;
                                                 return (
                                                     <NavLink
                                                         key={sub.id}

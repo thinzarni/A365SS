@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -280,7 +280,7 @@ export default function ProfilePage() {
     const { t } = useTranslation();
     const { user, domain, userId: loggedInUserId, setUser } = useAuthStore();
     const { userId: urlUserId, tab: urlTab } = useParams();
-    const navigate = useNavigate();
+    // const navigate = useNavigate();
 
     const { data: menuData } = useQuery({
         queryKey: ['menu-items'],
@@ -2322,8 +2322,8 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             name: r.name, gender: r.gender, dob: r.dob ? r.dob.replace(/-/g, '') : '',
             relationship: r.relationshipSyskey || r.relationship, taxexeligibility: r.taxEligible === 'Yes',
             attachment: r.attachment || null,
-            modificationoption: r.modOption,
-            effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
+            // modificationoption: r.modOption,
+            // effectivedate: r.effectiveFrom ? r.effectiveFrom.replace(/-/g, '') : '',
             familystatus: r.modOption === 'New' ? '1' : '0', status: r.status === 'Approved' ? '1' : '0',
             isdelete: !!r.isdelete,
         }));
@@ -2644,7 +2644,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                         </FormRow>
                     </div>
                     {/* Modification Type — 3-state */}
-                    {!editingId && (
+                    {/* {!editingId && (
                         <>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 8px' }}>
                                 <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Modification Type:</span>
@@ -2654,8 +2654,8 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                 <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} />
                             </FormRow>
                         </>
-                    )}
-                    {editingId && (
+                    )} */}
+                    {/* {editingId && (
                         <>
                             <div style={{ display: 'flex', gap: '8px', margin: '4px 0 8px' }}>
                                 {(['Update', 'Correct'] as const).map(opt => (
@@ -2671,8 +2671,8 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                     <input className={styles.formInput} type="date" value={form.effectiveFrom} onChange={fv('effectiveFrom')} />
                                 </FormRow>
                             )}
-                        </>
-                    )}
+                        </> 
+                    )} */}
                     <FormRow label={editingId && form.attachment ? t('profile.family.attachment') : `${t('profile.family.attachment')} *`}>
                         {/* Show existing attachment when editing */}
                         {editingId && (form.attachmentKey || form.attachment) && (() => {

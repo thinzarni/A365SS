@@ -377,7 +377,7 @@ function MemberProfileCard({ member }: { member: TeamMember }) {
                 </div>
 
                 <div className={styles.statsRow}>
-                    <StatTile icon={<Clock size={16} />} value={attSummary} label={t('team.workingDays')} />
+                    <StatTile icon={<Clock size={16} />} value={attSummary} label={t('team.attendance')} />
                     <StatTile icon={<LogIn size={16} />} value={member.timeInCount} label={t('team.checkIns')} />
                     <StatTile icon={<Activity size={16} />} value={member.activityCount} label={t('team.activities')} />
                     <StatTile icon={<Palmtree size={16} />} value={member.leaveCount} label={t('team.leaves')} />
