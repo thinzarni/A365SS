@@ -38,6 +38,7 @@ import {
     FERRY_CHANGE_TYPES,
     FERRY_CHANGE_PURPOSES,
     FERRY_OFFICE_LOCATIONS,
+    FERRY_DRIVER_PHONE_NO,
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
@@ -95,6 +96,26 @@ function ReadField({ label, value, minLines }: { label: string; value?: string |
                 fontSize: 14, color: '#0f172a',
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                 minHeight: minLines ? `${(minLines * 20) + 20}px` : 'auto',
+            }}>
+                {value}
+            </div>
+        </div>
+    );
+}
+
+function SimpleTextField({ label, value }: { label: string; value?: string | null }) {
+    if (!value) return null;
+    return (
+        <div style={{ marginBottom: 4 }}>
+            <label style={{
+                display: 'block', fontSize: 12, fontWeight: 600,
+                color: '#64748b', marginBottom: 2, letterSpacing: '0.02em',
+            }}>
+                {label}
+            </label>
+            <div style={{
+                fontSize: 14, color: '#0f172a', fontWeight: 500,
+                whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             }}>
                 {value}
             </div>
@@ -235,6 +256,16 @@ export default function FerryRequestDetailPage() {
         enabled: ferryType === FerryRequestType.change,
     });
 
+    /* ── Driver Phone Numbers ── */
+    const { data: driverPhoneNos = [] } = useQuery<any[]>({
+        queryKey: ['getdriverphoneno', userId, domain],
+        queryFn: async () => {
+            const res = await apiClient.get(FERRY_DRIVER_PHONE_NO);
+            return res.data?.datalist ?? [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
     /* ── Derived ── */
     const status = String(detail?.requeststatus ?? '1');
     const isPending = status === '1';
@@ -266,9 +297,15 @@ export default function FerryRequestDetailPage() {
     const resolvedChangeFerry = ferryNos.find((f: any) => String(f.syskey) === String(detail?.changeferry || detail?.changeferry_syskey));
     const resolvedChangeFerryDesc = detail?.changeferrydesc || resolvedChangeFerry?.carno || resolvedChangeFerry?.description || resolvedChangeFerry?.ferryCarNo || detail?.changeferry || detail?.changeferry_syskey || '';
 
+    const resolvedDriverPhone = driverPhoneNos.find((d: any) => String(d.syskey) === String(detail?.driver_phoneno || detail?.driver_phone || detail?.driverphone) || String(d.driver_phoneno) === String(detail?.driver_phoneno || detail?.driver_phone || detail?.driverphone));
+    const resolvedDriverPhoneDesc = resolvedDriverPhone ? (resolvedDriverPhone.driver_name ? `${resolvedDriverPhone.driver_name} - ${resolvedDriverPhone.driver_phoneno}` : resolvedDriverPhone.driver_phoneno) : (detail?.driver_phoneno || detail?.driver_phone || detail?.driverphone);
+
     /* ── Can edit / delete ── */
     const myEid = (user as any)?.employee_id ?? (user as any)?.eid ?? userId ?? '';
-    const canAct = isPending && (!detail?.eid || detail?.eid === myEid);
+    const hasAnyApproverActed = isStepLevel 
+        ? stepLevelData.some((s: any) => String(s.status) === '2' || String(s.status) === '3')
+        : detailApprovers.some((a: any) => String(a.status) === '2' || String(a.status) === '3');
+    const canAct = isPending && !hasAnyApproverActed && (!detail?.eid || detail?.eid === myEid);
 
     /* ── Delete ── */
     const { mutate: doDelete, isPending: deleting } = useMutation({
@@ -387,7 +424,7 @@ export default function FerryRequestDetailPage() {
                                 {(detail?.phoneno || ep?.phoneno || ep?.phone) && <ReadField label="Contact Phone Number" value={detail?.phoneno || ep?.phoneno || ep?.phone} />}
                                 {(currentAssignedFerry || detail?.ferryno || ep?.ferryno) && <ReadField label="Assigned Ferry Number" value={currentAssignedFerry || detail?.ferryno || ep?.ferryno} />}
                                 {workingHourDesc && (
-                                    <div className={styles.fullCol}>
+                                    <div>
                                         <ReadField label="Working Hours" value={workingHourDesc} />
                                     </div>
                                 )}
@@ -396,41 +433,57 @@ export default function FerryRequestDetailPage() {
                                 {detail?.busstop && <ReadField label="Nearest Bus Stop" value={detail.busstop} />}
 
                                 {(detail?.changeferry_desc || detail?.changeferry_syskey || detail?.changeferry || detail?.device_phoneno || detail?.device_phone || detail?.devicephone || detail?.driver_name || detail?.drivername || detail?.driver_phoneno || detail?.driver_phone || detail?.driverphone || detail?.gps_info || detail?.gpsInfo || detail?.gps || detail?.other_info || detail?.otherinfo || detail?.comment || detail?.approver_comment) && (
-                                    <>
-                                        <div className={styles.fullCol} style={{ height: 1, background: '#e2e8f0', margin: '8px 0' }} />
-                                        <div className={styles.fullCol} style={{ fontSize: 13, fontWeight: 700, color: '#0c4a6e', marginBottom: 2 }}>
-                                            🚌 Ferry Assignment Details
+                                    <div className={styles.fullCol} style={{ 
+                                        marginTop: 16, 
+                                        background: '#f0f9ff', 
+                                        border: '1px solid #bae6fd', 
+                                        borderRadius: 12, 
+                                        padding: 16 
+                                    }}>
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: 8, 
+                                            fontSize: 14, 
+                                            fontWeight: 700, 
+                                            color: '#0369a1', 
+                                            marginBottom: 12,
+                                            borderBottom: '1px solid #bae6fd',
+                                            paddingBottom: 8
+                                        }}>
+                                            <UserCheck size={16} />
+                                            Approver Action Details
                                         </div>
-                                        {(resolvedChangeFerryDesc) && (
-                                            <div className={styles.fullCol}>
-                                                <ReadField label="Assigned Ferry Number" value={resolvedChangeFerryDesc} />
-                                            </div>
-                                        )}
-                                        {(detail?.device_phoneno || detail?.device_phone || detail?.devicephone) && (
-                                            <ReadField label="Device Phone Number" value={detail.device_phoneno || detail.device_phone || detail.devicephone} />
-                                        )}
-                                        {(detail?.driver_name || detail?.drivername) && (
-                                            <ReadField label="Driver Name" value={detail.driver_name || detail.drivername} />
-                                        )}
-                                        {(detail?.driver_phoneno || detail?.driver_phone || detail?.driverphone) && (
-                                            <ReadField label="Driver Phone Number" value={detail.driver_phoneno || detail.driver_phone || detail.driverphone} />
-                                        )}
-                                        {(detail?.gps_info || detail?.gpsInfo || detail?.gps) && (
-                                            <div className={styles.fullCol}>
-                                                <ReadField label="GPS Information" value={detail.gps_info || detail.gpsInfo || detail.gps} />
-                                            </div>
-                                        )}
-                                        {(detail?.other_info || detail?.otherinfo) && (
-                                            <div className={styles.fullCol}>
-                                                <ReadField label="Other Information" value={detail.other_info || detail.otherinfo} />
-                                            </div>
-                                        )}
-                                        {(detail?.comment || detail?.approver_comment) && (
-                                            <div className={styles.fullCol}>
-                                                <ReadField label="Approver Comment" value={detail.comment || detail.approver_comment} />
-                                            </div>
-                                        )}
-                                    </>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                                            {(detail?.device_phoneno || detail?.device_phone || detail?.devicephone) && (
+                                                <SimpleTextField label="Device Phone Number" value={detail.device_phoneno || detail.device_phone || detail.devicephone} />
+                                            )}
+                                            {(detail?.driver_name || detail?.drivername) && (
+                                                <SimpleTextField label="Driver Name" value={detail.driver_name || detail.drivername} />
+                                            )}
+                                            {(resolvedChangeFerryDesc) && (
+                                                <SimpleTextField label="Assigned Ferry Number" value={resolvedChangeFerryDesc} />
+                                            )}
+                                            {(resolvedDriverPhoneDesc) && (
+                                                <SimpleTextField label="Driver Phone Number" value={resolvedDriverPhoneDesc} />
+                                            )}
+                                            {(detail?.gps_info || detail?.gpsInfo || detail?.gps) && (
+                                                <div style={{ gridColumn: '1 / -1' }}>
+                                                    <SimpleTextField label="GPS Information" value={detail.gps_info || detail.gpsInfo || detail.gps} />
+                                                </div>
+                                            )}
+                                            {(detail?.other_info || detail?.otherinfo) && (
+                                                <div style={{ gridColumn: '1 / -1' }}>
+                                                    <SimpleTextField label="Other Information" value={detail.other_info || detail.otherinfo} />
+                                                </div>
+                                            )}
+                                            {(detail?.comment || detail?.approver_comment) && (
+                                                <div style={{ gridColumn: '1 / -1' }}>
+                                                    <SimpleTextField label="Approver Comment" value={detail.comment || detail.approver_comment} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -543,8 +596,32 @@ export default function FerryRequestDetailPage() {
                                 </div>
                             )}
                             {status === '2' && (detail?.comment || detail?.approver_comment) && (
-                                <div style={{ marginTop: 16 }}>
-                                    <ReadField label="Approver Comment" value={detail.comment || detail.approver_comment} />
+                                <div className={styles.fullCol} style={{ 
+                                    marginTop: 16, 
+                                    background: '#f0f9ff', 
+                                    border: '1px solid #bae6fd', 
+                                    borderRadius: 12, 
+                                    padding: 16 
+                                }}>
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: 8, 
+                                        fontSize: 14, 
+                                        fontWeight: 700, 
+                                        color: '#0369a1', 
+                                        marginBottom: 12,
+                                        borderBottom: '1px solid #bae6fd',
+                                        paddingBottom: 8
+                                    }}>
+                                        <UserCheck size={16} />
+                                        Approver Action Details
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                                        <div style={{ gridColumn: '1 / -1' }}>
+                                            <SimpleTextField label="Approver Comment" value={detail.comment || detail.approver_comment} />
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </section>
@@ -556,8 +633,32 @@ export default function FerryRequestDetailPage() {
                             <h3 className={styles.sectionTitle}>HR Complaint</h3>
                             <ReadField label="Complaint Description" value={detail?.remark || '—'} minLines={3} />
                             {status === '2' && (detail?.comment || detail?.approver_comment) && (
-                                <div style={{ marginTop: 16 }}>
-                                    <ReadField label="Approver Comment" value={detail.comment || detail.approver_comment} />
+                                <div className={styles.fullCol} style={{ 
+                                    marginTop: 16, 
+                                    background: '#f0f9ff', 
+                                    border: '1px solid #bae6fd', 
+                                    borderRadius: 12, 
+                                    padding: 16 
+                                }}>
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: 8, 
+                                        fontSize: 14, 
+                                        fontWeight: 700, 
+                                        color: '#0369a1', 
+                                        marginBottom: 12,
+                                        borderBottom: '1px solid #bae6fd',
+                                        paddingBottom: 8
+                                    }}>
+                                        <UserCheck size={16} />
+                                        Approver Action Details
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                                        <div style={{ gridColumn: '1 / -1' }}>
+                                            <SimpleTextField label="Approver Comment" value={detail.comment || detail.approver_comment} />
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </section>

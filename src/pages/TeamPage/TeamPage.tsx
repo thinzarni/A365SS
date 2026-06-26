@@ -51,10 +51,13 @@ function parseTeamResponse(data: Record<string, unknown>, userId: string): TeamP
         employeeId: String(raw.employeeId ?? raw.employeeid ?? ''),
         profile: raw.profile ? String(raw.profile) : null,
         userid: String(raw.userid ?? ''),
-        rank: String(raw.rank ?? ''),
+        rank: String(raw.mptposition  ?? '').split(',')[0].trim(),
         department: String(raw.department ?? ''),
         division: String(raw.division ?? ''),
         teamId: String(raw.teamId ?? raw.teamid ?? ''),
+        mptposition: raw.mptposition ? String(raw.mptposition) : undefined,
+        jobposition: raw.jobposition ? String(raw.jobposition) : undefined,
+        office: raw.office ? String(raw.office) : undefined,
         level: level as TeamMember['level'],
         priority: String(raw.priority ?? '0'),
         role: raw.role ? String(raw.role) : null,
@@ -352,9 +355,23 @@ export default function TeamPage() {
                                                     <div className={styles.memberName}>{senior.userName}</div>
                                                     <div className={styles.memberMeta}>
                                                         {senior.rank && <span className={styles.rankBadge}>{senior.rank}</span>}
-                                                        {senior.type && (
-                                                            <span className={styles.typeBadge}>{senior.type}</span>
-                                                        )}
+                                                        <div className={styles.horizontalBadges}>
+                                                            {senior.department && (
+                                                                <span className={styles.metaText}>{senior.department}</span>
+                                                            )}
+                                                            {senior.teamId && (
+                                                                <span className={styles.metaText}>{senior.teamId}</span>
+                                                            )}
+                                                            {senior.office && (
+                                                                <span className={styles.metaText}>{senior.office}</span>
+                                                            )}
+                                                            {senior.division && (
+                                                                <span className={styles.metaText}>{senior.division}</span>
+                                                            )}
+                                                            {senior.type && (
+                                                                <span className={styles.typeBadge}>{senior.type}</span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -496,22 +513,31 @@ function UserCard({ member, t }: { member: TeamMember; t: (key: string) => strin
                             {member.rank && (
                                 <span className={styles.rankBadgeUser}>{member.rank}</span>
                             )}
-                            {member.department && (
-                                <span className={styles.deptBadge}>
-                                    <Building2 size={12} />
-                                    {member.department}
-                                </span>
-                            )}
+                            <div className={styles.horizontalBadges}>
+                                {member.department && (
+                                    <span className={styles.deptBadge}>
+                                        <Building2 size={12} />
+                                        {member.department}
+                                    </span>
+                                )}
+                                {member.teamId && (
+                                    <span className={styles.deptBadge}>
+                                        <Hash size={12} />
+                                        {member.teamId}
+                                    </span>
+                                )}
+                                {member.office && (
+                                    <span className={styles.deptBadge}>{member.office}</span>
+                                )}
+                                {member.division && (
+                                    <span className={styles.deptBadge}>{member.division}</span>
+                                )}
+                            </div>
                         </div>
                         <div className={styles.userCardIds}>
                             {member.employeeId && (
                                 <span className={styles.idBadge}>
                                     <Briefcase size={11} /> {member.employeeId}
-                                </span>
-                            )}
-                            {member.teamId && (
-                                <span className={styles.idBadge}>
-                                    <Hash size={11} /> {member.teamId}
                                 </span>
                             )}
                         </div>
@@ -553,9 +579,20 @@ function MemberCard({ member, onClick }: { member: TeamMember; onClick: () => vo
                     <div className={styles.memberCardName}>{member.userName}</div>
                     <div className={styles.memberCardMeta}>
                         {member.rank && <span className={styles.rankBadgeSm}>{member.rank}</span>}
-                        {member.department && (
-                            <span className={styles.metaText}>{member.department}</span>
-                        )}
+                        <div className={styles.horizontalBadges}>
+                            {member.department && (
+                                <span className={styles.metaText}>{member.department}</span>
+                            )}
+                            {member.teamId && (
+                                <span className={styles.metaText}>{member.teamId}</span>
+                            )}
+                            {member.office && (
+                                <span className={styles.metaText}>{member.office}</span>
+                            )}
+                            {member.division && (
+                                <span className={styles.metaText}>{member.division}</span>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <ChevronRight size={16} className={styles.chevron} />
@@ -585,11 +622,6 @@ function MemberCard({ member, onClick }: { member: TeamMember; onClick: () => vo
                 {member.employeeId && (
                     <span className={styles.idBadgeSm}>
                         <Briefcase size={10} /> {member.employeeId}
-                    </span>
-                )}
-                {member.teamId && (
-                    <span className={styles.idBadgeSm}>
-                        <Hash size={10} /> {member.teamId}
                     </span>
                 )}
                 {member.type && (

@@ -287,6 +287,7 @@ export interface LeaveType {
   balance?: number;
   used?: number;
   remaining?: number;
+  approvaltype?: string | number;
 }
 
 export interface CarsModel {
@@ -360,6 +361,9 @@ export interface TeamMember {
   department: string;
   division: string;
   teamId: string;
+  mptposition?: string;
+  jobposition?: string;
+  office?: string;
   level: 'senior' | 'user' | 'junior' | '';
   /** Priority 1-6 = management level */
   priority: string;

@@ -328,11 +328,24 @@ function MemberRow({ member, onClick }: { member: TeamMember; onClick: () => voi
                     {member.rank && !['1', '2', '3', '4', '5', '6'].includes(member.priority) && (
                         <span className={styles.rankBadgeSm}>{member.rank}</span>
                     )}
-                    {member.department && (
-                        <span className={styles.metaText}>
-                            <Building2 size={10} /> {member.department}
-                        </span>
-                    )}
+                    <div className={styles.horizontalBadges}>
+                        {member.department && (
+                            <span className={styles.metaText}>
+                                <Building2 size={10} /> {member.department}
+                            </span>
+                        )}
+                        {member.teamId && (
+                            <span className={styles.metaText}>
+                                <Hash size={10} /> {member.teamId}
+                            </span>
+                        )}
+                        {member.office && (
+                            <span className={styles.metaText}>{member.office}</span>
+                        )}
+                        {member.division && (
+                            <span className={styles.metaText}>{member.division}</span>
+                        )}
+                    </div>
                 </div>
             </div>
 

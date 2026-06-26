@@ -676,7 +676,12 @@ export default function FerryRequestPage() {
     ═══════════════════════════════════════════════ */
     const isApproved = !isNew && (detail?.requeststatus === 2 || detail?.requeststatus === '2');
     const isRejected = !isNew && (detail?.requeststatus === 3 || detail?.requeststatus === '3');
-    const isReadOnly = isApproved || isRejected;
+    const hasAnyApproverActed = !isNew && (
+        (detail?.approvaltype === '1' || detail?.approvaltype === 1)
+            ? stepLevelData.some((s: any) => String(s.status) === '2' || String(s.status) === '3')
+            : detailApprovers.some((a: any) => String(a.status) === '2' || String(a.status) === '3')
+    );
+    const isReadOnly = isApproved || isRejected || hasAnyApproverActed;
 
     return (
         <div className={newReqStyles['new-request']}>
@@ -847,7 +852,7 @@ export default function FerryRequestPage() {
                         ════════════════════════════════ */}
                         {selectedType === FerryRequestType.registration && (
                             <div className={newReqStyles['new-request__grid']} style={{ marginTop: 14 }}>
-                                <div className={newReqStyles['new-request__full']}>
+                                <div>
                                     <label className={styles.fieldLabel}>
                                         Working Hours <span style={{ color: '#ef4444' }}>*</span>
                                     </label>
