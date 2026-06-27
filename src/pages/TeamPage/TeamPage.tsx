@@ -18,6 +18,8 @@ import {
     Briefcase,
     Building2,
     Hash,
+    MapPin,
+    Layers,
     Clock,
     LogIn,
     LogOut,
@@ -48,10 +50,10 @@ function parseTeamResponse(data: Record<string, unknown>, userId: string): TeamP
     const mapMember = (raw: Record<string, unknown>, level: string): TeamMember => ({
         syskey: String(raw.syskey ?? ''),
         userName: String(raw.userName ?? raw.username ?? ''),
-        employeeId: String(raw.employeeId ?? raw.employeeid ?? ''),
-        profile: raw.profile ? String(raw.profile) : null,
+        employeeId: String(raw.employeeId ?? raw.employeeid ?? raw.employee_id ?? ''),
+        profile: (raw.profile && String(raw.profile)) ? String(raw.profile) : null,
         userid: String(raw.userid ?? ''),
-        rank: String(raw.mptposition  ?? '').split(',')[0].trim(),
+        rank: '',
         department: String(raw.department ?? ''),
         division: String(raw.division ?? ''),
         teamId: String(raw.teamId ?? raw.teamid ?? ''),
@@ -71,11 +73,11 @@ function parseTeamResponse(data: Record<string, unknown>, userId: string): TeamP
         requiredWorkDays: String(raw.requiredWorkDays ?? raw.requiredworkdays ?? '0'),
         todayTimeInCount: String(raw.todayTimeInCount ?? raw.todaytimeincount ?? '0'),
         todayTimeOutCount: String(raw.todayTimeOutCount ?? raw.todaytimeoutcount ?? '0'),
-        todayIsLeave: String(raw.todayIsLeave ?? raw.todayisleave ?? '0'),
+        todayIsLeave: String(raw.todayIsLeave ?? raw.todayisleave ?? 'false'),
         leaveStatus: Number(raw.leaveStatus ?? raw.leavestatus ?? 0),
         lastRecordTypeName: Number(raw.lastRecordTypeName ?? raw.lastrecordtypename ?? 0),
-        timeInTime: String(raw.timeInTime ?? raw.timeintime ?? '0'),
-        timeOutTime: String(raw.timeOutTime ?? raw.timeouttime ?? '0'),
+        timeInTime: String(raw.timeInTime ?? raw.timeintime ?? ''),
+        timeOutTime: String(raw.timeOutTime ?? raw.timeouttime ?? ''),
         key: userId,
     });
 
@@ -353,19 +355,19 @@ export default function TeamPage() {
                                                 <div>
                                                     <div className={styles.memberName}>{senior.userName}</div>
                                                     <div className={styles.memberMeta}>
-                                                        {senior.rank && <span className={styles.rankBadge}>{senior.rank}</span>}
+                                                        {senior.jobposition && <span className={styles.rankBadge}>{senior.jobposition}</span>}
                                                         <div className={styles.horizontalBadges}>
-                                                            {senior.department && (
-                                                                <span className={styles.metaText}>{senior.department}</span>
-                                                            )}
-                                                            {senior.teamId && (
-                                                                <span className={styles.metaText}>{senior.teamId}</span>
-                                                            )}
                                                             {senior.office && (
                                                                 <span className={styles.metaText}>{senior.office}</span>
                                                             )}
                                                             {senior.division && (
                                                                 <span className={styles.metaText}>{senior.division}</span>
+                                                            )}
+                                                            {senior.department && (
+                                                                <span className={styles.metaText}>{senior.department}</span>
+                                                            )}
+                                                            {senior.team && (
+                                                                <span className={styles.metaText}>{senior.team}</span>
                                                             )}
                                                             {senior.type && (
                                                                 <span className={styles.typeBadge}>{senior.type}</span>
@@ -508,37 +510,33 @@ function UserCard({ member, t }: { member: TeamMember; t: (key: string) => strin
                     <div className={styles.userCardInfo}>
                         <h3 className={styles.userCardName}>{member.userName}</h3>
                         <div className={styles.userCardBadges}>
-                            {member.rank && (
-                                <span className={styles.rankBadgeUser}>{member.rank}</span>
+                            {member.jobposition && (
+                                <span className={styles.rankBadgeUser}>{member.jobposition}</span>
                             )}
                             <div className={styles.horizontalBadges}>
-                                {member.department && (
-                                    <span className={styles.deptBadge}>
-                                        <Building2 size={12} />
-                                        {member.department}
-                                    </span>
-                                )}
-                                {member.teamId && (
-                                    <span className={styles.deptBadge}>
-                                        <Hash size={12} />
-                                        {member.teamId}
-                                    </span>
-                                )}
                                 {member.office && (
-                                    <span className={styles.deptBadge}>{member.office}</span>
+                                    <span className={styles.deptBadge}>
+                                        <MapPin size={12} />{member.office}
+                                    </span>
                                 )}
                                 {member.division && (
-                                    <span className={styles.deptBadge}>{member.division}</span>
+                                    <span className={styles.deptBadge}>
+                                        <Layers size={12} />{member.division}
+                                    </span>
+                                )}
+                                {member.department && (
+                                    <span className={styles.deptBadge}>
+                                        <Building2 size={12} />{member.department}
+                                    </span>
+                                )}
+                                {member.team && (
+                                    <span className={styles.deptBadge}>
+                                        <Hash size={12} />{member.team}
+                                    </span>
                                 )}
                             </div>
                         </div>
-                        <div className={styles.userCardIds}>
-                            {member.employeeId && (
-                                <span className={styles.idBadge}>
-                                    <Briefcase size={11} /> {member.employeeId}
-                                </span>
-                            )}
-                        </div>
+
                     </div>
                 </div>
 
@@ -576,19 +574,19 @@ function MemberCard({ member, onClick }: { member: TeamMember; onClick: () => vo
                 <div className={styles.memberCardInfo}>
                     <div className={styles.memberCardName}>{member.userName}</div>
                     <div className={styles.memberCardMeta}>
-                        {member.rank && <span className={styles.rankBadgeSm}>{member.rank}</span>}
+                        {member.jobposition && <span className={styles.rankBadgeSm}>{member.jobposition}</span>}
                         <div className={styles.horizontalBadges}>
-                            {member.department && (
-                                <span className={styles.metaText}>{member.department}</span>
-                            )}
-                            {member.teamId && (
-                                <span className={styles.metaText}>{member.teamId}</span>
-                            )}
                             {member.office && (
                                 <span className={styles.metaText}>{member.office}</span>
                             )}
                             {member.division && (
                                 <span className={styles.metaText}>{member.division}</span>
+                            )}
+                            {member.department && (
+                                <span className={styles.metaText}>{member.department}</span>
+                            )}
+                            {member.team && (
+                                <span className={styles.metaText}>{member.team}</span>
                             )}
                         </div>
                     </div>

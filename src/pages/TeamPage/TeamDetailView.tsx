@@ -18,6 +18,8 @@ import {
     ChevronRight,
     Briefcase,
     Building2,
+    MapPin,
+    Layers,
     LogIn,
     LogOut,
     Activity,
@@ -288,8 +290,8 @@ function ManagementCard({ member, onClick }: { member: TeamMember; onClick: () =
                 />
             </div>
             <div className={styles.mgmtCardName}>{member.userName}</div>
-            {member.rank && !['1', '2', '3', '4', '5', '6'].includes(member.priority) && (
-                <span className={styles.rankBadge}>{member.rank}</span>
+            {member.jobposition && !['1', '2', '3', '4', '5', '6'].includes(member.priority) && (
+                <span className={styles.rankBadge}>{member.jobposition}</span>
             )}
             {member.role && <span className={styles.roleBadge}>{member.role}</span>}
             <div className={styles.mgmtCardIds}>
@@ -325,25 +327,29 @@ function MemberRow({ member, onClick }: { member: TeamMember; onClick: () => voi
             <div className={styles.memberRowInfo}>
                 <div className={styles.memberRowName}>{member.userName}</div>
                 <div className={styles.memberRowMeta}>
-                    {member.rank && !['1', '2', '3', '4', '5', '6'].includes(member.priority) && (
-                        <span className={styles.rankBadgeSm}>{member.rank}</span>
+                    {member.jobposition && !['1', '2', '3', '4', '5', '6'].includes(member.priority) && (
+                        <span className={styles.rankBadgeSm}>{member.jobposition}</span>
                     )}
                     <div className={styles.horizontalBadges}>
+                        {member.office && (
+                            <span className={styles.metaText}>
+                                <MapPin size={10} /> {member.office}
+                            </span>
+                        )}
+                        {member.division && (
+                            <span className={styles.metaText}>
+                                <Layers size={10} /> {member.division}
+                            </span>
+                        )}
                         {member.department && (
                             <span className={styles.metaText}>
                                 <Building2 size={10} /> {member.department}
                             </span>
                         )}
-                        {member.teamId && (
+                        {member.team && (
                             <span className={styles.metaText}>
-                                <Hash size={10} /> {member.teamId}
+                                <Hash size={10} /> {member.team}
                             </span>
-                        )}
-                        {member.office && (
-                            <span className={styles.metaText}>{member.office}</span>
-                        )}
-                        {member.division && (
-                            <span className={styles.metaText}>{member.division}</span>
                         )}
                     </div>
                 </div>

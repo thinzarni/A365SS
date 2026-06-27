@@ -9,7 +9,8 @@ import type { TeamMember } from '../../types/models';
 export function getStatusInfo(member: TeamMember) {
     const todayIn = parseInt(member.todayTimeInCount || '0', 10);
     const todayOut = parseInt(member.todayTimeOutCount || '0', 10);
-    const isLeave = member.todayIsLeave === '0';
+    // API sends "true"/"false" strings
+    const isLeave = member.todayIsLeave === 'true' || member.todayIsLeave === '0';
     const leaveStatus = member.leaveStatus;
 
     if (isLeave) {
@@ -47,11 +48,13 @@ export function mapRawMember(raw: Record<string, unknown>, level: string, key: s
     return {
         syskey: String(raw.syskey ?? ''),
         userName: String(raw.userName ?? raw.username ?? ''),
-        employeeId: String(raw.employeeId ?? raw.employeeid ?? ''),
-        profile: raw.profile ? String(raw.profile) : null,
+        employeeId: String(raw.employeeId ?? raw.employeeid ?? raw.employee_id ?? ''),
+        profile: (raw.profile && String(raw.profile)) ? String(raw.profile) : null,
         userid: String(raw.userid ?? ''),
-        rank: String(raw.mptposition ?? '').split(',')[0].trim(),
+        rank: '',
         department: String(raw.department ?? ''),
+                team: String(raw.team ?? ''),
+
         division: String(raw.division ?? ''),
         teamId: String(raw.teamId ?? raw.teamid ?? ''),
         mptposition: raw.mptposition ? String(raw.mptposition) : undefined,
@@ -70,11 +73,11 @@ export function mapRawMember(raw: Record<string, unknown>, level: string, key: s
         requiredWorkDays: String(raw.requiredWorkDays ?? raw.requiredworkdays ?? '0'),
         todayTimeInCount: String(raw.todayTimeInCount ?? raw.todaytimeincount ?? '0'),
         todayTimeOutCount: String(raw.todayTimeOutCount ?? raw.todaytimeoutcount ?? '0'),
-        todayIsLeave: String(raw.todayIsLeave ?? raw.todayisleave ?? '0'),
+        todayIsLeave: String(raw.todayIsLeave ?? raw.todayisleave ?? 'false'),
         leaveStatus: Number(raw.leaveStatus ?? raw.leavestatus ?? 0),
         lastRecordTypeName: Number(raw.lastRecordTypeName ?? raw.lastrecordtypename ?? 0),
-        timeInTime: String(raw.timeInTime ?? raw.timeintime ?? '0'),
-        timeOutTime: String(raw.timeOutTime ?? raw.timeouttime ?? '0'),
+        timeInTime: String(raw.timeInTime ?? raw.timeintime ?? ''),
+        timeOutTime: String(raw.timeOutTime ?? raw.timeouttime ?? ''),
         key,
     };
 }
