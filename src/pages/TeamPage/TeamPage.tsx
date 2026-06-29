@@ -57,6 +57,7 @@ function parseTeamResponse(data: Record<string, unknown>, userId: string): TeamP
         department: String(raw.department ?? ''),
         division: String(raw.division ?? ''),
         teamId: String(raw.teamId ?? raw.teamid ?? ''),
+        team: raw.team ? String(raw.team) : undefined,
         mptposition: raw.mptposition ? String(raw.mptposition) : undefined,
         jobposition: raw.jobposition ? String(raw.jobposition) : undefined,
         office: raw.office ? String(raw.office) : undefined,
@@ -358,16 +359,16 @@ export default function TeamPage() {
                                                         {senior.jobposition && <span className={styles.rankBadge}>{senior.jobposition}</span>}
                                                         <div className={styles.horizontalBadges}>
                                                             {senior.office && (
-                                                                <span className={styles.metaText}>{senior.office}</span>
+                                                                <span className={styles.infoBadge}>{senior.office}</span>
                                                             )}
                                                             {senior.division && (
-                                                                <span className={styles.metaText}>{senior.division}</span>
+                                                                <span className={styles.infoBadge}>{senior.division}</span>
                                                             )}
                                                             {senior.department && (
-                                                                <span className={styles.metaText}>{senior.department}</span>
+                                                                <span className={styles.infoBadge}>{senior.department}</span>
                                                             )}
                                                             {senior.team && (
-                                                                <span className={styles.metaText}>{senior.team}</span>
+                                                                <span className={styles.infoBadge}>{senior.team}</span>
                                                             )}
                                                             {senior.type && (
                                                                 <span className={styles.typeBadge}>{senior.type}</span>
@@ -577,16 +578,16 @@ function MemberCard({ member, onClick }: { member: TeamMember; onClick: () => vo
                         {member.jobposition && <span className={styles.rankBadgeSm}>{member.jobposition}</span>}
                         <div className={styles.horizontalBadges}>
                             {member.office && (
-                                <span className={styles.metaText}>{member.office}</span>
+                                <span className={styles.infoBadge}>{member.office}</span>
                             )}
                             {member.division && (
-                                <span className={styles.metaText}>{member.division}</span>
+                                <span className={styles.infoBadge}>{member.division}</span>
                             )}
                             {member.department && (
-                                <span className={styles.metaText}>{member.department}</span>
+                                <span className={styles.infoBadge}>{member.department}</span>
                             )}
                             {member.team && (
-                                <span className={styles.metaText}>{member.team}</span>
+                                <span className={styles.infoBadge}>{member.team}</span>
                             )}
                         </div>
                     </div>
