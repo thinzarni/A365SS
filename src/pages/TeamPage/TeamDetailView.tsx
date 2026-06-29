@@ -9,6 +9,7 @@
 import { useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import {
     ArrowLeft,
@@ -27,16 +28,18 @@ import {
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
-import { TEAM_BY_ID, TEAM_LIST } from '../../config/api-routes';
+import { TEAM_BY_ID, TEAM_LIST, MENU_ITEMS } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
 import type { TeamMember } from '../../types/models';
 import { getStatusInfo, getInitials, mapRawMember, checkTeamAccess } from './team-utils';
 import styles from './TeamDetailView.module.css';
 import '../../styles/pages.css';
 
+
 /* ═══════════════════════════════════ Component ═══════════════════════════════════ */
 
 export default function TeamDetailView() {
+    const { t } = useTranslation();
     const { teamSyskey } = useParams<{ teamSyskey: string }>();
     const navigate = useNavigate();
     const location = useLocation();
@@ -86,7 +89,7 @@ export default function TeamDetailView() {
     const { data: menuData } = useQuery({
         queryKey: ['menu-items'],
         queryFn: async () => {
-            const res = await apiClient.get('hxm/integration/get/menuitems');
+            const res = await apiClient.get(MENU_ITEMS);
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,
@@ -155,12 +158,12 @@ export default function TeamDetailView() {
                         </button>
                         <div>
                             <h1 className="page-header__title">
-                                Team Members
+                                {t('team.teamMembers')}
                             </h1>
                             <p className="page-header__subtitle">
                                 {data
                                     ? `${data.members.length} member${data.members.length !== 1 ? 's' : ''}`
-                                    : 'Loading…'
+                                    : t('team.loading')
                                 }
                             </p>
                         </div>
@@ -182,8 +185,8 @@ export default function TeamDetailView() {
             {isError && (
                 <div className={styles.errorCard}>
                     <AlertCircle size={20} />
-                    <span>Failed to load team details.</span>
-                    <button onClick={() => refetch()}>Retry</button>
+                    <span>{ t('team.errorDetail')}</span>
+                    <button onClick={() => refetch()}>{t('team.retry')}</button>
                 </div>
             )}
 
@@ -213,7 +216,7 @@ export default function TeamDetailView() {
                         <div className={styles.section}>
                             <div className={styles.sectionHeader}>
                                 <Shield size={16} />
-                                <h3 className={styles.sectionTitle}>Management</h3>
+                                <h3 className={styles.sectionTitle}>{t('team.management')}</h3>
                                 <span className={styles.countBadge}>{management.length}</span>
                             </div>
                             <div className={styles.mgmtGrid}>
@@ -235,7 +238,7 @@ export default function TeamDetailView() {
                         <div className={styles.section}>
                             <div className={styles.sectionHeader}>
                                 <Users size={16} />
-                                <h3 className={styles.sectionTitle}>Members</h3>
+                                <h3 className={styles.sectionTitle}>{t('team.members')}</h3>
                                 <span className={styles.countBadge}>{regularMembers.length}</span>
                             </div>
                             <div className={styles.memberList}>
@@ -254,8 +257,8 @@ export default function TeamDetailView() {
                     {data.members.length === 0 && !isLoading && (
                         <div className={styles.emptyState}>
                             <Users size={48} strokeWidth={1} />
-                            <h3>No members found</h3>
-                            <p>This team doesn't have any members yet.</p>
+                            <h3>{t('team.noMembers')}</h3>
+                            <p>{t('team.noMembersDesc')}</p>
                         </div>
                     )}
                 </>
@@ -325,11 +328,24 @@ function MemberRow({ member, onClick }: { member: TeamMember; onClick: () => voi
                     {member.rank && !['1', '2', '3', '4', '5', '6'].includes(member.priority) && (
                         <span className={styles.rankBadgeSm}>{member.rank}</span>
                     )}
-                    {member.department && (
-                        <span className={styles.metaText}>
-                            <Building2 size={10} /> {member.department}
-                        </span>
-                    )}
+                    <div className={styles.horizontalBadges}>
+                        {member.department && (
+                            <span className={styles.metaText}>
+                                <Building2 size={10} /> {member.department}
+                            </span>
+                        )}
+                        {member.teamId && (
+                            <span className={styles.metaText}>
+                                <Hash size={10} /> {member.teamId}
+                            </span>
+                        )}
+                        {member.office && (
+                            <span className={styles.metaText}>{member.office}</span>
+                        )}
+                        {member.division && (
+                            <span className={styles.metaText}>{member.division}</span>
+                        )}
+                    </div>
                 </div>
             </div>
 

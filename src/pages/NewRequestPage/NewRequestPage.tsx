@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate, useSearchParams, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft,
@@ -14,6 +14,13 @@ import {
     Banknote,
     FileText,
     Building2,
+    Trash2,
+    File,
+    Image as ImageIcon,
+    FileSpreadsheet,
+    FileArchive,
+    FileVideo,
+    FileAudio,
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -34,15 +41,24 @@ import {
     TRAVEL_TYPE_LIST,
     VEHICLE_USE_LIST,
     LEAVE_TYPES,
+    LEAVE_REASONS,
     CLAIM_TYPES,
     CURRENCY_TYPES,
     ORG_TYPE_LIST,
     ORG_UNIT_LIST,
+    TEAM_LIST,
+    SAVE_LEAVE_HR,
+    GET_REQUEST_DETAIL,
+    GET_LEAVE_DURATION_POLICY,
 } from '../../config/api-routes';
-import type { LeaveType } from '../../types/models';
+import type { LeaveType, TeamMember } from '../../types/models';
 import { formatAmount, unformatAmount } from '../../lib/format-utils';
+import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
+import { downloadOrOpenAttachment } from '../../lib/file-utils';
+import { flavor } from '../../config/features';
 import styles from './NewRequestPage.module.css';
+import React from 'react';
 
 /* ── Date/time default helpers ── */
 function todayStr(): string {
@@ -61,19 +77,7 @@ function nowTimeStr(): string {
 
 
 
-/* ── Calculate leave duration from dates + AM/PM periods ── */
-function calcLeaveDuration(startDate: string, endDate: string, startPeriod: string, endPeriod: string): string {
-    const s = new Date(startDate);
-    const e = endDate ? new Date(endDate) : new Date(startDate);
-    if (isNaN(s.getTime()) || isNaN(e.getTime())) return '';
-    const daysDiff = Math.floor((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff < 0) return '';
-    // Each date+period = half-day index: AM=0, PM=1
-    // totalHalves counts from start period to end period inclusive
-    const totalHalves = (daysDiff * 2) + (startPeriod === 'PM' ? -1 : 0) + (endPeriod === 'AM' ? 0 : 1) + 1;
-    const dur = totalHalves * 0.5;
-    return dur > 0 ? String(dur) : '0.5';
-}
+
 
 /* ── Map API description → internal key for conditional form rendering ── */
 const DESC_TO_KEY: Record<string, string> = {
@@ -97,7 +101,7 @@ const DESC_TO_KEY: Record<string, string> = {
 };
 
 /* Helper: types that use the generic single-date + time form */
-const GENERIC_TYPES = new Set(['general', 'employeerequisition', 'purchase', 'attendancerequest', 'other']);
+const GENERIC_TYPES = new Set(['general', 'employeerequisition', 'purchase', 'other']);
 
 /* ── Visual style per internal key ── */
 const TYPE_VISUAL: Record<string, { icon: React.FC<{ size?: number }>; color: string; bgColor: string }> = {
@@ -121,14 +125,150 @@ const TYPE_VISUAL: Record<string, { icon: React.FC<{ size?: number }>; color: st
 };
 
 /* ══════════════════════════════════════════════════════════════
+   TypeCarousel — horizontal scrollable request type picker
+   ══════════════════════════════════════════════════════════════ */
+function TypeCarousel({
+    requestTypes,
+    selectedType,
+    onSelect,
+    styles,
+}: {
+    requestTypes: TypesModel[];
+    selectedType: string;
+    onSelect: (key: string) => void;
+    styles: Record<string, string>;
+}) {
+    const carouselRef = useRef<HTMLDivElement>(null);
+
+    const scroll = (dir: 'left' | 'right') => {
+        const el = carouselRef.current;
+        if (el) el.scrollBy({ left: dir === 'right' ? 260 : -260, behavior: 'smooth' });
+    };
+
+    const btnBase: React.CSSProperties = {
+        width: 28, height: 28, borderRadius: '50%',
+        border: '1px solid var(--color-neutral-200)',
+        background: 'var(--color-neutral-0)',
+        cursor: 'pointer', display: 'flex',
+        alignItems: 'center', justifyContent: 'center',
+        color: 'var(--color-neutral-500)', transition: 'all 0.15s',
+        flexShrink: 0,
+    };
+
+    return (
+        <div className={styles['new-request__section']}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)', paddingBottom: 'var(--space-2)', borderBottom: '1px solid var(--color-neutral-100)' }}>
+                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)', color: 'var(--color-neutral-800)', margin: 0 }}>Request Type</h3>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                    <button type="button" style={btnBase} onClick={() => scroll('left')}
+                        onMouseEnter={e => { const b = e.currentTarget; b.style.background = 'var(--color-primary-50)'; b.style.borderColor = 'var(--color-primary-300)'; b.style.color = 'var(--color-primary-600)'; }}
+                        onMouseLeave={e => { const b = e.currentTarget; b.style.background = 'var(--color-neutral-0)'; b.style.borderColor = 'var(--color-neutral-200)'; b.style.color = 'var(--color-neutral-500)'; }}
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                    <button type="button" style={btnBase} onClick={() => scroll('right')}
+                        onMouseEnter={e => { const b = e.currentTarget; b.style.background = 'var(--color-primary-50)'; b.style.borderColor = 'var(--color-primary-300)'; b.style.color = 'var(--color-primary-600)'; }}
+                        onMouseLeave={e => { const b = e.currentTarget; b.style.background = 'var(--color-neutral-0)'; b.style.borderColor = 'var(--color-neutral-200)'; b.style.color = 'var(--color-neutral-500)'; }}
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            {/* Carousel */}
+            <div className={styles['new-request__type-carousel-wrap']}>
+                <div ref={carouselRef} className={styles['new-request__type-grid']}>
+                    {requestTypes.length === 0 ? (
+                        Array.from({ length: 7 }).map((_, i) => (
+                            <div key={i} style={{ flex: '0 0 120px', height: '100px', borderRadius: 'var(--radius-xl)', background: 'var(--color-neutral-100)', animation: 'carousel-pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.08}s` }} />
+                        ))
+                    ) : requestTypes.map((rt) => {
+                        const descLower = (rt.description || '').trim().toLowerCase();
+                        const mapped = DESC_TO_KEY[descLower];
+                        const key = mapped || `other_${rt.syskey}`;
+                        const displayKey = mapped || 'other';
+                        const { icon: Icon, color, bgColor } = TYPE_VISUAL[displayKey] || TYPE_VISUAL.other;
+                        const isActive = selectedType === key;
+                        return (
+                            <div
+                                key={rt.syskey}
+                                className={`${styles['new-request__type-card']} ${isActive ? styles['new-request__type-card--active'] : ''}`}
+                                onClick={() => onSelect(key)}
+                                style={isActive ? { borderColor: color, boxShadow: `0 0 0 3px ${color}22` } : {}}
+                            >
+                                <div className={styles['new-request__type-card-icon']} style={{ background: isActive ? color + '22' : bgColor, color }}>
+                                    <Icon size={22} />
+                                </div>
+                                <span className={styles['new-request__type-card-label']} style={isActive ? { color } : {}}>{rt.description}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+                {/* Right fade edge */}
+                <div style={{ position: 'absolute', right: 0, top: 0, bottom: 8, width: 48, background: 'linear-gradient(to right, transparent, var(--color-neutral-0))', pointerEvents: 'none' }} />
+            </div>
+            <style>{`@keyframes carousel-pulse { 0%,100%{opacity:.35} 50%{opacity:.8} }`}</style>
+        </div>
+    );
+}
+
+/* ══════════════════════════════════════════════════════════════
    Component
    ══════════════════════════════════════════════════════════════ */
+
+const DateInput = ({ id, label, value, onChange, readOnly, error, required }: any) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const formatDisplayDate = (d: string) => {
+        if (!d) return '';
+        const p = d.split('-');
+        if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+        return d;
+    };
+    return (
+        <div style={{ position: 'relative' }}>
+            <Input
+                id={id}
+                label={label}
+                type="text"
+                value={formatDisplayDate(value)}
+                onChange={() => {}}
+                onClick={() => {
+                    if (!readOnly && inputRef.current) {
+                        try { inputRef.current.showPicker(); } catch (e) {}
+                    }
+                }}
+                readOnly={true}
+                placeholder="dd/MM/yyyy"
+                error={error}
+                required={required}
+                style={{ cursor: readOnly ? 'default' : 'pointer' }}
+            />
+            {!readOnly && (
+                <input
+                    type="date"
+                    ref={inputRef}
+                    value={value || ''}
+                    onChange={onChange}
+                    style={{
+                        position: 'absolute', bottom: 0, left: 10,
+                        width: 1, height: 1, opacity: 0, border: 0, padding: 0, pointerEvents: 'none'
+                    }}
+                />
+            )}
+        </div>
+    );
+};
 
 export default function NewRequestPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams] = useSearchParams();
+    const queryClient = useQueryClient();
+
+    const { id } = useParams<{ id: string }>();
+    const isEdit = !!id;
 
     // Derive preset type from URL path (most reliable) then fall back to ?type= query param.
     // e.g. /transportation/new → 'transportation', /claim/new → 'claim'
@@ -148,7 +288,112 @@ export default function NewRequestPage() {
     const [selectedType, setSelectedType] = useState(presetType);
     const [subType, setSubType] = useState('');
     const [leaveType, setLeaveType] = useState('');
-    const { user } = useAuthStore();
+    const [leaveReason, setLeaveReason] = useState('');
+    const { user, userId, domain } = useAuthStore();
+
+    // ── Redirect Attendance Request to its specialized page ──
+    useEffect(() => {
+        if (presetType === 'attendancerequest') {
+            navigate('/attendancerequest/new', { replace: true });
+        }
+    }, [presetType, navigate]);
+
+    // ── Team Data Query (For Leave Request RO) ──
+    const { data: members = [] } = useQuery<TeamMember[]>({
+        queryKey: ['team-members', userId],
+        queryFn: async () => {
+            const res = await mainClient.post(TEAM_LIST, {
+                userid: userId,
+            });
+            // Try all common response paths
+            const raw = res.data?.data || res.data?.datalist || res.data;
+            if (!raw) return [];
+
+            const juniorsRaw = Array.isArray(raw.juniorEmployees) ? raw.juniorEmployees : [];
+            const seniorsRaw = Array.isArray(raw.seniorEmployees) ? raw.seniorEmployees : [];
+            const teamMembersRaw = Array.isArray(raw.teamMembers) ? raw.teamMembers : [];
+            const allRaw = [...juniorsRaw, ...seniorsRaw, ...teamMembersRaw];
+
+            const seen = new Set();
+            const uniqueRaw = allRaw.filter(m => {
+                const k = m.syskey || m.employee_syskey;
+                if (!k || seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            });
+
+            return uniqueRaw.map((m: any) => ({
+                syskey: String(m.syskey ?? m.employee_syskey ?? ''),
+                userName: String(m.userName ?? m.username ?? m.employee_name ?? m.name ?? ''),
+                employeeId: String(m.employee_id ?? m.employeeId ?? m.employeeid ?? ''),
+                profile: m.profile ? String(m.profile) : null,
+                userid: String(m.employee_userid ?? m.userid ?? m.user_id ?? m.email ?? ''),
+                rank: String(m.rank ?? ''),
+                department: String(m.department ?? ''),
+                division: String(m.division ?? ''),
+                teamId: String(m.teamId ?? m.teamid ?? m.team_id ?? ''),
+                level: (juniorsRaw.some((j: any) => j.syskey === m.syskey) ? 'junior' : 'senior') as 'junior' | 'senior',
+                priority: String(m.priority ?? '0'),
+                role: m.role ? String(m.role) : null,
+                type: m.type ? String(m.type) : null,
+                hasJunior: Boolean(m.hasJunior ?? m.hasjunior ?? false),
+                workingDays: '0', timeInCount: '0', timeOutCount: '0', activityCount: '0', leaveCount: '0',
+                requiredWorkDays: '0', todayTimeInCount: '0', todayTimeOutCount: '0', todayIsLeave: '0',
+                leaveStatus: 0, lastRecordTypeName: 0, timeInTime: '', timeOutTime: '', key: ''
+            }));
+        },
+        enabled: !!userId,
+    });
+
+    const [selectedMemberSyskey, setSelectedMemberSyskey] = useState<string>('__SELF__');
+
+    const employeeOptions = React.useMemo(() => {
+        const options = [
+            { value: '__SELF__', label: `Myself (${user?.name})` }
+        ];
+        members.filter(m => {
+            if (m.level !== 'junior') return false;
+
+            const t = (m.type || '').toLowerCase();
+            if (t === 'reporting officer' || !t) return true;
+
+            if (t === 'leave supervisor') return selectedType === 'leave';
+            if (t === 'ot supervisor' || t === 'overtime supervisor') return selectedType === 'overtime';
+            if (t === 'attendance supervisor') return selectedType === 'attendancerequest';
+
+            // Catch-all block: hide this member if they have an unhandled specific supervisor type
+            return false;
+        }).forEach(m => {
+            options.push({ value: m.syskey, label: `${m.userName} (${m.employeeId})` });
+        });
+        return options;
+    }, [user, members, selectedType]);
+
+    React.useEffect(() => {
+        if (selectedMemberSyskey !== '__SELF__' && !employeeOptions.some(o => o.value === selectedMemberSyskey)) {
+            setSelectedMemberSyskey('__SELF__');
+        }
+    }, [employeeOptions, selectedMemberSyskey]);
+
+    const selectedMemberInfo = React.useMemo(() => {
+        if (selectedMemberSyskey === '__SELF__') {
+            const myself = [...members].reverse().find(m => String(m.userid).toLowerCase() === String(userId).toLowerCase())
+                || members.find(m => m.level === 'senior');
+            return {
+                syskey: myself?.syskey || user?.syskey || user?.usersyskey || '0',
+                id: (myself?.employeeId || (user as any)?.eid || (user as any)?.employee_id || (user as any)?.employeeId || userId || '') as string,
+                userid: userId || '',
+                name: user?.name || '',
+            };
+        }
+        const m = members.find(m => String(m.syskey) === String(selectedMemberSyskey));
+        return {
+            syskey: m?.syskey || '',
+            id: (m?.employeeId || '') as string,
+            userid: m?.userid || '',
+            name: m?.userName || '',
+        };
+    }, [selectedMemberSyskey, user, userId, members]);
 
     // ── Organization Change ──
     const [orgUnitSubject, setOrgUnitSubject] = useState('Team');
@@ -168,6 +413,7 @@ export default function NewRequestPage() {
     const [startPeriod, setStartPeriod] = useState('AM');
     const [endPeriod, setEndPeriod] = useState('AM');
     const [duration, setDuration] = useState('1');
+    const [durationLoading, setDurationLoading] = useState(false);
 
     // ── Core fields ──
     const [startDate, setStartDate] = useState(todayStr);
@@ -224,6 +470,7 @@ export default function NewRequestPage() {
     const [claimTypeDesc, setClaimTypeDesc] = useState('');
     const [claimFromPlace, setClaimFromPlace] = useState('');
     const [claimToPlace, setClaimToPlace] = useState('');
+    const [remainingBalance, setRemainingBalance] = useState('');
 
     // ── Location (WFH) ──
     const [locationName, setLocationName] = useState('');
@@ -234,14 +481,184 @@ export default function NewRequestPage() {
     const [accompanyPersons, setAccompanyPersons] = useState<MemberItem[]>([]);
     const [handovers, setHandovers] = useState<MemberItem[]>([]);
     const [files, setFiles] = useState<File[]>([]);
+    const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
+
+    // ── Auto-fetch leave duration from policy API ──
+    useEffect(() => {
+        if (selectedType !== 'leave') return;
+        if (!startDate || !leaveType) return;
+
+        // Convert 'YYYY-MM-DD' → 'yyyyMMdd'
+        const toApiDate = (d: string) => d.replace(/-/g, '');
+
+        const fetchDuration = async () => {
+            setDurationLoading(true);
+            try {
+                const [res] = await Promise.all([
+                    apiClient.post(GET_LEAVE_DURATION_POLICY, {
+                        syskey: '',
+                        requesttype: 'leave',
+                        requestsubtype: leaveType,
+                        startdate: toApiDate(startDate),
+                        enddate: toApiDate(endDate || startDate),
+                        starttime: startPeriod,
+                        endtime: endPeriod,
+                        userid: userId || '',
+                        domain: domain || '',
+                    }),
+                    new Promise(resolve => setTimeout(resolve, 1500)), // minimum 1.5s loading
+                ]);
+                const dur = res.data?.duration;
+                if (dur !== undefined && dur !== null) {
+                    setDuration(String(dur));
+                }
+            } catch {
+                // silently ignore — user can type duration manually
+            } finally {
+                setDurationLoading(false);
+            }
+        };
+
+        fetchDuration();
+    }, [selectedType, startDate, endDate, startPeriod, endPeriod, leaveType, userId, domain]);
+
+    // ── Edit Mode: Fetch existing request details ──
+    const { data: editData } = useQuery({
+        queryKey: ['requestDetail', id],
+        queryFn: async () => {
+            if (!id) return null;
+            const res = await apiClient.post(GET_REQUEST_DETAIL, { syskey: id });
+            return res.data || null;
+        },
+        enabled: isEdit,
+    });
+
+    // ── Edit Mode: Populate state from editData ──
+    useEffect(() => {
+        if (!editData) return;
+
+        const d = editData.datalist || {};
+        const typeKey = DESC_TO_KEY[(d.requesttypedesc || '').trim().toLowerCase()] || 'other';
+        setSelectedType(typeKey);
+        setSubType(d.requestsubtype || '');
+        setRemark(d.remark || d.description || d.reason || '');
+
+        // Dates & Times
+        const fmtDate = (dateStr: string) => {
+            if (!dateStr) return todayStr();
+            if (dateStr.length === 8) {
+                return `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+            }
+            return dateStr;
+        };
+        const fmtTime = (timeStr: string) => {
+            if (!timeStr) return nowTimeStr();
+            // Handle "hh:mm AM/PM" -> "HH:mm"
+            if (timeStr.includes('AM') || timeStr.includes('PM')) {
+                const [time, period] = timeStr.split(' ');
+                let [h, m] = time.split(':').map(Number);
+                if (period === 'PM' && h < 12) h += 12;
+                if (period === 'AM' && h === 12) h = 0;
+                return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+            }
+            return timeStr;
+        };
+
+        setStartDate(fmtDate(d.startdate || d.date || d.selectday));
+        setEndDate(fmtDate(d.enddate || d.startdate || d.date || d.selectday));
+        setStartTime(fmtTime(d.starttime || d.time || ''));
+        setEndTime(fmtTime(d.endtime || ''));
+
+        // Specific fields
+        if (typeKey === 'leave') {
+            setLeaveType(d.requestsubtype || '');
+            setStartPeriod(d.starttime || 'AM');
+            setEndPeriod(d.endtime || 'AM');
+            setDuration(String(d.duration || '1'));
+            setLeaveReason(d.leavereason || '');
+        } else if (typeKey === 'wfh') {
+            setLocationName(d.locationname || '');
+        } else if (typeKey === 'transportation') {
+            setTransToPlace(d.toplace || '');
+            setTransTripType(d.triptype || '0');
+            setTransGroupType(d.isgroup === 0 ? 'group' : 'individual');
+            if (d.triptype === '0') {
+                setTransOneWayStart(d.pickupplace || '');
+                setTransOneWayEnd(d.dropoffplace || '');
+                setTransOneWayStartTime(fmtTime(d.gobackarrivaltime));
+                setTransOneWayEndTime(fmtTime(d.gobackreturntime));
+            } else {
+                setTransDepartureStart(d.pickupplace || '');
+                setTransDepartureEnd(d.dropoffplace || '');
+                setTransDepartureStartTime(fmtTime(d.gobackarrivaltime));
+                setTransDepartureEndTime(fmtTime(d.gobackreturntime));
+                setTransArrivalStart(d.arrivalstartlocation || '');
+                setTransArrivalEnd(d.arrivalendlocation || '');
+                setTransArrivalStartTime(fmtTime(d.arrivalstarttime));
+                setTransArrivalEndTime(fmtTime(d.arrivalendtime));
+            }
+        } else if (typeKey === 'reservation') {
+            setRoom(d.rooms || '');
+            setMaxPeople(String(d.maxpeople || ''));
+        } else if (typeKey === 'travel') {
+            setTravelPurpose(d.travelpurpose || '');
+            setEstimatedBudget(String(d.estimatedbudget || ''));
+            setDepartureDate(fmtDate(d.startdate));
+            setArrivalDate(fmtDate(d.enddate));
+            setTravelDepartureTime(fmtTime(d.starttime));
+            setTravelReturnTime(fmtTime(d.endtime));
+        } else if (typeKey === 'claim' || typeKey === 'cashadvance') {
+            setAmount(String(d.amount || ''));
+            setCurrencyType(d.currencytype || '');
+            if (typeKey === 'claim') {
+                setClaimType(d.requestsubtype || '');
+                setClaimFromPlace(d.fromPlace || '');
+                setClaimToPlace(d.toPlace || '');
+            }
+        }
+
+        // Approvers & Handovers
+        const mapToMember = (list: any[]): MemberItem[] => {
+            if (!Array.isArray(list)) return [];
+            return list.map(m => ({
+                syskey: m.syskey || '',
+                name: m.name || '',
+                employeeid: m.eid || m.employeeid || '',
+                position: m.position || '',
+                photo: m.profile || '',
+                userid: m.userid || '',
+            }));
+        };
+
+        const approverList = editData.approverList || d.selectedApprovers || d.approverList || [];
+        const handoversList = editData.selectedHandovers || d.selectedHandovers || [];
+        const accompanyList = editData.selectedAcconpanyPersons || d.selectedAcconpanyPersons || [];
+
+        setApprovers(mapToMember(approverList));
+        setHandovers(mapToMember(handoversList));
+        setAccompanyPersons(mapToMember(accompanyList));
+
+        // On-behalf-of check
+        if (d.employee_syskey && String(d.employee_syskey) !== String(user?.syskey || user?.usersyskey)) {
+            setSelectedMemberSyskey(String(d.employee_syskey));
+        }
+
+        // Attachments
+        setExistingAttachments(Array.isArray(d.attachment) ? d.attachment : []);
+    }, [editData, user]);
 
     // ── API Queries for lookups ──
+    const EXCLUDED_REQUEST_TYPES = ['ferry', 'hr complaint'];
     const { data: requestTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['requestTypes'],
         queryFn: async () => {
             const res = await apiClient.get(REQUEST_TYPES);
             return res.data?.datalist || [];
         },
+        select: (data) => data.filter((rt) => {
+            const desc = (rt.description || '').toLowerCase();
+            return !EXCLUDED_REQUEST_TYPES.some((ex) => desc.includes(ex));
+        }),
     });
 
     // ── Organization Change Lookups ──
@@ -350,10 +767,28 @@ export default function NewRequestPage() {
         enabled: selectedType === 'leave',
     });
 
-    const { data: claimTypeList = [] } = useQuery<TypesModel[]>({
-        queryKey: ['claimTypeList'],
+    const { data: leaveReasonsList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['leaveReasonList'],
         queryFn: async () => {
-            const res = await apiClient.get(CLAIM_TYPES);
+            const payload = {
+                currentpage: 0,
+                pagesize: 0,
+                searchVal: '',
+                searchObj: { order: '', orderType: '' }
+            };
+            const res = await apiClient.post(LEAVE_REASONS, payload);
+            return res.data?.datalist || [];
+        },
+        enabled: selectedType === 'leave' && (flavor === 'prd' || flavor === 'mpt'),
+    });
+
+    const { data: claimTypeList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['claimTypeList', selectedMemberInfo?.syskey],
+        queryFn: async () => {
+            const params = selectedMemberInfo?.syskey && selectedMemberInfo.syskey !== '0' 
+                ? { employee_syskey: selectedMemberInfo.syskey } 
+                : {};
+            const res = await apiClient.get(CLAIM_TYPES, { params });
             return res.data?.datalist || [];
         },
         enabled: selectedType === 'cashadvance' || selectedType === 'claim',
@@ -372,26 +807,42 @@ export default function NewRequestPage() {
     const isTaxiClaimType = ['taxi fare', 'ferry taxi', 'onsite taxi'].includes(claimTypeDesc.trim().toLowerCase());
     const isBenefitBonusClaimType = ['benefit allowance', 'bonus allowance'].includes(claimTypeDesc.trim().toLowerCase());
 
-    // Reset sub-fields when type changes; auto-default subType for ALL types
+    // Auto-populate remaining balance and claim type desc when claim type or list changes
     useEffect(() => {
+        if (selectedType === 'claim' && claimType && claimTypeList.length > 0) {
+            const sel = claimTypeList.find(ct => ct.syskey === claimType);
+            if (sel) {
+                setClaimTypeDesc(sel.description || '');
+                // only update balance if we haven't already OR if it's the right type
+                if (sel.remaining_balance != null) {
+                    setRemainingBalance(String(sel.remaining_balance));
+                }
+            }
+        }
+    }, [selectedType, claimType, claimTypeList]);
+
+    // Reset sub-fields when type changes; auto-default subType for ALL types
+    // In edit mode, skip clearing leave-specific fields — they are already restored from editData
+    useEffect(() => {
+        if (!isEdit) {
+            setLeaveType('');
+            setStartPeriod('AM');
+            setEndPeriod('AM');
+        }
         setSubType('');
-        setLeaveType('');
-        setStartPeriod('AM');
-        setEndPeriod('AM');
         if (selectedType && requestTypes.length > 0) {
-            const match = requestTypes.find(
-                (t) => (DESC_TO_KEY[(t.description || '').trim().toLowerCase()] || 'other') === selectedType
-            );
+            const match = requestTypes.find((t) => {
+                if (selectedType.startsWith('other_')) {
+                    return t.syskey === selectedType.replace('other_', '');
+                }
+                return DESC_TO_KEY[(t.description || '').trim().toLowerCase()] === selectedType;
+            });
             if (match) setSubType(match.syskey);
         }
     }, [selectedType, requestTypes]);
 
-    // Auto-calculate leave duration when dates or periods change
-    useEffect(() => {
-        if (selectedType === 'leave') {
-            setDuration(calcLeaveDuration(startDate, endDate, startPeriod, endPeriod));
-        }
-    }, [selectedType, startDate, endDate, startPeriod, endPeriod]);
+    // NOTE: Leave duration is fully managed by the getleavedurationpolicy API above.
+    // The local calcLeaveDuration fallback was removed to prevent it from overwriting the API result.
 
     // ── Central auto-sync: startDate → endDate (all types that use both date fields) ──
     // Excludes: travel (departure/arrival), leave (user controls), general/purchase/other (single date)
@@ -475,9 +926,12 @@ export default function NewRequestPage() {
                 }
             }
             // Find the API entry whose description maps to our selectedType key
-            const matchedType = types.find(
-                (t: TypesModel) => (DESC_TO_KEY[(t.description || '').trim().toLowerCase()] || 'other') === selectedType
-            );
+            const matchedType = types.find((t: TypesModel) => {
+                if (selectedType.startsWith('other_')) {
+                    return t.syskey === selectedType.replace('other_', '');
+                }
+                return DESC_TO_KEY[(t.description || '').trim().toLowerCase()] === selectedType;
+            });
             const typeDesc = matchedType?.description || selectedType;
             const typeSyskey = matchedType?.syskey || selectedType;
 
@@ -505,6 +959,11 @@ export default function NewRequestPage() {
                     return apiClient.post(PHOTO_UPLOAD, {
                         base64String,
                         base64filename: file.name,
+                    }).catch((err) => {
+                        if (err.message === 'Network Error') {
+                            throw new Error(`Upload failed for ${file.name}. The file might be too large.`);
+                        }
+                        throw err;
                     });
                 });
                 const results = await Promise.all(uploads);
@@ -537,6 +996,7 @@ export default function NewRequestPage() {
 
             /* ── Base payload (matches Flutter RequestModel.toJson) ── */
             const payload: Record<string, unknown> = {
+                syskey: id || "0",
                 requesttype: typeSyskey,
                 requesttypedesc: typeDesc,
                 requestsubtype: subType,        // addIfEmpty — always sent
@@ -561,10 +1021,10 @@ export default function NewRequestPage() {
                 selectedApprovers: approvers.map((a) => ({
                     syskey: a.syskey,
                     name: a.name,
-                    userid: '',
-                    profilestatus: 0,
-                    profile: '',
-                    eid: a.employeeid || '',
+                    userid: (a as any).userid || '',      // userrole.userid — socket notification target
+                    profilestatus: (a as any).profilestatus || 0,
+                    profile: (a as any).profile || '',
+                    eid: (a as any).eid || a.employeeid || '',  // e.eid from getMemberList
                     signedURL: '',
                     status: '4',
                     pickupplace: '',
@@ -572,13 +1032,22 @@ export default function NewRequestPage() {
                     leaveDateRange: '',
                     timeintime: '',
                     timeouttime: '',
-                    attendancevalidation: true,
+                    attendancevalidation: (a as any).attendancevalidation ?? true,
                     timeinoffset: '',
                     timeoutoffset: '',
                 })),
                 selectedAcconpanyPersons: [],   // always sent
                 selectedHandovers: [],
-                attachment: attachmentFileNames,
+                attachment: [
+                    ...existingAttachments.map(att => {
+                        if (typeof att === 'string') return att;
+                        if (att && typeof att === 'object') {
+                            return att.filepath || att.filePath || att.filename || att.fileName || att.name || '';
+                        }
+                        return '';
+                    }),
+                    ...attachmentFileNames
+                ].filter(Boolean),
                 ottype: 0,
             };
 
@@ -616,6 +1085,9 @@ export default function NewRequestPage() {
                             payload.requestsubtype = selectedLt.syskey;
                             payload.requestsubtypedesc = selectedLt.description;
                         }
+                    }
+                    if ((flavor === 'prd' || flavor === 'mpt') && leaveReason) {
+                        payload.leavereason = leaveReason;
                     }
                     payload.selectedHandovers = handovers.map((h) => ({ syskey: h.syskey, name: h.name }));
                 } else {
@@ -747,8 +1219,6 @@ export default function NewRequestPage() {
                 payload.selectday = '';
                 payload.otday = '';
                 payload.remark = payload.remark || '';
-                payload.reason = '';
-                payload.description = '';
                 payload.travelpurpose = '';
                 payload.car = '';
                 payload.driver = '';
@@ -756,6 +1226,8 @@ export default function NewRequestPage() {
                 // Claim type goes as requestsubtype (syskey) + requestsubtypedesc
                 payload.requestsubtype = claimType;
                 payload.requestsubtypedesc = selClaimType?.description || '';
+                payload.remaining_balance = selClaimType?.remaining_balance || '';
+                payload.max_amount = selClaimType?.max_amount || '';
                 payload.amount = numAmount;
                 payload.estimatedbudget = numAmount;  // mobile sends same value as amount
                 payload.currencytype = currencyType;
@@ -805,16 +1277,36 @@ export default function NewRequestPage() {
                 payload.requeststatus = "1";
             }
 
-            const res = await apiClient.post(SAVE_REQUEST, payload);
+            // ── Generic Subordinate Form Details ──
+            if (selectedMemberSyskey !== '__SELF__') {
+                payload.employeeid = selectedMemberInfo.id;
+                payload.employeename = selectedMemberInfo.name;
+                payload.userid = userId || '';
+                payload.domain = useAuthStore.getState().domain || 'dev';
+            }
+
+            let endpoint = SAVE_REQUEST;
+            if (selectedMemberSyskey !== '__SELF__') {
+                endpoint = SAVE_LEAVE_HR; // "request/saverequesthr" supports ALL request types for subordinates
+            }
+            payload.fromRequest = 'self_service';
+
+            if (isEdit) {
+                endpoint = `${endpoint}/${id}`;
+            }
+
+            const res = await apiClient.post(endpoint, payload);
             // Flutter: Neocode.statusIsOk(statuscode) == (status === 300)
             // Any statuscode other than 300 is an error — show message and stay on form
             const sc = Number(res.data?.statuscode);
-            if (sc !== 300) {
+            if (sc !== 300 && res.data?.status !== 200 && res.data?.status !== 201) {
+                // Adjusting condition: sometimes saverequesthr returns standard 200/201 status
                 throw new Error(res.data?.message || t('common.error'));
             }
             return res.data;
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['requests'] });
             toast.success(t('request.submitSuccess'));
             const SUCCESS_RETURN: Record<string, string> = {
                 leave: '/leave',
@@ -829,13 +1321,36 @@ export default function NewRequestPage() {
             };
             navigate(SUCCESS_RETURN[selectedType] || '/requests');
         },
-        onError: (err: unknown) => {
+        onError: (err: any) => {
             console.error('Submit error:', err);
-            const msg = err instanceof Error ? err.message : t('common.error');
-            toast.error(msg);
+            let msg = err instanceof Error ? err.message : t('common.error');
+            if (err?.response?.data) {
+                const srvData = err.response.data;
+                const errDetail = typeof srvData === 'string' ? srvData : (srvData.message || srvData.error || JSON.stringify(srvData));
+                msg = `Server Error: ${errDetail}`;
+            }
+            toast.error(msg, { duration: 6000 });
             // Stay on the form — do NOT navigate
         },
     });
+
+    const showApprovers = useMemo(() => {
+        if (selectedType === 'leave') {
+            const selectedLt = leaveTypeList.find((lt) => String(lt.syskey) === String(leaveType));
+            return selectedLt ? (String(selectedLt.approvaltype) === '0') : false;
+        }
+        if (selectedType === 'claim') {
+            const selectedCt = claimTypeList.find((ct) => String(ct.syskey) === String(claimType));
+            return selectedCt ? (String(selectedCt.approvaltype) === '0') : false;
+        }
+        const match = requestTypes.find((t) => {
+            if (selectedType.startsWith('other_')) {
+                return String(t.syskey) === selectedType.replace('other_', '');
+            }
+            return DESC_TO_KEY[(t.description || '').trim().toLowerCase()] === selectedType;
+        });
+        return match ? (String(match.approvaltype) === '0') : false;
+    }, [selectedType, leaveType, claimType, leaveTypeList, claimTypeList, requestTypes]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -843,6 +1358,19 @@ export default function NewRequestPage() {
             toast.error('Please select a request type');
             return;
         }
+
+
+        if (selectedType === 'leave') {
+            if (!leaveType) {
+                toast.error('Please select a leave type');
+                return;
+            }
+            if ((flavor === 'prd' || flavor === 'mpt') && !leaveReason) {
+                toast.error('Please select a leave reason');
+                return;
+            }
+        }
+
         // Mirror Flutter requestform_page.dart lines 939-1015
         if (selectedType === 'transportation') {
             if (!transToPlace.trim()) {
@@ -869,6 +1397,46 @@ export default function NewRequestPage() {
             // Mobile: validates shiftStart < shiftEnd
             if (startTime && endTime && startTime >= endTime) {
                 toast.error('Start time must be before end time');
+                return;
+            }
+        }
+        if (selectedType === 'claim') {
+            if (!claimType) {
+                toast.error('Please select a claim type');
+                return;
+            }
+            if (!amount || Number(amount) <= 0) {
+                toast.error('Amount must be greater than zero');
+                return;
+            }
+
+            const selClaimType = claimTypeList.find(ct => ct.syskey === claimType);
+            if (selClaimType) {
+                const maxAmount = Number(selClaimType.max_amount) || 0;
+                const remainingBalance = Number(selClaimType.remaining_balance) || 0;
+                const reqAmount = Number(amount) || 0;
+                if (maxAmount !== 0 && reqAmount > remainingBalance) {
+                    toast.error(`Amount cannot exceed remaining balance (${remainingBalance.toLocaleString()})`);
+                    return;
+                }
+            }
+
+            if (!currencyType) {
+                toast.error('Please select a currency');
+                return;
+            }
+            if (isTaxiClaimType) {
+                if (!claimFromPlace.trim()) { toast.error('From Place is required'); return; }
+                if (!claimToPlace.trim()) { toast.error('To Place is required'); return; }
+            }
+        }
+        if (selectedType === 'cashadvance') {
+            if (!amount || Number(amount) <= 0) {
+                toast.error('Amount must be greater than zero');
+                return;
+            }
+            if (!currencyType) {
+                toast.error('Please select a currency');
                 return;
             }
         }
@@ -921,113 +1489,94 @@ export default function NewRequestPage() {
             <form className={styles['new-request__card']} onSubmit={handleSubmit}>
                 {/* ═════ 1. Request Type Selector (hidden when pre-selected) ═════ */}
                 {!presetType && (
-                    <div className={styles['new-request__section']}>
-                        <h3 className={styles['new-request__section-title']}>Request Type</h3>
-                        <div className={styles['new-request__type-grid']}>
-                            {requestTypes.length === 0 ? (
-                                <p style={{ color: 'var(--color-neutral-400)', fontSize: 'var(--text-sm)' }}>Loading…</p>
-                            ) : requestTypes.map((rt) => {
-                                const descLower = (rt.description || '').trim().toLowerCase();
-                                const key = DESC_TO_KEY[descLower] || 'other';
-                                const { icon: Icon, color, bgColor } = TYPE_VISUAL[key] || TYPE_VISUAL.other;
-                                return (
-                                    <div
-                                        key={rt.syskey}
-                                        className={`${styles['new-request__type-card']} ${selectedType === key ? styles['new-request__type-card--active'] : ''}`}
-                                        onClick={() => setSelectedType(key)}
-                                    >
-                                        <div className={styles['new-request__type-card-icon']} style={{ background: bgColor, color }}>
-                                            <Icon size={22} />
-                                        </div>
-                                        <span className={styles['new-request__type-card-label']}>{rt.description}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
+                    <TypeCarousel
+                        requestTypes={requestTypes}
+                        selectedType={selectedType}
+                        styles={styles}
+                        onSelect={(key) => {
+                            if (key === 'attendancerequest') {
+                                navigate('/attendancerequest/new');
+                            } else {
+                                setSelectedType(key);
+                            }
+                        }}
+                    />
                 )}
 
                 {selectedType && (
                     <>
 
 
-                        {/* ═════ 3. Date & Time (common — hidden for claim/cashadvance/orgchange) ═════ */}
-                        {selectedType !== 'claim' && selectedType !== 'cashadvance' && selectedType !== 'orgchange' && (
+                        {/* ═════ 2. Request Details (for RO Proxy) ═════ */}
+                        {['leave', 'overtime'].includes(selectedType) && (
+                            <div className={styles['new-request__section']}>
+                                <h3 className={styles['new-request__section-title']}>Details</h3>
+                                <div className={styles['new-request__grid']}>
+                                    <div className={styles['new-request__full']} style={{ marginBottom: 'var(--space-2)' }}>
+                                        <Select
+                                            id="employee"
+                                            label="Select Employee"
+                                            value={selectedMemberSyskey}
+                                            onChange={(e: any) => setSelectedMemberSyskey(e.target.value)}
+                                            options={employeeOptions}
+                                        />
+                                        {selectedMemberSyskey !== '__SELF__' && (
+                                            <div className={styles['new-request__member-info-mini']} style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                                <strong>Employee ID:</strong> {selectedMemberInfo.id}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ═════ 3. Date & Time (common — hidden for claim/cashadvance/orgchange/leave) ═════ */}
+                        {selectedType !== 'claim' && selectedType !== 'cashadvance' && selectedType !== 'orgchange' && selectedType !== 'leave' && (
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Date & Time</h3>
                                 <div className={styles['new-request__grid']}>
                                     {selectedType === 'travel' ? (
                                         <>
-                                            <Input id="departureDate" label="Departure Date" type="date" value={departureDate} onChange={(e) => setDepartureDate(e.target.value)} required />
-                                            <Input id="arrivalDate" label="Arrival Date" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} required />
+                                            <DateInput id="departureDate" label="Departure Date" value={departureDate} onChange={(e: any) => setDepartureDate(e.target.value)} required />
+                                            <DateInput id="arrivalDate" label="Arrival Date" value={arrivalDate} onChange={(e: any) => setArrivalDate(e.target.value)} required />
                                         </>
                                     ) : selectedType === 'overtime' ? (
-                                        // Overtime: start/end date | OT Day + OT Hours in one row | start/end time
+                                        // Overtime: start/end date | start/end time | OT Day + OT Hours
                                         <>
-                                            <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                                            {/* OT Day + OT Hours — same row */}
+                                            <DateInput id="startDate" label={t('request.startDate')} value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                            <DateInput id="endDate" label={t('request.endDate')} value={endDate} onChange={(e: any) => setEndDate(e.target.value)} />
+                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)} />
+                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)} />
+                                            {/* OT Day + OT Hours — same row, below times */}
                                             <div className={styles['new-request__full']} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                                                 <Input id="otDays" label="OT Day" type="number" value={otDays} readOnly placeholder="auto" />
-                                                <Input id="hour" label="OT Hours" type="number" value={hour} onChange={(e) => setHour(e.target.value)} placeholder="auto-calculated" min="0" step="0.5" readOnly={!!(startTime && endTime)} />
-                                            </div>
-                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                                        </>
-                                    ) : selectedType === 'leave' ? (
-                                        <>
-                                            <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Select
-                                                id="startPeriod"
-                                                label={t('request.startTime')}
-                                                value={startPeriod}
-                                                onChange={(e) => setStartPeriod(e.target.value)}
-                                                options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
-                                            />
-                                            <Input id="endDate" label={t('request.endDate')} type="date" value={endDate || startDate} onChange={(e) => setEndDate(e.target.value)} />
-                                            <Select
-                                                id="endPeriod"
-                                                label={t('request.endTime')}
-                                                value={endPeriod}
-                                                onChange={(e) => setEndPeriod(e.target.value)}
-                                                options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
-                                            />
-                                            <div className={styles['new-request__full']}>
-                                                <Input
-                                                    id="duration"
-                                                    label={t('request.duration')}
-                                                    type="text"
-                                                    inputMode="decimal"
-                                                    value={duration}
-                                                    onChange={(e) => setDuration(e.target.value)}
-                                                    placeholder="e.g. 1.5"
-                                                />
+                                                <Input id="hour" label="OT Hours" type="number" value={hour} onChange={(e: any) => setHour(e.target.value)} placeholder="auto-calculated" min="0" step="0.5" readOnly={!!(startTime && endTime)} />
                                             </div>
                                         </>
                                     ) : selectedType === 'offinlieu' ? (
                                         // Off in Lieu: single date + start/end time (no duration) — mirrors mobile
                                         <>
-                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Input id="startTime" label="Start Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
-                                            <Input id="endTime" label="End Time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+                                            <DateInput id="startDate" label="Date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                            <Input id="startTime" label="Start Time" type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)} required />
+                                            <Input id="endTime" label="End Time" type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)} required />
                                         </>
-                                    ) : GENERIC_TYPES.has(selectedType) ? (
+                                    ) : GENERIC_TYPES.has(selectedType) || selectedType.startsWith('other_') ? (
                                         // General/Employee Requisition/Purchase/Attendance — single date + time
                                         <>
-                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Input id="startTime" label="Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                                            <DateInput id="startDate" label="Date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                            <Input id="startTime" label="Time" type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)} />
                                         </>
                                     ) : (selectedType === 'claim' || selectedType === 'cashadvance') ? (
                                         // Claim / Cash Advance: single date only — Flutter uses formData['date']
                                         <>
-                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+                                            <DateInput id="startDate" label="Date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
                                         </>
                                     ) : (selectedType === 'late' || selectedType === 'earlyout') ? (
                                         // Late / Early Out: single date + startTime + endTime + auto-calculated duration
                                         <>
-                                            <Input id="startDate" label="Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Input id="startTime" label="Start Time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
-                                            <Input id="endTime" label="End Time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+                                            <DateInput id="startDate" label="Date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                            <Input id="startTime" label="Start Time" type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)} required />
+                                            <Input id="endTime" label="End Time" type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)} required />
                                             {startTime && endTime && (() => {
                                                 const [sh, sm] = startTime.split(':').map(Number);
                                                 const [eh, em] = endTime.split(':').map(Number);
@@ -1045,10 +1594,10 @@ export default function NewRequestPage() {
                                     ) : (
                                         // Generic fallback: wfh, reservation, and other types not explicitly handled
                                         <>
-                                            <Input id="startDate" label={t('request.startDate')} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-                                            <Input id="endDate" label={t('request.endDate')} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                                            <DateInput id="startDate" label={t('request.startDate')} value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                            <DateInput id="endDate" label={t('request.endDate')} value={endDate} onChange={(e: any) => setEndDate(e.target.value)} />
+                                            <Input id="startTime" label={t('request.startTime')} type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)} />
+                                            <Input id="endTime" label={t('request.endTime')} type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)} />
                                         </>
                                     )}
                                 </div>
@@ -1087,7 +1636,7 @@ export default function NewRequestPage() {
                                         id="transToPlace"
                                         label="Destination Place"
                                         value={transToPlace}
-                                        onChange={(e) => setTransToPlace(e.target.value)}
+                                        onChange={(e: any) => setTransToPlace(e.target.value)}
                                         placeholder="Enter destination…"
                                     />
 
@@ -1097,7 +1646,7 @@ export default function NewRequestPage() {
                                             id="transTripType"
                                             label="Travel Type"
                                             value={transTripType}
-                                            onChange={(e) => {
+                                            onChange={(e: any) => {
                                                 const sel = transportTypes.find(t => t.syskey === e.target.value);
                                                 setTransTripType(e.target.value);
                                                 setTransTripTypeDesc(sel?.description || '');
@@ -1111,13 +1660,13 @@ export default function NewRequestPage() {
                                     {transTripType === '0' && (
                                         <>
                                             <Input className={styles['new-request__full']} id="transOneWayStart" label="Start Location" value={transOneWayStart}
-                                                onChange={(e) => setTransOneWayStart(e.target.value)} placeholder="Start location…" />
+                                                onChange={(e: any) => setTransOneWayStart(e.target.value)} placeholder="Start location…" />
                                             <Input className={styles['new-request__full']} id="transOneWayEnd" label="End Location" value={transOneWayEnd}
-                                                onChange={(e) => setTransOneWayEnd(e.target.value)} placeholder="End location…" />
+                                                onChange={(e: any) => setTransOneWayEnd(e.target.value)} placeholder="End location…" />
                                             <Input id="transOneWayStartTime" label="Start Time" type="time" value={transOneWayStartTime}
-                                                onChange={(e) => setTransOneWayStartTime(e.target.value)} />
+                                                onChange={(e: any) => setTransOneWayStartTime(e.target.value)} />
                                             <Input id="transOneWayEndTime" label="End Time" type="time" value={transOneWayEndTime}
-                                                onChange={(e) => setTransOneWayEndTime(e.target.value)} />
+                                                onChange={(e: any) => setTransOneWayEndTime(e.target.value)} />
                                         </>
                                     )}
 
@@ -1126,22 +1675,22 @@ export default function NewRequestPage() {
                                         <>
                                             <div className={styles['new-request__full']} style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: 'var(--text-sm)' }}>Departure</div>
                                             <Input id="transDepartureStart" label="Start Location" value={transDepartureStart}
-                                                onChange={(e) => setTransDepartureStart(e.target.value)} placeholder="Departure start…" />
+                                                onChange={(e: any) => setTransDepartureStart(e.target.value)} placeholder="Departure start…" />
                                             <Input id="transDepartureEnd" label="End Location" value={transDepartureEnd}
-                                                onChange={(e) => setTransDepartureEnd(e.target.value)} placeholder="Departure end…" />
+                                                onChange={(e: any) => setTransDepartureEnd(e.target.value)} placeholder="Departure end…" />
                                             <Input id="transDepartureStartTime" label="Start Time" type="time" value={transDepartureStartTime}
-                                                onChange={(e) => setTransDepartureStartTime(e.target.value)} />
+                                                onChange={(e: any) => setTransDepartureStartTime(e.target.value)} />
                                             <Input id="transDepartureEndTime" label="End Time" type="time" value={transDepartureEndTime}
-                                                onChange={(e) => setTransDepartureEndTime(e.target.value)} />
+                                                onChange={(e: any) => setTransDepartureEndTime(e.target.value)} />
                                             <div className={styles['new-request__full']} style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: 'var(--text-sm)' }}>Arrival</div>
                                             <Input id="transArrivalStart" label="Start Location" value={transArrivalStart}
-                                                onChange={(e) => setTransArrivalStart(e.target.value)} placeholder="Arrival start…" />
+                                                onChange={(e: any) => setTransArrivalStart(e.target.value)} placeholder="Arrival start…" />
                                             <Input id="transArrivalEnd" label="End Location" value={transArrivalEnd}
-                                                onChange={(e) => setTransArrivalEnd(e.target.value)} placeholder="Arrival end…" />
+                                                onChange={(e: any) => setTransArrivalEnd(e.target.value)} placeholder="Arrival end…" />
                                             <Input id="transArrivalStartTime" label="Start Time" type="time" value={transArrivalStartTime}
-                                                onChange={(e) => setTransArrivalStartTime(e.target.value)} />
+                                                onChange={(e: any) => setTransArrivalStartTime(e.target.value)} />
                                             <Input id="transArrivalEndTime" label="End Time" type="time" value={transArrivalEndTime}
-                                                onChange={(e) => setTransArrivalEndTime(e.target.value)} />
+                                                onChange={(e: any) => setTransArrivalEndTime(e.target.value)} />
                                         </>
                                     )}
                                 </div>
@@ -1166,7 +1715,7 @@ export default function NewRequestPage() {
                                             id="orgUnitSubject"
                                             label="Unit Subject to Change:*"
                                             value={orgUnitSubject}
-                                            onChange={(e) => setOrgUnitSubject(e.target.value)}
+                                            onChange={(e: any) => setOrgUnitSubject(e.target.value)}
                                             options={orgUnitSubjects.map(item => ({
                                                 value: item.description,
                                                 label: item.description
@@ -1179,7 +1728,7 @@ export default function NewRequestPage() {
                                         id="orgChangeType"
                                         label="Type of Organization Change*"
                                         value={orgChangeType}
-                                        onChange={(e) => setOrgChangeType(e.target.value)}
+                                        onChange={(e: any) => setOrgChangeType(e.target.value)}
                                         options={orgChangeTypes.map(item => ({
                                             value: item.description,
                                             label: item.description
@@ -1188,12 +1737,12 @@ export default function NewRequestPage() {
                                     <Input id="initiatorDivision" label="Initiator's Division" value={user?.division || ''} readOnly />
 
                                     {/* ROW 3 */}
-                                    <FileUpload label="Summary of Change**" files={files} onChange={setFiles} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
-                                    <Textarea id="orgComment" label="Comment for Summary Change**" value={orgComment} onChange={e => setOrgComment(e.target.value)} placeholder="Test" required />
+                                    <FileUpload label="Summary of Change**" files={files} onChange={setFiles} accept=".pdf,.docx,.jpg,.png" />
+                                    <Textarea id="orgComment" label="Comment for Summary Change**" value={orgComment} onChange={(e: any) => setOrgComment(e.target.value)} placeholder="Test" required />
 
                                     {/* ROW 4 */}
-                                    <Textarea id="orgObjective" label="Objective of Change**" value={orgObjective} onChange={e => setOrgObjective(e.target.value)} placeholder="TEST" required />
-                                    <FileUpload label="Employee Reassignment**" files={files} onChange={setFiles} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
+                                    <Textarea id="orgObjective" label="Objective of Change**" value={orgObjective} onChange={(e: any) => setOrgObjective(e.target.value)} placeholder="TEST" required />
+                                    <FileUpload label="Employee Reassignment**" files={files} onChange={setFiles} accept=".pdf,.docx,.jpg,.png" />
 
                                     {/* ROW 5 */}
                                     <div className={styles['new-request__full']} style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '8px', marginTop: '16px' }}>
@@ -1208,7 +1757,7 @@ export default function NewRequestPage() {
                                         </div>
                                         {orgEffectiveFix === 'Yes' && (
                                             <div style={{ maxWidth: '50%' }}>
-                                                <Input id="orgProposedDate" label="Proposed Effective Date*" type="date" value={orgProposedDate} onChange={e => setOrgProposedDate(e.target.value)} required />
+                                                <DateInput id="orgProposedDate" label="Proposed Effective Date*" value={orgProposedDate} onChange={(e: any) => setOrgProposedDate(e.target.value)} required />
                                             </div>
                                         )}
                                     </div>
@@ -1226,9 +1775,9 @@ export default function NewRequestPage() {
                                         </div>
                                         {orgRelocation === 'Yes' && (
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-                                                <Input id="orgRelocationHeadcounts" label="Headcounts to relocate*" type="number" value={orgRelocationHeadcounts} onChange={e => setOrgRelocationHeadcounts(e.target.value)} required />
-                                                <Input id="orgRelocationFrom" label="Relocation [From]:*" value={orgRelocationFrom} onChange={e => setOrgRelocationFrom(e.target.value)} required />
-                                                <Input id="orgRelocationTo" label="Relocation [To]:*" value={orgRelocationTo} onChange={e => setOrgRelocationTo(e.target.value)} required />
+                                                <Input id="orgRelocationHeadcounts" label="Headcounts to relocate*" type="number" value={orgRelocationHeadcounts} onChange={(e: any) => setOrgRelocationHeadcounts(e.target.value)} required />
+                                                <Input id="orgRelocationFrom" label="Relocation [From]:*" value={orgRelocationFrom} onChange={(e: any) => setOrgRelocationFrom(e.target.value)} required />
+                                                <Input id="orgRelocationTo" label="Relocation [To]:*" value={orgRelocationTo} onChange={(e: any) => setOrgRelocationTo(e.target.value)} required />
                                             </div>
                                         )}
                                     </div>
@@ -1236,7 +1785,7 @@ export default function NewRequestPage() {
                                     <div className={styles['new-request__full']} style={{ height: '32px' }} /> {/* Spacing */}
 
                                     {/* ROW 7 */}
-                                    <Input id="orgApplicationDate" label="Application Date*" type="date" value={startDate} readOnly />
+                                    <DateInput id="orgApplicationDate" label="Application Date*" value={startDate} readOnly />
                                     <Input id="orgDepartment" label="Initiator's Department" value={user?.department || ''} readOnly />
 
                                     {/* ROW 8 */}
@@ -1263,7 +1812,7 @@ export default function NewRequestPage() {
                                         id="reservationType"
                                         label="Reservation Type"
                                         value={subType}
-                                        onChange={(e) => setSubType(e.target.value)}
+                                        onChange={(e: any) => setSubType(e.target.value)}
                                         options={reservationTypes.map((r) => ({ value: r.syskey, label: r.description }))}
                                         placeholder="Select type…"
                                     />
@@ -1271,7 +1820,7 @@ export default function NewRequestPage() {
                                         id="room"
                                         label="Rooms"
                                         value={room}
-                                        onChange={(e) => {
+                                        onChange={(e: any) => {
                                             setRoom(e.target.value);
                                             // Auto-fill maxPeople from the selected room
                                             const selected = roomTypes.find((r) => r.syskey === e.target.value);
@@ -1282,7 +1831,7 @@ export default function NewRequestPage() {
                                         options={roomTypes.map((r) => ({ value: r.syskey, label: r.description }))}
                                         placeholder="Select room…"
                                     />
-                                    <Input id="maxPeople" label="Max People" type="number" value={maxPeople} onChange={(e) => setMaxPeople(e.target.value)} placeholder="e.g. 10" />
+                                    <Input id="maxPeople" label="Max People" type="number" value={maxPeople} onChange={(e: any) => setMaxPeople(e.target.value)} placeholder="e.g. 10" />
                                 </div>
                                 <div style={{ marginTop: 'var(--space-4)' }}>
                                     <MemberPicker label="Meeting Participants" members={accompanyPersons} onChange={setAccompanyPersons} />
@@ -1295,27 +1844,27 @@ export default function NewRequestPage() {
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Travel Details</h3>
                                 <div className={styles['new-request__grid']}>
-                                    <Input id="travelDepartureTime" label="Departure Time" type="time" value={travelDepartureTime} onChange={(e) => setTravelDepartureTime(e.target.value)} />
-                                    <Input id="travelReturnTime" label="Planned Return" type="time" value={travelReturnTime} onChange={(e) => setTravelReturnTime(e.target.value)} />
+                                    <Input id="travelDepartureTime" label="Departure Time" type="time" value={travelDepartureTime} onChange={(e: any) => setTravelDepartureTime(e.target.value)} />
+                                    <Input id="travelReturnTime" label="Planned Return" type="time" value={travelReturnTime} onChange={(e: any) => setTravelReturnTime(e.target.value)} />
                                     {travelTypes.length > 0 && (
-                                        <Select id="modeOfTravel" label="Mode of Travel" value={modeOfTravel} onChange={(e) => setModeOfTravel(e.target.value)} options={travelTypes.map((t) => ({ value: t.syskey, label: t.description }))} placeholder="Select…" />
+                                        <Select id="modeOfTravel" label="Mode of Travel" value={modeOfTravel} onChange={(e: any) => setModeOfTravel(e.target.value)} options={travelTypes.map((t) => ({ value: t.syskey, label: t.description }))} placeholder="Select…" />
                                     )}
                                     {vehicleUseList.length > 0 && (
-                                        <Select id="vehicleUse" label="Vehicle Use" value={vehicleUse} onChange={(e) => setVehicleUse(e.target.value)} options={vehicleUseList.map((v) => ({ value: v.syskey, label: v.description }))} placeholder="Select…" />
+                                        <Select id="vehicleUse" label="Vehicle Use" value={vehicleUse} onChange={(e: any) => setVehicleUse(e.target.value)} options={vehicleUseList.map((v) => ({ value: v.syskey, label: v.description }))} placeholder="Select…" />
                                     )}
                                     {productList.length > 0 && (
-                                        <Select id="product" label="Product" value={product} onChange={(e) => setProduct(e.target.value)} options={productList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select…" />
+                                        <Select id="product" label="Product" value={product} onChange={(e: any) => setProduct(e.target.value)} options={productList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select…" />
                                     )}
                                     {projectList.length > 0 && (
-                                        <Select id="project" label="Project" value={project} onChange={(e) => setProject(e.target.value)} options={projectList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select…" />
+                                        <Select id="project" label="Project" value={project} onChange={(e: any) => setProject(e.target.value)} options={projectList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select…" />
                                     )}
-                                    <Input id="budget" label="Estimated Budget" type="text" inputMode="decimal" value={formatAmount(estimatedBudget)} onChange={(e) => setEstimatedBudget(unformatAmount(e.target.value))} placeholder="0" />
+                                    <Input id="budget" label="Estimated Budget" type="text" inputMode="decimal" value={formatAmount(estimatedBudget)} onChange={(e: any) => setEstimatedBudget(unformatAmount(e.target.value))} placeholder="0" />
                                     <div className={styles['new-request__full']}>
                                         <Textarea
                                             id="travelPurpose"
                                             label="Travel Purpose"
                                             value={travelPurpose}
-                                            onChange={(e) => setTravelPurpose(e.target.value)}
+                                            onChange={(e: any) => setTravelPurpose(e.target.value)}
                                             placeholder="Purpose of this travel…"
                                             required
                                         />
@@ -1333,10 +1882,10 @@ export default function NewRequestPage() {
                                 <h3 className={styles['new-request__section-title']}>Overtime Details</h3>
                                 <div className={styles['new-request__grid']}>
                                     {productList.length > 0 && (
-                                        <Select id="otProduct" label="Product" value={product} onChange={(e) => setProduct(e.target.value)} options={productList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select product…" />
+                                        <Select id="otProduct" label="Product" value={product} onChange={(e: any) => setProduct(e.target.value)} options={productList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select product…" />
                                     )}
                                     {projectList.length > 0 && (
-                                        <Select id="otProject" label="Project" value={project} onChange={(e) => setProject(e.target.value)} options={projectList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select project…" />
+                                        <Select id="otProject" label="Project" value={project} onChange={(e: any) => setProject(e.target.value)} options={projectList.map((p) => ({ value: p.syskey, label: p.description }))} placeholder="Select project…" />
                                     )}
                                 </div>
                             </div>
@@ -1346,15 +1895,111 @@ export default function NewRequestPage() {
                         {selectedType === 'leave' && (
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Leave Details</h3>
-                                <div className={styles['new-request__grid']}>
+                                <div className={styles['new-request__full']}>
                                     <Select
                                         id="leaveType"
                                         label="Leave Type"
                                         value={leaveType}
-                                        onChange={(e) => setLeaveType(e.target.value)}
+                                        onChange={(e: any) => setLeaveType(e.target.value)}
                                         options={leaveTypeList.map((lt) => ({ value: lt.syskey, label: lt.description }))}
                                         placeholder="Select leave type…"
+                                        required
                                     />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Leave Reason ── */}
+                        {(flavor === 'prd' || flavor === 'mpt') && selectedType === 'leave' && (
+                            <div className={styles['new-request__full']} style={{ marginBottom: 'var(--space-4)' }}>
+                                <Select
+                                    id="leaveReason"
+                                    label="Leave Reason"
+                                    value={leaveReason}
+                                    onChange={(e: any) => setLeaveReason(e.target.value)}
+                                    options={leaveReasonsList.map((r) => ({ value: r.syskey, label: r.description }))}
+                                    placeholder="Choose your reason..."
+                                    required
+                                />
+                            </div>
+                        )}
+
+                        {/* ── Leave Date & Time (placed below Leave Reason) ── */}
+                        {selectedType === 'leave' && (
+                            <div className={styles['new-request__section']}>
+                                <h3 className={styles['new-request__section-title']}>Date & Time</h3>
+                                <div className={styles['new-request__grid']}>
+                                    <DateInput id="startDate" label={t('request.startDate')} value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                    <Select
+                                        id="startPeriod"
+                                        label={t('request.startTime')}
+                                        value={startPeriod}
+                                        onChange={(e: any) => setStartPeriod(e.target.value)}
+                                        options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
+                                    />
+                                    <DateInput id="endDate" label={t('request.endDate')} value={endDate || startDate} onChange={(e: any) => setEndDate(e.target.value)} />
+                                    <Select
+                                        id="endPeriod"
+                                        label={t('request.endTime')}
+                                        value={endPeriod}
+                                        onChange={(e: any) => setEndPeriod(e.target.value)}
+                                        options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
+                                    />
+                                    <div style={{ position: 'relative' }}>
+                                        <style>{`
+                                            @keyframes duration-shimmer {
+                                                0% { background-position: -200% 0; }
+                                                100% { background-position: 200% 0; }
+                                            }
+                                        `}</style>
+
+                                        {durationLoading ? (
+                                            <div>
+                                                <label style={{
+                                                    display: 'block',
+                                                    fontSize: '12px',
+                                                    fontWeight: 600,
+                                                    color: 'var(--color-neutral-500)',
+                                                    marginBottom: 6,
+                                                    letterSpacing: '0.03em',
+                                                }}>
+                                                    {t('request.duration')}
+                                                </label>
+                                                <div style={{
+                                                    height: 42,
+                                                    borderRadius: 8,
+                                                    border: '1.5px solid var(--color-neutral-200)',
+                                                    background: 'linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)',
+                                                    backgroundSize: '200% 100%',
+                                                    animation: 'duration-shimmer 1.2s ease-in-out infinite',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    paddingLeft: 12,
+                                                    gap: 8,
+                                                }}>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                        stroke="var(--color-primary-400)" strokeWidth="2.5" strokeLinecap="round"
+                                                        style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
+                                                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                                                    </svg>
+                                                    <span style={{ fontSize: '13px', color: 'var(--color-neutral-400)', fontStyle: 'italic' }}>
+                                                        Calculating…
+                                                    </span>
+                                                </div>
+                                                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                                            </div>
+                                        ) : (
+                                            <Input
+                                                id="duration"
+                                                label={t('request.duration')}
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={duration}
+                                                onChange={(e: any) => setDuration(e.target.value)}
+                                                placeholder="e.g. 1.5"
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -1365,7 +2010,7 @@ export default function NewRequestPage() {
                                 <h3 className={styles['new-request__section-title']}>Work From Home</h3>
                                 <div className={styles['new-request__grid']}>
                                     <div className={styles['new-request__full']}>
-                                        <Input id="locationName" label="Location" value={locationName} onChange={(e) => setLocationName(e.target.value)} placeholder="Where you'll be working from" />
+                                        <Input id="locationName" label="Location" value={locationName} onChange={(e: any) => setLocationName(e.target.value)} placeholder="Where you'll be working from" />
                                     </div>
                                 </div>
                             </div>
@@ -1376,18 +2021,18 @@ export default function NewRequestPage() {
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Claim Details</h3>
 
-                                {/* Claim Type + Currency */}
-                                <div className={styles['new-request__grid']}>
-                                    {/* Claim Type — only for Claim type, not Cash Advance */}
-                                    {selectedType === 'claim' && (
+                                {/* Row 1: Claim Type | Remaining Balance */}
+                                {selectedType === 'claim' && (
+                                    <div className={styles['new-request__grid']} style={{ marginBottom: 'var(--space-4)' }}>
                                         <Select
                                             id="claimType"
                                             label="Claim Type"
                                             value={claimType}
-                                            onChange={(e) => {
+                                            onChange={(e: any) => {
                                                 setClaimType(e.target.value);
                                                 const sel = claimTypeList.find(ct => ct.syskey === e.target.value);
                                                 setClaimTypeDesc(sel?.description || '');
+                                                setRemainingBalance(sel?.remaining_balance != null ? String(sel.remaining_balance) : '');
                                                 setClaimFromPlace('');
                                                 setClaimToPlace('');
                                             }}
@@ -1395,36 +2040,55 @@ export default function NewRequestPage() {
                                             placeholder="Select claim type"
                                             options={claimTypeList.map((ct) => ({ value: ct.syskey, label: ct.description }))}
                                         />
-                                    )}
-                                    <Select
-                                        id="claimCurrency"
-                                        label="Currency"
-                                        value={currencyType}
-                                        onChange={(e) => setCurrencyType(e.target.value)}
-                                        placeholder="Select currency"
-                                        options={currencyList.map((c) => ({ value: c.syskey, label: c.description }))}
+                                        {/* Remaining Balance — only shown when max_amount is set */}
+                                        {(() => {
+                                            const selCt = claimTypeList.find(ct => ct.syskey === claimType);
+                                            const hasMaxAmount = selCt?.max_amount && Number(selCt.max_amount) !== 0;
+                                            return hasMaxAmount ? (
+                                                <Input
+                                                    id="remainingBalance"
+                                                    label="Remaining Balance"
+                                                    value={remainingBalance
+                                                        ? parseFloat(remainingBalance).toLocaleString()
+                                                        : '—'}
+                                                    readOnly
+                                                    disabled
+                                                />
+                                            ) : null;
+                                        })()}
+                                    </div>
+                                )}
+
+                                {/* Row 2: Date */}
+                                <div className={styles['new-request__grid']} style={{ marginBottom: 'var(--space-4)' }}>
+                                    <DateInput
+                                        id="claimDate"
+                                        label="Date"
+                                        value={startDate}
+                                        onChange={(e: any) => setStartDate(e.target.value)}
+                                        required
                                     />
                                 </div>
 
-                                {/* Date + Amount row */}
-                                <div className={styles['new-request__grid']} style={{ marginTop: 'var(--space-4)' }}>
-                                    <Input
-                                        id="claimDate"
-                                        label="Date"
-                                        type="date"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        required
-                                    />
+                                {/* Row 3: Amount | Currency */}
+                                <div className={styles['new-request__grid']}>
                                     <Input
                                         id="amount"
                                         label="Amount"
                                         type="text"
                                         inputMode="decimal"
                                         value={formatAmount(amount)}
-                                        onChange={(e) => setAmount(unformatAmount(e.target.value))}
+                                        onChange={(e: any) => setAmount(unformatAmount(e.target.value))}
                                         placeholder="0"
                                         required
+                                    />
+                                    <Select
+                                        id="claimCurrency"
+                                        label="Currency"
+                                        value={currencyType}
+                                        onChange={(e: any) => setCurrencyType(e.target.value)}
+                                        placeholder="Select currency"
+                                        options={currencyList.map((c) => ({ value: c.syskey, label: c.description }))}
                                     />
                                 </div>
 
@@ -1435,7 +2099,7 @@ export default function NewRequestPage() {
                                             id="claimFromPlace"
                                             label="From Place"
                                             value={claimFromPlace}
-                                            onChange={(e) => setClaimFromPlace(e.target.value)}
+                                            onChange={(e: any) => setClaimFromPlace(e.target.value)}
                                             placeholder="Origin"
                                             required
                                         />
@@ -1443,7 +2107,7 @@ export default function NewRequestPage() {
                                             id="claimToPlace"
                                             label="To Place"
                                             value={claimToPlace}
-                                            onChange={(e) => setClaimToPlace(e.target.value)}
+                                            onChange={(e: any) => setClaimToPlace(e.target.value)}
                                             placeholder="Destination"
                                             required
                                         />
@@ -1461,7 +2125,7 @@ export default function NewRequestPage() {
                                         id="remark"
                                         label={isBenefitBonusClaimType ? 'Reason' : t('request.remark')}
                                         value={remark}
-                                        onChange={(e) => setRemark(e.target.value)}
+                                        onChange={(e: any) => setRemark(e.target.value)}
                                         placeholder="Any additional notes or comments…"
                                     />
                                 </div>
@@ -1473,20 +2137,125 @@ export default function NewRequestPage() {
                                             label="Attachments"
                                             files={files}
                                             onChange={setFiles}
-                                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                                            accept=".pdf,.docx,.jpg,.png"
                                         />
+                                        {existingAttachments.length > 0 && (
+                                            <div style={{ marginTop: '12px' }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-neutral-700)', marginBottom: '8px' }}>
+                                                    Existing Attachments
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {existingAttachments.map((att, i) => {
+                                                        // Extract true filename robustly
+                                                        let rawName = '';
+                                                        if (typeof att === 'string') {
+                                                            rawName = att;
+                                                        } else if (att && typeof att === 'object') {
+                                                            const potentialName = att.filename || att.fileName || att.name || att.filepath || att.filePath || att.url || att.signedURL;
+                                                            if (typeof potentialName === 'string') {
+                                                                rawName = potentialName;
+                                                            } else if (Array.isArray(potentialName) && potentialName.length > 0 && typeof potentialName[0] === 'string') {
+                                                                rawName = potentialName[0];
+                                                            }
+                                                        }
+                                                        
+                                                        let displayName = typeof rawName === 'string' ? rawName : '';
+                                                        
+                                                        if (displayName) {
+                                                            displayName = displayName.split('/').pop() || displayName;
+                                                            displayName = displayName.split('\\').pop() || displayName;
+                                                            displayName = displayName.split('?')[0]; // remove query params
+                                                        }
+                                                        
+                                                        displayName = displayName || `File ${i + 1}`;
+                                                        
+                                                        // Ensure it's absolutely a string to prevent [object Object] rendering issues
+                                                        if (typeof displayName !== 'string') {
+                                                            displayName = `File ${i + 1}`;
+                                                        }
+
+                                                        // Determine icon based on extension
+                                                        const ext = displayName.split('.').pop()?.toLowerCase() || '';
+                                                        let FileIcon = File;
+                                                        if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                                                            FileIcon = ImageIcon;
+                                                        } else if (['pdf', 'doc', 'docx', 'txt'].includes(ext)) {
+                                                            FileIcon = FileText;
+                                                        } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                                                            FileIcon = FileSpreadsheet;
+                                                        } else if (['zip', 'rar', 'tar', 'gz'].includes(ext)) {
+                                                            FileIcon = FileArchive;
+                                                        } else if (['mp4', 'avi', 'mov', 'mkv'].includes(ext)) {
+                                                            FileIcon = FileVideo;
+                                                        } else if (['mp3', 'wav'].includes(ext)) {
+                                                            FileIcon = FileAudio;
+                                                        }
+
+                                                        return (
+                                                            <div key={i} style={{ 
+                                                                display: 'flex', 
+                                                                alignItems: 'center', 
+                                                                justifyContent: 'space-between', 
+                                                                padding: '8px 12px', 
+                                                                background: 'var(--color-primary-50)', 
+                                                                border: '1px solid var(--color-primary-200)', 
+                                                                borderRadius: '6px' 
+                                                            }}>
+                                                                <button type="button" onClick={() => downloadOrOpenAttachment(att)} 
+                                                                    style={{ 
+                                                                        display: 'flex', 
+                                                                        alignItems: 'center', 
+                                                                        gap: '8px', 
+                                                                        fontSize: 'var(--text-sm)', 
+                                                                        color: 'var(--color-primary-600)', 
+                                                                        background: 'none', 
+                                                                        border: 'none', 
+                                                                        cursor: 'pointer', 
+                                                                        padding: 0,
+                                                                        textAlign: 'left'
+                                                                    }}
+                                                                    title={displayName}
+                                                                >
+                                                                    <FileIcon size={16} color="var(--color-primary-500)" />
+                                                                    <span style={{ fontWeight: 500 }}>{displayName}</span>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setExistingAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger-500)', display: 'flex', alignItems: 'center', padding: 4 }}
+                                                                    title="Remove Attachment"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
                                 {/* ═════ 7. Approvers ═════ */}
-                                <div className={styles['new-request__section']}>
-                                    <MemberPicker
-                                        label="Approvers"
-                                        members={approvers}
-                                        onChange={setApprovers}
-                                        required
-                                    />
-                                </div>
+                                {showApprovers && (
+                                    <div className={styles['new-request__section']}>
+                                        <MemberPicker
+                                            label="Approvers"
+                                            members={approvers}
+                                            onChange={setApprovers}
+                                            excludeSyskeys={[
+                                                selectedMemberInfo?.syskey,
+                                                selectedMemberInfo?.id,
+                                                selectedMemberInfo?.userid,
+                                                userId,
+                                                user?.usersyskey,
+                                                (user as any)?.syskey,
+                                                (user as any)?.eid,
+                                                (user as any)?.employee_id
+                                            ].filter(Boolean) as string[]}
+                                        />
+                                    </div>
+                                )}
                             </>
                         )}
 

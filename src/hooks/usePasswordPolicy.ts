@@ -71,6 +71,9 @@ export function usePasswordPolicy() {
             })
             .catch(() => { /* silently ignore — no policy means no checklist */ })
             .finally(() => { if (!cancelled) setLoading(false); });
+
+        // Disabled API call as requested; defaulting to no policy.
+        setLoading(false);
         return () => { cancelled = true; };
     }, []);
 

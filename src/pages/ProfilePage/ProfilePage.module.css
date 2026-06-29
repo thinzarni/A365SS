@@ -944,9 +944,17 @@
 }
 
 /* ── Responsive ── */
+
+/* Sidebar (260px) + 280px panel starts getting tight around 1100px */
+@media (max-width: 1100px) {
+    .profileWrapper {
+        grid-template-columns: 220px 1fr;
+    }
+}
+
 @media (max-width: 960px) {
     .profileWrapper {
-        grid-template-columns: 240px 1fr;
+        grid-template-columns: 200px 1fr;
     }
 
     .contactsGrid {

@@ -12,7 +12,8 @@ interface ConfirmModalProps {
     confirmLabel?: string;
     cancelLabel?: string;
     loading?: boolean;
-    variant?: 'danger' | 'warning';
+    variant?: 'danger' | 'warning' | 'primary';
+    icon?: React.ReactNode;
 }
 
 export default function ConfirmModal({
@@ -25,6 +26,7 @@ export default function ConfirmModal({
     cancelLabel = 'Cancel',
     loading = false,
     variant = 'danger',
+    icon,
 }: ConfirmModalProps) {
     useEffect(() => {
         if (!open) return;
@@ -51,7 +53,7 @@ export default function ConfirmModal({
 
                 {/* Icon */}
                 <div className={`${styles.iconWrap} ${styles[`iconWrap--${variant}`]}`}>
-                    <AlertTriangle size={28} />
+                    {icon || <AlertTriangle size={28} />}
                 </div>
 
                 {/* Content */}

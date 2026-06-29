@@ -5,6 +5,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FileText, Download, Eye, ArrowLeft, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../lib/api-client';
@@ -31,7 +32,8 @@ export default function PdfListPage() {
     const { id } = useParams<{ id: string }>(); // Folder syskey
     const location = useLocation();
     const navigate = useNavigate();
-    const folderName = (location.state as { title?: string })?.title || 'Documents';
+    const { t } = useTranslation();
+    const folderName = (location.state as { title?: string })?.title || t('rulesAndReg.documents');
     const [downloadingId, setDownloadingId] = React.useState<string | null>(null);
 
     const { data: documents = [], isLoading } = useQuery<PdfDocument[]>({
@@ -76,7 +78,7 @@ export default function PdfListPage() {
         if (url) {
             window.open(url, '_blank');
         } else {
-            toast.error('Failed to open document. URL not available.');
+            toast.error(t('rulesAndReg.failedOpen'));
         }
     };
 
@@ -102,10 +104,10 @@ export default function PdfListPage() {
                 setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
             } catch (error) {
                 console.error("Download failed:", error);
-                toast.error('Failed to download document from server.');
+                toast.error(t('rulesAndReg.failedDownloadServer'));
             }
         } else {
-            toast.error('Failed to download document. URL not available.');
+            toast.error(t('rulesAndReg.failedDownload'));
         }
     };
 
@@ -116,11 +118,11 @@ export default function PdfListPage() {
                 <div>
                     <button className={styles.backButton} onClick={() => navigate('/rulesandreg')}>
                         <ArrowLeft size={16} />
-                        Back to Folders
+                        {t('rulesAndReg.backToFolders')}
                     </button>
                     <h1 className="page-header__title">{folderName}</h1>
                 </div>
-            </div >
+            </div>
 
             {/* ── Content ── */}
             {
@@ -133,8 +135,8 @@ export default function PdfListPage() {
                 ) : documents.length === 0 ? (
                     <div className="empty-state">
                         <FileText size={64} className="empty-state__icon" />
-                        <h3 className="empty-state__title">No PDFs</h3>
-                        <p className="empty-state__desc">There are no documents in this folder.</p>
+                        <h3 className="empty-state__title">{t('rulesAndReg.noPdfs')}</h3>
+                        <p className="empty-state__desc">{t('rulesAndReg.noPdfsDesc')}</p>
                     </div>
                 ) : (
                     <div className={styles.folderList}>
@@ -197,7 +199,7 @@ export default function PdfListPage() {
                                             <button
                                                 className={`${styles.actionBtn} ${styles.viewBtn}`}
                                                 onClick={(e) => handleView(e, pdf)}
-                                                title="View Document"
+                                                title={t('rulesAndReg.viewDoc')}
                                                 disabled={!!downloadingId}
                                             >
                                                 <Eye size={20} />
@@ -205,7 +207,7 @@ export default function PdfListPage() {
                                             <button
                                                 className={`${styles.actionBtn} ${styles.downloadBtn}`}
                                                 onClick={(e) => handleDownload(e, pdf)}
-                                                title="Download Document"
+                                                title={t('rulesAndReg.downloadDoc')}
                                                 disabled={!!downloadingId}
                                             >
                                                 <Download size={20} />

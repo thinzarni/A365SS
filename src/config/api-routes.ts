@@ -1,84 +1,164 @@
 /* ═══════════════════════════════════════════════════════════
    API Routes — Extracted from Flutter api_routes.dart
    ═══════════════════════════════════════════════════════════ */
+import { flavor } from './features';
+
+const hxmPrefix = flavor === 'prd' || flavor === 'mpt' ? 'api/hxm/' : 'hxm/';
 
 // ── Auth ──
 export const RENEW_TOKEN = 'generate/renew-token';
 export const GENERATE_QR = 'generate/qr';
 export const QR_SUCCESS = 'qr-success';
-export const DOMAIN_LIST = 'hxm/payroll/domainlist';
-export const USER_PROFILE = 'api/employees/profile';
+export const CHECK_PASSWORD_EXPIRY = 'check/password-expried';
+export const DOMAIN_LIST = `${hxmPrefix}payroll/domainlist`;
+export const PAYROLL_PERIOD = `${hxmPrefix}payroll/payperiod`;
+export const SAVE_DEVICE_INFO = `${hxmPrefix}payroll/savedeviceinfo`
+
+export const USER_PROFILE = flavor == 'prd' || flavor === 'mpt' ? 'api/employees/extended-profile' : 'api/employees/profile';
 export const USER_PROFILE_UPDATE = 'api/employees/profile/update';
+export const GET_FAMILY = 'api/employees/getfamily';
+export const FAMILY_UPDATE = 'api/employees/family/update';
+export const FAMILY_COMPARE = 'api/employees/family/compare';
+export const GET_EXPERIENCE = 'api/employees/getexperience';
+export const EXPERIENCE_UPDATE = 'api/employees/experience/update';
+export const EXPERIENCE_COMPARE = 'api/employees/experience/compare';
+export const EMERGENCY_UPDATE = 'api/employees/emergency/update';
+export const EMERGENCY_COMPARE = 'api/employees/emergencycontact/compare';
+export const GET_QUALIFICATION = 'api/employees/getqualification';
+export const QUALIFICATION_UPDATE = 'api/employees/qualification/update';
+export const QUALIFICATION_COMPARE = 'api/employees/qualification/compare';
+export const GET_EDUCATION_NAME = 'api/setup/educationname';
+export const ADDRESS_UPDATE = 'api/employees/address/update';
+export const ADDRESS_COMPARE = 'api/employees/address/compare';
+export const GET_DISTRICT_LIST = 'api/setup/getdistrict';
+export const GET_TOWNSHIP_LIST = 'api/setup/gettownship';
+export const GET_CITY_LIST = 'api/setup/getcity';
+export const GET_WARD_LIST = 'api/setup/getward';
+export const LOCATION_LIST = 'api/checkin/locations/reference';
 
 // ── Request Management ──
-export const REQUEST_TYPES = 'hxm/request/getrequesttypelist';
-export const SAVE_REQUEST = 'hxm/request/saverequest';
-export const GET_REQUEST_LIST = 'hxm/request/getrequestlist';
-export const GET_REQUEST_DETAIL = 'hxm/request/getrequestdetail';
-export const DELETE_REQUEST = 'hxm/request/deleterequest';
+export const REQUEST_TYPES = `${hxmPrefix}request/getrequesttypelist`;
+export const SAVE_REQUEST = `${hxmPrefix}request/saverequest`;
+export const GET_REQUEST_LIST = `${hxmPrefix}request/getrequestlist`;
+export const GET_REQUEST_DETAIL = `${hxmPrefix}request/getrequestdetail`;
+export const DELETE_REQUEST = `${hxmPrefix}request/deleterequest`;
 
 // ── Request Lookups ──
-export const TRANSPORTATION_TYPES = 'hxm/request/getTransportationType';
-export const CARS_LIST = 'hxm/request/getCarList';
-export const CAR_TYPES = 'hxm/cartype/list';
-export const DRIVERS_LIST = 'hxm/request/getDriverList';
-export const RESERVATION_TYPES = 'hxm/request/reservationtypelist';
-export const ROOM_TYPES = 'hxm/request/getRoomType';
-export const ROOM_REQUEST_LIST = 'hxm/request/getRoomRequestList';
-export const PRODUCT_LIST = 'hxm/request/getProductList';
-export const PROJECT_LIST = 'hxm/request/getProjectList';
-export const TRAVEL_TYPE_LIST = 'hxm/request/getModeoftravelList';
-export const VEHICLE_USE_LIST = 'hxm/request/getVehicleuseList';
-export const SHIFT_TIME = 'hxm/request/getshifttime';
-export const GAP_TIME = 'hxm/request/requestgaptime';
+export const LEAVE_REASONS = `${hxmPrefix}leavereason/getlist`;
+export const TRANSPORTATION_TYPES = `${hxmPrefix}request/getTransportationType`;
+export const CARS_LIST = `${hxmPrefix}request/getCarList`;
+export const CAR_TYPES = `${hxmPrefix}cartype/list`;
+export const DRIVERS_LIST = `${hxmPrefix}request/getDriverList`;
+export const RESERVATION_TYPES = `${hxmPrefix}request/reservationtypelist`;
+export const ROOM_TYPES = `${hxmPrefix}request/getRoomType`;
+export const ROOM_REQUEST_LIST = `${hxmPrefix}request/getRoomRequestList`;
+export const PRODUCT_LIST = `${hxmPrefix}request/getProductList`;
+export const PROJECT_LIST = `${hxmPrefix}request/getProjectList`;
+export const TRAVEL_TYPE_LIST = `${hxmPrefix}request/getModeoftravelList`;
+export const VEHICLE_USE_LIST = `${hxmPrefix}request/getVehicleuseList`;
+export const SHIFT_TIME = `${hxmPrefix}request/getshifttime`;
+export const GAP_TIME = `${hxmPrefix}request/requestgaptime`;
 export const ATTENDANCE_SHIFT_DATA = 'api/checkin/shift';
 
+// ── Ferry Service Setup (company ferry/bus system) ──
+export const FERRY_WORKING_HOURS = `${hxmPrefix}request/getworkinghour`;
+export const FERRY_CHANGE_TYPES = `${hxmPrefix}request/getrequestchangetypes`;
+export const FERRY_CHANGE_PURPOSES = `${hxmPrefix}request/getrequestchangepurposes`;
+export const FERRY_OFFICE_LOCATIONS = `${hxmPrefix}request/getofficelocation`;
+export const FERRY_ASSIGNED_FERRY_NO = `${hxmPrefix}request/getassignferryno`;
+export const FERRY_DRIVER_PHONE_NO = `${hxmPrefix}request/getdriverphoneno`;
+export const FERRY_CURRENT_ASSIGNED = `${hxmPrefix}assignedferry/currentferry`;
+
+// ── Attendance Overrides (Mobile) ──
+export const SAVE_ATTENDANCE_REQ = 'api/attendancerequest/saveattendancerequest';
+export const GET_ATTENDANCE_REQ_LIST = 'api/attendancerequest/getAttendanceRequestList';
+export const GET_ATTENDANCE_REQ_DETAIL = 'api/attendancerequest/getAttendanceRequestDetail';
+export const GET_ATTENDANCE_REASON = 'api/attendancerequest/getAttendanceReason';
+export const DELETE_ATTENDANCE_REQ = 'api/attendancerequest/attendancedelete';
+export const EXPORT_ATTENDANCE_REQ_TEMPLATE = 'api/attendancerequest/exportattendancerequesttemplate';
+export const PREPARE_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/prepareimportattendancerequest';
+export const PREVIEW_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/previewlistattendancerequest';
+export const CONFIRM_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/importdataattendancerequest';
+export const CLEAR_IMPORT_ATTENDANCE_REQ = 'api/attendancerequest/clearattendancerequest';
+export const GET_ATTENDANCE_APPROVAL_LIST = 'api/checkin/getapproval';
+export const SAVE_ATTENDANCE_APPROVAL = 'api/checkin/saveapproval';
+export const MULTI_APPROVE_REJECT = 'api/checkin/multiapproveorreject';
+
+// ── Supervised Attendance / Attendance Import ──
+export const EXPORT_ATTENDANCE_RAW_TEMPLATE = `${hxmPrefix}attendance/exportrawtemplate`;
+export const PREPARE_IMPORT_ATTENDANCE = `${hxmPrefix}attendance/prepareimportrawdata`;
+export const PREVIEW_IMPORT_ATTENDANCE = `${hxmPrefix}attendance/previewrawlist`;
+export const CONFIRM_IMPORT_ATTENDANCE = `${hxmPrefix}attendance/importraw`;
+export const CLEAR_IMPORT_ATTENDANCE = `api/attendancerequest/clearattendancerequest`;
+
 // ── Approvals ──
-export const APPROVAL_LIST = 'hxm/approval/approvallist';
-export const APPROVAL_DETAIL = 'hxm/approval/getapprovaldetail';
-export const SAVE_APPROVAL = 'hxm/approval/saveapproval';
+export const APPROVAL_LIST = `${hxmPrefix}approval/approvallist`;
+export const APPROVAL_DETAIL = `${hxmPrefix}approval/getapprovaldetail`;
+export const SAVE_APPROVAL = `${hxmPrefix}approval/saveapproval`;
+export const MULTI_SAVE_APPROVAL = `${hxmPrefix}approval/saveApproveOrReject`;
+export const GET_REVIEW_PROCESS_STATUS = `${hxmPrefix}request/getreviewprocessstatus`;
 
 // ── Leave ──
-export const SAVE_LEAVE = 'hxm/leave/saveleave';
-export const LEAVE_LIST = 'hxm/leave/getleavelist';
-export const LEAVE_SUMMARY = 'hxm/leave/totalleavetaken';
-export const LEAVE_DETAIL = 'hxm/leave/getleavedetail';
-export const DELETE_LEAVE = 'hxm/leave/deleteleaverequest';
-export const LEAVE_TYPES = 'hxm/leave/empleavetypelist';
-export const LEAVE_TYPE_LIST = 'hxm/leave/leavetypelist';
-export const HANDOVER_PERSONS = 'hxm/leave/handoverpersonlist';
+export const SAVE_LEAVE = `${hxmPrefix}leave/saveleave`;
+export const LEAVE_LIST = `${hxmPrefix}leave/getleavelist`;
+export const LEAVE_SUMMARY = `${hxmPrefix}leave/totalleavetaken`;
+export const LEAVE_DETAIL = `${hxmPrefix}leave/getleavedetail`;
+export const DELETE_LEAVE = `${hxmPrefix}leave/deleteleaverequest`;
+export const LEAVE_TYPES = `${hxmPrefix}leave/empleavetypelist`;
+export const LEAVE_TYPE_LIST = `${hxmPrefix}leave/leavetypelist`;
+export const HANDOVER_PERSONS = `${hxmPrefix}leave/handoverpersonlist`;
+export const EXPORT_LEAVE_TEMPLATE = 'api/request/exportLeaverequesttemplate';
+export const EXPORT_LEAVE_DATA = 'api/request/export/leaverequestdata';
+export const PREPARE_IMPORT_LEAVE = 'api/request/prepareimportdataleaverequest';
+export const PREVIEW_IMPORT_LEAVE = 'api/request/previewlistleaverequest';
+export const CONFIRM_IMPORT_LEAVE = 'api/request/importleaverequest';
+export const CLEAR_IMPORT_LEAVE = 'api/request/clearleaverequest';
+export const SAVE_LEAVE_HR = `${hxmPrefix}request/saverequesthr`;
+export const GET_LEAVE_DURATION_POLICY = `${hxmPrefix}request/getleavedurationpolicy`;
 
 // ── Claims ──
-export const CLAIM_LIST = 'hxm/claim/getclaimlist';
-export const SAVE_CLAIM = 'hxm/claim/saveclaimlist';
-export const CLAIM_DETAIL = 'hxm/claim/getClaimDetail';
-export const DELETE_CLAIM = 'hxm/claim/deleteclaimrequest';
-export const CLAIM_TYPES = 'hxm/claim/claimtypelist';
+export const CLAIM_LIST = `${hxmPrefix}claim/getclaimlist`;
+export const SAVE_CLAIM = `${hxmPrefix}claim/saveclaimlist`;
+export const CLAIM_DETAIL = `${hxmPrefix}claim/getClaimDetail`;
+export const DELETE_CLAIM = `${hxmPrefix}claim/deleteclaimrequest`;
+export const CLAIM_TYPES = `${hxmPrefix}claim/claimtypelist`;
 
 // ── Setup ──
-export const CURRENCY_TYPES = 'hxm/setup/getSetupList/currency';
-export const MEMBER_LIST = 'hxm/integration/memberlist';
+export const CURRENCY_TYPES = `${hxmPrefix}setup/getSetupList/currency`;
+export const GET_SETUP_LIST = 'api/setup/getsetuplist';
+export const MEMBER_LIST = `${hxmPrefix}integration/memberlist`;
+export const MENU_ITEMS = `${hxmPrefix}integration/get/menuitems`;
 
 // ── Assets ──
-export const RULES_AND_REGULATIONS_LIST = 'hxm/rulesandregulations/getall';
-export const RULES_AND_REGULATIONS_DETAIL = 'hxm/rulesandregulations';
-export const PHOTO_UPLOAD = 'hxm/integration/photoupload';
+export const FILE_UPLOAD = `${hxmPrefix}fileUpload`;
+export const FILE_GENERATE_UPLOAD_URL = `${hxmPrefix}fileUpload/generate-upload-url`;
+export const FILE_STREAM_UPLOAD = `${hxmPrefix}stream`;
+export const FILE_DIRECT_DOWNLOAD = `${hxmPrefix}fileUpload/directdownloadfile`;
+export const RULES_AND_REGULATIONS_LIST = `${hxmPrefix}rulesandregulations/getall`;
+export const RULES_AND_REGULATIONS_DETAIL = `${hxmPrefix}rulesandregulations`;
+export const PHOTO_UPLOAD = `${hxmPrefix}integration/photoupload`;
+
+// ── Separation Authorize (uses base backend) ──
+export const SEPARATION_LEAVE_LIST = 'api/separation/leave-authorize/list';
+export const SEPARATION_LEAVE_STATUS = 'api/separation/leave-authorize/status';
+export const SEPARATION_ATTENDANCE_LIST = 'api/separation/attendance-authorize/list';
+export const SEPARATION_ATTENDANCE_STATUS = 'api/separation/attendance-authorize/status';
 
 // ── Organization Structure ──
-export const ORG_UNITS = 'hxm/org/units';
-export const ORG_HIERARCHY = 'hxm/org/hierarchy';
-export const ORG_UNIT_DETAIL = 'hxm/org/units/:syskey';
-export const ORG_SPLIT = 'hxm/org/split';
-export const ORG_MERGE = 'hxm/org/merge';
-export const ORG_DEPT_HEADS = 'hxm/org/dept-heads';
-export const ORG_EMPLOYEE_MAPPING = 'hxm/org/employee-mapping';
-export const ORG_IMPORT_MAPPING = 'hxm/org/import-mapping';
-export const ORG_EXPORT_MAPPING = 'hxm/org/export-mapping';
-export const ORG_REPORT_HIERARCHY = 'hxm/org/report/hierarchy';
-export const ORG_REPORT_EMPLOYEES = 'hxm/org/report/employees';
-export const ORG_AUDIT_LOGS = 'hxm/org/audit-logs';
-export const ORG_TYPE_LIST = 'hxm/typeoforganizationchange/list';
-export const ORG_UNIT_LIST = 'hxm/unitsubjecttochange/list';
+export const ORG_UNITS = `${hxmPrefix}org/units`;
+export const ORG_HIERARCHY = `${hxmPrefix}org/hierarchy`;
+export const ORG_UNIT_DETAIL = `${hxmPrefix}org/units/:syskey`;
+export const ORG_SPLIT = `${hxmPrefix}org/split`;
+export const ORG_MERGE = `${hxmPrefix}org/merge`;
+export const ORG_DEPT_HEADS = `${hxmPrefix}org/dept-heads`;
+export const ORG_EMPLOYEE_MAPPING = `${hxmPrefix}org/employee-mapping`;
+export const ORG_IMPORT_MAPPING = `${hxmPrefix}org/import-mapping`;
+export const ORG_EXPORT_MAPPING = `${hxmPrefix}org/export-mapping`;
+export const ORG_REPORT_HIERARCHY = `${hxmPrefix}org/report/hierarchy`;
+export const ORG_REPORT_EMPLOYEES = `${hxmPrefix}org/report/employees`;
+export const ORG_AUDIT_LOGS = `${hxmPrefix}org/audit-logs`;
+export const ORG_TYPE_LIST = `${hxmPrefix}typeoforganizationchange/list`;
+export const ORG_UNIT_LIST = `${hxmPrefix}unitsubjecttochange/list`;
 
 // ── Team (uses mainUrl / a365.omnicloudapi.com) ──
 export const TEAM_LIST = 'api/teams';
@@ -88,10 +168,17 @@ export const TEAM_LEAVE_SUMMARY = 'api/teams/leaveSummary';
 export const TEAM_EMPLOYEE_RANK = '/api/teams/employee/rank';
 export const USER_PROFILE_BY_ID = 'api/teams/employees/profile';
 export const CALENDAR_VIEW = 'api/checkin/calendarView';
+export const CALENDAR_DETAIL = `${hxmPrefix}calendar/detail`;
 export const HOLIDAYS = 'api/checkin/holidays';
 export const MONTHLY_SUMMARY = 'api/checkin/monthly-summary';
 export const ACTIVITY_TYPES = 'api/activity-type';
 export const SAVE_CHECKIN = 'api/checkin';
+
+// ── Admin Attendance ──
+export const ADMIN_ATTENDANCE_LIST = 'api/checkin/members';
+export const ADMIN_ATTENDANCE_COUNTS = 'api/checkin/counts';
+export const ADMIN_MEMBER_LIST = `${hxmPrefix}integration/memberlist`;
+export const ADMIN_CARD_DATA = `${hxmPrefix}integration/getadmincarddata`;
 // ── Chat (uses chatUrl) ──
 export const CHAT_CREATE = 'chat-new/create';
 export const CHAT_SEARCH = 'chat-new/search';
@@ -135,3 +222,23 @@ export const ESS_CONTACT_INFO = 'api/employees/contact-info';
 export const ESS_ADDRESS_STATES = 'api/master/states';
 export const ESS_ADDRESS_DISTRICTS = 'api/master/districts';
 export const ESS_ADDRESS_TOWNSHIPS = 'api/master/townships';
+
+// ── Supervise ──
+export const SUPERVISE_WORKPOLICY_LIST = 'api/supervise/workpolicy/list';
+export const SUPERVISE_USER_LIST = 'api/supervise/users';
+export const WORKPOLICY_PERSONALIZE = `${hxmPrefix}workpolicyconfig/personalize`;
+export const WORKPOLICY_INSERT = `${hxmPrefix}workpolicyconfig/insert`;
+export const SETUP_WORKPOLICY = `${hxmPrefix}setup/getSetupList/workpolicy`;
+export const SETUP_ROSTER = `${hxmPrefix}setup/getSetupList/roster`;
+export const SETUP_CALENDAR = `${hxmPrefix}setup/getSetupList/calendar`;
+
+// ── Work Policy Import ──
+export const WORKPOLICY_DELETE = `${hxmPrefix}workpolicyconfig/delete`;
+export const WORKPOLICY_EXPORT_TEMPLATE = `${hxmPrefix}workpolicyconfig/workpolicy/exporttemplate`;
+export const WORKPOLICY_EXPORT = `${hxmPrefix}workpolicyconfig/workpolicy/export`;
+export const WORKPOLICY_PREPARE_IMPORT = `${hxmPrefix}workpolicyconfig/prepareimportdata`;
+export const WORKPOLICY_PREVIEW_DB = `${hxmPrefix}workpolicyconfig/previewdb`;
+export const WORKPOLICY_PREVIEW_IMPORT = `${hxmPrefix}workpolicyconfig/previewlist`;
+export const WORKPOLICY_CONFIRM_IMPORT = `${hxmPrefix}workpolicyconfig/import`;
+export const WORKPOLICY_CLEAR_IMPORT = `${hxmPrefix}workpolicyconfig/clear`;
+export const WORKPOLICY_CHECK_IMPORT_STATUS = `${hxmPrefix}workpolicyconfig/checkinputstatus`;

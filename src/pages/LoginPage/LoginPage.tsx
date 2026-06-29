@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mail, Lock, QrCode, Monitor, Eye, EyeOff, Globe } from 'lucide-react';
+import { Mail, Lock, QrCode, Monitor, Eye, EyeOff, Globe, IdCardIcon } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
@@ -10,6 +10,8 @@ import { toast } from 'react-hot-toast';
 import { useMsal } from '@azure/msal-react';
 import { InteractionStatus } from '@azure/msal-browser';
 import { loginRequest } from '../../config/msal-config';
+import { appConfig } from '../../config/app-config';
+// import { isMsalSupported } from '../../App';
 import styles from './LoginPage.module.css';
 
 type AuthMode = 'password' | 'otp';
@@ -17,13 +19,17 @@ type AuthMode = 'password' | 'otp';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export default function LoginPage() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const navigate = useNavigate();
     const { instance, inProgress } = useMsal();
     const { login, setUser, setLanguage, language, isAuthenticated } = useAuthStore();
 
-    const [mode, setMode] = useState<AuthMode>('otp');
-    const [email, setEmail] = useState('');
+    const [mode] = useState<AuthMode>('password');
+    const [employeeId, setEmployeeId] = useState('');
+
+    /** Normalize Employee ID for backend: uppercase unless it's an e-mail address */
+    const normalizeEmployeeId = (value: string) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : value.toUpperCase();
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -74,13 +80,13 @@ export default function LoginPage() {
                             const serverMsg = res.data.message;
                             toast.error(serverMsg === 'Invalid'
                                 ? 'User does not exist in A365. Please contact your administrator.'
-                                : serverMsg || 'Azure AD sign-in failed.');
+                                : serverMsg || 'Single Sign On sign-in failed.');
                         }
                     } catch (err: any) {
                         const serverMsg = err?.response?.data?.message;
                         toast.error(serverMsg === 'Invalid'
                             ? 'User does not exist in A365. Please contact your administrator.'
-                            : serverMsg || 'Azure AD sign-in failed.');
+                            : serverMsg || 'Single Sign On sign-in failed.');
                     } finally {
                         setAzureSsoLoading(false);
                     }
@@ -103,7 +109,7 @@ export default function LoginPage() {
     const completeLogin = async (signInData: Record<string, any>, loginType: 'normal' | 'azure' = 'normal') => {
         const nested = signInData.data as Record<string, any> | undefined;
         const iamToken = (nested?.access_token || signInData.token || signInData.access_token) as string;
-        const userId = (nested?.user_id || signInData.user_id || email) as string;
+        const userId = (nested?.user_id || signInData.user_id || employeeId) as string;
         const usersyskey = (nested?.usersyskey || signInData.usersyskey || '') as string;
         const role = String(nested?.role || signInData.approle || '');
 
@@ -153,6 +159,12 @@ export default function LoginPage() {
         }
 
         // ──────── Store auth state and determine routing ────────
+        if (!iamToken) {
+            console.error('Login failed: Server response did not return an access token.', signInData);
+            setError('Sign-in failed: No access token received. Please contact your administrator.');
+            return;
+        }
+
         // Initial partial login
         login({
             token: iamToken,
@@ -192,7 +204,7 @@ export default function LoginPage() {
                 finalRefresh = menuData.refresh_token || menuData.data?.refresh_token || '';
                 const fetchedMenuList = menuData.datalist || menuData.data?.datalist || menuData.cards || [];
 
-                // Update store with final token and menu list
+                // Final login state with menu and refined token
                 login({
                     token: finalToken,
                     refreshToken: finalRefresh || undefined,
@@ -212,10 +224,11 @@ export default function LoginPage() {
 
                 // Profile fetch (non-blocking)
                 try {
-                    const { default: apiClient } = await import('../../lib/api-client');
-                    const profileRes = await apiClient.get('/api/employees/profile');
-                    const profile = profileRes.data?.datalist || profileRes.data?.data;
-                    if (profile) setUser(profile);
+                    const { default: mainClient } = await import('../../lib/main-client');
+                    const { USER_PROFILE } = await import('../../config/api-routes');
+                    const profileRes = await mainClient.post(USER_PROFILE, { userid: userId });
+                    const profile = profileRes.data?.datalist || profileRes.data?.data || profileRes.data;
+                    if (profile) setUser({ ...useAuthStore.getState().user, ...profile } as any);
                 } catch { /* non-blocking */ }
 
                 navigate('/dashboard');
@@ -243,7 +256,7 @@ export default function LoginPage() {
             });
         } catch (err: any) {
             if (err.errorCode !== 'interaction_in_progress') {
-                setError(err.message || 'Azure login failed.');
+                setError(err.message || 'Single Sign On login failed.');
             }
         }
     };
@@ -252,13 +265,14 @@ export default function LoginPage() {
         e.preventDefault();
         setError('');
 
-        if (!email.trim()) { setError('Please enter your email.'); return; }
+        if (!employeeId.trim()) { setError('Please enter your Employee ID.'); return; }
         if (!password.trim()) { setError('Please enter your password.'); return; }
 
         setLoading(true);
         try {
+            const normalizedId = normalizeEmployeeId(employeeId);
             const b64Password = btoa(unescape(encodeURIComponent(password)));
-            const payload = await makeSignInPayload(email, 2, b64Password);
+            const payload = await makeSignInPayload(normalizedId, 2, b64Password);
             const res = await authClient.post('signin', payload);
             const data = res.data;
 
@@ -270,7 +284,7 @@ export default function LoginPage() {
                     // ── OTP 2FA required — navigate to verify page ──
                     navigate('/verify-otp', {
                         state: {
-                            userId: email,
+                            userId: normalizedId,
                             session: sessionId,
                             b64Password, // for resend
                         },
@@ -294,14 +308,15 @@ export default function LoginPage() {
         setError('');
         setLoading(true);
         try {
-            const payload = await makeSignInPayload(email, 2); // reqType=2: OTP, no password
+            const normalizedId = normalizeEmployeeId(employeeId);
+            const payload = await makeSignInPayload(normalizedId, 2); // reqType=2: OTP, no password
             const res = await authClient.post('signin', payload);
             if (res.data.status === 200 || res.status === 200) {
                 const nested = res.data.data;
                 const sessionId = nested?.session_id || res.data.session_id;
                 if (sessionId) {
                     navigate('/verify-otp', {
-                        state: { userId: email, session: sessionId },
+                        state: { userId: normalizedId, session: sessionId },
                     });
                 } else {
                     await completeLogin(res.data);
@@ -322,15 +337,20 @@ export default function LoginPage() {
         <div className={styles.login}>
             <div className={styles.login__hero}>
                 <div className={styles['login__hero-content']}>
-                    <img src="/favicon.png" className={styles['login__hero-logo']} alt="A365 Logo" />
+                    <img src={`${import.meta.env.BASE_URL}favicon.png`} className={styles['login__hero-logo']} alt="A365 Logo" />
                     <h1 className={styles['login__hero-title']}>HR Self-Service Portal</h1>
                     <div className={styles.login__lang_wrapper}>
                         <button
                             type="button"
                             className={styles.login__lang_btn}
-                            onClick={() => setLanguage(language === 'en' ? 'my' : 'en')}
+                            onClick={() => {
+                                const next = language === 'en' ? 'my' : 'en';
+                                setLanguage(next);
+                                i18n.changeLanguage(next);
+                                document.documentElement.lang = next;
+                            }}
                         >
-                            <Globe size={14} className="mr-2" />
+                            <Globe size={14} style={{ marginRight: "5px" }} />
                             {language === 'en' ? 'English' : 'Myanmar'}
                         </button>
                     </div>
@@ -347,7 +367,7 @@ export default function LoginPage() {
                         <p className={styles['login__form-desc']}>{t('auth.loginSubtitle')}</p>
                     </div>
 
-                    <div className={styles.login__tabs}>
+                    {/* <div className={styles.login__tabs}>
                         <button
                             className={`${styles.login__tab} ${mode === 'otp' ? styles['login__tab--active'] : ''}`}
                             onClick={() => { setMode('otp'); setError(''); }}
@@ -360,20 +380,20 @@ export default function LoginPage() {
                         >
                             {t('auth.password')}
                         </button>
-                    </div>
+                    </div> */}
 
                     {error && <div className={styles.login__error}>{error}</div>}
 
                     {mode === 'password' ? (
                         <form className={styles.login__form} onSubmit={handlePasswordLogin}>
                             <Input
-                                id="email"
-                                label={t('auth.email')}
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="user@company.com"
-                                icon={<Mail size={18} />}
+                                id="employeeId"
+                                label={t('profile.employment.employeeId', 'Employee ID')}
+                                type="text"
+                                value={employeeId}
+                                onChange={(e) => setEmployeeId(e.target.value.trim())}
+                                placeholder="Enter Employee ID"
+                                icon={<IdCardIcon size={18} />}
                                 required
                             />
                             <Input
@@ -381,7 +401,7 @@ export default function LoginPage() {
                                 label={t('auth.password')}
                                 type={showPassword ? 'text' : 'password'}
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                onChange={(e) => setPassword(e.target.value.trim())}
                                 placeholder="••••••••"
                                 icon={<Lock size={18} />}
                                 rightIcon={
@@ -407,12 +427,12 @@ export default function LoginPage() {
                     ) : (
                         <form className={styles.login__form} onSubmit={e => { e.preventDefault(); handleRequestOtp(); }}>
                             <Input
-                                id="otp-email"
-                                label={t('auth.email')}
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="user@company.com"
+                                id="otp-employeeId"
+                                label={t('profile.employment.employeeId', 'Employee ID')}
+                                type="text"
+                                value={employeeId}
+                                onChange={(e) => setEmployeeId(e.target.value.trim())}
+                                placeholder="Enter Employee ID"
                                 icon={<Mail size={18} />}
                                 required
                             />
@@ -425,9 +445,12 @@ export default function LoginPage() {
                     <div className={styles.login__separator}>
                         <span>OR</span>
                     </div>
-
+                    
+                    
                     <div className={styles.login__secondary_actions}>
-                        <Button
+                        {
+                        appConfig.environment != 'mpt' && appConfig.environment != 'prod'
+                    && <Button
                             type="button"
                             variant="ghost"
                             className={styles.login__secondary_button}
@@ -436,17 +459,25 @@ export default function LoginPage() {
                             <QrCode size={18} className="mr-2" />
                             {t('auth.qrSignIn')}
                         </Button>
+                    }
+                        
 
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className={styles.login__secondary_button}
-                            loading={azureSsoLoading}
-                            onClick={handleAzureLogin}
-                        >
-                            <Monitor size={18} className="mr-2" />
-                            {t('auth.azureSignIn')}
-                        </Button>
+                        {/* {isMsalSupported && ( */}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className={styles.login__secondary_button}
+                                loading={azureSsoLoading}
+                                onClick={handleAzureLogin}
+                            >
+                                <Monitor size={18} className="mr-2" />
+                                {t('auth.azureSignIn')}
+                            </Button>
+                        {/* )} */}
+                    </div>
+
+                    <div className={styles.login__version} style={{ textAlign: 'center', fontSize: '13px', color: '#64748b', marginTop: '24px' }}>
+                        Version {appConfig.appVersion}
                     </div>
                 </div>
             </div>

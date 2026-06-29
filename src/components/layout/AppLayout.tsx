@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, NavLink, Outlet, useNavigate, ScrollRestoration } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +12,7 @@ import {
     TreePalm,
     LogOut,
     Menu,
-
+    User,
     X,
     Globe,
     Users,
@@ -25,11 +25,26 @@ import {
     Clock,
     Briefcase,
     ShieldCheck,
-    UserCheck,
     KeyRound,
     MapPin,
     Bell,
+    ChevronLeft,
+    ChevronRight,
+    Contact,
+    UserMinus,
+    UserX,
+    Eye,
+    Cpu,
+    BookOpen,
+    ScanSearch,
+    Building2,
+    ListTodo,
+    CalendarRange,
+    LogIn,
+    Banknote,
+    Car,
 } from 'lucide-react';
+
 import { useAuthStore } from '../../stores/auth-store';
 import { useChatStore } from '../../stores/chat-store';
 import { useMsal } from '@azure/msal-react';
@@ -38,8 +53,15 @@ import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
 import { APP_ID } from '../../lib/auth-token';
 import { useNotificationStore } from '../../stores/notification-store';
+import { MENU_ITEMS } from '../../config/api-routes';
+import { appConfig } from '../../config/app-config';
+import { chatSocket } from '../../lib/chat-socket';
+// import { appSocket } from '../../lib/app-socket';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
+// import { useSocket } from '../../hooks/useSocket';
+// import { useQueryClient } from '@tanstack/react-query';
+
 
 // ── Router → Lucide icon mapping — keyed by actual API router values ──
 // The label always comes from the API name field, so only the icon is needed here.
@@ -54,11 +76,18 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/approval': CheckSquare,
     '/approvals': CheckSquare,
     '/attendanceapproval': ShieldCheck,
-    '/attendancerequest': UserCheck,
+    '/attendancerequest': LogIn,
     '/locationapproval': MapPin,
+    '/supervised-attendance': ListTodo,
+    '/employeeworkpolicy': CalendarRange,
+
     // Leave
     '/leave': TreePalm,
     '/leave-summary': Palmtree,
+    '/separation-leave-authorize': UserMinus,
+    '/separation-attendance-authorize': UserX,
+    '/separationLeaveAuthorize': UserMinus,
+    '/separationAttendanceAuthorize': UserX,
     '/holiday': CalendarDays,
     '/holidays': CalendarDays,
     // Finance
@@ -70,18 +99,24 @@ const ROUTER_ICON_MAP: Record<string, React.ComponentType<{ size?: number; class
     '/reservations': Calendar,
     // People
     '/team': Users,
-    '/hrview': Users,
+    '/hrview': Building2,
     // Comms
     '/chat': MessageSquare,
     // Admin
     '/admin': Briefcase,
     // Catch-all
-    '/visionai': LayoutList,
-    '/customai': LayoutList,
-    '/rulesandreg': LayoutList,
-    '/objectdetection': LayoutList,
+    '/visionai': Eye,
+    '/customai': Cpu,
+    '/rulesandreg': BookOpen,
+    '/objectdetection': ScanSearch,
     // Social Post
     '/socialpost': Globe,
+    '/profile': Contact,
+    '/payslip/list': Banknote,
+    // Ferry Service
+    '/ferry': Car,
+    '/hr_complaint': Building2,
+    '/hrcomplaint': Building2,
 };
 
 // ── Router → i18n translation key mapping ──
@@ -97,8 +132,15 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/attendanceapproval': 'nav.attendanceApproval',
     '/attendancerequest': 'nav.attendanceRequest',
     '/locationapproval': 'nav.locationApproval',
+    '/supervised-attendance': 'nav.supervisedAttendance',
+    '/employeeworkpolicy': 'nav.employeeworkpolicy',
+
     '/leave': 'nav.leave',
     '/leave-summary': 'nav.leaveSummary',
+    '/separation-leave-authorize': 'nav.separationLeaveAuthorize',
+    '/separation-attendance-authorize': 'nav.separationAttendanceAuthorize',
+    '/separationLeaveAuthorize': 'nav.separationLeaveAuthorize',
+    '/separationAttendanceAuthorize': 'nav.separationAttendanceAuthorize',
     '/holiday': 'nav.holidays',
     '/holidays': 'nav.holidays',
     '/claim': 'nav.claims',
@@ -115,12 +157,14 @@ const ROUTER_TO_I18N_KEY: Record<string, string> = {
     '/customai': 'nav.customAi',
     '/rulesandreg': 'nav.rulesAndReg',
     '/objectdetection': 'nav.objectDetection',
+    '/payslip/list': 'nav.payslip',
+    // Ferry Service — use API name directly (no i18n key needed, falls through to item.name)
 };
 
 // Fallback: shown when API hasn't loaded yet
 const DEFAULT_ROUTERS = [
     '/request', '/approval', '/reservation', '/leave',
-    '/claim', '/holiday', '/chat', '/team',
+    '/claim', '/holiday', '/team',
 ];
 
 // Shape of one API menu item (datalist entry from hxm/integration/get/menuitems)
@@ -138,6 +182,63 @@ type ApiMenuItem = {
 export default function AppLayout() {
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
+    // const queryClient = useQueryClient();
+    // const { on, off } = useSocket();
+
+    // useEffect(() => {
+    //     const handleApprovalUpdate = (data: any) => {
+    //         console.log('🔔 [Global Socket] Approval update received:', data);
+
+    //         // 1. Refresh supervised attendance if the user is on that page or just to keep data fresh
+    //         queryClient.invalidateQueries({ queryKey: ['supervisedAttendances'] });
+
+    //         // 2. Refresh general attendance
+    //         queryClient.invalidateQueries({ queryKey: ['attendance'] });
+
+    //         // 3. Refresh profile comparison data
+    //         queryClient.invalidateQueries({ queryKey: ['profileCompare'] });
+    //         queryClient.invalidateQueries({ queryKey: ['emergencyCompare'] });
+    //         queryClient.invalidateQueries({ queryKey: ['experienceCompare'] });
+    //         queryClient.invalidateQueries({ queryKey: ['qualificationCompare'] });
+    //         queryClient.invalidateQueries({ queryKey: ['familyCompare'] });
+    //         queryClient.invalidateQueries({ queryKey: ['addressCompare'] });
+
+    //         // 4. Show global toast
+    //         const message = data.message || (
+    //             data.status === 2 ? 'Request Approved' :
+    //                 data.status === 3 ? 'Request Rejected' :
+    //                     data.status === 1 ? 'New Request Submitted' :
+    //                         'Request Updated'
+    //         );
+
+    //         toast.success(message, {
+    //             id: `socket-noti-${data.syskey}-${data.status}`, // Deduplicate
+    //             icon: data.status === 2 ? '✅' : (data.status === 3 ? '❌' : '🔔'),
+    //             position: 'top-right',
+    //             duration: 5000
+    //         });
+    //     };
+
+    //     const handleQrMessage = (data: any) => {
+    //         if (data === 'refresh_attendance' || data?.type === 'attendance') {
+    //             queryClient.invalidateQueries({ queryKey: ['attendance'] });
+    //         }
+    //     };
+
+    //     const handleWelcome = (data: any) => {
+    //         console.log('👋 [Socket] Welcome message received:', data);
+    //     };
+
+    //     on('welcome', handleWelcome);
+    //     on('approval_update', handleApprovalUpdate);
+    //     on('qrMessage', handleQrMessage);
+
+    //     return () => {
+    //         off('welcome', handleWelcome);
+    //         off('approval_update', handleApprovalUpdate);
+    //         off('qrMessage', handleQrMessage);
+    //     };
+    // }, [on, off, queryClient]);
     const { instance } = useMsal();
     const { user, domain, domains, token, userId, login, setUser, logout, menuList, setLanguage, language, loginType } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -145,17 +246,53 @@ export default function AppLayout() {
     const [switchingDomainId, setSwitchingDomainId] = useState<string | null>(null);
     const [pwdExpiry, setPwdExpiry] = useState<{ message: string; daysLeft: number; isExpired: boolean } | null>(null);
     const [sidebarImgError, setSidebarImgError] = useState(false);
+    const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const avatarMenuRef = useRef<HTMLDivElement>(null);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+        return localStorage.getItem('sidebar-collapsed') === 'true';
+    });
+    const [isProfileExpanded, setIsProfileExpanded] = useState(false);
+
+
+    // Toggle sidebar collapse
+    const toggleSidebarCollapse = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const newState = !isSidebarCollapsed;
+        setIsSidebarCollapsed(newState);
+        localStorage.setItem('sidebar-collapsed', String(newState));
+    };
 
     // Sync persisted language preference into i18next on mount
     useEffect(() => {
         if (language && i18n.language !== language) {
             i18n.changeLanguage(language);
         }
+        // Set the HTML lang attribute so CSS :lang(my) selector activates the Myanmar font
+        document.documentElement.lang = language || i18n.language || 'en';
     }, []);
 
     const location = useLocation();
     const isChatPage = location.pathname.startsWith('/chat');
     const isPostPage = location.pathname.startsWith('/feed');
+
+    // Profile sub-navigation items (mirrors ProfilePagePrd.tsx getTabs)
+    const PROFILE_SUBNAV = [
+        { id: 'employment', label: t('profile.tabs.employment', 'Employment'), icon: Briefcase },
+        { id: 'personal', label: t('profile.tabs.personal', 'Personal'), icon: User },
+        { id: 'emergency', label: t('profile.tabs.emergency', 'Emergency'), icon: Contact },
+        { id: 'experience', label: t('profile.tabs.experience', 'Experience'), icon: Building2 },
+        { id: 'qualification', label: t('profile.tabs.qualification', 'Qualification'), icon: BookOpen },
+        { id: 'family', label: t('profile.tabs.family', 'Family'), icon: Users },
+        { id: 'contact', label: t('profile.tabs.contact', 'Contact'), icon: MapPin },
+    ];
+
+    // Auto-expand Profile submenu whenever the route is /profile/*
+    useEffect(() => {
+        if (location.pathname.startsWith('/profile')) {
+            setIsProfileExpanded(true);
+        }
+    }, [location.pathname]);
 
     // Notification unread count + background polling
     const { unreadCount: notiUnreadCount, fetchNotifications } = useNotificationStore();
@@ -182,29 +319,48 @@ export default function AppLayout() {
     });
 
     // ── Fetch menu items from HXM API (same as neo_service.dart getMenuItems) ──
-    // Endpoint: GET hxm/integration/get/menuitems
+    // Endpoint: GET MENU_ITEMS
     // Response shape: { statuscode, datalist: [{syskey, name, icon, router, type}...], homemenulist: [...] }
     const { data: menuItemsData } = useQuery({
         queryKey: ['menu-items', userId, domain],
         queryFn: async () => {
-            if (!token) return null;
+            if (!token || !userId) return null;
+            const storageKey = `a365_menu_items_${userId}_${domain}`;
             try {
-                const res = await apiClient.get('hxm/integration/get/menuitems');
+                const res = await apiClient.get(MENU_ITEMS);
                 const data = res.data;
                 if (data?.statuscode === 200 || data?.statuscode === 300) {
-                    return {
-                        // datalist = sidebar menu; homemenulist = home screen cards
-                        datalist: (data.datalist ?? []) as ApiMenuItem[],
+                    const parsedData = {
+                        // selfservicewebmenulist = sidebar menu; homemenulist = home screen cards
+                        datalist: (data.selfservicewebmenulist ?? []) as ApiMenuItem[],
                         homemenulist: (data.homemenulist ?? []) as ApiMenuItem[],
                     };
+                    localStorage.setItem(storageKey, JSON.stringify(parsedData));
+                    return parsedData;
                 }
+                // Fallback to local storage if API returns an error code
+                const cached = localStorage.getItem(storageKey);
+                if (cached) return JSON.parse(cached);
                 return null;
-            } catch {
+            } catch (error) {
+                // Fallback to local storage on network error
+                const cached = localStorage.getItem(storageKey);
+                if (cached) return JSON.parse(cached);
                 return null;
             }
         },
         staleTime: 5 * 60 * 1000,
         enabled: !!token && !!userId,
+        initialData: () => {
+            if (!userId) return undefined;
+            const storageKey = `a365_menu_items_${userId}_${domain}`;
+            const cached = localStorage.getItem(storageKey);
+            if (cached) {
+                try { return JSON.parse(cached); } catch { return undefined; }
+            }
+            return undefined;
+        },
+        initialDataUpdatedAt: 0, // Forces immediate background fetch to update any changes
     });
 
     // ── Fetch Checkin Config for extras like Social tab ──
@@ -233,7 +389,7 @@ export default function AppLayout() {
         if (menuItemsData?.datalist && menuItemsData.datalist.length > 0) {
             // All items from API, excluding dashboard (rendered separately)
             items = [...menuItemsData.datalist.filter(
-                item => item.router && item.router !== '/' && item.router !== '/dashboard' && item.router !== '/team'
+                (item: ApiMenuItem) => item.router && item.router !== '/' && item.router !== '/dashboard' && item.router !== '/team'
             )];
         } else if (menuList.length > 0) {
             items = menuList
@@ -247,7 +403,7 @@ export default function AppLayout() {
         }
 
         // Add extra Social tab if both chat and socialpost are true
-        if (configData?.chat && configData?.socialpost) {
+        if (configData?.chat && configData?.socialpost && import.meta.env.VITE_FLAVOR !== 'prd') {
             if (!items.some(i => i.router === '/socialpost')) {
                 items.push({
                     syskey: 'socialpost_extra',
@@ -260,7 +416,7 @@ export default function AppLayout() {
         }
 
         // Add extra Chat tab if chat is true
-        if (configData?.chat) {
+        if (configData?.chat && import.meta.env.VITE_FLAVOR !== 'prd') {
             if (!items.some(i => i.router === '/chat')) {
                 items.push({
                     syskey: 'chat_extra',
@@ -305,75 +461,100 @@ export default function AppLayout() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // ── Password expiry check (once per component mount, prd + normal login only) ──
-    const pwdCheckRan = React.useRef(false);
+    // Close avatar dropdown when clicking outside
     useEffect(() => {
-        console.log(import.meta.env.VITE_FLAVOR);
-
-        // Only run in prd flavor — IAM endpoint is not available in other environments
-        if (import.meta.env.VITE_FLAVOR !== 'prd') return;
-        // Skip for Azure AD logins — they don't use IAM passwords
-        if (!userId || !domain || !token || loginType === 'azure') return;
-        if (pwdCheckRan.current) return;
-        pwdCheckRan.current = true;
-
-        const checkPasswordExpiry = async () => {
-            try {
-                const authUrl = (await import('../../config/app-config')).appConfig.authUrl;
-                const res = await fetch(`${authUrl}check/password-expried`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userid: userId, appid: APP_ID, domain }),
-                });
-                if (!res.ok) return;
-                const json = await res.json();
-                if (json?.status === 200) {
-                    if (json.data?.status === true) {
-                        const expiredDateStr: string | undefined = json.data.expired_date;
-                        const message: string = json.data.message || 'Your password will expire soon.';
-                        if (expiredDateStr) {
-                            // Normalize both dates to local midnight to avoid UTC vs local offset
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            const expiredDate = new Date(expiredDateStr);
-                            expiredDate.setHours(0, 0, 0, 0);
-                            const daysLeft = Math.round(
-                                (expiredDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-                            );
-                            const isExpired = daysLeft < 0;
-                            // Show modal if: already expired OR expiring within 5 days
-                            if (daysLeft <= 5) {
-                                setPwdExpiry({ message, daysLeft, isExpired });
-                            }
-                        }
-                    } else if (json.data?.status === false) {
-                        const msg = json.data?.message || 'Your password has expired. Please change it to continue.';
-                        toast.error(msg);
-
-                        // Fire off password expiry email silently
-                        try {
-                            const mainUrl = (await import('../../config/app-config')).appConfig.mainUrl;
-                            fetch(`${mainUrl}api/mail/sendemailfrommodule`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    userid: userId,
-                                    domain: domain || 'dev'
-                                }),
-                            }).catch(console.error); // catch fetch errors silently
-                        } catch (err) {
-                            console.error('Failed to dispatch password expiry email', err);
-                        }
-
-                        setTimeout(() => navigate('/force-change-password', { replace: true }), 1500);
-                    }
-                }
-            } catch {
-                // silently ignore — non-critical check
+        const handleClickOutside = (e: MouseEvent) => {
+            if (avatarMenuRef.current && !avatarMenuRef.current.contains(e.target as Node)) {
+                setShowAvatarMenu(false);
             }
         };
-        checkPasswordExpiry();
-    }, [userId, domain, token]);
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // pwdCheckRan ref removed — password expiry handled via socket event
+    useEffect(() => {
+        // Run active check and websocket listening for non-Azure logins
+        if (!userId || !domain || !token || loginType === 'azure') {
+            console.log("❌ [AppLayout] Returning early. Valid credentials missing.");
+            return;
+        }
+
+        // 1. Establish the global Chat WS connection (Skip in Prod/MPT flavors)
+        if (import.meta.env.VITE_FLAVOR !== 'prd' && import.meta.env.VITE_FLAVOR !== 'mpt') {
+            console.log("🔌 [AppLayout] Connecting to CHAT SOCKET (Flavor is not prd/mpt)");
+            chatSocket.connect();
+        }
+
+        // 1.b. Password Expiry WebSocket — uses per-flavor wsUrl from app-config.ts
+        // mpt flavor uses ws:// (internal network), prd flavor uses wss:// (cloud)
+        let pwdWsObj: WebSocket | null = null;
+        const pwdWsBase = appConfig.wsUrl
+            ? appConfig.wsUrl.replace(/\/$/, '')                             // use configured wsUrl as-is
+            : (appConfig.iamUrl || '').replace(/^https?/, 'wss') + '/api';  // fallback: derive from iamUrl
+        // console.log(`🔌 [PwdSocket] Attempting connection to: ${pwdWsBase}?user_id=${userId}&appid=${appConfig.appId}&domain_id=${domain}`);
+        try {
+            pwdWsObj = new WebSocket(`${pwdWsBase}?user_id=${encodeURIComponent(userId)}&appid=${encodeURIComponent(appConfig.appId)}&domain_id=${encodeURIComponent(domain)}`);
+
+            pwdWsObj.onopen = (ev) => {
+                console.log('✅ [PwdSocket] Connected successfully', ev);
+                // Try sending a ping just in case the server expects some traffic
+                try { pwdWsObj?.send('ping'); } catch (e) { }
+            };
+
+            pwdWsObj.onerror = (err) => {
+                console.error('❌ [PwdSocket] Connection error:', err);
+            };
+
+            pwdWsObj.onclose = (ev) => {
+                console.log(`🔌 [PwdSocket] Closed (code=${ev.code}, reason=${ev.reason || 'none'}, clean=${ev.wasClean})`);
+            };
+
+            pwdWsObj.onmessage = (event) => {
+                console.log('[PwdSocket] Message received:', event.data);
+                try {
+                    const decoded = JSON.parse(event.data);
+                    if ((decoded?.event === 'password_expiry_warning' || decoded?.event === 'password_expired') && decoded?.data) {
+                        const data = decoded.data;
+                        if (data.status === true && data.expired_date) {
+                            const checkDate = new Date();
+                            checkDate.setHours(0, 0, 0, 0);
+                            const expiredDate = new Date(data.expired_date);
+                            expiredDate.setHours(0, 0, 0, 0);
+                            const daysLeft = Math.round(
+                                (expiredDate.getTime() - checkDate.getTime()) / (1000 * 60 * 60 * 24)
+                            );
+                            const isExpired = daysLeft < 0;
+                            if (daysLeft <= 5) {
+                                setPwdExpiry({
+                                    message: data.message || 'Your password will expire soon.',
+                                    daysLeft,
+                                    isExpired
+                                });
+                            }
+                        } else if (data.status === false) {
+                            const msg = data.message || 'Your password has expired. Please change it to continue.';
+                            toast.error(msg);
+                            setTimeout(() => navigate('/force-change-password', { replace: true }), 1500);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[PwdSocket] Non-JSON message:', event.data);
+                }
+            };
+        } catch (e) {
+            console.error('[PwdSocket] Failed to create WebSocket:', e);
+        }
+
+        // 2. HTTP Verification (Once per day) - Disabled as it is now handled via socket
+
+        return () => {
+            console.log("🧹 [PwdSocket] Cleanup triggered, closing socket if open");
+            if (pwdWsObj && pwdWsObj.readyState === WebSocket.OPEN) {
+                pwdWsObj.close(1000, "Component unmounted");
+            }
+        };
+    }, [userId, domain, token, loginType, navigate, user?.syskey]);
 
     const handleLogout = async () => {
         // 1. Flag intentional logout so LoginPage silent-SSO does NOT auto-sign-in again
@@ -393,6 +574,8 @@ export default function AppLayout() {
         const nextLang = i18n.language === 'en' ? 'my' : 'en';
         i18n.changeLanguage(nextLang);
         setLanguage(nextLang);
+        // Update HTML lang attribute so CSS :lang(my) activates the Myanmar font
+        document.documentElement.lang = nextLang;
     };
 
     const userInitial = user?.name
@@ -446,19 +629,29 @@ export default function AppLayout() {
     return (
         <div className={styles.layout}>
             {/* ── Sidebar ── */}
-            <aside className={`${styles.sidebar} ${sidebarOpen ? styles['sidebar--open'] : ''}`}>
+            <aside className={`${styles.sidebar} ${sidebarOpen ? styles['sidebar--open'] : ''} ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`}>
                 <div className={styles.sidebar__brand}>
                     <div
                         style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, cursor: 'pointer', minWidth: 0 }}
                         onClick={() => { setSidebarOpen(false); navigate('/dashboard'); }}
                         title="Go to Dashboard"
                     >
-                        <img src="/favicon.png" className={styles.sidebar__logo} alt="A365 Logo" />
+                        <img src={`${import.meta.env.BASE_URL}favicon.png`} className={styles.sidebar__logo} alt="A365 Logo" />
                         <div className={styles['sidebar__brand-text']}>
                             <span className={styles.sidebar__title}>A365 HR</span>
                             <span className={styles.sidebar__subtitle}>Self-Service</span>
                         </div>
                     </div>
+
+                    {/* Desktop Collapse Toggle */}
+                    <button
+                        className={styles.sidebar__collapse_toggle}
+                        onClick={toggleSidebarCollapse}
+                        title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                    >
+                        {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                    </button>
+
                     <button
                         className={styles.sidebar__close}
                         onClick={() => setSidebarOpen(false)}
@@ -482,7 +675,7 @@ export default function AppLayout() {
                     >
                         <div className={styles['sidebar__link-content']}>
                             <LayoutDashboard size={20} className={styles['sidebar__link-icon']} />
-                            {t('nav.dashboard')}
+                            <span className={styles['sidebar__link-text']}>{t('nav.dashboard')}</span>
                         </div>
                     </NavLink>
 
@@ -496,21 +689,81 @@ export default function AppLayout() {
                     >
                         <div className={styles['sidebar__link-content']}>
                             <Users size={20} className={styles['sidebar__link-icon']} />
-                            {t('nav.team')}
+                            <span className={styles['sidebar__link-text']}>{t('nav.team')}</span>
                         </div>
                     </NavLink>
-
-                    {/* ── All items from hxm/integration/get/menuitems datalist ── */}
+                    {/* ── All items from MENU_ITEMS datalist ── */}
                     {sidebarItems.map((item) => {
                         // Resolve icon: use ROUTER_ICON_MAP if known, else generic LayoutList
                         const Icon = ROUTER_ICON_MAP[item.router] ?? LayoutList;
                         const isChat = item.router === '/chat';
+                        const isProfile = item.router === '/profile';
                         const unreadCount = useChatStore.getState().unreadCount;
                         // Resolve label: i18n key → API namemm (my only) → API name
                         const i18nKey = ROUTER_TO_I18N_KEY[item.router];
                         const label = i18nKey
                             ? t(i18nKey)
                             : (i18n.language === 'my' && item.namemm ? item.namemm : item.name);
+
+                        // ── Profile item: expandable submenu ──
+                        if (isProfile) {
+                            const isOnProfile = location.pathname.startsWith('/profile');
+                            return (
+                                <div key={item.syskey || item.router}>
+                                    {/* Parent toggle */}
+                                    <button
+                                        className={`${styles.sidebar__link} ${isOnProfile ? styles['sidebar__link--active'] : ''}`}
+                                        style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                                        onClick={() => {
+                                            if (isSidebarCollapsed) {
+                                                // Expand sidebar first, then expand submenu
+                                                setIsSidebarCollapsed(false);
+                                                localStorage.setItem('sidebar-collapsed', 'false');
+                                                setIsProfileExpanded(true);
+                                                navigate('/profile');
+                                            } else {
+                                                setIsProfileExpanded(prev => !prev);
+                                            }
+                                        }}
+                                    >
+                                        <div className={styles['sidebar__link-content']}>
+                                            <Icon size={20} className={styles['sidebar__link-icon']} />
+                                            <span className={styles['sidebar__link-text']}>{label}</span>
+                                            {!isSidebarCollapsed && (
+                                                isProfileExpanded
+                                                    ? <ChevronDown size={14} style={{ marginLeft: 'auto', opacity: 0.6 }} />
+                                                    : <ChevronRight size={14} style={{ marginLeft: 'auto', opacity: 0.6 }} />
+                                            )}
+                                        </div>
+                                    </button>
+
+                                    {/* Sub-items */}
+                                    {isProfileExpanded && !isSidebarCollapsed && (
+                                        <div style={{ paddingLeft: '30px' }}>
+                                            {PROFILE_SUBNAV.map(sub => {
+                                                // const SubIcon = sub.icon;
+                                                return (
+                                                    <NavLink
+                                                        key={sub.id}
+                                                        to={`/profile/${sub.id}`}
+                                                        onClick={() => setSidebarOpen(false)}
+                                                        className={({ isActive }) =>
+                                                            `${styles.sidebar__link} ${isActive ? styles['sidebar__link--active'] : ''}`
+                                                        }
+                                                        style={{ fontSize: '13px' }}
+                                                    >
+                                                        <div className={styles['sidebar__link-content']} style={{ paddingLeft: '5px' }}>
+                                                            {/* <SubIcon size={16} className={styles['sidebar__link-icon']} /> */}
+                                                            <span className={styles['sidebar__link-text']}>{sub.label}</span>
+                                                        </div>
+                                                    </NavLink>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
 
                         return (
                             <NavLink
@@ -523,7 +776,7 @@ export default function AppLayout() {
                             >
                                 <div className={styles['sidebar__link-content']}>
                                     <Icon size={20} className={styles['sidebar__link-icon']} />
-                                    {label}
+                                    <span className={styles['sidebar__link-text']}>{label}</span>
                                 </div>
                                 {isChat && unreadCount > 0 && (
                                     <span className={styles.sidebar__unreadBadge}>{unreadCount}</span>
@@ -534,58 +787,25 @@ export default function AppLayout() {
                 </nav>
 
                 <div className={`${styles.sidebar__user} domain-switcher-container`} style={{ position: 'relative' }}>
-                    <div className={styles.sidebar__user_meta}>
-                        <div
-                            className={styles.sidebar__avatar}
-                            style={{
-                                cursor: 'pointer',
-                                backgroundImage: profile?.profile && !sidebarImgError ? `url(${profile.profile})` : 'none',
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center',
-                            }}
-                            onClick={() => {
-                                if (sidebarOpen) setSidebarOpen(false);
-                                navigate('/profile');
-                            }}
-                            title="View Profile"
+                    {/* Domain Switcher */}
+                    {domains && domains.length > 1 && (
+                        <button
+                            className={styles['sidebar__domain-switch-btn']}
+                            onClick={() => setShowDomainMenu(!showDomainMenu)}
+                            title="Switch Domain"
+                            style={{ width: '100%', justifyContent: 'space-between' }}
                         >
-                            {(!profile?.profile || sidebarImgError) && userInitial}
-                            {profile?.profile && !sidebarImgError && (
-                                <img
-                                    src={profile.profile}
-                                    alt=""
-                                    style={{ display: 'none' }}
-                                    onError={() => setSidebarImgError(true)}
-                                />
-                            )}
-                        </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                <Building2 size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                                <span className={styles['sidebar__user-role']} style={{ color: 'var(--color-neutral-300)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {switchingDomainId ? 'Switching...' : (user?.domainName || user?.position || domain || 'Select Domain')}
+                                </span>
+                            </div>
+                            <ChevronDown size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                        </button>
+                    )}
 
-                        <div className={styles['sidebar__user-info']}>
-                            <div className={styles['sidebar__user-name']}>{user?.name || user?.userid || 'User'}</div>
-
-                            {domains && domains.length > 1 ? (
-                                <button
-                                    className={styles['sidebar__domain-switch-btn']}
-                                    onClick={() => setShowDomainMenu(!showDomainMenu)}
-                                    title="Switch Domain"
-                                >
-                                    <span className={styles['sidebar__user-role']}>
-                                        {switchingDomainId ? 'Switching...' : (user?.domainName || user?.position || domain || 'Select Domain')}
-                                    </span>
-                                    <ChevronDown size={14} style={{ color: '#94a3b8' }} />
-                                </button>
-                            ) : (
-                                <div className={styles['sidebar__user-role']}>{user?.domainName || user?.position || domain || ''}</div>
-                            )}
-                        </div>
-                    </div>
-
-                    <button className={styles.sidebar__logout} onClick={handleLogout}>
-                        <LogOut size={16} />
-                        <span>{t('auth.logout')}</span>
-                    </button>
-
-                    {/* Domain Dropdown Menu - Moved outside info but inside relative container */}
+                    {/* Domain Dropdown Menu */}
                     {showDomainMenu && domains && domains.length > 1 && (
                         <div className={styles.domainMenu}>
                             <div className={styles.domainMenuHeader}>Switch Organization</div>
@@ -614,6 +834,9 @@ export default function AppLayout() {
                             </div>
                         </div>
                     )}
+                    <div className={styles.sidebar__version} style={{ textAlign: 'center', fontSize: '12px', color: '#94a3b8', padding: '10px 0', marginTop: 'auto' }}>
+                        {isSidebarCollapsed ? `v${appConfig.appVersion}` : `Version ${appConfig.appVersion}`}
+                    </div>
                 </div>
             </aside>
 
@@ -624,7 +847,7 @@ export default function AppLayout() {
             />
 
             {/* ── Main Content ── */}
-            <main className={`${styles.main} ${isChatPage ? styles['main--chat'] : ''}`}>
+            <main className={`${styles.main} ${isSidebarCollapsed ? styles['main--sidebar-collapsed'] : ''} ${isChatPage ? styles['main--chat'] : ''}`}>
                 <header className={styles.main__header}>
                     <div className={styles['main__header-left']}>
                         <button
@@ -653,6 +876,50 @@ export default function AppLayout() {
                             <Globe size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                             {i18n.language === 'en' ? 'English' : 'Myanmar'}
                         </button>
+
+                        {/* ── Avatar with dropdown ── */}
+                        <div className={styles['header__avatar-container']} ref={avatarMenuRef}>
+                            <button
+                                className={styles['header__avatar-btn']}
+                                onClick={() => setShowAvatarMenu(!showAvatarMenu)}
+                                title={user?.name || user?.userid || 'User'}
+                            >
+                                {profile?.profile && !sidebarImgError ? (
+                                    <img
+                                        src={profile.profile}
+                                        alt=""
+                                        className={styles['header__avatar-img']}
+                                        onError={() => setSidebarImgError(true)}
+                                    />
+                                ) : (
+                                    <span className={styles['header__avatar-initial']}>{userInitial}</span>
+                                )}
+                            </button>
+
+                            {showAvatarMenu && (
+                                <div className={styles['header__avatar-menu']}>
+                                    <div className={styles['header__avatar-menu-header']}>
+                                        <div className={styles['header__avatar-menu-name']}>{user?.name || user?.userid || 'User'}</div>
+                                        <div className={styles['header__avatar-menu-role']}>{user?.domainName || user?.position || domain || ''}</div>
+                                    </div>
+                                    <div className={styles['header__avatar-menu-divider']} />
+                                    <button
+                                        className={styles['header__avatar-menu-item']}
+                                        onClick={() => { setShowAvatarMenu(false); navigate('/profile'); }}
+                                    >
+                                        <User size={16} />
+                                        <span>{t('nav.profile', 'Profile')}</span>
+                                    </button>
+                                    <button
+                                        className={`${styles['header__avatar-menu-item']} ${styles['header__avatar-menu-item--danger']}`}
+                                        onClick={() => { setShowAvatarMenu(false); setShowLogoutConfirm(true); }}
+                                    >
+                                        <LogOut size={16} />
+                                        <span>{t('auth.logout')}</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </header>
 
@@ -773,6 +1040,79 @@ export default function AppLayout() {
                     </div>
                 );
             })()}
+
+            {/* ── Logout Confirmation Modal ── */}
+            {showLogoutConfirm && (
+                <div
+                    onClick={() => setShowLogoutConfirm(false)}
+                    style={{
+                        position: 'fixed', inset: 0,
+                        background: 'rgba(15,23,42,0.55)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 9999,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            background: '#fff',
+                            borderRadius: 20,
+                            boxShadow: '0 24px 80px rgba(0,0,0,0.22)',
+                            width: '92%', maxWidth: 360,
+                            overflow: 'hidden',
+                            animation: 'pwdModalIn 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                        }}
+                    >
+                        <div style={{
+                            padding: '24px 24px 16px',
+                            textAlign: 'center',
+                        }}>
+                            <div style={{
+                                width: 56, height: 56, borderRadius: '50%',
+                                background: '#fef2f2', border: '2px solid #fca5a5',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                margin: '0 auto 16px',
+                            }}>
+                                <LogOut size={24} style={{ color: '#dc2626' }} />
+                            </div>
+                            <div style={{ fontWeight: 800, fontSize: 18, color: '#0f172a', marginBottom: 8 }}>
+                                {t('auth.logoutConfirmTitle', 'Sign Out')}
+                            </div>
+                            <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.5, margin: 0 }}>
+                                {t('auth.logoutConfirmMessage', 'Are you sure you want to sign out of your account?')}
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 12, padding: '16px 24px 24px' }}>
+                            <button
+                                onClick={() => setShowLogoutConfirm(false)}
+                                style={{
+                                    flex: 1, padding: '11px',
+                                    background: '#f1f5f9', color: '#475569',
+                                    border: '1px solid #e2e8f0', borderRadius: 12,
+                                    fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                                }}
+                            >
+                                {t('common.cancel', 'Cancel')}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowLogoutConfirm(false);
+                                    handleLogout();
+                                }}
+                                style={{
+                                    flex: 1, padding: '11px',
+                                    background: '#ef4444', color: '#fff',
+                                    border: 'none', borderRadius: 12,
+                                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                                }}
+                            >
+                                {t('auth.logout', 'Sign Out')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

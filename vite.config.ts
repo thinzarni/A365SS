@@ -53,10 +53,6 @@ export default defineConfig({
   // Expose the real WebSocket server URL to the browser.
   // This bypasses Vite's dev proxy (which conflicts with HMR WebSockets).
   define: {
-    // The chat WS endpoint: replace https → wss at the real host
-    'import.meta.env.VITE_WS_URL': JSON.stringify(
-      process.env.VITE_WS_URL || 'wss://iam.omnicloudapi.com/api'
-    ),
   },
   build: {
     outDir: 'dist',

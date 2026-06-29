@@ -3,7 +3,6 @@
    ═══════════════════════════════════════════════════════════════ */
 
 .approval-detail {
-    max-width: 720px;
     margin: 0 auto;
 }
 
@@ -143,6 +142,37 @@
 .approval-detail__field-value--empty {
     color: var(--color-neutral-400);
     font-style: italic;
+}
+
+/* ── Reason Type Radio ── */
+.approval-detail__reason-group {
+    display: flex;
+    gap: var(--space-4);
+    margin-top: var(--space-1);
+    background: var(--color-neutral-50);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-neutral-100);
+    width: fit-content;
+}
+
+.approval-detail__reason-option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    color: var(--color-neutral-600);
+    font-weight: var(--font-medium);
+}
+
+.approval-detail__reason-option input {
+    cursor: pointer;
+    accent-color: var(--color-primary-600);
+}
+
+.approval-detail__reason-option--active {
+    color: var(--color-primary-700);
 }
 
 /* ── Remarks ── */
@@ -355,6 +385,19 @@
     .approval-detail__forward-section {
         padding: var(--space-3) var(--space-4);
     }
+}
+
+/* ── Claim Feedback ── */
+.approval-detail__feedback-box {
+    padding: var(--space-4);
+    background: var(--color-neutral-50);
+    border: 1px solid var(--color-neutral-100);
+    border-radius: var(--radius-lg);
+}
+
+.approval-detail__rating {
+    display: flex;
+    flex-direction: column;
 }
 
 /* ── Attachments ── */

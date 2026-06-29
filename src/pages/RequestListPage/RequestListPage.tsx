@@ -1,7 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as XLSX from 'xlsx';
+import toast from 'react-hot-toast';
 import {
     Plus,
     ClipboardList,
@@ -13,27 +15,48 @@ import {
     Plane,
     Banknote,
     FileText,
+    Filter,
+    Loader2,
+    FileSpreadsheet,
+    ArrowDown,
+    ArrowUp,
+    CheckCircle2,
+    Circle,
 } from 'lucide-react';
-import { Button } from '../../components/ui';
+import { Button, Input, Select } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
+import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import { RequestStatus } from '../../types/models';
-import type { RequestModel } from '../../types/models';
+import type { RequestModel, TypesModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
-import { GET_REQUEST_LIST } from '../../config/api-routes';
+import mainClient from '../../lib/main-client';
+import {
+    GET_REQUEST_LIST,
+    GET_ATTENDANCE_REQ_LIST,
+    REQUEST_TYPES,
+    ATTENDANCE_SHIFT_DATA
+} from '../../config/api-routes';
 import { displayDate } from '../../lib/date-utils';
+import { useAuthStore } from '../../stores/auth-store';
+import AttendanceImportModal from '../AttendanceRequestPage/AttendanceImportModal';
 import styles from './RequestListPage.module.css';
 import '../../styles/pages.css';
 
-/* helper: yyyyMMdd */
-function toApiDate(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${y}${m}${dd}`;
+/** Convert Date → "yyyy-mm-dd" */
+function dateToInput(d: Date): string {
+    return d.toISOString().split('T')[0];
 }
 
+/** Convert "yyyymmdd" → "yyyy-mm-dd" */
+function toInputDate(yyyymmdd: string): string {
+    if (!yyyymmdd || yyyymmdd.length < 8) return '';
+    return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
+}
+
+const DEFAULT_FROM_DATE = new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1);
+const DEFAULT_TO_DATE = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+
 // Maps API router path → display config + filter keyword
-// Matching mobile's requestTypes.firstWhere(t.description == '<Type>') pattern
 const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: string; newPath: string }> = {
     '/claim': { filter: 'claim', label: 'Claims', newLabel: 'New Claim', newPath: '/claim/new' },
     '/overtime': { filter: 'overtime', label: 'Overtime', newLabel: 'New Overtime', newPath: '/overtime/new' },
@@ -42,7 +65,12 @@ const PATH_TYPE_MAP: Record<string, { filter: string; label: string; newLabel: s
     '/travel': { filter: 'travel', label: 'Travel', newLabel: 'New Travel', newPath: '/travel/new' },
     '/cashadvance': { filter: 'cash advance', label: 'Cash Advance', newLabel: 'New Cash Advance', newPath: '/cashadvance/new' },
     '/offinlieu': { filter: 'off in lieu', label: 'Off in Lieu', newLabel: 'New Off in Lieu', newPath: '/offinlieu/new' },
+    '/attendancerequest': { filter: 'attendance', label: 'Attendance Request', newLabel: 'New Attendance Request', newPath: '/attendancerequest/new' },
+    // ── Ferry Service (company bus/ferry) ──
+    '/ferry': { filter: 'ferry', label: 'Ferry Request', newLabel: 'New Ferry Request', newPath: '/ferry/new' },
 };
+
+
 /* ── Type display helpers ── */
 const statusTabs = [
     { key: RequestStatus.All, label: 'status.all' },
@@ -60,6 +88,8 @@ function getTypeVariant(typedesc: string): string {
     if (lower.includes('reserv')) return 'reservation';
     if (lower.includes('travel')) return 'travel';
     if (lower.includes('claim') || lower.includes('cash') || lower.includes('advance')) return 'claim';
+    if (lower.includes('attendance') || lower.includes('time in') || lower.includes('time out')) return 'attendance';
+    if (lower.includes('ferry')) return 'ferry';
     return 'default';
 }
 
@@ -72,64 +102,337 @@ function getTypeIcon(variant: string) {
         case 'reservation': return Calendar;
         case 'travel': return Plane;
         case 'claim': return Banknote;
+        case 'attendance': return Clock;
+        case 'ferry': return Car;
         default: return FileText;
     }
 }
-
-/* ══════════════════════════════════════════════════════════════ */
 
 export default function RequestListPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
+    const queryClient = useQueryClient();
 
-    // Detect subtype view — path like /claim, /overtime etc filter the list to that type
-    // Mirrors mobile: /claim and /overtime open RequestPage(requestType: matched)
+    // Detect subtype view
     const pathTypeCfg = PATH_TYPE_MAP[location.pathname] ?? null;
     const isSubtypeView = pathTypeCfg !== null;
+    const isAttendancePage = location.pathname === '/attendancerequest';
 
-    // Flutter default: _initilApprovalStatus = RequestStatus.pending
+    const { userId, domain } = useAuthStore();
+
     const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
+    const [fromDate, setFromDate] = useState<string>(dateToInput(DEFAULT_FROM_DATE));
+    const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
+    const [isAllDate, setIsAllDate] = useState(true);
+    const [requestType, setRequestType] = useState<string>('');
+    // Attendance-specific: filter by Remote (1) or Backdate (2) — default Backdate
+    const [attendanceRequestType, setAttendanceRequestType] = useState<'1' | '2'>('2');
+    const [didInitDates, setDidInitDates] = useState(false);
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [importModalOpen, setImportModalOpen] = useState(false);
+    const [exporting, setExporting] = useState(false);
+    const [showExportConfirm, setShowExportConfirm] = useState(false);
+    const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+    const [sortColumn, setSortColumn] = useState<'date' | 'time'>('date');
 
-    const { data: requests = [], isLoading } = useQuery<RequestModel[]>({
-        queryKey: ['requests', activeStatus, location.pathname],
+    const fromRef = useRef<HTMLInputElement>(null);
+    const toRef = useRef<HTMLInputElement>(null);
+
+    // Fetch shift data for transition dates
+    const { data: shiftData, isLoading: shiftLoading } = useQuery({
+        queryKey: ['shiftData'],
         queryFn: async () => {
-            const now = new Date();
-            const fromDate = new Date(now.getFullYear(), now.getMonth() - 2, 1); // 3 months back
-            const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            const res = await mainClient.post(ATTENDANCE_SHIFT_DATA, {});
+            return res.data?.data || null;
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    useEffect(() => {
+        if (!shiftLoading && !didInitDates) {
+            if (shiftData?.transitionFromDate) {
+                setFromDate(toInputDate(shiftData.transitionFromDate));
+            }
+            if (shiftData?.transitionToDate) {
+                setToDate(toInputDate(shiftData.transitionToDate));
+            }
+            setDidInitDates(true);
+        }
+    }, [shiftData, shiftLoading, didInitDates]);
+
+    // Fetch request types for the dropdown
+    const { data: requestTypes = [] } = useQuery<TypesModel[]>({
+        queryKey: ['requestTypes'],
+        queryFn: async () => {
+            const res = await apiClient.get(REQUEST_TYPES);
+            return res.data?.datalist || [];
+        },
+    });
+
+    const typeOptions = useMemo(() => {
+        const options: { value: string, label: string }[] = [];
+        const seenLabels = new Set<string>();
+        const seenValues = new Set<string>();
+
+        requestTypes.forEach(t => {
+            const label = t.description || '';
+            const value = t.syskey || '';
+
+            if (label && value && !seenLabels.has(label) && !seenValues.has(value)) {
+                seenLabels.add(label);
+                seenValues.add(value);
+                options.push({ value, label });
+            }
+        });
+
+        return options;
+    }, [requestTypes]);
+
+    const mapAttendanceItem = (item: any): RequestModel => ({
+        syskey: item.syskey,
+        eid: item.employee_id,
+        name: item.employee_name,
+        refno: item.syskey,
+        date: item.date,
+        startdate: item.date,
+        type: item.type,
+        atttype: item.atttype || item.attendancerequesttype,
+        requesttype: item.atttype || item.type,
+        requesttypedesc: item.type === '602' ? 'Time Out' : 'Time In',
+        requeststatus: String(item.status ?? item.requeststatus ?? 1),
+        requestsubtypedesc: item.time || `${item.intime || ''}${item.intime && item.outtime ? ' - ' : ''}${item.outtime || ''}`,
+        intime: item.intime,
+        outtime: item.outtime,
+        remark: item.description,
+        description: item.description,
+        location: item.location,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        processstatus: item.processstatus || item.claimProcessStatus || '',
+        attendancereason: item.attendancereason,
+    } as unknown as RequestModel);
+
+    const { data: allRequests = [], isLoading: requestsLoading } = useQuery<RequestModel[]>({
+        queryKey: ['requests', fromDate, toDate, isAllDate, requestType, attendanceRequestType, location.pathname, activeStatus],
+        queryFn: async () => {
+            if (isAttendancePage) {
+                const reqStatus = activeStatus === RequestStatus.All ? '' : String(activeStatus);
+                const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
+                    userid: userId || '',
+                    domain: domain || 'dev',
+                    fromdate: isAllDate ? '' : fromDate.replace(/-/g, ''),
+                    todate: isAllDate ? '' : toDate.replace(/-/g, ''),
+                    status: reqStatus,
+                    type: attendanceRequestType,
+                });
+                const list: any[] = res.data?.data || res.data?.datalist || [];
+                return list
+                    .filter((item: any) => Number(item.status) !== 0)
+                    .map(mapAttendanceItem);
+            }
+
             const res = await apiClient.post(GET_REQUEST_LIST, {
-                fromdate: toApiDate(fromDate),
-                todate: toApiDate(toDate),
-                type: '',
-                status: Number(activeStatus),  // API expects a number, not string
+                fromdate: isAllDate ? '' : fromDate.replace(/-/g, ''),
+                todate: isAllDate ? '' : toDate.replace(/-/g, ''),
+                type: isSubtypeView ? '' : requestType,
+                status: activeStatus === RequestStatus.All ? '0' : String(activeStatus),
             });
-            const all: RequestModel[] = res.data?.datalist || [];
-            // Filter by subtype when on a type-specific path (same as mobile filtering by requestType)
+            const datalist: any[] = res.data?.datalist || res.data?.data || [];
+            const all: RequestModel[] = datalist.map(item => ({
+                ...item,
+                eid: item.employeeid || item.employee_id || item.eid || '',
+            }));
             if (pathTypeCfg) {
+                const filterRx = new RegExp(pathTypeCfg.filter, 'i');
                 return all.filter(r => {
                     const desc = ((r as any).requesttypedesc || (r as any).requesttype || '').toLowerCase();
-                    return desc.includes(pathTypeCfg.filter);
+                    return filterRx.test(desc);
                 });
             }
             return all;
         },
+        enabled: didInitDates,
     });
 
-    /* ── Quick stats (always from unfiltered "All" data) ── */
-    const stats = useMemo(() => {
-        let pending = 0;
-        let approved = 0;
-        let rejected = 0;
-        for (const r of requests as any[]) {
-            const st = String(r.requeststatus);
-            if (st === '1') pending++;
-            if (st === '2') approved++;
-            if (st === '3') rejected++;
-        }
-        return { total: requests.length, pending, approved, rejected };
-    }, [requests]);
+    const displayRequests = useMemo(() => {
+        // Sort by date and time
+        return [...allRequests].sort((a, b) => {
+            const orderFactor = sortOrder === 'desc' ? 1 : -1;
 
-    /* ═══════════════════════════ Render ═══════════════════════ */
+            const dateA = a.date || a.startdate || (a as any).createddate || '';
+            const dateB = b.date || b.startdate || (b as any).createddate || '';
+
+            const timeA = (a as any).intime || (a as any).outtime || a.starttime || a.time || (a as any).createdtime || '';
+            const timeB = (b as any).intime || (b as any).outtime || b.starttime || b.time || (b as any).createdtime || '';
+
+            const typeA = String((a as any).requesttype || '');
+            const typeB = String((b as any).requesttype || '');
+
+            const parseTime = (t: string) => {
+                if (!t) return 0;
+                const match = t.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+                if (!match) return 0;
+                let [, h, m, ampm] = match;
+                let hours = parseInt(h, 10);
+                if (ampm) {
+                    if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
+                    if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+                }
+                return hours * 60 + parseInt(m, 10);
+            };
+
+            const tA = parseTime(timeA);
+            const tB = parseTime(timeB);
+
+            if (sortColumn === 'time') {
+                if (tA !== tB) return (tB - tA) * orderFactor;
+                if (dateA !== dateB) return dateB.localeCompare(dateA) * orderFactor;
+                return typeB.localeCompare(typeA) * orderFactor;
+            } else {
+                if (dateA !== dateB) return dateB.localeCompare(dateA) * orderFactor;
+                if (typeA !== typeB) return typeB.localeCompare(typeA) * orderFactor;
+                return (tB - tA) * orderFactor;
+            }
+        });
+    }, [allRequests, sortOrder, sortColumn]);
+
+    const isLoading = shiftLoading || !didInitDates || requestsLoading;
+
+    // Summary stats
+    const { data: generalSummaryData = [] } = useQuery<RequestModel[]>({
+        queryKey: ['summaryRequests', fromDate, toDate, isAllDate, requestType, attendanceRequestType, location.pathname],
+        queryFn: async () => {
+            if (isAttendancePage) {
+                const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
+                    userid: userId || '',
+                    domain: domain || 'dev',
+                    fromdate: isAllDate ? '' : fromDate.replace(/-/g, ''),
+                    todate: isAllDate ? '' : toDate.replace(/-/g, ''),
+                    status: '',
+                    type: attendanceRequestType,
+                });
+                const list: any[] = res.data?.data || res.data?.datalist || [];
+                return list
+                    .filter((item: any) => Number(item.status) !== 0)
+                    .map((item: any) => ({
+                        requeststatus: String(item.status ?? item.requeststatus ?? 1),
+                    })) as RequestModel[];
+            }
+
+            const res = await apiClient.post(GET_REQUEST_LIST, {
+                fromdate: isAllDate ? '' : fromDate.replace(/-/g, ''),
+                todate: isAllDate ? '' : toDate.replace(/-/g, ''),
+                type: isSubtypeView ? '' : requestType,
+                status: '0',
+            });
+            const datalist: any[] = res.data?.datalist || res.data?.data || [];
+            const all: RequestModel[] = datalist.map(item => ({
+                ...item,
+                eid: item.employeeid || item.employee_id || item.eid || '',
+            }));
+            if (pathTypeCfg) {
+                const filterRx = new RegExp(pathTypeCfg.filter, 'i');
+                return all.filter(r => {
+                    const desc = ((r as any).requesttypedesc || (r as any).requesttype || '').toLowerCase();
+                    return filterRx.test(desc);
+                });
+            }
+            return all;
+        },
+        enabled: didInitDates,
+        staleTime: 30 * 1000,
+    });
+
+    const stats = useMemo(() => {
+        const sourceData = generalSummaryData;
+        const total = sourceData.length;
+        const pending = sourceData.filter(r => String(r.requeststatus) === '1').length;
+        const approved = sourceData.filter(r => String(r.requeststatus) === '2').length;
+        const rejected = sourceData.filter(r => String(r.requeststatus) === '3').length;
+        return { total, pending, approved, rejected };
+    }, [generalSummaryData]);
+
+    const handleExport = async () => {
+        if (displayRequests.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        try {
+            setExporting(true);
+
+            // Map data to Excel format
+            const exportData = (displayRequests as any[]).map((req, idx) => {
+                let statusText = '—';
+                const st = String(req.requeststatus);
+                if (st === '1') statusText = 'Pending';
+                else if (st === '2') statusText = 'Approved';
+                else if (st === '3') statusText = 'Rejected';
+                else if (st === '4') statusText = 'Draft';
+
+                const typeDesc = req.requesttypedesc || req.requesttype || '—';
+
+                let details = '—';
+                const typeStr = typeDesc.toLowerCase();
+                if (typeStr.includes('early out') || typeStr.includes('late')) {
+                    details = typeDesc; // Just show 'Early Out' or 'Late'
+                } else if (req.requestsubtypedesc) {
+                    details = req.requestsubtypedesc;
+                } else if (req.duration != null && req.duration !== '') {
+                    details = `${req.duration} day(s)`;
+                } else if (req.amount) {
+                    details = `${Number(req.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+                }
+
+                const exportObj: any = {
+                    'Employee ID': req.eid || '—',
+                    'Employee Name': req.name || '—',
+                    'Ref #': `#${idx + 1}`,
+                    'Date': displayDate(req.startdate || req.date) || '—',
+                    'Type': typeDesc,
+                };
+
+                if (isAttendancePage) {
+                    exportObj['Time'] = details;
+                } else {
+                    exportObj['Details'] = details;
+                }
+                exportObj['Status'] = statusText;
+
+                return exportObj;
+            });
+
+            // SheetJS logic
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, isAttendancePage ? 'Attendance Requests' : 'Requests');
+
+            // Set column widths
+            const wscols = [
+                { wch: 15 }, // Employee ID
+                { wch: 20 }, // Employee Name
+                { wch: 10 }, // Ref #
+                { wch: 25 }, // Date
+                { wch: 20 }, // Type
+                { wch: 20 }, // Details
+                { wch: 12 }, // Status
+            ];
+            worksheet['!cols'] = wscols;
+
+            const filenamePrefix = isAttendancePage ? 'Attendance_Requests' : 'Requests';
+            XLSX.writeFile(workbook, `${filenamePrefix}_${fromDate.replace(/-/g, '')}_to_${toDate.replace(/-/g, '')}.xlsx`);
+            toast.success('Excel file exported successfully');
+        } catch (err) {
+            console.error('Frontend export failed:', err);
+            toast.error('An error occurred during export');
+        } finally {
+            setExporting(false);
+        }
+    };
+
+
+    /* ── Render ── */
 
     return (
         <div className={styles['requests-page']}>
@@ -141,15 +444,48 @@ export default function RequestListPage() {
                             {isSubtypeView ? pathTypeCfg!.label : t('request.title')}
                         </h1>
                         <p className="page-header__subtitle">
-                            {requests.length} {isSubtypeView ? pathTypeCfg!.filter : 'request'}{requests.length === 1 ? '' : 's'}
+                            {displayRequests.length} {isSubtypeView ? pathTypeCfg!.filter : 'request'}{displayRequests.length === 1 ? '' : 's'}
                         </p>
                     </div>
-                    <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')}>
-                        <Plus size={16} />
-                        {isSubtypeView ? pathTypeCfg!.newLabel : t('request.newRequest')}
-                    </Button>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        {/* {isAttendancePage && (
+                            <Button
+                                onClick={() => setImportModalOpen(true)}
+                                variant="ghost"
+                                style={{ background: 'var(--color-neutral-0)', border: '1px solid var(--color-neutral-300)' }}
+                            >
+                                <Download size={16} />
+                                Import / Export
+                            </Button>
+                        )} */}
+                        {isAttendancePage && (
+                            <Button
+                                variant="ghost"
+                                loading={exporting}
+                                onClick={() => setShowExportConfirm(true)}
+                                style={{ background: 'var(--color-neutral-0)', border: '1px solid var(--color-neutral-300)' }}
+                            >
+                                {exporting ? <Loader2 className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />}
+                                Export Excel
+                            </Button>
+                    )}
+                        <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')}>
+                            <Plus size={16} />
+                            {t('request.newRequest')}
+                        </Button>
+                    </div>
                 </div>
             </div>
+
+            {isAttendancePage && (
+                <AttendanceImportModal
+                    open={importModalOpen}
+                    onClose={() => setImportModalOpen(false)}
+                    onSuccess={() => {
+                        queryClient.invalidateQueries({ queryKey: ['requests'] });
+                    }}
+                />
+            )}
 
             {/* ── Summary cards ── */}
             <div className={styles['requests-summary']}>
@@ -177,23 +513,148 @@ export default function RequestListPage() {
                 </div>
             </div>
 
+            {/* ── Filters (collapsible) ── */}
+            {(!isSubtypeView || isAttendancePage) && filterOpen && (
+                <div className={styles['filters-row']}>
+                    <div className={styles['filter-group']}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                            <label className={styles['filter-label']} style={{ marginBottom: 0 }}>Date Range</label>
+                            <button
+                                type="button"
+                                onClick={() => setIsAllDate(!isAllDate)}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                                    fontSize: 12, fontWeight: 600,
+                                    padding: '4px 12px', borderRadius: 16,
+                                    border: '1px solid',
+                                    borderColor: isAllDate ? '#0ea5e9' : '#cbd5e1',
+                                    backgroundColor: isAllDate ? '#e0f2fe' : '#f8fafc',
+                                    color: isAllDate ? '#0369a1' : '#64748b',
+                                    cursor: 'pointer', transition: 'all 0.2s ease',
+                                    outline: 'none',
+                                }}
+                            >
+                                {isAllDate ? <CheckCircle2 size={15} strokeWidth={2.5} /> : <Circle size={15} strokeWidth={2} />}
+                                All Dates
+                            </button>
+                        </div>
+                        <div className={styles['filter-inputs']}>
+                            <div style={{ position: 'relative', display: 'flex', flex: 1 }}>
+                                <Input
+                                    type="text"
+                                    value={isAllDate ? "" : displayDate(fromDate)}
+                                    placeholder="dd/MM/yyyy"
+                                    disabled={isAllDate}
+                                    onChange={() => {}}
+                                    onClick={() => {
+                                        if (!isAllDate && fromRef.current) {
+                                            try { fromRef.current.showPicker(); } catch(e) {}
+                                        }
+                                    }}
+                                    readOnly={!isAllDate}
+                                    className={styles['filter-date']}
+                                    style={{ width: '100%', cursor: isAllDate ? 'default' : 'pointer' }}
+                                />
+                                {!isAllDate && (
+                                    <input
+                                        type="date"
+                                        ref={fromRef}
+                                        value={fromDate}
+                                        onChange={(e) => setFromDate(e.target.value)}
+                                        style={{ position: 'absolute', bottom: 0, left: 10, width: 1, height: 1, opacity: 0, border: 0, padding: 0, pointerEvents: 'none' }}
+                                    />
+                                )}
+                            </div>
+                            <span className={styles['filter-separator']}>→</span>
+                            <div style={{ position: 'relative', display: 'flex', flex: 1 }}>
+                                <Input
+                                    type="text"
+                                    value={isAllDate ? "" : displayDate(toDate)}
+                                    placeholder="dd/MM/yyyy"
+                                    disabled={isAllDate}
+                                    onChange={() => {}}
+                                    onClick={() => {
+                                        if (!isAllDate && toRef.current) {
+                                            try { toRef.current.showPicker(); } catch(e) {}
+                                        }
+                                    }}
+                                    readOnly={!isAllDate}
+                                    className={styles['filter-date']}
+                                    style={{ width: '100%', cursor: isAllDate ? 'default' : 'pointer' }}
+                                />
+                                {!isAllDate && (
+                                    <input
+                                        type="date"
+                                        ref={toRef}
+                                        value={toDate}
+                                        onChange={(e) => setToDate(e.target.value)}
+                                        style={{ position: 'absolute', bottom: 0, left: 10, width: 1, height: 1, opacity: 0, border: 0, padding: 0, pointerEvents: 'none' }}
+                                    />
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    {!isAttendancePage && (
+                        <div className={styles['filter-group']}>
+                            <label className={styles['filter-label']}>Request Type</label>
+                            <Select
+                                options={typeOptions}
+                                value={requestType}
+                                onChange={(e) => setRequestType(e.target.value)}
+                                className={styles['filter-select']}
+                                placeholder="All Types"
+                            />
+                        </div>
+                    )}
+
+
+                </div>
+            )}
+
             {/* ── Requests table ── */}
             <div className={styles['requests-list-card']}>
                 <div className={styles['requests-list-card__header']}>
                     <h3 className={styles['requests-list-card__title']}>
-                        {isSubtypeView ? `${pathTypeCfg!.label} Requests` : 'All Requests'}
+                        {isSubtypeView ? `${pathTypeCfg!.label.replace(/ Request$/i, '')} Requests` : 'All Requests'}
                     </h3>
-                    {/* Filter tabs inside the card header */}
-                    <div className={styles['requests-filter-tabs']}>
-                        {statusTabs.map(({ key, label }) => (
+                    <div className={styles['requests-list-card__actions']}>
+                        {(!isSubtypeView || isAttendancePage) && (
                             <button
-                                key={key}
-                                className={`${styles['requests-filter-tabs__btn']} ${activeStatus === key ? styles['requests-filter-tabs__btn--active'] : ''}`}
-                                onClick={() => setActiveStatus(key)}
+                                className={`${styles['filter-toggle-btn']} ${filterOpen ? styles['filter-toggle-btn--active'] : ''}`}
+                                onClick={() => setFilterOpen(o => !o)}
+                                title="Toggle filters"
                             >
-                                {t(label)}
+                                <Filter size={14} />
+                                Filter
+                                {(requestType !== '') && (
+                                    <span className={styles['filter-toggle-btn__dot']} />
+                                )}
                             </button>
-                        ))}
+                        )}
+                        {isAttendancePage && (
+                            <div className={styles['requests-att-types']}>
+                                {([['1', 'Remote'], ['2', 'Backdate']] as const).map(([val, label]) => (
+                                    <button
+                                        key={val}
+                                        onClick={() => setAttendanceRequestType(val)}
+                                        className={`${styles['requests-att-type-btn']} ${attendanceRequestType === val ? styles['requests-att-type-btn--active'] : ''}`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <div className={styles['requests-filter-tabs']}>
+                            {statusTabs.map(({ key, label }) => (
+                                <button
+                                    key={key}
+                                    className={`${styles['requests-filter-tabs__btn']} ${activeStatus === key ? styles['requests-filter-tabs__btn--active'] : ''}`}
+                                    onClick={() => setActiveStatus(key)}
+                                >
+                                    {t(label)}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
@@ -201,14 +662,14 @@ export default function RequestListPage() {
                     <div className="empty-state" style={{ padding: '2rem' }}>
                         <p className="empty-state__desc">{t('common.loading')}</p>
                     </div>
-                ) : requests.length === 0 ? (
+                ) : displayRequests.length === 0 ? (
                     <div className="empty-state" style={{ padding: '2rem' }}>
                         <ClipboardList size={48} className="empty-state__icon" />
                         <h3 className="empty-state__title">{t('request.noRequests')}</h3>
                         <p className="empty-state__desc">
                             Submit your first HR request to get started.
                         </p>
-                        <Button onClick={() => navigate('/requests/new')} style={{ marginTop: '0.5rem' }}>
+                        <Button onClick={() => navigate(isSubtypeView ? pathTypeCfg!.newPath : '/requests/new')} style={{ marginTop: '0.5rem' }}>
                             <Plus size={16} />
                             {t('request.newRequest')}
                         </Button>
@@ -221,22 +682,65 @@ export default function RequestListPage() {
                                     <th>Employee ID</th>
                                     <th>Employee Name</th>
                                     <th>Ref #</th>
-                                    <th>Date</th>
+                                    <th
+                                        onClick={() => {
+                                            if (sortColumn === 'date') setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+                                            else { setSortColumn('date'); setSortOrder('desc'); }
+                                        }}
+                                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                                        title="Click to sort by Date"
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            Date
+                                            {sortColumn === 'date' ? (
+                                                sortOrder === 'desc' ? <ArrowDown size={14} color="var(--color-primary-600, #4f46e5)" /> : <ArrowUp size={14} color="var(--color-primary-600, #4f46e5)" />
+                                            ) : (
+                                                <ArrowDown size={14} color="var(--color-neutral-300, #d1d5db)" />
+                                            )}
+                                        </div>
+                                    </th>
                                     <th>Type</th>
-                                    <th>Details</th>
+                                    <th
+                                        onClick={() => {
+                                            if (sortColumn === 'time') setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+                                            else { setSortColumn('time'); setSortOrder('desc'); }
+                                        }}
+                                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                                        title="Click to sort by Time"
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            {isAttendancePage ? 'Time' : 'Details'}
+                                            {sortColumn === 'time' ? (
+                                                sortOrder === 'desc' ? <ArrowDown size={14} color="var(--color-primary-600, #4f46e5)" /> : <ArrowUp size={14} color="var(--color-primary-600, #4f46e5)" />
+                                            ) : (
+                                                <ArrowDown size={14} color="var(--color-neutral-300, #d1d5db)" />
+                                            )}
+                                        </div>
+                                    </th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {(requests as any[]).map((req, i) => {
+                                {(displayRequests as any[]).map((req, i) => {
                                     const typeDesc = req.requesttypedesc || req.requesttype || '';
                                     const variant = getTypeVariant(typeDesc);
                                     const Icon = getTypeIcon(variant);
                                     return (
-                                        <tr key={req.syskey || i} onClick={() => navigate(`/requests/${req.syskey}`)}>
+                                        <tr key={req.syskey || i} onClick={() => {
+                                            if (isAttendancePage) {
+                                                navigate(`/attendancerequest/${req.syskey}`, { state: { item: req, refIndex: i + 1 } });
+                                            } else {
+                                                const d = typeDesc.toLowerCase();
+                                                if (d.includes('ferry') || d.includes('hr complaint') || d.includes('hrcomplaint')) {
+                                                    navigate(`/ferry_request/${req.syskey}`, { state: { from: '/requests' } });
+                                                } else {
+                                                    navigate(`/requests/${req.syskey}`, { state: { from: '/requests' } });
+                                                }
+                                            }
+                                        }}>
                                             <td>{req.eid || '—'}</td>
                                             <td>{req.name || '—'}</td>
-                                            <td>{req.refno || '—'}</td>
+                                            <td>{`#${i + 1}`}</td>
                                             <td className={styles['requests-table__dates']}>
                                                 {displayDate(req.startdate || req.date) || '—'}
                                                 {req.enddate && req.enddate !== req.startdate ? ` → ${displayDate(req.enddate)}` : ''}
@@ -260,7 +764,7 @@ export default function RequestListPage() {
                                                         return `${req.duration} day(s)`;
                                                     }
                                                     if (req.amount) {
-                                                        return `${Number(req.amount).toLocaleString()}`;
+                                                        return `${Number(req.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
                                                     }
                                                     return '—';
                                                 })()}
@@ -276,6 +780,21 @@ export default function RequestListPage() {
                     </div>
                 )}
             </div>
+
+            <ConfirmModal
+                open={showExportConfirm}
+                onClose={() => setShowExportConfirm(false)}
+                onConfirm={() => {
+                    handleExport();
+                    setShowExportConfirm(false);
+                }}
+                title="Export Excel"
+                message="Are you sure you want to export these requests to an Excel file?"
+                confirmLabel="Export Excel"
+                loading={exporting}
+                variant="primary"
+                icon={<FileSpreadsheet size={28} />}
+            />
         </div>
     );
 }

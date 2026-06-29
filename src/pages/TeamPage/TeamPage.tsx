@@ -10,6 +10,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import {
     Users,
@@ -29,12 +30,13 @@ import {
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
-import { TEAM_LIST } from '../../config/api-routes';
+import { TEAM_LIST, MENU_ITEMS } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
 import type { TeamMember, Team, TeamPageModel } from '../../types/models';
 import { checkTeamAccess } from './team-utils';
 import styles from './TeamPage.module.css';
 import '../../styles/pages.css';
+
 
 /* ── Helpers ── */
 
@@ -49,10 +51,13 @@ function parseTeamResponse(data: Record<string, unknown>, userId: string): TeamP
         employeeId: String(raw.employeeId ?? raw.employeeid ?? ''),
         profile: raw.profile ? String(raw.profile) : null,
         userid: String(raw.userid ?? ''),
-        rank: String(raw.rank ?? ''),
+        rank: String(raw.mptposition  ?? '').split(',')[0].trim(),
         department: String(raw.department ?? ''),
         division: String(raw.division ?? ''),
         teamId: String(raw.teamId ?? raw.teamid ?? ''),
+        mptposition: raw.mptposition ? String(raw.mptposition) : undefined,
+        jobposition: raw.jobposition ? String(raw.jobposition) : undefined,
+        office: raw.office ? String(raw.office) : undefined,
         level: level as TeamMember['level'],
         priority: String(raw.priority ?? '0'),
         role: raw.role ? String(raw.role) : null,
@@ -61,6 +66,7 @@ function parseTeamResponse(data: Record<string, unknown>, userId: string): TeamP
         workingDays: String(raw.workingDays ?? raw.workingdays ?? '0'),
         timeInCount: String(raw.timeInCount ?? raw.timeincount ?? '0'),
         timeOutCount: String(raw.timeOutCount ?? raw.timeoutcount ?? '0'),
+        checkInCount: String(raw.checkInCount ?? raw.checkincount ?? '0'),
         activityCount: String(raw.activityCount ?? raw.activitycount ?? '0'),
         leaveCount: String(raw.leaveCount ?? raw.leavecount ?? '0'),
         requiredWorkDays: String(raw.requiredWorkDays ?? raw.requiredworkdays ?? '0'),
@@ -135,6 +141,7 @@ function getInitials(name: string): string {
 /* ═══════════════════════════════════ Component ═══════════════════════════════════ */
 
 export default function TeamPage() {
+    const { t } = useTranslation();
     const { userId } = useAuthStore();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -172,7 +179,7 @@ export default function TeamPage() {
     const { data: menuData } = useQuery({
         queryKey: ['menu-items'],
         queryFn: async () => {
-            const res = await apiClient.get('hxm/integration/get/menuitems');
+            const res = await apiClient.get(MENU_ITEMS);
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,
@@ -250,9 +257,6 @@ export default function TeamPage() {
         const stack = [...navStack];
         const prev = stack.pop();
         if (prev) {
-            // If the user arrived via URL (?userId=...), the initial stack was [userId]
-            // If we are popping back to that root and the view is already that queryUserId,
-            // we should just go back in browser history to return to HR View.
             if (stack.length === 0 && queryUserId && viewUserId === queryUserId) {
                 navigate(-1);
             } else {
@@ -272,19 +276,19 @@ export default function TeamPage() {
                     <div>
                         <h1 className="page-header__title">
                             <Users size={24} style={{ verticalAlign: 'middle', marginRight: 8 }} />
-                            Team Structure
+                            {t('team.title')}
                         </h1>
                         <p className="page-header__subtitle">
                             {teamData
-                                ? `${teamData.seniors.length} seniors · ${teamData.juniors.length} members · ${teamData.teams.length} teams`
-                                : 'Loading team data…'
+                                ? t('team.subtitle', { seniors: teamData.seniors.length, members: teamData.juniors.length, teams: teamData.teams.length })
+                                : t('team.loading')
                             }
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         {navStack.length > 0 && (
                             <button className={styles.backBtn} onClick={navigateBack}>
-                                ← Back
+                                {t('team.back')}
                             </button>
                         )}
                         <button className={styles.refreshBtn} onClick={() => refetch()} disabled={isLoading}>
@@ -305,8 +309,8 @@ export default function TeamPage() {
             {isError && (
                 <div className={styles.errorCard}>
                     <AlertCircle size={20} />
-                    <span>Failed to load team data. Please try again.</span>
-                    <button onClick={() => refetch()}>Retry</button>
+                    <span>{t('team.error')}</span>
+                    <button onClick={() => refetch()}>{t('team.retry')}</button>
                 </div>
             )}
 
@@ -319,7 +323,7 @@ export default function TeamPage() {
                         <div className={styles.section}>
                             <h2 className={styles.sectionTitle}>
                                 <Crown size={16} />
-                                Reporting Officers
+                                {t('team.reportingOfficers')}
                             </h2>
                             <div className={styles.timeline}>
                                 {teamData.seniors.map((senior, idx) => (
@@ -351,9 +355,23 @@ export default function TeamPage() {
                                                     <div className={styles.memberName}>{senior.userName}</div>
                                                     <div className={styles.memberMeta}>
                                                         {senior.rank && <span className={styles.rankBadge}>{senior.rank}</span>}
-                                                        {senior.type && (
-                                                            <span className={styles.typeBadge}>{senior.type}</span>
-                                                        )}
+                                                        <div className={styles.horizontalBadges}>
+                                                            {senior.department && (
+                                                                <span className={styles.metaText}>{senior.department}</span>
+                                                            )}
+                                                            {senior.teamId && (
+                                                                <span className={styles.metaText}>{senior.teamId}</span>
+                                                            )}
+                                                            {senior.office && (
+                                                                <span className={styles.metaText}>{senior.office}</span>
+                                                            )}
+                                                            {senior.division && (
+                                                                <span className={styles.metaText}>{senior.division}</span>
+                                                            )}
+                                                            {senior.type && (
+                                                                <span className={styles.typeBadge}>{senior.type}</span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -370,7 +388,7 @@ export default function TeamPage() {
                         ══════════════════════════════════════════════ */}
                     {teamData.user && (
                         <div className={styles.section}>
-                            <UserCard member={teamData.user} />
+                            <UserCard member={teamData.user} t={t} />
                         </div>
                     )}
 
@@ -381,7 +399,7 @@ export default function TeamPage() {
                         <div className={styles.section}>
                             <h2 className={styles.sectionTitle}>
                                 <Building2 size={16} />
-                                Teams
+                                {t('team.teams')}
                             </h2>
                             <div className={styles.teamBadges}>
                                 {teamData.teams.map((team) => (
@@ -414,7 +432,7 @@ export default function TeamPage() {
                         <div className={styles.section}>
                             <h2 className={styles.sectionTitle}>
                                 <UserCheck size={16} />
-                                Direct Reports
+                                {t('team.directReports')}
                                 <span className={styles.countBadge}>{directReports.length}</span>
                             </h2>
                             <div className={styles.memberGrid}>
@@ -436,7 +454,7 @@ export default function TeamPage() {
                         <div className={styles.section}>
                             <h2 className={styles.sectionTitle}>
                                 <Users size={16} />
-                                Supervisions
+                                {t('team.supervisions')}
                                 <span className={styles.countBadge}>{supervisions.length}</span>
                             </h2>
                             <div className={styles.memberGrid}>
@@ -455,8 +473,8 @@ export default function TeamPage() {
                     {teamData.seniors.length === 0 && teamData.juniors.length === 0 && teamData.teams.length === 0 && (
                         <div className={styles.emptyState}>
                             <Users size={48} strokeWidth={1} />
-                            <h3>No team data available</h3>
-                            <p>Your team structure will appear here once configured.</p>
+                            <h3>{t('team.noTeamData')}</h3>
+                            <p>{t('team.noTeamDataDesc')}</p>
                         </div>
                     )}
                 </>
@@ -468,8 +486,9 @@ export default function TeamPage() {
 /* ═══════════════════════════ Sub-components ═══════════════════════════ */
 
 /** Current user hero card (blue themed) */
-function UserCard({ member }: { member: TeamMember }) {
+function UserCard({ member, t }: { member: TeamMember; t: (key: string) => string }) {
     const status = getStatusInfo(member);
+    const attSummary = `${member.timeInCount} of ${member.requiredWorkDays}`;
 
     return (
         <div className={styles.userCard}>
@@ -494,22 +513,31 @@ function UserCard({ member }: { member: TeamMember }) {
                             {member.rank && (
                                 <span className={styles.rankBadgeUser}>{member.rank}</span>
                             )}
-                            {member.department && (
-                                <span className={styles.deptBadge}>
-                                    <Building2 size={12} />
-                                    {member.department}
-                                </span>
-                            )}
+                            <div className={styles.horizontalBadges}>
+                                {member.department && (
+                                    <span className={styles.deptBadge}>
+                                        <Building2 size={12} />
+                                        {member.department}
+                                    </span>
+                                )}
+                                {member.teamId && (
+                                    <span className={styles.deptBadge}>
+                                        <Hash size={12} />
+                                        {member.teamId}
+                                    </span>
+                                )}
+                                {member.office && (
+                                    <span className={styles.deptBadge}>{member.office}</span>
+                                )}
+                                {member.division && (
+                                    <span className={styles.deptBadge}>{member.division}</span>
+                                )}
+                            </div>
                         </div>
                         <div className={styles.userCardIds}>
                             {member.employeeId && (
                                 <span className={styles.idBadge}>
                                     <Briefcase size={11} /> {member.employeeId}
-                                </span>
-                            )}
-                            {member.teamId && (
-                                <span className={styles.idBadge}>
-                                    <Hash size={11} /> {member.teamId}
                                 </span>
                             )}
                         </div>
@@ -518,10 +546,10 @@ function UserCard({ member }: { member: TeamMember }) {
 
                 {/* Stats row */}
                 <div className={styles.statsRow}>
-                    <StatTile icon={<Clock size={16} />} value={member.workingDays} label="Working Days" />
-                    <StatTile icon={<LogIn size={16} />} value={member.timeInCount} label="Check-ins" />
-                    <StatTile icon={<Activity size={16} />} value={member.activityCount} label="Activities" />
-                    <StatTile icon={<Palmtree size={16} />} value={member.leaveCount} label="Leaves" />
+                    <StatTile icon={<Clock size={16} />} value={attSummary} label={t('team.attSummary')} />
+                    <StatTile icon={<LogIn size={16} />} value={member.checkInCount ?? '0'} label={t('team.checkIns')} />
+                    <StatTile icon={<Activity size={16} />} value={member.activityCount} label={t('team.activities')} />
+                    <StatTile icon={<Palmtree size={16} />} value={member.leaveCount} label={t('team.leaves')} />
                 </div>
             </div>
         </div>
@@ -551,9 +579,20 @@ function MemberCard({ member, onClick }: { member: TeamMember; onClick: () => vo
                     <div className={styles.memberCardName}>{member.userName}</div>
                     <div className={styles.memberCardMeta}>
                         {member.rank && <span className={styles.rankBadgeSm}>{member.rank}</span>}
-                        {member.department && (
-                            <span className={styles.metaText}>{member.department}</span>
-                        )}
+                        <div className={styles.horizontalBadges}>
+                            {member.department && (
+                                <span className={styles.metaText}>{member.department}</span>
+                            )}
+                            {member.teamId && (
+                                <span className={styles.metaText}>{member.teamId}</span>
+                            )}
+                            {member.office && (
+                                <span className={styles.metaText}>{member.office}</span>
+                            )}
+                            {member.division && (
+                                <span className={styles.metaText}>{member.division}</span>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <ChevronRight size={16} className={styles.chevron} />
@@ -583,11 +622,6 @@ function MemberCard({ member, onClick }: { member: TeamMember; onClick: () => vo
                 {member.employeeId && (
                     <span className={styles.idBadgeSm}>
                         <Briefcase size={10} /> {member.employeeId}
-                    </span>
-                )}
-                {member.teamId && (
-                    <span className={styles.idBadgeSm}>
-                        <Hash size={10} /> {member.teamId}
                     </span>
                 )}
                 {member.type && (

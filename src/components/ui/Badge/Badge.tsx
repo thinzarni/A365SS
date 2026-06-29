@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { RequestStatus } from '../../../types/models';
 import styles from './Badge.module.css';
 
-type BadgeVariant = 'pending' | 'approved' | 'rejected' | 'info' | 'neutral';
+type BadgeVariant = 'pending' | 'approved' | 'rejected' | 'info' | 'neutral' | 'approved-outline' | 'rejected-outline' | 'pending-outline';
 
 interface BadgeProps {
     children: React.ReactNode;

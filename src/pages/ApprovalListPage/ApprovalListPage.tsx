@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -15,16 +15,29 @@ import {
     Plane,
     Banknote,
     FileText,
-    ShieldCheck,
     Users,
     Briefcase,
+    Check,
+    RotateCcw,
+    CheckCircle2,
+    XCircle,
+    Circle,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
-import type { RequestModel } from '../../types/models';
+import type { RequestModel, TypesModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
-import { APPROVAL_LIST, ATTENDANCE_SHIFT_DATA } from '../../config/api-routes';
+import {
+    APPROVAL_LIST,
+    ATTENDANCE_SHIFT_DATA,
+    MULTI_SAVE_APPROVAL,
+    LEAVE_TYPES,
+    REQUEST_TYPES
+} from '../../config/api-routes';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '../../stores/auth-store';
+import toast from 'react-hot-toast';
 import styles from './ApprovalListPage.module.css';
 
 const statusTabs = [
@@ -33,6 +46,8 @@ const statusTabs = [
     { key: RequestStatus.Approved, label: 'status.approved' },
     { key: RequestStatus.Rejected, label: 'status.rejected' },
 ];
+
+
 
 /* ── Date helpers ── */
 function formatYYYYMMDD(d: Date): string {
@@ -87,9 +102,18 @@ export default function ApprovalListPage() {
     const navigate = useNavigate();
     const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
     const [showFilter, setShowFilter] = useState(false);
+    const [selectedType, setSelectedType] = useState<string>('');
     const [fromDate, setFromDate] = useState(defaultFromDate);
     const [toDate, setToDate] = useState(defaultToDate);
+    const [isAllDate, setIsAllDate] = useState(true);
     const [didInitDates, setDidInitDates] = useState(false);
+    const [fromFocused, setFromFocused] = useState(false);
+    const [toFocused, setToFocused] = useState(false);
+    const { userId, domain } = useAuthStore();
+    const queryClient = useQueryClient();
+
+    const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+
 
     const { data: shiftData, isLoading: shiftLoading } = useQuery({
         queryKey: ['shiftData'],
@@ -112,46 +136,216 @@ export default function ApprovalListPage() {
         }
     }, [shiftData, shiftLoading, didInitDates]);
 
-    const { data: approvals = [], isLoading: approvalsLoading } = useQuery<RequestModel[]>({
-        queryKey: ['approvals', activeStatus, fromDate, toDate],
+    const { data: leaveTypeList = [] } = useQuery<{ syskey: string, description: string }[]>({
+        queryKey: ['leaveTypeList'],
+        queryFn: async () => {
+            const res = await apiClient.get(LEAVE_TYPES);
+            return res.data?.datalist || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // Fetch request types for the dropdown
+    const { data: requestTypes = [] } = useQuery<TypesModel[]>({
+        queryKey: ['requestTypes'],
+        queryFn: async () => {
+            const res = await apiClient.get(REQUEST_TYPES);
+            return res.data?.datalist || [];
+        }
+    });
+
+    const typeOptions = useMemo(() => {
+        const options: { value: string, label: string }[] = [];
+        options.push({ value: '', label: 'All Requests' });
+        
+        requestTypes.forEach(rt => {
+            options.push({ value: rt.syskey, label: rt.description });
+        });
+        
+        return options;
+    }, [requestTypes]);
+
+    const { data: allApprovals = [], isLoading: approvalsLoading } = useQuery<RequestModel[]>({
+        queryKey: ['approvals', fromDate, toDate, isAllDate, activeStatus, selectedType],
         queryFn: async () => {
             const body: Record<string, unknown> = {
-                fromdate: fromDate,
-                todate: toDate,
-                type: '',
+                fromdate: isAllDate ? "" : fromDate,
+                todate: isAllDate ? "" : toDate,
+                type: selectedType,
                 status: activeStatus,
             };
             const res = await apiClient.post(APPROVAL_LIST, body);
-            return res.data?.datalist || [];
+            const datalist: any[] = res.data?.datalist || [];
+
+            // The approval list API returns:
+            //   requesttype    = human-readable name ("claim", "leave", etc.)
+            //   requestsubtype = syskey UUID of the specific sub-type
+            // The multi-approve API expects:
+            //   requesttype    = syskey UUID  (swap from requestsubtype)
+            //   requesttypedesc = human-readable name (swap from requesttype)
+            return datalist.map((item: any) => ({
+                ...item,
+                requesttypedesc: item.requesttype || '',      // "claim" → requesttypedesc
+                requesttype: item.requestsubtype || item.requesttype || '', // syskey → requesttype
+            }));
         },
         enabled: didInitDates,
         staleTime: 0,
         refetchOnMount: true,
     });
 
+    const { data: summaryApprovals = [] } = useQuery<RequestModel[]>({
+        queryKey: ['summaryApprovals', fromDate, toDate, isAllDate, selectedType],
+        queryFn: async () => {
+            const body: Record<string, unknown> = {
+                fromdate: isAllDate ? "" : fromDate,
+                todate: isAllDate ? "" : toDate,
+                type: selectedType,
+                status: RequestStatus.All, // Fetch all to calculate overall stats
+            };
+            const res = await apiClient.post(APPROVAL_LIST, body);
+            const datalist: any[] = res.data?.datalist || [];
+            return datalist.map((item: any) => ({
+                requeststatus: String(item.status ?? item.requeststatus ?? 1),
+            })) as RequestModel[];
+        },
+        enabled: didInitDates,
+        staleTime: 30 * 1000,
+    });
+
     const isLoading = shiftLoading || !didInitDates || approvalsLoading;
 
-    /* Filter out pending from 'All' specifically */
-    const filteredApprovals = activeStatus === RequestStatus.All
-        ? approvals.filter(req => String(req.requeststatus) !== '1')
-        : approvals;
+    // For attendance, filter locally so we can have stable summary counts across status tabs
+    const displayRequests = useMemo(() => {
+        if (activeStatus === RequestStatus.All) return allApprovals;
+        return allApprovals.filter(req => String(req.requeststatus) === String(activeStatus));
+    }, [allApprovals, activeStatus]);
 
-    /* Count by status for tab badges using unfiltered data */
-    const pendingCount = approvals.filter((r) => String(r.requeststatus) === '1').length;
+    const filteredApprovals = displayRequests;
+
+    const pendingRequests = useMemo(() =>
+        filteredApprovals.filter(r => String(r.requeststatus) === '1'),
+        [filteredApprovals]
+    );
+
+    const isAllSelected = pendingRequests.length > 0 && selectedKeys.size === pendingRequests.length;
+
+    const toggleSelect = (syskey: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        setSelectedKeys(prev => {
+            const next = new Set(prev);
+            if (next.has(syskey)) next.delete(syskey);
+            else next.add(syskey);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (isAllSelected) {
+            setSelectedKeys(new Set());
+        } else {
+            setSelectedKeys(new Set(pendingRequests.map(r => String(r.syskey))));
+        }
+    };
+
+    const multiApproveMutation = useMutation({
+        mutationFn: async ({ status }: { status: '2' | '3' }) => {
+            const selectedList = Array.from(selectedKeys).map(key => {
+                const req = pendingRequests.find(r => String(r.syskey) === key);
+                if (!req) return null;
+
+                // The approval list returns requesttype as a syskey UUID,
+                // which is exactly what the multi-approve API expects — pass through as-is.
+                const requesttype = (req as any).requesttype || '';
+
+                return {
+                    syskey: req.syskey,
+                    eid: (req as any).eid || '',
+                    name: req.name || '',
+                    refno: req.refno,
+                    startdate: req.startdate || (req as any).date || '',
+                    enddate: (req as any).enddate || req.startdate || (req as any).date || '',
+                    createddate: (req as any).createddate || '',
+                    requesttype,
+                    requesttypedesc: (req as any).requesttypedesc || '',
+                    requestsubtype: (req as any).requestsubtype || '',
+                    remark: (req as any).remark || '',
+                    isgoing: (req as any).isgoing ?? null,
+                    isreturn: (req as any).isreturn ?? null,
+                    isgoback: (req as any).isgoback ?? null,
+                    ottype: (req as any).ottype ?? 0,
+                    requestsubtypedesc: (req as any).requestsubtypedesc || '',
+                    approver: (req as any).approver || '',
+                    requeststatus: req.requeststatus,
+                    duration: (req as any).duration || null,
+                    amount: (req as any).amount ?? null,
+                    currencytype: (req as any).currencytype ?? null,
+                    currencytypedesc: (req as any).currencytypedesc || '',
+                    hour: (req as any).hour ?? null,
+                    approvedby: (req as any).approvedby || '',
+                    rosykey: (req as any).rosykey || '',
+                    approvaltype: (req as any).approvaltype || '',
+                    timein: (req as any).timein || '',
+                    timeout: (req as any).timeout || '',
+                    stepLevelData: (req as any).stepLevelData || [],
+                    createdtime: (req as any).createdtime || '',
+                };
+            }).filter(Boolean);
+
+            const payload = {
+                userid: userId || '',
+                domain: domain || 'dev',
+                status: Number(status),
+                selectedRequestList: selectedList,
+            };
+            const res = await apiClient.post(MULTI_SAVE_APPROVAL, payload);
+            return res.data;
+        },
+        onSuccess: (_, variables) => {
+            const action = variables.status === '2' ? 'approved' : 'rejected';
+            toast.success(`Successfully ${action} ${selectedKeys.size} requests`);
+            setSelectedKeys(new Set());
+            queryClient.invalidateQueries({ queryKey: ['approvals'] });
+        },
+        onError: (err: any) => {
+            toast.error(err.message || 'Bulk action failed');
+        }
+    });
+
+    useEffect(() => {
+        setSelectedKeys(new Set());
+    }, [activeStatus]);
+
+
+    /* Count by status for tab badges / summary header using summaryApprovals */
+    const stats = useMemo(() => {
+        let pending = 0;
+        let approved = 0;
+        let rejected = 0;
+        for (const r of summaryApprovals) {
+            const st = String(r.requeststatus);
+            if (st === '1') pending++;
+            if (st === '2') approved++;
+            if (st === '3') rejected++;
+        }
+        return { total: summaryApprovals.length, pending, approved, rejected };
+    }, [summaryApprovals]);
+
+    const pendingCount = stats.pending;
 
     return (
         <div className={styles['approval-page']}>
             {/* ── Page Header ── */}
             <div className={styles['approval-page__header']}>
                 <div className={styles['approval-page__header-left']}>
-                    <div className={styles['approval-page__icon-wrapper']}>
+                    {/* <div className={styles['approval-page__icon-wrapper']}>
                         <ShieldCheck size={24} />
-                    </div>
+                    </div> */}
                     <div>
                         <h1 className={styles['approval-page__title']}>{t('approval.title')}</h1>
                         <p className={styles['approval-page__subtitle']}>
-                            {approvals.length} {approvals.length === 1 ? 'approval' : 'approvals'}
-                            {activeStatus === RequestStatus.Pending && pendingCount > 0 && (
+                            {stats.total} {stats.total === 1 ? 'approval' : 'approvals'}
+                            {pendingCount > 0 && (
                                 <span className={styles['approval-page__pending-badge']}>
                                     {pendingCount} pending
                                 </span>
@@ -159,59 +353,136 @@ export default function ApprovalListPage() {
                         </p>
                     </div>
                 </div>
-                <button
-                    className={styles['approval-page__filter-btn']}
-                    onClick={() => setShowFilter(!showFilter)}
-                    title="Filter by date"
-                >
-                    <Filter size={16} />
-                    <span>Filter</span>
-                    {showFilter ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
+            </div>
+
+            {/* ── Summary cards ── */}
+            <div className={styles['approval-page__summary']}>
+                <div className={styles['approval-page__summary-card']}>
+                    <span className={styles['approval-page__summary-value']}>{stats.total}</span>
+                    <span className={styles['approval-page__summary-label']}>Total Requests</span>
+                </div>
+                <div className={styles['approval-page__summary-card']}>
+                    <span className={styles['approval-page__summary-value']} style={{ color: 'var(--color-warning-600)' }}>
+                        {stats.pending}
+                    </span>
+                    <span className={styles['approval-page__summary-label']}>Pending</span>
+                </div>
+                <div className={styles['approval-page__summary-card']}>
+                    <span className={styles['approval-page__summary-value']} style={{ color: 'var(--color-success-600)' }}>
+                        {stats.approved}
+                    </span>
+                    <span className={styles['approval-page__summary-label']}>Approved</span>
+                </div>
+                <div className={styles['approval-page__summary-card']}>
+                    <span className={styles['approval-page__summary-value']} style={{ color: 'var(--color-danger-600)' }}>
+                        {stats.rejected}
+                    </span>
+                    <span className={styles['approval-page__summary-label']}>Rejected</span>
+                </div>
             </div>
 
             {/* ── Date Filter ── */}
             {showFilter && (
                 <div className={styles['approval-page__filter-panel']}>
-                    <div className={styles['approval-page__filter-row']}>
-                        <div className={styles['approval-page__filter-field']}>
-                            <label className={styles['approval-page__filter-label']}>From</label>
-                            <input
-                                type="date"
-                                className={styles['approval-page__filter-input']}
-                                value={toInputDate(fromDate)}
-                                onChange={(e) => {
-                                    if (e.target.value) setFromDate(fromInputDate(e.target.value));
-                                }}
-                            />
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24, flexWrap: 'wrap' }}>
+                        {/* Date Range Column */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <label className={styles['approval-page__filter-label']} style={{ marginBottom: 0 }}>Date Range</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAllDate(!isAllDate)}
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                                        fontSize: 12, fontWeight: 600,
+                                        padding: '4px 12px', borderRadius: 16,
+                                        border: '1px solid',
+                                        borderColor: isAllDate ? '#0ea5e9' : '#cbd5e1',
+                                        backgroundColor: isAllDate ? '#e0f2fe' : '#f8fafc',
+                                        color: isAllDate ? '#0369a1' : '#64748b',
+                                        cursor: 'pointer', transition: 'all 0.2s ease',
+                                        outline: 'none',
+                                    }}
+                                >
+                                    {isAllDate ? <CheckCircle2 size={15} strokeWidth={2.5} /> : <Circle size={15} strokeWidth={2} />}
+                                    All Dates
+                                </button>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <input
+                                    type={isAllDate ? "text" : (fromFocused ? "date" : "text")}
+                                    className={styles['approval-page__filter-input']}
+                                    style={{ minWidth: 140 }}
+                                    value={isAllDate ? "" : (fromFocused ? toInputDate(fromDate) : displayDate(fromDate))}
+                                    placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
+                                    disabled={isAllDate}
+                                    onFocus={() => setFromFocused(true)}
+                                    onBlur={() => setFromFocused(false)}
+                                    onChange={(e) => {
+                                        if (e.target.value) setFromDate(fromInputDate(e.target.value));
+                                    }}
+                                />
+                                <span style={{ color: '#94a3b8', fontSize: 14, fontWeight: 500 }}>→</span>
+                                <input
+                                    type={isAllDate ? "text" : (toFocused ? "date" : "text")}
+                                    className={styles['approval-page__filter-input']}
+                                    style={{ minWidth: 140 }}
+                                    value={isAllDate ? "" : (toFocused ? toInputDate(toDate) : displayDate(toDate))}
+                                    placeholder={isAllDate ? "dd/MM/yyyy" : "dd/MM/yyyy"}
+                                    disabled={isAllDate}
+                                    onFocus={() => setToFocused(true)}
+                                    onBlur={() => setToFocused(false)}
+                                    onChange={(e) => {
+                                        if (e.target.value) setToDate(fromInputDate(e.target.value));
+                                    }}
+                                />
+                            </div>
                         </div>
-                        <div className={styles['approval-page__filter-field']}>
-                            <label className={styles['approval-page__filter-label']}>To</label>
-                            <input
-                                type="date"
+
+                        {/* Request Type Column */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <label className={styles['approval-page__filter-label']} style={{ marginBottom: 0 }}>Request Type</label>
+                            <select 
                                 className={styles['approval-page__filter-input']}
-                                value={toInputDate(toDate)}
-                                onChange={(e) => {
-                                    if (e.target.value) setToDate(fromInputDate(e.target.value));
-                                }}
-                            />
+                                style={{ minWidth: 180 }}
+                                value={selectedType}
+                                onChange={(e) => setSelectedType(e.target.value)}
+                            >
+                                {typeOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                 </div>
             )}
 
             {/* ── Status Tabs ── */}
-            <div className={styles['approval-page__tabs']}>
-                {statusTabs.map(({ key, label }) => (
-                    <button
-                        key={key}
-                        className={`${styles['approval-page__tab']} ${activeStatus === key ? styles['approval-page__tab--active'] : ''
-                            }`}
-                        onClick={() => setActiveStatus(key)}
-                    >
-                        {t(label)}
-                    </button>
-                ))}
+            <div className={styles['approval-page__tabs-row']}>
+                <div className={styles['approval-page__tabs']}>
+                    {statusTabs.map(({ key, label }) => (
+                        <button
+                            key={key}
+                            className={`${styles['approval-page__tab']} ${activeStatus === key ? styles['approval-page__tab--active'] : ''
+                                }`}
+                            onClick={() => setActiveStatus(key)}
+                        >
+                            {t(label)}
+                        </button>
+                    ))}
+                </div>
+
+                <button
+                    className={styles['approval-page__filter-btn']}
+                    onClick={() => setShowFilter(!showFilter)}
+                    title="Filter requests"
+                >
+                    <Filter size={16} />
+                    <span>Filter</span>
+                    {showFilter ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
             </div>
 
             {/* ── List ── */}
@@ -237,19 +508,63 @@ export default function ApprovalListPage() {
                 </div>
             ) : (
                 <div className={styles['approval-page__list']}>
+                    {activeStatus === RequestStatus.Pending && pendingRequests.length > 0 && (
+                        <div className={styles['select-all-row']} onClick={toggleSelectAll}>
+                            <div className={`${styles['checkbox']} ${isAllSelected ? styles['checkbox--checked'] : ''}`}>
+                                {isAllSelected && <Check size={14} className={styles['checkbox-icon']} />}
+                            </div>
+                            <span>Select all pending requests</span>
+                        </div>
+                    )}
+
                     {filteredApprovals.map((req, i) => {
                         const { Icon, bg, color } = getTypeVisual(req);
                         const reqName = req.name || req.eid || 'Employee';
-                        const typeDesc = req.requesttypedesc || req.requesttype || '';
-                        const subTypeDesc = req.requestsubtypedesc || '';
+                        const typeDescRaw = req.requesttypedesc || req.requesttype || '';
+                        let typeDesc = typeDescRaw;
+                        const tDescLow = typeDescRaw.toLowerCase().replace(/\s+/g, '');
+                        if (tDescLow === 'ferrychange') typeDesc = 'Ferry Change';
+                        else if (tDescLow === 'ferryregistration' ) typeDesc = 'Ferry Registration';
+                        else if (tDescLow === 'ferryusercomplaint' || tDescLow === 'usercomplaint') typeDesc = 'Ferry User Complaint';
+                        else if (tDescLow === 'hrcomplaint' || tDescLow === 'ferryhrcomplaint') typeDesc = 'HR Complaint';
+
+                        const subTypeDescRaw = req.requestsubtypedesc || '';
+                        let subTypeDesc = subTypeDescRaw;
+                        
+                        if (tDescLow === 'leave' || typeDescRaw === 'Leave' || tDescLow.includes('leave')) {
+                            const matchedLeave = leaveTypeList.find(l => l.syskey === (req.requestsubtype || req.requestsubtypedesc));
+                            if (matchedLeave) {
+                                subTypeDesc = matchedLeave.description;
+                            }
+                        }
 
                         return (
                             <div
                                 key={req.syskey || i}
-                                className={styles['approval-page__card']}
+                                className={`${styles['approval-page__card']} ${selectedKeys.has(String(req.syskey)) ? styles['approval-page__card--selected'] : ''}`}
                                 style={{ animationDelay: `${i * 40}ms` }}
-                                onClick={() => navigate(`/approvals/${req.syskey}`)}
+                                onClick={() => {
+                                    const tStr = String(req.requesttype || '').toLowerCase();
+                                    const dStr = String(req.requesttypedesc || '').toLowerCase();
+                                    const isFerry = tStr.includes('ferry') || dStr.includes('ferry') || 
+                                                    tStr.includes('hr complaint') || dStr.includes('hr complaint') ||
+                                                    tStr.includes('hrcomplaint') || dStr.includes('hrcomplaint');
+                                                    
+                                    if (isFerry) {
+                                        navigate(`/ferry_approval/${req.syskey}`, { state: { item: req } });
+                                    } else {
+                                        navigate(`/approvals/${req.syskey}`, { state: { item: req } });
+                                    }
+                                }}
                             >
+                                {activeStatus === RequestStatus.Pending && (
+                                    <div className={styles['checkbox-wrapper']} onClick={(e) => toggleSelect(String(req.syskey), e)}>
+                                        <div className={`${styles['checkbox']} ${selectedKeys.has(String(req.syskey)) ? styles['checkbox--checked'] : ''}`}>
+                                            {selectedKeys.has(String(req.syskey)) && <Check size={14} className={styles['checkbox-icon']} />}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div
                                     className={styles['approval-page__card-icon']}
                                     style={{ background: bg, color }}
@@ -291,11 +606,11 @@ export default function ApprovalListPage() {
 
                                 <div className={styles['approval-page__card-right']}>
                                     <StatusBadge status={req.requeststatus} />
-                                    {req.refno && (
+                                    {req.refno ? (
                                         <span className={styles['approval-page__card-ref']}>
                                             #{req.refno}
                                         </span>
-                                    )}
+                                    ) : null}
                                 </div>
                             </div>
                         );
@@ -312,6 +627,30 @@ export default function ApprovalListPage() {
                     </div>
                 </div>
             )}
+            <div className={`${styles['bulk-actions-bar']} ${selectedKeys.size > 0 ? styles['bulk-actions-bar--visible'] : ''}`}>
+                <div className={styles['bulk-actions-info']}>
+                    <div className={styles['bulk-actions-count']}>{selectedKeys.size}</div>
+                    <span>Selected</span>
+                </div>
+                <div className={styles['bulk-actions-btns']}>
+                    <button
+                        className={`${styles['bulk-btn']} ${styles['bulk-btn--approve']}`}
+                        onClick={() => multiApproveMutation.mutate({ status: '2' })}
+                        disabled={multiApproveMutation.isPending}
+                    >
+                        {multiApproveMutation.isPending ? <RotateCcw size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                        Approve
+                    </button>
+                    <button
+                        className={`${styles['bulk-btn']} ${styles['bulk-btn--reject']}`}
+                        onClick={() => multiApproveMutation.mutate({ status: '3' })}
+                        disabled={multiApproveMutation.isPending}
+                    >
+                        {multiApproveMutation.isPending ? <RotateCcw size={14} className="animate-spin" /> : <XCircle size={14} />}
+                        Reject
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

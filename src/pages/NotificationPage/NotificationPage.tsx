@@ -1,12 +1,57 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { 
+    Bell, CheckSquare, Receipt, Clock, Home, Activity, 
+    CalendarCheck, Car, Bus, ShoppingBag, Plane, ArrowRightLeft, 
+    BookOpen, PartyPopper, ClipboardCheck, Wifi, History, RefreshCw, 
+    MapPin, UserPlus, MoreHorizontal 
+} from 'lucide-react';
 import { useNotificationStore } from '../../stores/notification-store';
 import type { NotificationModel } from '../../stores/notification-store';
 import { parseApiDate, formatNotiTime, getNotiRoute } from '../../lib/notification-helper';
 import styles from './NotificationPage.module.css';
 
+function getNotificationIconConfig(requestType: string = '', isRead: boolean) {
+    const dim = isRead ? 0.55 : 1.0;
+    
+    const type = requestType.trim().toLowerCase();
+    let config;
+    
+    switch(type) {
+        case 'leave': config = { Icon: CheckSquare, bg: '#E0F2FE', fg: '#0284C7' }; break;
+        case 'claim': config = { Icon: Receipt, bg: '#F0FDF4', fg: '#16A34A' }; break;
+        case 'overtime': config = { Icon: Clock, bg: '#FFF7ED', fg: '#EA580C' }; break;
+        case 'workfromhome': config = { Icon: Home, bg: '#EFF6FF', fg: '#2563EB' }; break;
+        case 'late': config = { Icon: Clock, bg: '#FEF9C3', fg: '#CA8A04' }; break;
+        case 'earlyout': config = { Icon: Activity, bg: '#FFF1F2', fg: '#E11D48' }; break;
+        case 'reservation': config = { Icon: CalendarCheck, bg: '#F5F3FF', fg: '#7C3AED' }; break;
+        case 'ferry taxi': config = { Icon: Car, bg: '#ECFEFF', fg: '#0891B2' }; break;
+        case 'transportation': config = { Icon: Bus, bg: '#F0F9FF', fg: '#0369A1' }; break;
+        case 'purchase': config = { Icon: ShoppingBag, bg: '#FDF4FF', fg: '#9333EA' }; break;
+        case 'travel': config = { Icon: Plane, bg: '#EFFBFF', fg: '#06B6D4' }; break;
+        case 'offinlieu': config = { Icon: ArrowRightLeft, bg: '#F0FDF4', fg: '#059669' }; break;
+        case 'ruleandregulation': config = { Icon: BookOpen, bg: '#FFFBEB', fg: '#D97706' }; break;
+        case 'holiday': config = { Icon: PartyPopper, bg: '#FFF0F6', fg: '#DB2777' }; break;
+        case 'attendanceapproval': config = { Icon: ClipboardCheck, bg: '#F0FDF4', fg: '#15803D' }; break;
+        case 'remote': config = { Icon: Wifi, bg: '#EFF6FF', fg: '#1D4ED8' }; break;
+        case 'backdate': config = { Icon: History, bg: '#FEF3C7', fg: '#B45309' }; break;
+        case 'remote and backdate': config = { Icon: RefreshCw, bg: '#EDE9FE', fg: '#6D28D9' }; break;
+        case 'location': config = { Icon: MapPin, bg: '#FFF1F2', fg: '#BE123C' }; break;
+        case 'employeerequisition': config = { Icon: UserPlus, bg: '#F0FDF4', fg: '#0D9488' }; break;
+        case 'other': config = { Icon: MoreHorizontal, bg: '#EEF2FF', fg: '#4F46E5' }; break;
+        default: config = { Icon: Bell, bg: '#EFF6FF', fg: '#2563EB' }; break;
+    }
+
+    return {
+        Icon: config.Icon,
+        bgStyle: { backgroundColor: config.bg, opacity: dim },
+        fgStyle: { color: config.fg, opacity: dim }
+    };
+}
+
 export default function NotificationPage() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { items, unreadCount, isLoading, hasMore, fetchNotifications, markNotificationRead } =
         useNotificationStore();
@@ -63,9 +108,9 @@ export default function NotificationPage() {
                     <Bell size={22} />
                 </div>
                 <div>
-                    <h1 className={styles['noti-page__title']}>Notifications</h1>
+                    <h1 className={styles['noti-page__title']}>{t('notification.title')}</h1>
                     <p className={styles['noti-page__subtitle']}>
-                        {totalUnread > 0 ? `${totalUnread} unread` : 'All caught up'}
+                        {totalUnread > 0 ? t('notification.unreadCount', { count: totalUnread }) : t('notification.allCaughtUp')}
                     </p>
                 </div>
             </div>
@@ -95,13 +140,13 @@ export default function NotificationPage() {
                     <div className={styles['noti-page__empty-icon']}>
                         <Bell size={32} />
                     </div>
-                    <h3>No notifications yet</h3>
-                    <p>You're all caught up. New notifications will appear here.</p>
+                    <h3>{t('notification.noNotifications')}</h3>
+                    <p>{t('notification.emptySubtitle')}</p>
                     <button
                         className={styles['noti-page__refresh-btn']}
                         onClick={() => fetchNotifications({ isRefresh: true })}
                     >
-                        Refresh
+                        {t('notification.refresh')}
                     </button>
                 </div>
             ) : (
@@ -109,7 +154,7 @@ export default function NotificationPage() {
                 <div className={styles['noti-page__list']} ref={listRef}>
                     {items.map((item) => {
                         const isRead = item.read_status;
-                        const avatarLetter = item.action_user_name?.charAt(0).toUpperCase() || '?';
+                        const { Icon, bgStyle, fgStyle } = getNotificationIconConfig(item.requesttype, isRead);
                         const parsedDate = item.createddate ? parseApiDate(item.createddate) : new Date();
                         const timeLabel = formatNotiTime(parsedDate);
 
@@ -122,10 +167,10 @@ export default function NotificationPage() {
                                 {/* Avatar */}
                                 <div className={styles['noti-page__avatar-wrap']}>
                                     <div
-                                        className={`${styles['noti-page__avatar']} ${isRead ? styles['noti-page__avatar--read'] : styles['noti-page__avatar--unread']
-                                            }`}
+                                        className={styles['noti-page__avatar']}
+                                        style={bgStyle}
                                     >
-                                        {avatarLetter}
+                                        <Icon size={20} style={fgStyle} />
                                     </div>
                                     {!isRead && <div className={styles['noti-page__unread-dot']} />}
                                 </div>
@@ -160,7 +205,7 @@ export default function NotificationPage() {
                             className={styles['noti-page__load-more']}
                             onClick={() => fetchNotifications()}
                         >
-                            Load more
+                            {t('notification.loadMore')}
                         </button>
                     )}
 

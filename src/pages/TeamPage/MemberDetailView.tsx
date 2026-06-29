@@ -10,6 +10,7 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
     ArrowLeft,
     Briefcase,
@@ -122,6 +123,7 @@ function getCalendarStatusColor(statusCode: number): { color: string; label: str
 /* ═══════════════════════════════════ Component ═══════════════════════════════════ */
 
 export default function MemberDetailView() {
+    const { t } = useTranslation();
     const { memberSyskey } = useParams<{ memberSyskey: string }>();
     const navigate = useNavigate();
     const location = useLocation();
@@ -224,8 +226,8 @@ export default function MemberDetailView() {
             <div className={styles.page}>
                 <div className={styles.errorCard}>
                     <AlertCircle size={20} />
-                    <span>Member data not available. Please navigate from the team page.</span>
-                    <button onClick={() => navigate('/team')}>Go to Team</button>
+                    <span>{t('team.memberDataMissing')}</span>
+                    <button onClick={() => navigate('/team')}>{t('team.goToTeam')}</button>
                 </div>
             </div>
         );
@@ -242,7 +244,7 @@ export default function MemberDetailView() {
                         </button>
                         <div>
                             <h1 className="page-header__title">{member.userName}</h1>
-                            <p className="page-header__subtitle">{member.rank || 'Team Member'}</p>
+                            <p className="page-header__subtitle">{member.rank || t('team.teamMember')}</p>
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -274,7 +276,7 @@ export default function MemberDetailView() {
             <div className={styles.section}>
                 <div className={styles.sectionHeader} onClick={() => setShowCalendar(!showCalendar)}>
                     <CalendarDays size={16} />
-                    <h3 className={styles.sectionTitle}>Attendance — {formatDisplayDate(selectedDate)}</h3>
+                    <h3 className={styles.sectionTitle}>{t('team.attendance', { date: formatDisplayDate(selectedDate) })}</h3>
                     <button
                         className={styles.refreshBtnSm}
                         onClick={(e) => { e.stopPropagation(); refetchAtt(); }}
@@ -308,7 +310,7 @@ export default function MemberDetailView() {
                 {!attLoading && attendance && attendance.length === 0 && (
                     <div className={styles.emptyTimeline}>
                         <Clock size={32} strokeWidth={1} />
-                        <p>No records for this day</p>
+                        <p>{t('team.noRecords')}</p>
                     </div>
                 )}
 
@@ -328,7 +330,9 @@ export default function MemberDetailView() {
 
 /** Member profile hero card */
 function MemberProfileCard({ member }: { member: TeamMember }) {
+    const { t } = useTranslation();
     const status = getStatusInfo(member);
+    const attSummary = `${member.timeInCount} of ${member.requiredWorkDays}`;
 
     return (
         <div className={styles.profileCard}>
@@ -351,11 +355,24 @@ function MemberProfileCard({ member }: { member: TeamMember }) {
                         <h3 className={styles.profileName}>{member.userName}</h3>
                         <div className={styles.profileBadges}>
                             {member.rank && <span className={styles.rankBadge}>{member.rank}</span>}
-                            {member.department && (
-                                <span className={styles.deptBadge}>
-                                    <Building2 size={12} /> {member.department}
-                                </span>
-                            )}
+                            <div className={styles.horizontalBadges}>
+                                {member.department && (
+                                    <span className={styles.deptBadge}>
+                                        <Building2 size={12} /> {member.department}
+                                    </span>
+                                )}
+                                {member.teamId && (
+                                    <span className={styles.deptBadge}>
+                                        <Hash size={12} /> {member.teamId}
+                                    </span>
+                                )}
+                                {member.office && (
+                                    <span className={styles.deptBadge}>{member.office}</span>
+                                )}
+                                {member.division && (
+                                    <span className={styles.deptBadge}>{member.division}</span>
+                                )}
+                            </div>
                         </div>
                         <div className={styles.profileIds}>
                             {member.employeeId && (
@@ -363,20 +380,15 @@ function MemberProfileCard({ member }: { member: TeamMember }) {
                                     <Briefcase size={11} /> {member.employeeId}
                                 </span>
                             )}
-                            {member.teamId && (
-                                <span className={styles.idBadge}>
-                                    <Hash size={11} /> {member.teamId}
-                                </span>
-                            )}
                         </div>
                     </div>
                 </div>
 
                 <div className={styles.statsRow}>
-                    <StatTile icon={<Clock size={16} />} value={member.workingDays} label="Working Days" />
-                    <StatTile icon={<LogIn size={16} />} value={member.timeInCount} label="Check-ins" />
-                    <StatTile icon={<Activity size={16} />} value={member.activityCount} label="Activities" />
-                    <StatTile icon={<Palmtree size={16} />} value={member.leaveCount} label="Leaves" />
+                    <StatTile icon={<Clock size={16} />} value={attSummary} label={t('team.attendance')} />
+                    <StatTile icon={<LogIn size={16} />} value={member.timeInCount} label={t('team.checkIns')} />
+                    <StatTile icon={<Activity size={16} />} value={member.activityCount} label={t('team.activities')} />
+                    <StatTile icon={<Palmtree size={16} />} value={member.leaveCount} label={t('team.leaves')} />
                 </div>
             </div>
         </div>
@@ -411,6 +423,7 @@ function CalendarWidget({
     statusMap: Record<string, number>;
 }) {
     const year = month.getFullYear();
+    const { t } = useTranslation();
     const monthIdx = month.getMonth();
     const daysInMonth = getDaysInMonth(year, monthIdx);
     const firstDayOfWeek = new Date(year, monthIdx, 1).getDay();
@@ -435,9 +448,9 @@ function CalendarWidget({
 
             {/* Status legend */}
             <div className={styles.calendarLegend}>
-                <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: '#22c55e' }} /> Present</span>
-                <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: '#f59e0b' }} /> Leave</span>
-                <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: '#3b82f6' }} /> Activity</span>
+                <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: '#22c55e' }} /> {t('team.present')}</span>
+                <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: '#f59e0b' }} /> {t('team.leave')}</span>
+                <span className={styles.legendItem}><span className={styles.legendDot} style={{ background: '#3b82f6' }} /> {t('team.activity')}</span>
             </div>
 
             <div className={styles.calendarGrid}>

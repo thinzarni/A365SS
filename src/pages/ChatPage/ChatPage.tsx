@@ -39,6 +39,7 @@ const getAttachmentName = (item: any) => {
 import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../stores/chat-store';
 import { useAuthStore } from '../../stores/auth-store';
+import { APP_ID } from '../../lib/auth-token';
 import { useChatSocket } from '../../lib/useChatSocket';
 import { NewChatModal } from '../../components/chat/NewChatModal';
 import styles from './ChatPage.module.css';
@@ -1029,7 +1030,7 @@ export default function ChatPage() {
                                                                         role: 'member',
                                                                         participants: [me, user.userid],
                                                                         groupName: '',
-                                                                        appid: '004',
+                                                                        appid: APP_ID,
                                                                         subAppid: domain,
                                                                         actionType: 1,
                                                                         adminkey: chatroomId,

@@ -10,9 +10,10 @@ interface ModalProps {
     children: ReactNode;
     footer?: ReactNode;
     large?: boolean;
+    extraLarge?: boolean;
 }
 
-export default function Modal({ open, onClose, title, children, footer, large }: ModalProps) {
+export default function Modal({ open, onClose, title, children, footer, large, extraLarge }: ModalProps) {
     useEffect(() => {
         if (open) {
             document.body.style.overflow = 'hidden';
@@ -30,7 +31,7 @@ export default function Modal({ open, onClose, title, children, footer, large }:
     return createPortal(
         <div className={styles['modal-overlay']} onClick={onClose}>
             <div
-                className={`${styles.modal} ${large ? styles['modal--lg'] : ''}`}
+                className={`${styles.modal} ${large ? styles['modal--lg'] : ''} ${extraLarge ? styles['modal--xl'] : ''}`}
                 onClick={(e) => e.stopPropagation()}
             >
                 {title && (

@@ -12,6 +12,13 @@ export const RequestStatus = {
 } as const;
 export type RequestStatus = (typeof RequestStatus)[keyof typeof RequestStatus];
 
+export const EmpInfoUpdateStatus = {
+  PENDING: 0,
+  APPROVED: 1,
+  REJECTED: 2,
+} as const;
+export type EmpInfoUpdateStatus = (typeof EmpInfoUpdateStatus)[keyof typeof EmpInfoUpdateStatus];
+
 export const RequestType = {
   Reservation: '1',
   Transportation: '2',
@@ -106,6 +113,18 @@ export interface RequestModel {
   attachment: string[];
   createddate: string;
   createdtime: string;
+  remaining_balance?: number;
+  max_amount?: number;
+  confirmed_amount?: number;
+}
+
+export interface StepLevelData {
+  level: number;
+  status: number; // 0=upcoming, 1=pending, 2=approved, 3=rejected
+  approvedby: string | null;
+  remark: string | null;
+  rankrole_specificperson: string;
+  is_ro: boolean;
 }
 
 export interface RequestDetailModel {
@@ -113,6 +132,8 @@ export interface RequestDetailModel {
   eid: string;
   approver: string;
   duration: string;
+  approvaltype?: string;
+  stepLevelData?: StepLevelData[];
   startdate: string;
   enddate: string;
   starttime: string;
@@ -179,6 +200,9 @@ export interface RequestDetailModel {
   days: string;
   ottype: number;
   selectedAcconpanyPersons: Approver[];
+  remaining_balance?: number;
+  max_amount?: number;
+  confirmed_amount?: number;
 }
 
 export interface RequestDetail {
@@ -220,10 +244,31 @@ export interface ApprovalDetailModel {
   isCarWayAdmin: boolean;
   accompanyPersonList: Approver[];
   memberList: Approver[];
+  approverList?: Approver[];
+  stepLevelData?: StepLevelData[];
 }
 
 export interface ApprovalModel {
   syskey: string;
+  name?: string;
+  email?: string;
+  refno?: number;
+  eid?: string;
+  requeststatus?: number | string;
+  requesttype?: string;
+  requestsubtype?: string | null;
+  startdate?: string;
+  enddate?: string;
+  approver?: string;
+  ferrycomplaint?: string;
+  comment?: string;
+  approvedby?: string | null;
+  approvaltype?: string | number;
+  rejectreason?: string | null;
+  remark?: string;
+  stepLevelData?: StepLevelData[];
+  attachment?: Array<Record<string, unknown>> | string[];
+  approverList?: Approver[];
   [key: string]: unknown;
 }
 
@@ -232,6 +277,9 @@ export interface TypesModel {
   description: string;
   code?: string;
   maxpeople?: number;
+  remaining_balance?: number;
+  max_amount?: number;
+  approvaltype?: string | number;
 }
 
 export interface LeaveType {
@@ -240,6 +288,7 @@ export interface LeaveType {
   balance?: number;
   used?: number;
   remaining?: number;
+  approvaltype?: string | number;
 }
 
 export interface CarsModel {
@@ -289,6 +338,11 @@ export interface UserProfile {
   paycompanysyskey?: string;
   organizationsyskey?: string;
   hr_access?: boolean;
+  eid: string;
+  phoneno?: string;
+  phone?: string;
+  joineddate?: string;
+  rank?: string;
 }
 
 export interface ApiResponse<T = unknown> {
@@ -311,6 +365,9 @@ export interface TeamMember {
   department: string;
   division: string;
   teamId: string;
+  mptposition?: string;
+  jobposition?: string;
+  office?: string;
   level: 'senior' | 'user' | 'junior' | '';
   /** Priority 1-6 = management level */
   priority: string;
@@ -323,6 +380,7 @@ export interface TeamMember {
   workingDays: string;
   timeInCount: string;
   timeOutCount: string;
+  checkInCount?: string;
   activityCount: string;
   leaveCount: string;
   requiredWorkDays: string;

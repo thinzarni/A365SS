@@ -5,6 +5,7 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { appConfig } from '../config/app-config';
 import { useAuthStore } from '../stores/auth-store';
+import { APP_ID } from './auth-token';
 
 const chatClient = axios.create({
     baseURL: appConfig.chatUrl,
@@ -36,7 +37,7 @@ chatClient.interceptors.request.use(
             // Chat API often expects appid and sub_appid (domain)
             // Flutter uses 'userid', 'appid', 'sub_appid', 'curPage', 'pageSize' in the body
             if (!body.userid && userId) body.userid = userId;
-            if (!body.appid) body.appid = '004';
+            if (!body.appid) body.appid = APP_ID;
 
             const currentDomain = domain || 'demouat';
             if (!body.sub_appid) body.sub_appid = currentDomain;

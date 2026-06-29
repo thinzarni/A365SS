@@ -4,8 +4,8 @@
              attendance records, quick-action tiles
    ═══════════════════════════════════════════════════════════ */
 
-import { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
@@ -17,21 +17,25 @@ import {
     CalendarCheck,
     Activity,
     TreePalm,
-    CalendarDays,
-    ClipboardList,
-    CheckSquare,
-    Receipt,
-    Calendar,
-    Users,
+    // CalendarDays,
+    // ClipboardList,
+    // CheckSquare,
+    // Receipt,
+    // Calendar,
+    // Users,
     MapPin,
-    X,
-    FileText,
     ChevronRight,
     ImageIcon,
+    BarChart3,
+    X,
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
+import { ADMIN_MEMBER_LIST, ADMIN_CARD_DATA, USER_PROFILE } from '../../config/api-routes';
 import styles from './DashboardPage.module.css';
+import AttendanceOverviewChart from '../../components/admin-attendance/AttendanceOverviewChart';
+import UserCard from '../../components/admin-attendance/UserCard';
+import apiClient from '../../lib/api-client';
 
 /* ── Types ── */
 interface MonthlySummary {
@@ -100,7 +104,7 @@ function getAttTypeName(type: number): { label: string; color: string; dot: stri
         case 601: return { label: 'TIME IN', color: '#22c55e', dot: 'green' };
         case 602: return { label: 'TIME OUT', color: '#ef4444', dot: 'red' };
         case 603: return { label: 'ACTIVITY', color: '#8b5cf6', dot: 'purple' };
-        case 604: return { label: 'CHECK IN', color: '#3b82f6', dot: 'blue' };
+        case 604: return { label: 'CHECK IN', color: 'var(--color-primary-500)', dot: 'blue' };
         default: return { label: 'RECORD', color: '#64748b', dot: 'blue' };
     }
 }
@@ -154,34 +158,42 @@ function parseTimeStr(t: string): Date | null {
 }
 
 /* ── Quick Action Items ── */
-const quickActions = [
-    { path: '/leave', icon: TreePalm, label: 'Leave', bg: '#fef3c7', color: '#d97706' },
-    { path: '/claims', icon: Receipt, label: 'Claims', bg: '#fce7f3', color: '#db2777' },
-    { path: '/holidays', icon: CalendarDays, label: 'Holidays', bg: '#dbeafe', color: '#2563eb' },
-    { path: '/approvals', icon: CheckSquare, label: 'Approvals', bg: '#dcfce7', color: '#16a34a' },
-    { path: '/requests', icon: ClipboardList, label: 'Requests', bg: '#f3e8ff', color: '#7c3aed' },
-    { path: '/reservations', icon: Calendar, label: 'Reservations', bg: '#e0e7ff', color: '#4338ca' },
-    { path: '/leave-summary', icon: TreePalm, label: 'Leave Summary', bg: '#ccfbf1', color: '#0d9488' },
-    { path: '/team', icon: Users, label: 'Team', bg: '#fef9c3', color: '#ca8a04' },
-];
+// const quickActions = [
+//     { path: '/leave', icon: TreePalm, label: 'Leave', bg: '#fef3c7', color: '#d97706' },
+//     { path: '/claims', icon: Receipt, label: 'Claims', bg: '#fce7f3', color: '#db2777' },
+//     { path: '/holidays', icon: CalendarDays, label: 'Holidays', bg: 'var(--color-primary-100)', color: 'var(--color-primary-600)' },
+//     { path: '/approvals', icon: CheckSquare, label: 'Approvals', bg: '#dcfce7', color: '#16a34a' },
+//     { path: '/requests', icon: ClipboardList, label: 'Requests', bg: '#f3e8ff', color: '#7c3aed' },
+//     { path: '/reservations', icon: Calendar, label: 'Reservations', bg: '#e0e7ff', color: '#4338ca' },
+//     { path: '/leave-summary', icon: TreePalm, label: 'Leave Summary', bg: '#ccfbf1', color: '#0d9488' },
+//     { path: '/team', icon: Users, label: 'Team', bg: '#fef9c3', color: '#ca8a04' },
+//     { path: '/attendanceapproval', icon: UserCheck, label: 'Attendance Approval', bg: '#ecfeff', color: '#0891b2' },
+// ];
 
-/* ── Component ── */
-export default function DashboardPage() {
+const STATUS_LABELS: Record<string, string> = {
+    '0': 'All',
+    '1': 'Present',
+    '2': 'Leave',
+    '4': 'Absent',
+    '5': 'Late In',
+    '6': 'Early Out'
+};
+
+/* ── Live Header Component ── */
+interface LiveHeaderProps {
+    user: any;
+    timeIn?: AttendanceRecord;
+    timeOut?: AttendanceRecord;
+    workingHours: string;
+}
+
+function LiveHeader({ user, timeIn, timeOut, workingHours }: LiveHeaderProps) {
     const { t, i18n } = useTranslation();
-    const { user, userId, domain } = useAuthStore();
     const [now, setNow] = useState(new Date());
-    const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
 
-    // Lock background scroll when modal is open
     useEffect(() => {
-        document.body.style.overflow = selectedRecord ? 'hidden' : '';
-        return () => { document.body.style.overflow = ''; };
-    }, [selectedRecord]);
-
-    // Live clock
-    useEffect(() => {
-        const id = setInterval(() => setNow(new Date()), 1000);
-        return () => clearInterval(id);
+        const timer = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(timer);
     }, []);
 
     const greeting = getGreeting(now.getHours());
@@ -192,78 +204,9 @@ export default function DashboardPage() {
         month: 'long',
         day: 'numeric',
     });
-    const todayStr = formatDateYYYYMMDD(now);
-
-    // ── Fetch monthly summary ──
-    const { data: summary, isLoading: summaryLoading } = useQuery<MonthlySummary | null>({
-        queryKey: ['dashboard-summary', todayStr],
-        queryFn: async () => {
-            try {
-                const res = await mainClient.post(`api/checkin/monthly-summary?startDate=${todayStr}`);
-                return res.data?.data ?? res.data ?? null;
-            } catch {
-                return null;
-            }
-        },
-        staleTime: 60_000,
-    });
-
-    // ── Fetch today's attendance records ──
-    const { data: homeData, isLoading: homeLoading } = useQuery<HomeDataResponse | null>({
-        queryKey: ['dashboard-home', todayStr],
-        queryFn: async () => {
-            try {
-                const res = await mainClient.post(`api/checkin/list?date=${todayStr}`, {
-                    userid: userId,
-                    domain: domain,
-                });
-                return res.data?.data ?? res.data ?? [];
-            } catch {
-                return [];
-            }
-        },
-        staleTime: 30_000,
-    });
-
-    // ── Derived data ──
-    const records: AttendanceRecord[] = useMemo(() => {
-        const list = Array.isArray(homeData)
-            ? homeData
-            : (homeData as HomeData)?.attendanceList ?? [];
-
-        return list.filter(r => [601, 602, 603, 604].includes(Number(r.type)));
-    }, [homeData]);
-
-    const timeIn = useMemo(() => records.find(r => r.type === 601), [records]);
-    const timeOut = useMemo(() => records.find(r => r.type === 602), [records]);
-    const workingHours = useMemo(() => calcWorkingHours(records), [records]);
-
-    const monthName = now.toLocaleDateString(i18n.language === 'my' ? 'my-MM' : 'en-US', { month: 'long', year: 'numeric' });
-    const isLoading = summaryLoading || homeLoading;
-
-    // ── Loading state ──
-    if (isLoading) {
-        return (
-            <div className={styles.page}>
-                <div className={`${styles.skeleton} ${styles.skeletonHero}`} />
-                <div className={styles.clockRow}>
-                    <div className={`${styles.skeleton} ${styles.skeletonClock}`} />
-                    <div className={`${styles.skeleton} ${styles.skeletonClock}`} />
-                    <div className={`${styles.skeleton} ${styles.skeletonClock}`} />
-                </div>
-                <div className={styles.statsRow}>
-                    {[1, 2, 3, 4].map(i => <div key={i} className={`${styles.skeleton} ${styles.skeletonStat}`} />)}
-                </div>
-                <div className={styles.recordsGrid}>
-                    {[1, 2, 3, 4].map(i => <div key={i} className={`${styles.skeleton} ${styles.skeletonRecord}`} />)}
-                </div>
-            </div>
-        );
-    }
 
     return (
-        <div className={styles.page}>
-            {/* ── Hero / Greeting ── */}
+        <>
             <section className={styles.hero}>
                 <div className={styles.heroLeft}>
                     <div className={styles.greeting}>{t(greeting)},</div>
@@ -278,7 +221,6 @@ export default function DashboardPage() {
                 </div>
             </section>
 
-            {/* ── Time In / Time Out / Working Hours ── */}
             <section className={styles.clockRow}>
                 <div className={styles.clockCard}>
                     <div className={styles.clockLabel}>
@@ -319,6 +261,194 @@ export default function DashboardPage() {
                     </span>
                 </div>
             </section>
+        </>
+    );
+}
+
+/* ── Component ── */
+export default function DashboardPage() {
+    const { t, i18n } = useTranslation();
+    const { user, userId, domain, setUser } = useAuthStore();
+    
+    // Static date for API queries
+    const [today] = useState(() => new Date());
+    const [selectedStatus, setSelectedStatus] = useState<string>('0');
+
+    const todayStr = formatDateYYYYMMDD(today);
+
+    // ── Global Profile Sync ──
+    useQuery({
+        queryKey: ['dashboard-profile-sync', userId],
+        queryFn: async () => {
+            if (!userId) return null;
+            try {
+                const res = await mainClient.post(USER_PROFILE, { userid: userId });
+                const profileData = res.data?.data ?? res.data ?? null;
+                if (profileData) {
+                    setUser({ ...useAuthStore.getState().user, ...profileData } as any);
+                }
+                return profileData;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    // ── Fetch admin card data ──
+    const { data: adminCardData, isLoading: adminLoading } = useQuery({
+        queryKey: ['admin-card-data'],
+        queryFn: async () => {
+            try {
+                const res = await apiClient.post(ADMIN_CARD_DATA, {
+                    fromdate: todayStr,
+                    todate: todayStr,
+                    userid: userId,
+                    domain: domain,
+                    isPersonal: true
+                });
+                return res.data?.data ?? res.data ?? null;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 60_000,
+    });
+
+    // Chart data derived from API
+    const chartData = useMemo(() => {
+        if (!adminCardData) return undefined;
+
+        const present = Number(adminCardData.timein) || Number(adminCardData.presentEmployees) || 0;
+        const leave = Number(adminCardData.leave) || Number(adminCardData.leaveCount) || 0;
+        const absent = Number(adminCardData.absent) || Number(adminCardData.absentEmployees) || 0;
+        const total = Number(adminCardData.total) || Number(adminCardData.totalEmployees) || (present + leave + absent);
+
+        return {
+            total: total,
+            timein: present,
+            leave: leave,
+            absent: absent,
+            lateincount: Number(adminCardData.lateincount) || Number(adminCardData.lateEmployees) || 0,
+            earlyoutcount: Number(adminCardData.earlyoutcount) || Number(adminCardData.earlyOutEmployees) || 0,
+        };
+    }, [adminCardData]);
+
+
+    // ── Fetch monthly summary ──
+    const { data: summary, isLoading: summaryLoading } = useQuery<MonthlySummary | null>({
+        queryKey: ['dashboard-summary', todayStr],
+        queryFn: async () => {
+            try {
+                const res = await mainClient.post(`api/checkin/monthly-summary?startDate=${todayStr}`);
+                return res.data?.data ?? res.data ?? null;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 60_000,
+    });
+
+    // ── Fetch today's attendance records ──
+    const { data: homeData, isLoading: homeLoading } = useQuery<HomeDataResponse | null>({
+        queryKey: ['dashboard-home', todayStr],
+        queryFn: async () => {
+            try {
+                const res = await mainClient.post(`api/checkin/list?date=${todayStr}`, {
+                    userid: userId,
+                    domain: domain,
+                });
+                return res.data?.data ?? res.data ?? [];
+            } catch {
+                return [];
+            }
+        },
+        staleTime: 30_000,
+    });
+
+    // ── Fetch employees data ──
+    const {
+        data: employeesData,
+        isLoading: employeesLoading,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage
+    } = useInfiniteQuery({
+        queryKey: ['dashboard-employees', todayStr, selectedStatus, userId, domain],
+        queryFn: async ({ pageParam = 1 }) => {
+            try {
+                const res = await apiClient.post(ADMIN_MEMBER_LIST, {
+                    date: todayStr,
+                    searchval: '',
+                    page: pageParam,
+                    limit: 20,
+                    type: 0,
+                    status: selectedStatus,
+                    isPersonal: true
+                });
+                const list = res.data?.datalist ?? res.data?.data ?? res.data ?? [];
+                return Array.isArray(list) ? list : [];
+            } catch {
+                return [];
+            }
+        },
+        initialPageParam: 1,
+        getNextPageParam: (lastPage, allPages) => {
+            return lastPage.length === 20 ? allPages.length + 1 : undefined;
+        },
+        staleTime: 60_000,
+    });
+
+    const employees = useMemo(() => employeesData?.pages.flat() ?? [], [employeesData]);
+
+    // ── Derived data ──
+    const records: AttendanceRecord[] = useMemo(() => {
+        const list = Array.isArray(homeData)
+            ? homeData
+            : (homeData as HomeData)?.attendanceList ?? [];
+
+        return list.filter(r => [601, 602, 603, 604].includes(Number(r.type)));
+    }, [homeData]);
+
+    const timeIn = useMemo(() => records.find(r => r.type === 601), [records]);
+    const timeOut = useMemo(() => records.find(r => r.type === 602), [records]);
+    const workingHours = useMemo(() => calcWorkingHours(records), [records]);
+
+    const monthName = today.toLocaleDateString(i18n.language === 'my-MM' ? 'my-MM' : 'en-US', { month: 'long', year: 'numeric' });
+    const isLoading = summaryLoading || homeLoading || adminLoading;
+
+    // ── Loading state ──
+    if (isLoading) {
+        return (
+            <div className={styles.page}>
+                <div className={`${styles.skeleton} ${styles.skeletonHero}`} />
+                <div className={styles.clockRow}>
+                    <div className={`${styles.skeleton} ${styles.skeletonClock}`} />
+                    <div className={`${styles.skeleton} ${styles.skeletonClock}`} />
+                    <div className={`${styles.skeleton} ${styles.skeletonClock}`} />
+                </div>
+                <div className={styles.statsRow}>
+                    {[1, 2, 3, 4].map(i => <div key={i} className={`${styles.skeleton} ${styles.skeletonStat}`} />)}
+                </div>
+                <div className={styles.chartsGrid}>
+                    {[1, 2].map(i => <div key={i} className={`${styles.skeleton} ${styles.skeletonInsight}`} />)}
+                </div>
+                <div className={styles.recordsGrid}>
+                    {[1, 2, 3, 4].map(i => <div key={i} className={`${styles.skeleton} ${styles.skeletonRecord}`} />)}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className={styles.page}>
+            {/* ── Live Hero and Clocks ── */}
+            <LiveHeader 
+                user={user} 
+                timeIn={timeIn} 
+                timeOut={timeOut} 
+                workingHours={workingHours} 
+            />
 
             {/* ── Monthly Summary Stats ── */}
             <section>
@@ -329,7 +459,7 @@ export default function DashboardPage() {
                 <div className={styles.statsRow}>
                     <div
                         className={styles.statCard}
-                        style={{ '--stat-color': '#2563eb', '--stat-bg': '#eff6ff' } as React.CSSProperties}
+                        style={{ '--stat-color': 'var(--color-primary-600)', '--stat-bg': 'var(--color-primary-50)' } as React.CSSProperties}
                     >
                         <div className={styles.statIcon}><UserCheck size={20} /></div>
                         <div className={styles.statValue}>
@@ -376,11 +506,16 @@ export default function DashboardPage() {
                 </div>
             </section>
 
+
+
+            {/* Spacer between sections */}
+            <div style={{ marginBottom: '2rem' }} />
+
             {/* ── Today Record ── */}
             <section>
                 <div className={styles.sectionHeader}>
                     <h2 className={styles.sectionTitle}>
-                        <Activity size={20} style={{ color: '#2563eb' }} />
+                        <Activity size={20} style={{ color: 'var(--color-primary-600)' }} />
                         {t('dashboard.todayRecord')}
                         {records.length > 0 && (
                             <span className={styles.sectionBadge}>{records.length}</span>
@@ -406,8 +541,6 @@ export default function DashboardPage() {
                                 <div
                                     key={idx}
                                     className={styles.recordCard}
-                                    onClick={() => setSelectedRecord(rec)}
-                                    style={{ cursor: 'pointer' }}
                                 >
                                     <div className={styles.recordLeft}>
                                         <div className={`${styles.recordIcon} ${styles[meta.dot]}`}>
@@ -459,8 +592,106 @@ export default function DashboardPage() {
                 </div>
             </section>
 
-            {/* ── Quick Actions ── */}
+            {/* Spacer between sections */}
+            <div style={{ marginBottom: '2rem' }} />
+
+            {/* ───────────────── ADMIN INSIGHTS SECTION ───────────────── */}
+
             <section>
+                <div className={styles.sectionHeader}>
+                    <h2 className={styles.sectionTitle}>
+                        <BarChart3 size={20} style={{ color: '#2563eb' }} />
+                        Workforce Analytics
+                    </h2>
+                </div>
+
+                <div className={styles.insightsSection}>
+                    {/* ───────────────── ANALYTICS CARD ───────────────── */}
+                    <div className={styles.analyticsCard}>
+
+                        {/* CHART */}
+                        <div className={styles.chartContainer}>
+                            <AttendanceOverviewChart
+                                data={chartData}
+                                onBarClick={(typeVal) => {
+                                    setSelectedStatus(typeVal);
+                                }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* ───────────────── RIGHT : EMPLOYEE CARD ───────────────── */}
+                    <div className={styles.activityCard}>
+                        {/* HEADER */}
+                        <div className={styles.cardHeader}>
+                            <div>
+                                <h2 className={styles.cardTitle}>
+                                    Employee Attendance {selectedStatus !== '0' && `- ${STATUS_LABELS[selectedStatus]}`}
+                                </h2>
+                                <p className={styles.cardSubtitle}>
+                                    {selectedStatus !== '0' ? `${STATUS_LABELS[selectedStatus]} employees` : 'Latest attendance records'}
+                                </p>
+                            </div>
+
+                            {selectedStatus !== '0' && (
+                                <button
+                                    className={styles.resetBtn}
+                                    onClick={() => {
+                                        setSelectedStatus('0');
+                                    }}
+                                >
+                                    <X size={16} />
+                                    All
+                                </button>
+                            )}
+                        </div>
+
+                        {/* EMPLOYEE LIST */}
+                        <div
+                            className={styles.employeeList}
+                            onScroll={(e) => {
+                                const target = e.currentTarget;
+                                if (target.scrollHeight - target.scrollTop - target.clientHeight < 50) {
+                                    if (hasNextPage && !isFetchingNextPage) {
+                                        fetchNextPage();
+                                    }
+                                }
+                            }}
+                        >
+                            {employeesLoading ? (
+                                <div style={{ textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '13px' }}>
+                                    Loading employees...
+                                </div>
+                            ) : employees && employees.length > 0 ? (
+                                <>
+                                    {employees.map((employee: any, index: number) => (
+                                        <UserCard
+                                            key={`${employee.eid || index}-${index}`}
+                                            user={employee}
+                                            onCardTap={() => { }}
+                                        />
+                                    ))}
+                                    {isFetchingNextPage && (
+                                        <div style={{ textAlign: 'center', padding: '10px', color: '#64748b', fontSize: '13px' }}>
+                                            Loading more...
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '13px' }}>
+                                    No employees found
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Spacer between sections */}
+            <div style={{ marginBottom: '2rem' }} />
+
+            {/* ── Quick Actions ── */}
+            {/* <section>
                 <div className={styles.sectionHeader}>
                     <h2 className={styles.sectionTitle}>{t('dashboard.quickActions')}</h2>
                 </div>
@@ -474,7 +705,8 @@ export default function DashboardPage() {
                             'Requests': 'nav.myRequests',
                             'Reservations': 'nav.reservations',
                             'Leave Summary': 'nav.leaveSummary',
-                            'Team': 'nav.team'
+                            'Team': 'nav.team',
+                            'Attendance Approval': 'nav.attendanceApproval'
                         };
                         const key = labelKeyMap[label] || label;
                         return (
@@ -487,224 +719,7 @@ export default function DashboardPage() {
                         );
                     })}
                 </div>
-            </section>
-
-            {/* ── Attendance Record Detail Modal ── */}
-            {selectedRecord && (() => {
-                const meta = getAttTypeName(selectedRecord.type);
-                const isRejected = selectedRecord.remoteapproval === 3 || selectedRecord.backdateapproval === 3;
-                const isPending = selectedRecord.remoteapproval === 1 || selectedRecord.backdateapproval === 1;
-                const statusLabel = isRejected ? 'Rejected' : isPending ? 'Pending' : 'Synced';
-                const statusColor = isRejected ? '#dc2626' : isPending ? '#d97706' : '#16a34a';
-                const statusBg = isRejected ? '#fee2e2' : isPending ? '#fef3c7' : '#dcfce7';
-                const displayTime = selectedRecord.type === 603
-                    ? `${selectedRecord.starttime || '--'} – ${selectedRecord.endtime || '--'}`
-                    : selectedRecord.time || '--:--';
-                const formattedDate = (() => {
-                    const d = selectedRecord.date;
-                    if (d?.length === 8) {
-                        const dt = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
-                        return dt.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                    }
-                    return d || '';
-                })();
-
-                return (
-                    <>
-                        {/* Backdrop */}
-                        <div
-                            onClick={() => setSelectedRecord(null)}
-                            style={{
-                                position: 'fixed', inset: 0,
-                                background: 'rgba(15,23,42,0.5)',
-                                zIndex: 200,
-                                backdropFilter: 'blur(4px)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}
-                        >
-                            {/* Modal card — stop click bubbling to backdrop */}
-                            <div
-                                onClick={e => e.stopPropagation()}
-                                style={{
-                                    background: 'var(--color-surface, #fff)',
-                                    borderRadius: 20,
-                                    boxShadow: '0 24px 80px rgba(0,0,0,0.25)',
-                                    width: '92%',
-                                    maxWidth: 420,
-                                    overflow: 'hidden',
-                                    animation: 'modalIn 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-                                }}
-                            >
-                                {/* Colored header banner */}
-                                <div style={{
-                                    background: `linear-gradient(135deg, ${meta.color}22, ${meta.color}44)`,
-                                    borderBottom: `3px solid ${meta.color}33`,
-                                    padding: '20px 20px 16px',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                                        <div style={{
-                                            width: 52, height: 52, borderRadius: '50%',
-                                            background: meta.color + '22',
-                                            border: `2px solid ${meta.color}44`,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            color: meta.color,
-                                        }}>
-                                            {selectedRecord.type === 601 ? <LogIn size={24} /> :
-                                                selectedRecord.type === 602 ? <LogOut size={24} /> :
-                                                    selectedRecord.type === 603 ? <Activity size={24} /> :
-                                                        <Clock size={24} />}
-                                        </div>
-                                        <div>
-                                            <div style={{ fontWeight: 800, fontSize: 17, color: meta.color, letterSpacing: '-0.01em' }}>
-                                                {meta.label}
-                                            </div>
-                                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                                                Attendance Record
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => setSelectedRecord(null)}
-                                        style={{
-                                            background: 'rgba(100,116,139,0.1)', border: 'none',
-                                            cursor: 'pointer', width: 32, height: 32,
-                                            borderRadius: '50%', display: 'flex',
-                                            alignItems: 'center', justifyContent: 'center',
-                                            color: '#64748b',
-                                        }}
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                </div>
-
-                                {/* Detail rows */}
-                                <div style={{ padding: '18px 20px 8px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-
-                                    {/* Time */}
-                                    <DetailRow icon={<Clock size={15} />} label="Time" value={displayTime} />
-
-                                    {/* Date */}
-                                    {formattedDate && <DetailRow icon={<CalendarDays size={15} />} label="Date" value={formattedDate} />}
-
-                                    {/* Status badge */}
-                                    <div style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-                                        <span style={{ color: '#94a3b8', flexShrink: 0, display: 'flex' }}><UserCheck size={15} /></span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
-                                            <span style={{ fontSize: 13, color: '#475569', minWidth: 80 }}>Status</span>
-                                            <span style={{
-                                                padding: '3px 12px', borderRadius: 20,
-                                                fontSize: 12, fontWeight: 700,
-                                                background: statusBg, color: statusColor,
-                                            }}>
-                                                {statusLabel}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Location */}
-                                    {(selectedRecord.location) && (
-                                        <DetailRow icon={<MapPin size={15} />} label="Location" value={selectedRecord.location} />
-                                    )}
-
-                                    {/* Activity / CheckIn type */}
-                                    {(selectedRecord.activityType || selectedRecord.checkInType || selectedRecord.attType) && (
-                                        <DetailRow
-                                            icon={<FileText size={15} />}
-                                            label="Type"
-                                            value={selectedRecord.activityType || selectedRecord.checkInType || selectedRecord.attType || ''}
-                                        />
-                                    )}
-
-                                    {/* Description */}
-                                    {selectedRecord.description && (
-                                        <div style={{ padding: '12px 0 4px' }}>
-                                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-                                                <span style={{ color: '#94a3b8', display: 'flex' }}><FileText size={15} /></span>
-                                                <span style={{ fontSize: 13, color: '#475569', fontWeight: 500 }}>Description</span>
-                                            </div>
-                                            <div style={{
-                                                background: '#f8fafc',
-                                                border: '1px solid #e2e8f0',
-                                                borderRadius: 10,
-                                                padding: '10px 14px',
-                                                fontSize: 13,
-                                                color: '#334155',
-                                                lineHeight: 1.6,
-                                                whiteSpace: 'pre-wrap',
-                                            }}>
-                                                {selectedRecord.description}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Images */}
-                                    {selectedRecord.images && selectedRecord.images.length > 0 && (
-                                        <div style={{ padding: '12px 0 4px' }}>
-                                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
-                                                <span style={{ color: '#94a3b8', display: 'flex' }}><ImageIcon size={15} /></span>
-                                                <span style={{ fontSize: 13, color: '#475569', fontWeight: 500 }}>Photos ({selectedRecord.images.length})</span>
-                                            </div>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                                {selectedRecord.images.map((img, i) => (
-                                                    <a key={i} href={img.content} target="_blank" rel="noopener noreferrer">
-                                                        <img
-                                                            src={img.content}
-                                                            alt={img.name}
-                                                            style={{
-                                                                width: 80, height: 80, objectFit: 'cover',
-                                                                borderRadius: 10, border: '1px solid #e2e8f0',
-                                                                cursor: 'pointer',
-                                                            }}
-                                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                                                        />
-                                                    </a>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Footer close button */}
-                                <div style={{ padding: '12px 20px 20px' }}>
-                                    <button
-                                        onClick={() => setSelectedRecord(null)}
-                                        style={{
-                                            width: '100%', padding: '11px',
-                                            background: meta.color, color: '#fff',
-                                            border: 'none', borderRadius: 12,
-                                            fontSize: 14, fontWeight: 700,
-                                            cursor: 'pointer', letterSpacing: '0.02em',
-                                        }}
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <style>{`
-                            @keyframes modalIn {
-                                from { opacity: 0; transform: scale(0.88); }
-                                to   { opacity: 1; transform: scale(1); }
-                            }
-                        `}</style>
-                    </>
-                );
-            })()}
-        </div>
-    );
-}
-
-/** Reusable detail row inside the modal */
-function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-    return (
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-            <span style={{ color: '#94a3b8', flexShrink: 0, display: 'flex' }}>{icon}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 13, color: '#475569', flexShrink: 0, minWidth: 80 }}>{label}</span>
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</span>
-            </div>
+            </section> */}
         </div>
     );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import { APP_ID } from '../../lib/auth-token';
 import { usePasswordPolicy } from '../../hooks/usePasswordPolicy';
 import { Button, Input } from '../../components/ui';
 import { toast } from 'react-hot-toast';
+import { MENU_ITEMS, USER_PROFILE, USER_PROFILE_BY_ID } from '../../config/api-routes';
 import styles from './ProfilePage.module.css';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -37,13 +38,13 @@ interface ProfileData {
 export default function ProfilePage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const { user, domain } = useAuthStore();
+    const { user, domain, setUser } = useAuthStore();
     const { userId: urlUserId } = useParams();
 
     const { data: menuData } = useQuery({
         queryKey: ['menu-items'],
         queryFn: async () => {
-            const res = await apiClient.get('hxm/integration/get/menuitems');
+            const res = await apiClient.get(MENU_ITEMS);
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,
@@ -114,10 +115,10 @@ export default function ProfilePage() {
         queryKey: ['employee-profile', urlUserId || user?.usersyskey],
         queryFn: async () => {
             try {
-                const endpoint = urlUserId
-                    ? `api/teams/employees/profile?userid=${encodeURIComponent(urlUserId)}`
-                    : 'api/employees/profile';
-                const res = await mainClient.post(endpoint);
+                const endpoint = urlUserId ? USER_PROFILE_BY_ID : USER_PROFILE;
+                const res = await mainClient.post(endpoint, {
+                    userid: urlUserId || user?.userid
+                });
                 return res.data?.data ?? res.data ?? null;
             } catch (err) {
                 console.error('Failed to fetch profile', err);
@@ -126,6 +127,13 @@ export default function ProfilePage() {
         },
         staleTime: 5 * 60 * 1000,
     });
+
+    // ── Global Profile Sync ──
+    useEffect(() => {
+        if (profile && isOwnProfile) {
+            setUser({ ...user, ...profile } as any);
+        }
+    }, [profile, isOwnProfile, setUser]);
 
     if (isLoading) {
         return (

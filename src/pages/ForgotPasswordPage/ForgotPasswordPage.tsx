@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LockKeyhole, Mail } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import authClient from '../../lib/auth-client';
-import { makeSignInPayload } from '../../lib/auth-token';
+import { makeResetPayload } from '../../lib/auth-token';
 import styles from './ForgotPasswordPage.module.css';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -22,8 +22,8 @@ export default function ForgotPasswordPage() {
         setLoading(true);
         try {
             // req_type 3 = forgot password (mirrors Flutter's ForgotPwd)
-            const payload = await makeSignInPayload(email, 3);
-            const res = await authClient.post('signin', payload);
+            const payload = await makeResetPayload(email, 3);
+            const res = await authClient.post('reset-mail', payload);
             const data = res.data;
 
             if (data.status === 200 || res.status === 200) {
@@ -78,7 +78,7 @@ export default function ForgotPasswordPage() {
                 </div>
                 <h1 className={styles.title}>Forgot Password?</h1>
                 <p className={styles.subtitle}>
-                    Enter your email or mobile number and we'll send you a one-time code to reset your password.
+                    Enter your Employee ID and we'll send you a one-time code to reset your password.
                 </p>
 
                 {error && <div className={styles.error}>{error}</div>}
@@ -86,11 +86,11 @@ export default function ForgotPasswordPage() {
                 <form onSubmit={handleSubmit} className={styles.form}>
                     <Input
                         id="forgot-email"
-                        label="Email or Mobile"
+                        label="Employee ID"
                         type="text"
                         value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        placeholder="user@company.com"
+                        onChange={e => setEmail(e.target.value.trim())}
+                        placeholder="MP99999"
                         icon={<Mail size={18} />}
                         required
                     />

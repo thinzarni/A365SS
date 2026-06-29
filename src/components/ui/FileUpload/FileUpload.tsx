@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, type DragEvent } from 'react';
 import { Upload, FileText, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import styles from './FileUpload.module.css';
 
 interface FileUploadProps {
@@ -23,7 +24,7 @@ export default function FileUpload({
     onChange,
     accept,
     multiple = true,
-    maxSize = 10 * 1024 * 1024, // 10MB default
+    maxSize = 1 * 1024 * 1024, // 1MB default (safeguard against base64 overhead causing 413)
 }: FileUploadProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [dragging, setDragging] = useState(false);
@@ -31,11 +32,44 @@ export default function FileUpload({
     const handleFiles = useCallback(
         (newFiles: FileList | null) => {
             if (!newFiles) return;
-            const validFiles = Array.from(newFiles).filter((f) => f.size <= maxSize);
-            if (multiple) {
-                onChange([...files, ...validFiles]);
-            } else {
-                onChange(validFiles.slice(0, 1));
+
+            const fileArray = Array.from(newFiles);
+            
+            // 1. Filter by size
+            const sizeValidFiles = fileArray.filter((f) => f.size <= maxSize);
+            const oversizedFiles = fileArray.filter((f) => f.size > maxSize);
+
+            if (oversizedFiles.length > 0) {
+                toast.error(`File size exceeds limit of ${formatFileSize(maxSize)}: ${oversizedFiles.map(f => f.name).join(', ')}`);
+            }
+
+            // 2. Filter by accepted types (if accept prop is provided)
+            let fullyValidFiles = sizeValidFiles;
+            if (accept) {
+                const acceptedTypes = accept.split(',').map(t => t.trim().toLowerCase());
+                fullyValidFiles = sizeValidFiles.filter(f => {
+                    const extMatch = f.name.match(/\.[0-9a-z]+$/i);
+                    const ext = extMatch ? extMatch[0].toLowerCase() : '';
+                    const type = f.type.toLowerCase();
+                    return acceptedTypes.some(t => {
+                        if (t.startsWith('.')) return ext === t;
+                        if (t.endsWith('/*')) return type.startsWith(t.replace('/*', '/'));
+                        return type === t;
+                    });
+                });
+
+                const invalidTypeFiles = sizeValidFiles.filter(f => !fullyValidFiles.includes(f));
+                if (invalidTypeFiles.length > 0) {
+                    toast.error(`Invalid file type: ${invalidTypeFiles.map(f => f.name).join(', ')}. Accepted: ${accept}`);
+                }
+            }
+
+            if (fullyValidFiles.length > 0) {
+                if (multiple) {
+                    onChange([...files, ...fullyValidFiles]);
+                } else {
+                    onChange(fullyValidFiles.slice(0, 1));
+                }
             }
         },
         [files, onChange, multiple, maxSize]
@@ -70,6 +104,7 @@ export default function FileUpload({
                     <strong>Click to upload</strong> or drag and drop
                 </span>
                 <span className={styles['file-upload__hint']}>
+                    {accept && <span>Supported formats: {accept.split(',').map(f => f.trim().toUpperCase().replace('.', '')).join(', ')}<br /></span>}
                     Max {formatFileSize(maxSize)} per file
                 </span>
                 <input

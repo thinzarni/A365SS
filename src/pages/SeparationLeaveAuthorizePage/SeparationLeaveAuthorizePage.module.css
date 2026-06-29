@@ -1,0 +1,352 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-height: 100vh;
+}
+
+.pageHeader {
+    margin-bottom: 8px;
+}
+
+.pageTitle {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.pageSubtitle {
+    font-size: 0.875rem;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+.contentCard {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.02);
+    border: 1px solid #e2e8f0;
+    /* Removed overflow: hidden to prevent popover from being cut off */
+}
+
+/* ── Header ── */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.headerLeft h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.tabs {
+    display: flex;
+    background: #f1f5f9;
+    padding: 4px;
+    border-radius: 10px;
+}
+
+.tab {
+    padding: 6px 16px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #64748b;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab:hover {
+    color: #334155;
+}
+
+.tabActive {
+    background: #ffffff;
+    color: #2563eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.searchWrapper {
+    position: relative;
+}
+
+.searchIcon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+}
+
+.searchInput {
+    padding: 8px 12px 8px 36px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    width: 280px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.searchInput:focus {
+    border-color: #2563eb;
+}
+
+/* ── Table ── */
+.tableWrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    min-width: 1000px;
+    /* ENFORCE MIN-WIDTH TO ENABLE SCROLLING */
+    border-collapse: collapse;
+}
+
+.table th {
+    padding: 1rem 2rem;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #ffffff;
+    border-bottom: 1px solid #f1f5f9;
+    white-space: nowrap;
+    /* ENSURE HEADERS DON'T WRAP */
+}
+
+.table td {
+    padding: 1.25rem 2rem;
+    font-size: 0.875rem;
+    color: #334155;
+    border-bottom: 1px solid #f8fafc;
+    vertical-align: middle;
+    white-space: nowrap;
+    /* ENSURE DATA CELLS DON'T WRAP INTO VERTICAL COMPRESSION */
+}
+
+.table tr:hover td {
+    background: #fdfdfd;
+}
+
+/* Removed bottom padding to eliminate free space as requested */
+.table tbody tr:last-child td {
+    padding-bottom: 1.25rem; /* Match standard td padding */
+}
+
+.empId {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.empName {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+/* ── Badges ── */
+.typeBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: #fff7ed;
+    color: #ea580c;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.statusWrapper {
+    display: flex;
+    align-items: center;
+}
+
+.actionBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── Action Popover ── */
+.actionContainer {
+    position: relative;
+    display: inline-block;
+}
+
+.actionTrigger {
+    cursor: pointer;
+    transition: transform 0.1s ease;
+}
+
+.actionTrigger:active {
+    transform: scale(0.95);
+}
+
+.popover {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-110%, -50%);
+    width: 200px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popIn {
+    from {
+        opacity: 0;
+        transform: translate(-110%, -45%) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-110%, -50%) scale(1);
+    }
+}
+
+.popoverHeader {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-align: center;
+    padding-bottom: 4px;
+}
+
+.popoverBtn {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: white;
+}
+
+.btnApprove {
+    background: #22c55e;
+}
+
+.btnApprove:hover {
+    background: #16a34a;
+}
+
+.btnReject {
+    background: #ef4444;
+}
+
+.btnReject:hover {
+    background: #dc2626;
+}
+
+.popoverBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+}
+.pagination {
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #f1f5f9;
+    background: #fcfcfc;
+}
+
+.pageInfo {
+    font-size: 0.8125rem;
+    color: #94a3b8;
+}
+
+.pageControls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.pageBtn {
+    padding: 6px 12px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pageBtn:hover:not(:disabled) {
+    border-color: #cbd5e1;
+    color: #334155;
+    background: #f8fafc;
+}
+
+.pageBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pageBtnActive {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+}
+
+/* ── States ── */
+.loadingState,
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6rem 2rem;
+    text-align: center;
+}
+
+.spinner {
+    color: #2563eb;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}

@@ -319,7 +319,7 @@ export default function AddActivityModal({ isOpen, onClose, selectedDate, onSucc
                                 label="Photo Attachments"
                                 files={files}
                                 onChange={setFiles}
-                                accept="image/*"
+                                accept=".pdf,.docx,.jpg,.png"
                                 multiple={true}
                             />
                         </div>
