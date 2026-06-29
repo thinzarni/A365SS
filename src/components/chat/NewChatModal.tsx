@@ -235,7 +235,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onC
                             <Search size={18} className={styles.searchIcon} />
                             <input
                                 type="text"
-                                placeholder="Search employees..."
+                                placeholder="Search..."
                                 className={styles.searchInput}
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}

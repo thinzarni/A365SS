@@ -786,10 +786,13 @@ export default function AppLayout() {
                             title="Switch Domain"
                             style={{ width: '100%', justifyContent: 'space-between' }}
                         >
-                            <span className={styles['sidebar__user-role']} style={{ color: 'var(--color-neutral-300)' }}>
-                                {switchingDomainId ? 'Switching...' : (user?.domainName || user?.position || domain || 'Select Domain')}
-                            </span>
-                            <ChevronDown size={14} style={{ color: '#94a3b8' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                <Building2 size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                                <span className={styles['sidebar__user-role']} style={{ color: 'var(--color-neutral-300)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {switchingDomainId ? 'Switching...' : (user?.domainName || user?.position || domain || 'Select Domain')}
+                                </span>
+                            </div>
+                            <ChevronDown size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
                         </button>
                     )}
 

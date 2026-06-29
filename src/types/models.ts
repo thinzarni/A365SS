@@ -279,6 +279,7 @@ export interface TypesModel {
   maxpeople?: number;
   remaining_balance?: number;
   max_amount?: number;
+  approvaltype?: string | number;
 }
 
 export interface LeaveType {
