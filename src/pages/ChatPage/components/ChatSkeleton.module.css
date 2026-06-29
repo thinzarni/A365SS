@@ -1,0 +1,125 @@
+.skeletonList {
+    display: flex;
+    flex-direction: column;
+}
+
+.listItem {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    gap: 12px;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #f1f5f9;
+    flex-shrink: 0;
+}
+
+.listText {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+}
+
+.title {
+    height: 14px;
+    width: 100%;
+    background-color: #f1f5f9;
+    border-radius: 4px;
+}
+
+.subtitle {
+    height: 12px;
+    width: 60%;
+    background-color: #f1f5f9;
+    border-radius: 4px;
+}
+
+.skeletonChat {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 0;
+    gap: 16px;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.chatRow {
+    display: flex;
+    align-items: flex-start;
+    padding: 10px 16px;
+    gap: 12px;
+}
+
+.chatMe {
+    justify-content: flex-end;
+}
+
+.chatOther {
+    justify-content: flex-start;
+}
+
+.chatBubbles {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 70%;
+}
+
+.alignRight {
+    align-items: flex-end;
+}
+
+.alignLeft {
+    align-items: flex-start;
+}
+
+.bubbleWide {
+    height: 20px;
+    width: 180px;
+    background-color: #f1f5f9;
+    border-radius: 12px;
+}
+
+.bubbleShort {
+    height: 14px;
+    width: 100px;
+    background-color: #f1f5f9;
+    border-radius: 12px;
+}
+
+/* Shimmer Animation */
+.shimmer {
+    position: relative;
+    overflow: hidden;
+    background-color: #e2e8f0;
+}
+
+.shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0,
+        rgba(255, 255, 255, 0.4) 20%,
+        rgba(255, 255, 255, 0.6) 60%,
+        rgba(255, 255, 255, 0)
+    );
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}

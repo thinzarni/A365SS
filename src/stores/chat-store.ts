@@ -63,6 +63,8 @@ interface ChatState {
     receiveSocketMessage: (decodedMessage: any) => void;
 }
 
+let activeSocketHandler: SocketMessageHandler | null = null;
+
 export const useChatStore = create<ChatState>()(
     persist(
         (set, get) => ({
@@ -163,7 +165,7 @@ export const useChatStore = create<ChatState>()(
                 // Polling updates should be silent to avoid message list flickering every 5s.
                 const isFirstLoad = page === 1 && (get().activeConversationId !== conversationId || get().messages.length === 0);
                 if (isFirstLoad) {
-                    set({ isLoading: true, error: null, activeConversationId: conversationId });
+                    set({ isLoading: true, error: null, activeConversationId: conversationId, messages: [] });
                 } else {
                     // Keep activeConversationId updated without clearing messages
                     set({ activeConversationId: conversationId });
@@ -216,15 +218,20 @@ export const useChatStore = create<ChatState>()(
                         };
                     }).sort((a: any, b: any) => new Date(a.send_at).getTime() - new Date(b.send_at).getTime());
 
-                    set(state => {
-                        const existingMap = new Map(state.messages.map(m => [m.syskey, m]));
-                        if (page > 1) {
-                            mappedMessages.forEach((m: any) => {
-                                if (!existingMap.has(m.syskey)) existingMap.set(m.syskey, m);
-                            });
-                        }
+                    if (get().activeConversationId !== conversationId) {
+                        return;
+                    }
 
-                        let finalMessages = page === 1 ? [...mappedMessages] : Array.from(existingMap.values());
+                    set(state => {
+                        // If it's the very first load of a new conversation, clear the map.
+                        // Otherwise, merge the messages to prevent pagination history loss during polling/refresh.
+                        const existingMap = isFirstLoad ? new Map() : new Map(state.messages.map(m => [m.syskey, m]));
+                        
+                        mappedMessages.forEach((m: any) => {
+                            existingMap.set(m.syskey, m); // Insert or update existing
+                        });
+
+                        let finalMessages = Array.from(existingMap.values());
                         finalMessages.sort((a: any, b: any) => new Date(a.send_at).getTime() - new Date(b.send_at).getTime());
 
                         return {
@@ -252,7 +259,11 @@ export const useChatStore = create<ChatState>()(
             },
 
             setActiveConversation: (id) => {
-                set({ activeConversationId: id, messages: id ? get().messages : [] });
+                const isChanging = get().activeConversationId !== id;
+                set({ 
+                    activeConversationId: id, 
+                    messages: isChanging ? [] : get().messages 
+                });
             },
 
             sendMessage: async (content, contentType = 'text', parentMessageId, mentions = []) => {
@@ -320,6 +331,20 @@ export const useChatStore = create<ChatState>()(
                     const res = await chatClient.post(routes.CHAT_SEND_MSG, payload);
                     console.log('[sendMessage] API response:', res.data);
 
+                    const realSyskey = res.data?.syskey || res.data?.data?.syskey || res.data?.message_id?.syskey || res.data?.data?.message_id?.syskey;
+                    
+                    set(state => {
+                        const nextMsgs = [...state.messages];
+                        const idx = nextMsgs.findIndex(m => m.syskey === tempSyskey);
+                        if (idx !== -1) {
+                            if (realSyskey) {
+                                nextMsgs[idx] = { ...nextMsgs[idx], syskey: String(realSyskey) };
+                            } else {
+                                nextMsgs.splice(idx, 1);
+                            }
+                        }
+                        return { messages: nextMsgs };
+                    });
                     // Replace optimistic message with real server data
                     await get().fetchMessages(activeConversationId);
                 } catch (err: any) {
@@ -398,6 +423,21 @@ export const useChatStore = create<ChatState>()(
                     });
 
                     console.log('[sendAttachment] response:', res.data);
+                    
+                    const realSyskey = res.data?.syskey || res.data?.data?.syskey || res.data?.message_id?.syskey || res.data?.data?.message_id?.syskey;
+                    
+                    set(state => {
+                        const nextMsgs = [...state.messages];
+                        const idx = nextMsgs.findIndex(m => m.syskey === tempSyskey);
+                        if (idx !== -1) {
+                            if (realSyskey) {
+                                nextMsgs[idx] = { ...nextMsgs[idx], syskey: String(realSyskey) };
+                            } else {
+                                nextMsgs.splice(idx, 1);
+                            }
+                        }
+                        return { messages: nextMsgs };
+                    });
                     // Refresh messages to get real server URLs
                     await get().fetchMessages(activeConversationId);
                 } catch (err: any) {
@@ -802,6 +842,7 @@ export const useChatStore = create<ChatState>()(
                         console.log('[getConversationByUniqueName] 409: found existing id:', existingId);
                         return existingId;
                     }
+
                     console.log('[getConversationByUniqueName] Not found, status:', err?.response?.status);
                     return null;
                 }
@@ -809,15 +850,35 @@ export const useChatStore = create<ChatState>()(
 
             // ── WebSocket ──────────────────────────────────────────────────────────────
             connectSocket: () => {
-                // Register the incoming-message handler (mirrors Flutter handleNewSocketIncoming)
-                chatSocket.onMessage((decoded) => {
-                    const convId: string = decoded['conversation_id']?.toString() ?? '';
+                if (activeSocketHandler) {
+                    chatSocket.offMessage(activeSocketHandler);
+                }
+
+                activeSocketHandler = (decoded) => {
+                    console.log('🚀 [ChatSocket] Incoming message:', decoded);
+                    const convId: string = decoded['conversation_id']?.toString() ?? decoded?.body?.conversation?.toString() ?? '';
                     if (!convId) return;
+
+                    const { userId: myId } = useAuthStore.getState();
+
+                    // Extract typing info whether it's flat or inside 'body'
+                    const typingPayload = decoded.is_typing !== undefined ? decoded : (decoded.body?.is_typing !== undefined ? decoded.body : null);
+
+                    // ── Typing Indicator ──────────────────────────────────────────────────
+                    if (typingPayload) {
+                        const isTyping = typingPayload.is_typing === true || typingPayload.is_typing === 'true';
+                        const username = typingPayload.username || 'User';
+                        const typerId = typingPayload.typer_id || typingPayload.user_id || typingPayload.user;
+                        
+                        if (typerId !== myId) {
+                            get().setTypingStatus(convId, username, isTyping);
+                        }
+                        return;
+                    }
 
                     // Determine message type (Flutter MsgType: 0=send, 1=edit, 2=delete)
                     const msgType = parseInt(decoded['type'] ?? '0', 10);
 
-                    const { userId: myId } = useAuthStore.getState();
                     const senderId: string = decoded['sender_id']?.toString() ?? '';
                     const isFromMe = senderId && myId && senderId === myId;
 
@@ -907,8 +968,9 @@ export const useChatStore = create<ChatState>()(
                         });
                     }
                     get().receiveSocketMessage(decoded);
-                });
+                };
 
+                chatSocket.onMessage(activeSocketHandler);
                 chatSocket.connect();
             },
 

@@ -21,6 +21,8 @@ class ChatSocketService {
     private manuallyClosed = false;
     private isConnecting = false;
 
+    private newConnectionIdTimer: ReturnType<typeof setInterval> | null = null;
+
     private handlers: Set<SocketMessageHandler> = new Set();
 
     // singleton
@@ -55,6 +57,14 @@ class ChatSocketService {
         if (explicitWs) {
             explicitWs = explicitWs.replace(/^https?/, 'wss');
             const base = explicitWs.replace(/\/$/, '');
+
+            // The dev/staging IAM URL does not proxy WebSockets correctly, use direct AWS API Gateway URL
+            // This matches the working URL from the old useChatSocket.ts
+            if (base.includes('iam.omnicloudapi.com')) {
+                const AWS_WS_URL = 'wss://takmzujdyc.execute-api.ap-southeast-1.amazonaws.com';
+                return `${AWS_WS_URL}/v1?user=${encodeURIComponent(userId)}&app=${APP_ID}&domain=${encodeURIComponent(dom)}`;
+            }
+
             return `${base}/v1?user=${encodeURIComponent(userId)}&app=${APP_ID}&domain=${encodeURIComponent(dom)}`;
         }
 
@@ -129,10 +139,40 @@ class ChatSocketService {
     disconnect() {
         this.manuallyClosed = true;
         this._clearReconnect();
+        this.stopReconnectLoop();
         this._stopPing();
         this.ws?.close();
         this.ws = null;
         console.log('[ChatSocket] Disconnected manually');
+    }
+
+    // ── Reconnect Loop (Matches Flutter exactly) ─────────────────
+    startReconnectLoop() {
+        this.stopReconnectLoop();
+        // Force a reconnect every 3 minutes to keep connection ID fresh and prevent drop
+        this.newConnectionIdTimer = setInterval(() => {
+            this.reconnect();
+        }, 3 * 60 * 1000);
+    }
+
+    stopReconnectLoop() {
+        if (this.newConnectionIdTimer) {
+            clearInterval(this.newConnectionIdTimer);
+            this.newConnectionIdTimer = null;
+        }
+    }
+
+    private reconnect() {
+        if (this.isConnecting) return;
+        
+        console.log('[ChatSocket] Triggering 3-minute periodic reconnect loop...');
+        if (this.ws) {
+            this.ws.onclose = null; // Prevent triggering backoff
+            this.ws.close();
+            this.ws = null;
+        }
+        this.isConnecting = false;
+        this.connect();
     }
 
     // ── Internal helpers ─────────────────────────────────────────
@@ -166,6 +206,32 @@ class ChatSocketService {
         if (this.reconnectTimer !== null) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
+        }
+    }
+
+    // ── Send Typing Indicator ────────────────────────────────────
+    sendTypingIndicator(conversationId: string, isTyping: boolean = true) {
+        if (!this.isConnected) return;
+
+        const { userId, domain, user } = useAuthStore.getState();
+        if (!userId || !domain) return;
+
+        const payload = {
+            action: "typing",
+            body: {
+                conversation: conversationId,
+                user: userId,
+                app: APP_ID,
+                domain: domain,
+                username: user?.name || user?.userid || 'User',
+                is_typing: isTyping
+            }
+        };
+
+        try {
+            this.ws?.send(JSON.stringify(payload));
+        } catch (e) {
+            console.error("[ChatSocket] Error sending typing indicator", e);
         }
     }
 }

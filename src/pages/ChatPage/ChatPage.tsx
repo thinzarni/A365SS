@@ -40,9 +40,10 @@ import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../stores/chat-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { APP_ID } from '../../lib/auth-token';
-import { useChatSocket } from '../../lib/useChatSocket';
+import { chatSocket } from '../../lib/chat-socket';
 import { NewChatModal } from '../../components/chat/NewChatModal';
 import styles from './ChatPage.module.css';
+import { ChatSkeleton } from './components/ChatSkeleton';
 
 export default function ChatPage() {
     const { t } = useTranslation();
@@ -77,7 +78,27 @@ export default function ChatPage() {
         hasMoreMessages,
     } = useChatStore();
 
-    const { sendTypingIndicator } = useChatSocket();
+    const typingTimerRef = useRef<number | null>(null);
+    const lastTypingTimeRef = useRef<number>(0);
+
+    const handleTyping = useCallback((conversationId: string, isTyping: boolean) => {
+        const now = Date.now();
+        if (isTyping) {
+            // Throttle: send immediate 'active' only once every 3 seconds
+            if (now - lastTypingTimeRef.current > 3000) {
+                chatSocket.sendTypingIndicator(conversationId, true);
+                lastTypingTimeRef.current = now;
+            }
+            // Debounce: send 'inactive' after 2 seconds of no typing
+            if (typingTimerRef.current) window.clearTimeout(typingTimerRef.current);
+            typingTimerRef.current = window.setTimeout(() => {
+                chatSocket.sendTypingIndicator(conversationId, false);
+            }, 2000);
+        } else {
+            if (typingTimerRef.current) window.clearTimeout(typingTimerRef.current);
+            chatSocket.sendTypingIndicator(conversationId, false);
+        }
+    }, []);
 
     const { userId } = useAuthStore();
     const [inputText, setInputText] = useState('');
@@ -237,9 +258,16 @@ export default function ChatPage() {
         closeMobileContext();
     }, [closeMobileContext]);
 
-    const handleQuickReaction = useCallback(async (_emoji: string, status: number, msg?: any) => {
+    const handleQuickReaction = useCallback(async (emoji: string, status: number, msg?: any) => {
         const target = msg || mobileContextMsg;
         if (target && activeConversationId) {
+            // Spawn floating reaction
+            const reactionId = Date.now().toString() + Math.random().toString();
+            setFloatingReactions(prev => [...prev, { id: reactionId, emoji, msgId: target.syskey }]);
+            setTimeout(() => {
+                setFloatingReactions(prev => prev.filter(r => r.id !== reactionId));
+            }, 800);
+
             await addReaction(activeConversationId, target.syskey, status);
         }
         setMoreMenuMsgId(null);
@@ -404,7 +432,13 @@ export default function ChatPage() {
 
     useEffect(() => {
         setConvPage(1);
-        fetchConversations(1);
+        fetchConversations(1).then(() => {
+            const state = useChatStore.getState();
+            // Automatically select the most recent conversation if none is active
+            if (state.conversations.length > 0 && !state.activeConversationId) {
+                state.setActiveConversation(state.conversations[0].syskey);
+            }
+        });
     }, [fetchConversations]);
 
     // Periodically refresh conversations sidebar as a safety-net fallback
@@ -420,6 +454,9 @@ export default function ChatPage() {
     // Track the first-unread message index for the divider (set when conversation first loads)
     const [firstUnreadIndex, setFirstUnreadIndex] = useState<number | null>(null);
     const hasSetUnreadDividerRef = useRef(false);
+    const isFetchingMoreMsgRef = useRef(false);
+    const [isFetchingMore, setIsFetchingMore] = useState(false);
+    const [floatingReactions, setFloatingReactions] = useState<{ id: string, emoji: string, msgId: string }[]>([]);
 
     useEffect(() => {
         if (activeConversationId) {
@@ -427,6 +464,9 @@ export default function ChatPage() {
             hasSetUnreadDividerRef.current = false;
             setFirstUnreadIndex(null);
             setMsgPage(1);
+            
+            // Fetch messages immediately on load (especially useful after page refresh when messages are empty)
+            fetchMessages(activeConversationId, 1);
             // Safety-net poll for the active conversation (socket handles real-time additions)
             const interval = setInterval(() => {
                 fetchMessages(activeConversationId, 1);
@@ -463,10 +503,15 @@ export default function ChatPage() {
         prevScrollHeightRef.current = scrollHeight;
 
         // Scroll up to load older messages
-        if (scrollTop < 50 && hasMoreMessages && !isLoading && activeConversationId) {
+        if (scrollTop === 0 && hasMoreMessages && !isLoading && !isFetchingMoreMsgRef.current && activeConversationId) {
+            isFetchingMoreMsgRef.current = true;
+            setIsFetchingMore(true);
             setMsgPage(p => {
                 const n = p + 1;
-                fetchMessages(activeConversationId, n);
+                fetchMessages(activeConversationId, n).finally(() => {
+                    isFetchingMoreMsgRef.current = false;
+                    setIsFetchingMore(false);
+                });
                 return n;
             });
         }
@@ -548,7 +593,6 @@ export default function ChatPage() {
                 .reduce((acc, c) => acc + (c.count || 0), 0),
         }));
         setActiveConversation(id);
-        fetchMessages(id);
         setLocalGroupName(null);
         // Clear any lingering input state from the previous conversation
         setReplyToMsg(null);
@@ -648,16 +692,89 @@ export default function ChatPage() {
 
     const formatMessage = (content: string) => {
         if (!content) return '';
-        // Same as Flutter's r'@([A-Za-z0-9_.\- ]+?)(?=[ \n\r\t,.:;!?()]|$)'
-        // but simplified for JS split. 
-        // Handles @Kyaw Phyo, @Arkar-Phyo etc.
-        const parts = content.split(/(@[a-zA-Z0-9_\-\. ]+?)(?=[ \n\r\t,.:;!?()]|$)/g);
-        return parts.map((part, i) => {
-            if (part && part.startsWith('@')) {
-                return <span key={i} className={styles.mention}>{part}</span>;
+        
+        let elements: React.ReactNode[] = [];
+        let index = 0;
+        
+        // Find URLs
+        const urlRegex = /https?:\/\/[^\s]+/gi;
+        
+        while (index < content.length) {
+            const atIndex = content.indexOf('@', index);
+            
+            urlRegex.lastIndex = index;
+            const urlMatch = urlRegex.exec(content);
+            const urlIndex = urlMatch ? urlMatch.index : -1;
+            
+            let nextSpecial = content.length;
+            if (atIndex !== -1 && urlIndex !== -1) {
+                nextSpecial = Math.min(atIndex, urlIndex);
+            } else if (atIndex !== -1) {
+                nextSpecial = atIndex;
+            } else if (urlIndex !== -1) {
+                nextSpecial = urlIndex;
             }
-            return part;
-        });
+            
+            if (nextSpecial > index) {
+                elements.push(content.substring(index, nextSpecial));
+                index = nextSpecial;
+            }
+            
+            if (index >= content.length) break;
+            
+            // Check URL
+            if (urlMatch && index === urlIndex) {
+                const url = urlMatch[0];
+                elements.push(
+                    <a key={`url-${index}`} href={url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>
+                        {url}
+                    </a>
+                );
+                index += url.length;
+                continue;
+            }
+            
+            // Check Mention
+            if (atIndex === index) {
+                let matchedName = "";
+                
+                // Check for @everyone
+                if (content.length >= index + 9) {
+                    const slice = content.substring(index + 1, index + 9);
+                    if (slice.toLowerCase() === "everyone") {
+                        matchedName = "Everyone";
+                    }
+                }
+
+                if (!matchedName) {
+                    for (const p of activeParticipants) {
+                        const name = p.sender_name || p.name || p.username || '';
+                        if (!name) continue;
+                        
+                        if (content.length >= index + 1 + name.length) {
+                            const slice = content.substring(index + 1, index + 1 + name.length);
+                            if (slice.toLowerCase() === name.toLowerCase() && slice.length > matchedName.length) {
+                                matchedName = name; // Preserve original case of the matched name in the DB
+                            }
+                        }
+                    }
+                }
+                
+                if (matchedName) {
+                    elements.push(
+                        <span key={`mention-${index}`} className={styles.mention}>
+                            {matchedName}
+                        </span>
+                    );
+                    index += 1 + matchedName.length;
+                } else {
+                    elements.push('@');
+                    index += 1;
+                }
+            }
+        }
+        
+        return elements;
     };
 
     // ── Shared attendance record card (mirrors Flutter's _buildActivityRecordCard) ──
@@ -807,7 +924,7 @@ export default function ChatPage() {
                 <div className={styles.convList}>
                     {error && <div className={styles.errorMessage}>{error}</div>}
                     {isLoading && conversations.length === 0 ? (
-                        <div className={styles.emptyState}>{t('common.loading')}</div>
+                        <ChatSkeleton count={8} fromList={true} />
                     ) : (
                         filteredConversations.map((conv, index) => {
                             const isLast = index === filteredConversations.length - 1;
@@ -1185,6 +1302,12 @@ export default function ChatPage() {
                                                 onTouchMove={cancelLongPress}
                                                 onContextMenu={e => { e.preventDefault(); setMobileContextMsg(msg); }}
                                             >
+                                                {/* Floating Reactions */}
+                                                {floatingReactions.filter(fr => fr.msgId === msg.syskey).map(fr => (
+                                                    <div key={fr.id} className={styles.floatingReaction}>
+                                                        {fr.emoji}
+                                                    </div>
+                                                ))}
                                                 {!isMe && (
                                                     <div className={styles.messageAvatar}>
                                                         {msg.sender_image ? (
@@ -1503,7 +1626,7 @@ export default function ChatPage() {
                                             else setInputText(val);
 
                                             if (activeConversationId) {
-                                                sendTypingIndicator(activeConversationId, true);
+                                                handleTyping(activeConversationId, val.trim().length > 0);
                                             }
 
                                             // Mention detection
