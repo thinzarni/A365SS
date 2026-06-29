@@ -364,6 +364,7 @@ export interface TeamMember {
   mptposition?: string;
   jobposition?: string;
   office?: string;
+  team?: string;
   level: 'senior' | 'user' | 'junior' | '';
   /** Priority 1-6 = management level */
   priority: string;

@@ -21,6 +21,7 @@ import {
     Activity,
     Palmtree,
     MapPin,
+    Layers,
     ChevronLeft,
     ChevronRight,
     RefreshCw,
@@ -244,7 +245,7 @@ export default function MemberDetailView() {
                         </button>
                         <div>
                             <h1 className="page-header__title">{member.userName}</h1>
-                            <p className="page-header__subtitle">{member.rank || t('team.teamMember')}</p>
+                            <p className="page-header__subtitle">{member.jobposition || t('team.teamMember')}</p>
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -353,23 +354,27 @@ function MemberProfileCard({ member }: { member: TeamMember }) {
                     <div className={styles.profileInfo}>
                         <h3 className={styles.profileName}>{member.userName}</h3>
                         <div className={styles.profileBadges}>
-                            {member.rank && <span className={styles.rankBadge}>{member.rank}</span>}
+                            {member.jobposition && <span className={styles.rankBadge}>{member.jobposition}</span>}
                             <div className={styles.horizontalBadges}>
+                                {member.office && (
+                                    <span className={styles.deptBadge}>
+                                        <MapPin size={12} /> {member.office}
+                                    </span>
+                                )}
+                                {member.division && (
+                                    <span className={styles.deptBadge}>
+                                        <Layers size={12} /> {member.division}
+                                    </span>
+                                )}
                                 {member.department && (
                                     <span className={styles.deptBadge}>
                                         <Building2 size={12} /> {member.department}
                                     </span>
                                 )}
-                                {member.teamId && (
+                                {member.team && (
                                     <span className={styles.deptBadge}>
-                                        <Hash size={12} /> {member.teamId}
+                                        <Hash size={12} /> {member.team}
                                     </span>
-                                )}
-                                {member.office && (
-                                    <span className={styles.deptBadge}>{member.office}</span>
-                                )}
-                                {member.division && (
-                                    <span className={styles.deptBadge}>{member.division}</span>
                                 )}
                             </div>
                         </div>
