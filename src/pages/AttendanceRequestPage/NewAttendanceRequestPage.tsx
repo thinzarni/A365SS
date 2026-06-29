@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Trash2, RefreshCw, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trash2, RefreshCw, Loader2, XCircle } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
 import Select from '../../components/ui/Select/Select';
@@ -149,9 +149,12 @@ export default function NewAttendanceRequestPage() {
             value: String(loc.syskey),
             label: loc.description || loc.name || '',
             lat: String(loc.latitude || '0.0'),
-            long: String(loc.longitude || '0.0')
+            long: String(loc.longitude || '0.0'),
+            range: String(loc.range || '0.001')
         }));
     }, [registeredLocations]);
+
+
 
     // Use static NON/Forgotten when API returns empty
     const reasonOptions = reasonOptionsRaw.length > 0 ? reasonOptionsRaw : [
@@ -175,6 +178,46 @@ export default function NewAttendanceRequestPage() {
     const [long, setLong] = useState('0.0');
     const [isWaitingLocation, setIsWaitingLocation] = useState(false);
     const [selectedLocationSyskey, setSelectedLocationSyskey] = useState<string>('');
+    const [isLocationDenied, setIsLocationDenied] = useState(false);
+    const [hasAutoFetched, setHasAutoFetched] = useState(false);
+
+    const calculateDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+        const R = 6371; // Earth's radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    };
+
+    const dropdownOptions = useMemo(() => {
+        if (isLocationDenied) return [];
+        const userLat = parseFloat(lat);
+        const userLong = parseFloat(long);
+
+        if (userLat === 0 && userLong === 0) return locationOptions;
+
+        return locationOptions
+            .filter((loc: any) => {
+                const locLat = parseFloat(loc.lat || '0');
+                const locLong = parseFloat(loc.long || '0');
+                const distKm = calculateDistanceKm(userLat, userLong, locLat, locLong);
+                const allowedRange = parseFloat(loc.range || '0.001');
+                return distKm <= allowedRange;
+            })
+            .sort((a: any, b: any) => {
+                const aLat = parseFloat(a.lat || '0');
+                const aLong = parseFloat(a.long || '0');
+                const bLat = parseFloat(b.lat || '0');
+                const bLong = parseFloat(b.long || '0');
+                const distA = calculateDistanceKm(userLat, userLong, aLat, aLong);
+                const distB = calculateDistanceKm(userLat, userLong, bLat, bLong);
+                return distA - distB;
+            });
+    }, [locationOptions, lat, long, isLocationDenied]);
 
 
     const toApiDate = (d: string) => d ? d.replace(/-/g, '') : '';
@@ -217,6 +260,7 @@ export default function NewAttendanceRequestPage() {
         }
 
         setIsWaitingLocation(true);
+        setIsLocationDenied(false);
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 const { latitude, longitude } = position.coords;
@@ -228,15 +272,17 @@ export default function NewAttendanceRequestPage() {
                 let matchedSyskey = '';
 
                 if (locationOptions.length > 0) {
+                    let minDistance = Infinity;
                     for (const loc of locationOptions) {
                         const locLat = parseFloat(loc.lat || '0');
                         const locLong = parseFloat(loc.long || '0');
-                        const dist = Math.sqrt(Math.pow(latitude - locLat, 2) + Math.pow(longitude - locLong, 2));
+                        const distKm = calculateDistanceKm(latitude, longitude, locLat, locLong);
+                        const allowedRange = parseFloat(loc.range || '0.001');
                         
-                        if (dist < 0.001) { // Within ~100m
+                        if (distKm <= allowedRange && distKm < minDistance) { 
+                            minDistance = distKm;
                             matchedLocationName = loc.label;
                             matchedSyskey = loc.value;
-                            break;
                         }
                     }
                 }
@@ -281,18 +327,24 @@ export default function NewAttendanceRequestPage() {
             (error) => {
                 console.error('Geolocation error:', error);
                 setIsWaitingLocation(false);
-                toast.error('Failed to get location');
+                if (error.code === error.PERMISSION_DENIED) {
+                    setIsLocationDenied(true);
+                    toast.error('Location permission denied. You cannot request attendance.');
+                } else {
+                    toast.error('Failed to get location');
+                }
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     };
 
-    // Auto-fetch location for new request
+    // Auto-fetch location for new request after location options load
     useEffect(() => {
-        if (!isEdit) {
+        if (!isEdit && !isLocationsLoading && !hasAutoFetched) {
+            setHasAutoFetched(true);
             handleRefreshLocation();
         }
-    }, [isEdit]);
+    }, [isEdit, isLocationsLoading, hasAutoFetched]);
 
     // Populate form from existing detail
     useEffect(() => {
@@ -394,7 +446,7 @@ export default function NewAttendanceRequestPage() {
                 date: toApiDate(date),
                 intime: type === '601' ? toApi12hTime(intime) : '',
                 outtime: type === '602' ? toApi12hTime(outtime) : '',
-                location: location || 'MIT q',
+                location: location || '',
                 latitude: lat || '0.0',
                 longitude: long || '0.0',
                 description: reason,
@@ -598,7 +650,7 @@ export default function NewAttendanceRequestPage() {
                             <EditableSelect
                                 label="Location"
                                 value={location}
-                                options={locationOptions}
+                                options={dropdownOptions}
                                 onChange={(val, opt) => {
                                     setLocation(val);
                                     if (opt) {
@@ -617,7 +669,7 @@ export default function NewAttendanceRequestPage() {
                             />
                         </div>
 
-                        {!isViewMode && (
+                        {!isViewMode && !isLocationDenied && (
                             <div className={styles['new-request__full']} style={{ marginTop: '-8px', marginBottom: 'var(--space-2)' }}>
                                 <div className={styles['coordinate-display']} onClick={handleRefreshLocation}>
                                     <span className={styles['coordinate-text']}>
@@ -628,6 +680,15 @@ export default function NewAttendanceRequestPage() {
                                     ) : (
                                         <RefreshCw size={14} />
                                     )}
+                                </div>
+                            </div>
+                        )}
+
+                        {isLocationDenied && !isViewMode && (
+                            <div className={styles['new-request__full']} style={{ marginBottom: 'var(--space-2)' }}>
+                                <div style={{ color: 'var(--color-danger-500)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <XCircle size={16} />
+                                    <span>Location permission denied. <a onClick={handleRefreshLocation} style={{textDecoration: 'underline', cursor: 'pointer', fontWeight: 600}}>Retry</a></span>
                                 </div>
                             </div>
                         )}
