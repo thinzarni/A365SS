@@ -50,9 +50,11 @@ const EditableSelect: React.FC<EditableSelectProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filteredOptions = options.filter(opt =>
-        opt.label.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const isExactMatch = options.some(opt => opt.label.toLowerCase() === searchTerm.toLowerCase());
+    
+    const filteredOptions = isExactMatch 
+        ? options 
+        : options.filter(opt => opt.label.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
