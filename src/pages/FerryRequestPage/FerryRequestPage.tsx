@@ -500,6 +500,9 @@ export default function FerryRequestPage() {
         return results.filter(Boolean);
     };
 
+    /* ── Phone number format validator ── */
+    const isValidPhone = (v: string) => /^(\+95|09)\d{6,13}$/.test(v.replace(/\s+/g, ''));
+
     /* ── Form validation (Registration + Change sub-types) ── */
     const validateForm = (): boolean => {
         const errors: Record<string, string> = {};
@@ -507,6 +510,7 @@ export default function FerryRequestPage() {
         if (selectedType === FerryRequestType.registration) {
             if (!workingHourSyskey.trim()) errors.workingHourSyskey = 'Working hours is required';
             if (!phoneNumber.trim()) errors.phoneNumber = 'Contact phone number is required';
+            else if (!isValidPhone(phoneNumber)) errors.phoneNumber = 'Enter a valid number (e.g. +95912345678 or 09912345678)';
             if (!township.trim())    errors.township    = 'Township is required';
             if (!mainRoad.trim())    errors.mainRoad    = 'Main road is required';
             if (!busStop.trim())     errors.busStop     = 'Nearest bus stop is required';
@@ -514,8 +518,11 @@ export default function FerryRequestPage() {
 
         if (selectedType === FerryRequestType.change) {
             if (!phoneNumber.trim()) errors.phoneNumber = 'Contact phone number is required';
-
+            else if (!isValidPhone(phoneNumber)) errors.phoneNumber = 'Enter a valid number (e.g. +95912345678 or 09912345678)';
+            if (!changeTypeSyskey.trim()) errors.changeTypeSyskey = 'Change type is required';
             if (isPermanent) {
+                if (!changePurposeSyskey.trim()) errors.changePurposeSyskey = 'Please choose a purpose of change';
+
                 if (isHomeAddress) {
                     if (!homeAddress.trim())        errors.homeAddress        = 'New home address is required';
                     if (!homeMainRoad.trim())        errors.homeMainRoad       = 'Main road is required';
@@ -529,6 +536,7 @@ export default function FerryRequestPage() {
                 }
             } else if (isTemporary) {
                 if (!temporaryReason.trim()) errors.temporaryReason = 'Reason is required';
+                if (!desiredFerryNoSyskey.trim()) errors.desiredFerryNoSyskey = 'Desired ferry number is required';
                 if (!tempDateFrom.trim()) errors.tempDateFrom = 'Desired start date is required';
                 if (!tempDateTo.trim()) errors.tempDateTo = 'Desired end date is required';
                 if (tempDateFrom && tempDateTo && new Date(tempDateFrom) > new Date(tempDateTo)) {
@@ -545,6 +553,11 @@ export default function FerryRequestPage() {
 
         if (selectedType === FerryRequestType.usercomplaint) {
             if (selectedComplaints.length === 0) errors.complaints = 'Please choose at least one issue';
+            if (!userComplaintText.trim()) errors.userComplaintText = 'Complaint description is required';
+        }
+
+        if (selectedType === FerryRequestType.hrcomplaint) {
+            if (!hrComplaintText.trim()) errors.hrComplaintText = 'Complaint description is required';
         }
 
         if (Object.keys(errors).length > 0) {
@@ -823,8 +836,8 @@ export default function FerryRequestPage() {
                                 <Input id="ferry-phone" label="Contact Phone Number *" type="tel"
                                     value={phoneNumber}
                                     onChange={e => { setPhoneNumber(e.target.value); clearFieldError('phoneNumber'); }}
-                                    placeholder="+95 9xxx" readOnly={isReadOnly}
-                                    error={selectedType === FerryRequestType.registration ? fieldErrors.phoneNumber : undefined} />
+                                    placeholder="+95 9xxxxxxxx or 09xxxxxxxx" readOnly={isReadOnly}
+                                    error={fieldErrors.phoneNumber} />
                                 {(profileFerryNo || currentFerryNo) && (
                                     <Input id="ferry-current-no" label="Current Ferry Number"
                                         value={currentFerryNo || profileFerryNo}
@@ -834,8 +847,8 @@ export default function FerryRequestPage() {
                             </div>
                         )}
 
-                        {/* Current Ferry No only (placed on left) for Complaints */}
-                        {(selectedType === FerryRequestType.usercomplaint || selectedType === FerryRequestType.hrcomplaint) && (
+                        {/* Current Ferry No only (placed on left) for User Complaints — not shown for HR Complaint */}
+                        {selectedType === FerryRequestType.usercomplaint && (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14 }}>
                                 {(profileFerryNo || currentFerryNo) && (
                                     <Input id="ferry-current-no" label="Current Ferry Number"
@@ -904,18 +917,25 @@ export default function FerryRequestPage() {
                                     <label className={styles.fieldLabel}>
                                         Change Type <span style={{ color: '#ef4444' }}>*</span>
                                     </label>
-                                    <select id="ferry-change-type" className={styles.select}
+                                    <select id="ferry-change-type"
+                                        className={`${styles.select} ${fieldErrors.changeTypeSyskey ? styles.selectError : ''}`}
                                         value={changeTypeSyskey} disabled={isReadOnly}
                                         onChange={e => {
                                             setChangeTypeSyskey(e.target.value);
                                             setChangePurposeSyskey('');
                                             setOfficeLocationSyskey('');
+                                            clearFieldError('changeTypeSyskey');
                                         }}>
                                         <option value="">— Select change type —</option>
                                         {changeTypes.map(ct => (
                                             <option key={ct.syskey} value={ct.syskey}>{ct.description}</option>
                                         ))}
                                     </select>
+                                    {fieldErrors.changeTypeSyskey && (
+                                        <span style={{ color: '#ef4444', fontSize: 12, marginTop: 4, display: 'block' }}>
+                                            {fieldErrors.changeTypeSyskey}
+                                        </span>
+                                    )}
                                 </div>
 
                                 {/* Temporary Change */}
@@ -931,10 +951,13 @@ export default function FerryRequestPage() {
                                             error={fieldErrors.temporaryReason} />
                                     </div>
                                     <div className={newReqStyles['new-request__full']}>
-                                        <label className={styles.fieldLabel}>Desired Ferry Number</label>
-                                        <select id="ferry-desired-no" className={styles.select}
+                                        <label className={styles.fieldLabel}>
+                                            Desired Ferry Number <span style={{ color: '#ef4444' }}>*</span>
+                                        </label>
+                                        <select id="ferry-desired-no"
+                                            className={`${styles.select} ${fieldErrors.desiredFerryNoSyskey ? styles.selectError : ''}`}
                                             value={desiredFerryNoSyskey} disabled={isReadOnly}
-                                            onChange={e => setDesiredFerryNoSyskey(e.target.value)}>
+                                            onChange={e => { setDesiredFerryNoSyskey(e.target.value); clearFieldError('desiredFerryNoSyskey'); }}>
                                             <option value="">— Select ferry number —</option>
                                             {ferryNos.map(fn => (
                                                 <option key={fn.syskey} value={fn.syskey}>
@@ -942,6 +965,11 @@ export default function FerryRequestPage() {
                                                 </option>
                                             ))}
                                         </select>
+                                        {fieldErrors.desiredFerryNoSyskey && (
+                                            <span style={{ color: '#ef4444', fontSize: 12, marginTop: 4, display: 'block' }}>
+                                                {fieldErrors.desiredFerryNoSyskey}
+                                            </span>
+                                        )}
                                     </div>
                                     <DateInput id="ferry-temp-from" label="Desired Date From *"
                                         value={tempDateFrom} onChange={(e: any) => { setTempDateFrom(e.target.value); clearFieldError('tempDateFrom'); }}
@@ -958,8 +986,11 @@ export default function FerryRequestPage() {
                                 {/* Permanent Change */}
                                 {isPermanent && changeTypeSyskey && (
                                     <div className={newReqStyles['new-request__full']}>
-                                        <p className={styles.sectionSubtitle}>Purpose of Change</p>
-                                        <div className={styles.radioGroup}>
+                                        <p className={styles.sectionSubtitle}>
+                                            Purpose of Change <span style={{ color: '#ef4444' }}>*</span>
+                                        </p>
+                                        <div className={`${styles.radioGroup}`}
+                                            style={fieldErrors.changePurposeSyskey ? { borderColor: '#ef4444' } : {}}>
                                             {changePurposes.map(cp => (
                                                 <label key={cp.syskey} className={styles.radioLabel}>
                                                     <input type="radio" name="changePurpose"
@@ -969,11 +1000,17 @@ export default function FerryRequestPage() {
                                                         onChange={() => {
                                                             setChangePurposeSyskey(cp.syskey);
                                                             setOfficeLocationSyskey('');
+                                                            clearFieldError('changePurposeSyskey');
                                                         }} />
                                                     <span>{cp.description}</span>
                                                 </label>
                                             ))}
                                         </div>
+                                        {fieldErrors.changePurposeSyskey && (
+                                            <span style={{ color: '#ef4444', fontSize: 12, marginTop: 6, display: 'block' }}>
+                                                {fieldErrors.changePurposeSyskey}
+                                            </span>
+                                        )}
 
                                         {/* Office Location sub-fields */}
                                         {isOfficeLocation && changePurposeSyskey && (
@@ -1109,11 +1146,12 @@ export default function FerryRequestPage() {
                             )}
 
                             <div style={{ marginTop: 16 }}>
-                                <Textarea id="ferry-user-text" label="Please Describe Your Complaint"
+                                <Textarea id="ferry-user-text" label="Please Describe Your Complaint *"
                                     value={userComplaintText}
-                                    onChange={e => setUserComplaintText(e.target.value)}
+                                    onChange={e => { setUserComplaintText(e.target.value); clearFieldError('userComplaintText'); }}
                                     placeholder="Write your complaint here..."
                                     rows={3}
+                                    error={fieldErrors.userComplaintText}
                                     readOnly={isReadOnly} />
                             </div>
 
@@ -1128,9 +1166,10 @@ export default function FerryRequestPage() {
                             <h3 className={newReqStyles['new-request__section-title']}>HR Complaint</h3>
                             <Textarea id="ferry-hr-text" label="Complaint Description *"
                                 value={hrComplaintText}
-                                onChange={e => setHrComplaintText(e.target.value)}
+                                onChange={e => { setHrComplaintText(e.target.value); clearFieldError('hrComplaintText'); }}
                                 placeholder="Describe your complaint in detail..."
                                 rows={4}
+                                error={fieldErrors.hrComplaintText}
                                 readOnly={isReadOnly} />
 
                         </section>
