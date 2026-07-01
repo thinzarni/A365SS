@@ -285,8 +285,8 @@ export default function FerryRequestDetailPage() {
     const changePurposeCode = (detail?.changepurposecode || resolvedChangePurpose?.code || '').toUpperCase();
     const resolvedChangePurposeDesc = detail?.changepurposedesc || resolvedChangePurpose?.description || '';
 
-    const isPermanent = changeTypeCode === 'PC' || resolvedChangeTypeDesc.toLowerCase().includes('permanent');
-    const isTemporary = changeTypeCode === 'TC' || resolvedChangeTypeDesc.toLowerCase().includes('temporary');
+    const isPermanent = changeTypeCode === 'PC' || (resolvedChangeTypeDesc.toLowerCase().includes('permanent') && !resolvedChangeTypeDesc.toLowerCase().includes('suspension'));
+    const isTemporary = (changeTypeCode === 'TC' || resolvedChangeTypeDesc.toLowerCase().includes('temporary')) && !resolvedChangeTypeDesc.toLowerCase().includes('suspension');
     const isSuspension = !isPermanent && !isTemporary && (!!detail?.changetypesyskey || resolvedChangeTypeDesc.toLowerCase().includes('suspension'));
     const isOfficeLocation = changePurposeCode === 'OL' || resolvedChangePurposeDesc.includes('Office');
     const isHomeAddress = changePurposeCode === 'HA' || resolvedChangePurposeDesc.includes('Home');
@@ -421,7 +421,7 @@ export default function FerryRequestDetailPage() {
                         {/* ── 3. Registration Details (Merged) ── */}
                         {ferryType === FerryRequestType.registration && (
                             <div className={styles.grid} style={{ marginTop: 16 }}>
-                                {(detail?.phoneno || ep?.phoneno || ep?.phone) && <ReadField label="Contact Phone Number" value={detail?.phoneno || ep?.phoneno || ep?.phone} />}
+                                {(detail?.phoneno || ep?.phoneno || ep?.phone) && <ReadField label="Contact Phone Number *" value={detail?.phoneno || ep?.phoneno || ep?.phone} />}
                                 {(currentAssignedFerry || detail?.ferryno || ep?.ferryno) && <ReadField label="Assigned Ferry Number" value={currentAssignedFerry || detail?.ferryno || ep?.ferryno} />}
                                 {workingHourDesc && (
                                     <div>
@@ -497,35 +497,29 @@ export default function FerryRequestDetailPage() {
                                 Change Details
                             </h3>
                             <div className={styles.grid}>
-                                {(detail?.phoneno || ep?.phoneno || ep?.phone) && <ReadField label="Contact Phone Number" value={detail?.phoneno || ep?.phoneno || ep?.phone} />}
+                                {(detail?.phoneno || ep?.phoneno || ep?.phone) && <ReadField label="Contact Phone Number *" value={detail?.phoneno || ep?.phoneno || ep?.phone} />}
                                 {(currentAssignedFerry || detail?.ferryno || ep?.ferryno) && <ReadField label="Assigned Ferry Number" value={currentAssignedFerry || detail?.ferryno || ep?.ferryno} />}
-                                {resolvedChangeTypeDesc && (
-                                    <div className={styles.fullCol}>
-                                        <ReadField label="Change Type" value={resolvedChangeTypeDesc} />
-                                    </div>
-                                )}
+                                <div className={styles.fullCol}>
+                                    <ReadField label="Change Type *" value={resolvedChangeTypeDesc || '—'} />
+                                </div>
 
                                 {/* Temporary */}
                                 {isTemporary && (<>
                                     <div className={styles.fullCol}>
                                         <ReadField label="Reason for Change Request (Business Requirements)" value={detail?.remark} minLines={3} />
                                     </div>
-                                    {resolvedChangeFerryDesc && (
-                                        <div className={styles.fullCol}>
-                                            <ReadField label="Desired Ferry Number" value={resolvedChangeFerryDesc} />
-                                        </div>
-                                    )}
+                                    <div className={styles.fullCol}>
+                                        <ReadField label="Desired Ferry Number *" value={resolvedChangeFerryDesc || '—'} />
+                                    </div>
                                     {detail?.startdate && <ReadField label="Desired Date From" value={fromApiDate(detail.startdate)} />}
                                     {detail?.enddate && <ReadField label="Desired Date To" value={fromApiDate(detail.enddate)} />}
                                 </>)}
 
                                 {/* Permanent */}
                                 {isPermanent && (<>
-                                    {resolvedChangePurposeDesc && (
-                                        <div className={styles.fullCol}>
-                                            <ReadField label="Purpose of Change" value={resolvedChangePurposeDesc} />
-                                        </div>
-                                    )}
+                                    <div className={styles.fullCol}>
+                                        <ReadField label="Purpose of Change *" value={resolvedChangePurposeDesc || '—'} />
+                                    </div>
                                     {isOfficeLocation && (<>
                                         {resolvedLocationName && <ReadField label="New Office Location" value={resolvedLocationName} />}
                                         {detail?.startdate && <ReadField label="Desired Start Date" value={fromApiDate(detail.startdate)} />}
@@ -590,11 +584,9 @@ export default function FerryRequestDetailPage() {
                                     );
                                 })}
                             </div>
-                            {detail?.remark && (
-                                <div style={{ marginTop: 16 }}>
-                                    <ReadField label="Complaint Description" value={detail.remark} minLines={3} />
-                                </div>
-                            )}
+                            <div style={{ marginTop: 16 }}>
+                                <ReadField label="Complaint Description *" value={detail?.remark || '—'} minLines={3} />
+                            </div>
                             {status === '2' && (detail?.comment || detail?.approver_comment) && (
                                 <div className={styles.fullCol} style={{ 
                                     marginTop: 16, 
