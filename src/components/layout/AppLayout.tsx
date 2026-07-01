@@ -274,7 +274,7 @@ export default function AppLayout() {
 
     const location = useLocation();
     const isChatPage = location.pathname.startsWith('/chat');
-    const isPostPage = location.pathname.startsWith('/feed');
+    const isPostPage = location.pathname.startsWith('/feed') || location.pathname.startsWith('/socialpost');
 
     // Profile sub-navigation items (mirrors ProfilePagePrd.tsx getTabs)
     const PROFILE_SUBNAV = [

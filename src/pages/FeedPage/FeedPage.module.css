@@ -1,16 +1,17 @@
 .feedWrapper {
-    background-color: #f0f2f5;
-    min-height: 100vh;
+    background-color: #f1f5f9;
+    flex: 1;
     width: 100%;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .container {
     max-width: 650px;
-    /* Tighter — more like actual Facebook mobile/tablet feed width */
+    width: 100%;
     margin: 0 auto;
-    padding: 12px 0 40px 0;
-    /* No side padding — cards go edge to edge */
+    padding: 24px 16px 60px 16px;
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -18,46 +19,87 @@
 
 .pageTitle {
     display: none;
-    /* Hide "Company Feed" title — it's redundant since it's in the sidebar */
 }
 
 .createPostBox {
     background-color: #ffffff;
-    padding: 10px 16px;
-    margin-bottom: 8px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    padding: 16px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.createPostBox:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+.createPostInputRow {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 }
 
 .createPostAvatar {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background-color: #e4e6eb;
     object-fit: cover;
     flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.05);
 }
 
 .createPostInput {
     flex: 1;
-    padding: 9px 12px;
-    border-radius: 20px;
-    border: none;
-    background-color: #f0f2f5;
+    padding: 12px 16px;
+    border-radius: 24px;
+    border: 1px solid rgba(0,0,0,0.05);
+    background-color: #f3f4f6;
     font-size: 15px;
-    color: #65676b;
+    color: #4b5563;
     cursor: pointer;
-    transition: background-color 0.15s;
+    transition: background-color 0.2s, border-color 0.2s;
 }
 
 .createPostInput:hover {
-    background-color: #e4e6eb;
+    background-color: #e5e7eb;
+    border-color: rgba(0,0,0,0.08);
 }
 
 .createPostInput:focus {
     outline: none;
+}
+
+.createPostActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    padding-top: 12px;
+}
+
+.createPostActionBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #6b7280;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.createPostActionBtn:hover {
+    background-color: #f3f4f6;
+    color: #374151;
 }
 
 .feedList {

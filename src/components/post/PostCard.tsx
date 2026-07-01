@@ -17,7 +17,7 @@ interface PostCardProps {
 
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
     const { toggleReaction, deletePost } = usePostStore();
-    const { user } = useAuthStore();
+    const { user, domains } = useAuthStore();
     const [imgError, setImgError] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -32,8 +32,9 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     const handleReact = (type: number) => toggleReaction(post.syskey, type);
     const handleUnreact = () => toggleReaction(post.syskey, 0);
 
-    // Date
-    const dateStr = new Date(post.created_date).toLocaleString();
+    // Date formatting (e.g. "Jun 29, 2:44 PM")
+    const dateObj = new Date(post.created_date);
+    const dateStr = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' }).format(dateObj);
 
     // Check permissions
     const isAuthor = user?.userid === post.user_id || user?.hr_access;
@@ -51,9 +52,17 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     // Author
     const isDomainPost = post.user_info?.user_domain && post.user_info.user_domain !== post.name;
     const authorName = isDomainPost ? post?.user_info?.user_domain : post.name;
-    const authorLogo = isDomainPost
-        ? `https://iamassetsspace.mitcloud.com/domain/logomain/${post?.user_info?.user_domain}.png`
-        : post?.user_info?.profile;
+    
+    // Check and reference domain profile from domains array
+    let authorLogo = post?.user_info?.profile;
+    if (isDomainPost && post.user_info?.user_domain) {
+        const org = domains?.find((d: any) => (d.id || d.domaincode) === post.user_info!.user_domain);
+        if (org?.profile) {
+            authorLogo = org.profile;
+        } else {
+            authorLogo = `https://iamassetsspace.mitcloud.com/domain/logomain/${post.user_info.user_domain}.png`;
+        }
+    }
 
     // Collapsable content
     const [isExpanded, setIsExpanded] = React.useState(false);
@@ -72,7 +81,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
         return parts.map((part, i) => {
             if (part.match(urlRegex)) {
                 return (
-                    <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: '#1877f2', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>
+                    <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: '#4f46e5', textDecoration: 'none', fontWeight: 500 }} onClick={(e) => e.stopPropagation()}>
                         {part}
                     </a>
                 );
@@ -149,7 +158,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                 {isLongContent && (
                     <span
                         onClick={() => setIsExpanded(!isExpanded)}
-                        style={{ color: '#1877f2', cursor: 'pointer', fontWeight: 600, display: 'block', marginTop: '4px' }}
+                        style={{ color: '#4f46e5', cursor: 'pointer', fontWeight: 600, display: 'block', marginTop: '6px' }}
                     >
                         {isExpanded ? 'See Less' : 'See More'}
                     </span>

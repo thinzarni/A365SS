@@ -76,6 +76,7 @@ export interface Post {
     created_date: string;
     user_info?: User;
     comments?: Comment[];
+    post_as?: string;
 }
 
 export interface CreatePostPayload {
