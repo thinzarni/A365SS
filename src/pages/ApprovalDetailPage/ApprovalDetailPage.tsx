@@ -453,6 +453,21 @@ export default function ApprovalDetailPage() {
     const isClaim = requestTypeString.includes('claim') || requestTypeString.includes('advance');
     const hasMaxAmount = isClaim && d.max_amount !== undefined && Number(d.max_amount) !== 0;
 
+    const isSubstituteLeaveType = requestTypeString.includes('leave') && resolvedSubtype.toLowerCase().includes('substitute');
+    
+    const substituteWorkedDate = (() => {
+        const raw = String(d.substitutedatedescription || '');
+        if (raw.length === 8 && /^\d{8}$/.test(raw)) {
+            const year = Number(raw.slice(0, 4));
+            const month = Number(raw.slice(4, 6)) - 1;
+            const day = Number(raw.slice(6, 8));
+            const dateObj = new Date(year, month, day);
+            const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+            return `${raw.slice(6, 8)}/${raw.slice(4, 6)}/${raw.slice(0, 4)} - ${dayOfWeek}`;
+        }
+        return raw;
+    })();
+
     // Derive the syskey of the "Completed" option from the fetched list
     const isClaimWithMax = isClaim && hasMaxAmount;
 
@@ -515,10 +530,15 @@ export default function ApprovalDetailPage() {
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>Date &amp; Time</h4>
                             <div className={styles['approval-detail__grid']}>
-                                <Field label="Date" value={displayDate(d.startdate || d.date || d.selectday)} />
-                                {!requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
+                                {isSubstituteLeaveType && substituteWorkedDate && (
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Field label="Substitute Day (Worked Date)" value={substituteWorkedDate} />
+                                    </div>
+                                )}
+                                <Field label={isSubstituteLeaveType ? "Request for Substitute Leave Date" : "Date"} value={displayDate(d.startdate || d.date || d.selectday)} />
+                                {!isSubstituteLeaveType && !requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
 
-                                {!requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
+                                {!isSubstituteLeaveType && !requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
                                 {!requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
                             </div>
                         </div>

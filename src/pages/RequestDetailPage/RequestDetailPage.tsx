@@ -35,9 +35,9 @@ import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import { useAuthStore } from '../../stores/auth-store';
-import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, SAVE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS, GET_ATTENDANCE_REASON, TRAVEL_TYPE_LIST, VEHICLE_USE_LIST, PRODUCT_LIST, PROJECT_LIST } from '../../config/api-routes';
+import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, SAVE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS, LEAVE_SUBSTITUTE, GET_ATTENDANCE_REASON, TRAVEL_TYPE_LIST, VEHICLE_USE_LIST, PRODUCT_LIST, PROJECT_LIST } from '../../config/api-routes';
 import { flavor } from '../../config/features';
-import type { TypesModel } from '../../types/models';
+import type { TypesModel, SubstituteLeaveDay } from '../../types/models';
 import styles from './RequestDetailPage.module.css';
 import { displayDate } from '../../lib/date-utils';
 
@@ -165,6 +165,9 @@ export default function RequestDetailPage() {
     });
 
     const isLeave = detailData?.detail?.requesttypedesc?.toLowerCase().includes('leave');
+    // True when the leave sub-type is a substitute leave (matched by description)
+    const isSubstituteLeaveType = isLeave &&
+        (detailData?.detail?.requestsubtypedesc || '').toLowerCase().includes('substitute');
 
     const { data: leaveReasonsList = [] } = useQuery<TypesModel[]>({
         queryKey: ['leaveReasonList'],
@@ -179,6 +182,21 @@ export default function RequestDetailPage() {
             return res.data?.datalist || [];
         },
         enabled: !!isLeave && (flavor === 'prd' || flavor === 'mpt'),
+    });
+
+    // Substitute leave days — fetch only when detail.substitutedate syskey is present
+    // Matches the syskey against the list to resolve the worked-date code
+    const { data: substituteDays = [] } = useQuery<SubstituteLeaveDay[]>({
+        queryKey: ['substituteDays', user?.userid],
+        queryFn: async () => {
+            const res = await apiClient.get(`${LEAVE_SUBSTITUTE}/${user?.userid}`, {
+                params: { userid: user?.userid, domain },
+            });
+            return res.data?.datalist || [];
+        },
+        // Use detailData?.detail (not `detail`) to avoid temporal dead zone
+        enabled: !!isLeave && !!(detailData?.detail as any)?.substitutedate,
+        staleTime: 2 * 60 * 1000,
     });
 
     // Attendance Reason lookup
@@ -366,6 +384,24 @@ export default function RequestDetailPage() {
         ? leaveReasonsList.find(r => r.syskey === (detail as any).leavereason)?.description || (detail as any).leavereason
         : '';
 
+    // Resolve substitutedate syskey → worked-date label (dd/MM/yyyy)
+    // Matches detail.substitutedate syskey against substituteDays list → uses code field
+    const substituteWorkedDate = (() => {
+        const syskey = String((detail as any)?.substitutedate || '');
+        if (!syskey) return '';
+        const match = substituteDays.find((d) => d.syskey === syskey);
+        const raw = match?.code || '';
+        if (raw.length === 8 && /^\d{8}$/.test(raw)) {
+            const year = Number(raw.slice(0, 4));
+            const month = Number(raw.slice(4, 6)) - 1;
+            const day = Number(raw.slice(6, 8));
+            const dateObj = new Date(year, month, day);
+            const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+            return `${raw.slice(6, 8)}/${raw.slice(4, 6)}/${raw.slice(0, 4)} - ${dayOfWeek}`;
+        }
+        return raw || syskey; // fallback: show raw value while list loads
+    })();
+
     const rawProcessStatus = (detail as any).processstatus || (detail as any).claimProcessStatus || '';
     const processStatusDesc = CLAIM_PROCESS_STATUS_OPTIONS.find(opt => opt.code === String(rawProcessStatus))?.description || rawProcessStatus;
 
@@ -410,10 +446,15 @@ export default function RequestDetailPage() {
                     <div className={styles['request-detail__section']}>
                         <h4 className={styles['request-detail__section-title']}>Date &amp; Time</h4>
                         <div className={styles['request-detail__grid']}>
-                            {(detail.startdate || detail.date) && <Field label="Start Date" value={displayDate(detail.startdate || detail.date)} />}
-                            {detail.enddate && <Field label="End Date" value={displayDate(detail.enddate)} />}
-                            {(detail.starttime || detail.time) && <Field label="Start Time" value={detail.starttime || detail.time} />}
-                            {detail.endtime && <Field label="End Time" value={detail.endtime} />}
+                            {isSubstituteLeaveType && substituteWorkedDate && (
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <Field label="Substitute Day (Worked Date)" value={substituteWorkedDate} />
+                                </div>
+                            )}
+                            {(detail.startdate || detail.date) && <Field label={isSubstituteLeaveType ? "Request for Substitute Leave Date" : "Start Date"} value={displayDate(detail.startdate || detail.date)} />}
+                            {!isSubstituteLeaveType && detail.enddate && <Field label="End Date" value={displayDate(detail.enddate)} />}
+                            {!isSubstituteLeaveType && (detail.starttime || detail.time) && <Field label="Start Time" value={detail.starttime || detail.time} />}
+                            {!isSubstituteLeaveType && detail.endtime && <Field label="End Time" value={detail.endtime} />}
                             {detail.duration && <Field label="Duration" value={detail.duration} />}
                             {detail.selectday && <Field label="Select Day" value={detail.selectday} />}
                             {detail.days && <Field label="Days" value={String(detail.days)} />}
@@ -426,6 +467,8 @@ export default function RequestDetailPage() {
                             </div>
                         )}
                     </div>
+
+
 
                     {/* Transportation — triggers on toplace, isgroup or legacy pickupplace */}
                     {(detail.toplace || detail.isgroup !== undefined || detail.pickupplace || detail.requesttypedesc?.toLowerCase().includes('transport')) && (

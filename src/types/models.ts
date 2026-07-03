@@ -279,6 +279,7 @@ export interface TypesModel {
   maxpeople?: number;
   remaining_balance?: number;
   max_amount?: number;
+  approvaltype?: string | number;
 }
 
 export interface LeaveType {
@@ -288,6 +289,12 @@ export interface LeaveType {
   used?: number;
   remaining?: number;
   approvaltype?: string | number;
+}
+
+export interface SubstituteLeaveDay {
+  syskey: string;    // unique ID of this substitute-leave entitlement
+  code: string;      // yyyyMMdd — the date the employee worked (earning this day)
+  leavecount: string; // number of leave days this entitlement is worth
 }
 
 export interface CarsModel {
