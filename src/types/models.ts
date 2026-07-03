@@ -291,6 +291,12 @@ export interface LeaveType {
   approvaltype?: string | number;
 }
 
+export interface SubstituteLeaveDay {
+  syskey: string;    // unique ID of this substitute-leave entitlement
+  code: string;      // yyyyMMdd — the date the employee worked (earning this day)
+  leavecount: string; // number of leave days this entitlement is worth
+}
+
 export interface CarsModel {
   syskey: string;
   description: string;

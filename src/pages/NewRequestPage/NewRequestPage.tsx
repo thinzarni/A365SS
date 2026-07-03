@@ -42,6 +42,7 @@ import {
     VEHICLE_USE_LIST,
     LEAVE_TYPES,
     LEAVE_REASONS,
+    LEAVE_SUBSTITUTE,
     CLAIM_TYPES,
     CURRENCY_TYPES,
     ORG_TYPE_LIST,
@@ -51,7 +52,7 @@ import {
     GET_REQUEST_DETAIL,
     GET_LEAVE_DURATION_POLICY,
 } from '../../config/api-routes';
-import type { LeaveType, TeamMember } from '../../types/models';
+import type { LeaveType, SubstituteLeaveDay, TeamMember } from '../../types/models';
 import { formatAmount, unformatAmount } from '../../lib/format-utils';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
@@ -411,7 +412,7 @@ export default function NewRequestPage() {
 
     // ── Leave-specific AM/PM & duration ──
     const [startPeriod, setStartPeriod] = useState('AM');
-    const [endPeriod, setEndPeriod] = useState('AM');
+    const [endPeriod, setEndPeriod] = useState('PM');
     const [duration, setDuration] = useState('1');
     const [durationLoading, setDurationLoading] = useState(false);
 
@@ -482,45 +483,8 @@ export default function NewRequestPage() {
     const [handovers, setHandovers] = useState<MemberItem[]>([]);
     const [files, setFiles] = useState<File[]>([]);
     const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
+    const [substituteDay, setSubstituteDay] = useState(''); // syskey of selected substitute-leave entitlement
 
-    // ── Auto-fetch leave duration from policy API ──
-    useEffect(() => {
-        if (selectedType !== 'leave') return;
-        if (!startDate || !leaveType) return;
-
-        // Convert 'YYYY-MM-DD' → 'yyyyMMdd'
-        const toApiDate = (d: string) => d.replace(/-/g, '');
-
-        const fetchDuration = async () => {
-            setDurationLoading(true);
-            try {
-                const [res] = await Promise.all([
-                    apiClient.post(GET_LEAVE_DURATION_POLICY, {
-                        syskey: '',
-                        requesttype: 'leave',
-                        requestsubtype: leaveType,
-                        startdate: toApiDate(startDate),
-                        enddate: toApiDate(endDate || startDate),
-                        starttime: startPeriod,
-                        endtime: endPeriod,
-                        userid: userId || '',
-                        domain: domain || '',
-                    }),
-                    new Promise(resolve => setTimeout(resolve, 1500)), // minimum 1.5s loading
-                ]);
-                const dur = res.data?.duration;
-                if (dur !== undefined && dur !== null) {
-                    setDuration(String(dur));
-                }
-            } catch {
-                // silently ignore — user can type duration manually
-            } finally {
-                setDurationLoading(false);
-            }
-        };
-
-        fetchDuration();
-    }, [selectedType, startDate, endDate, startPeriod, endPeriod, leaveType, userId, domain]);
 
     // ── Edit Mode: Fetch existing request details ──
     const { data: editData } = useQuery({
@@ -573,9 +537,10 @@ export default function NewRequestPage() {
         if (typeKey === 'leave') {
             setLeaveType(d.requestsubtype || '');
             setStartPeriod(d.starttime || 'AM');
-            setEndPeriod(d.endtime || 'AM');
+            setEndPeriod(d.endtime || 'PM');
             setDuration(String(d.duration || '1'));
             setLeaveReason(d.leavereason || '');
+            setSubstituteDay(d.substitutedate || ''); // pre-select substitute day from saved syskey
         } else if (typeKey === 'wfh') {
             setLocationName(d.locationname || '');
         } else if (typeKey === 'transportation') {
@@ -767,6 +732,27 @@ export default function NewRequestPage() {
         enabled: selectedType === 'leave',
     });
 
+    // Detect if the currently selected leave type is a substitute-leave type
+    const isSubstituteLeave = useMemo(() => {
+        if (selectedType !== 'leave' || !leaveType) return false;
+        const selectedLt = leaveTypeList.find((lt) => String(lt.syskey) === String(leaveType));
+        return !!selectedLt && selectedLt.description.toLowerCase().includes('substitute');
+    }, [selectedType, leaveType, leaveTypeList]);
+
+    // Fetch earned substitute-leave days when substitute leave type is selected
+    // GET hxm/leave/substitute/{userId}?userid={userId}&domain={domain}
+    const { data: substituteDays = [] } = useQuery<SubstituteLeaveDay[]>({
+        queryKey: ['substituteDays', userId],
+        queryFn: async () => {
+            const res = await apiClient.get(`${LEAVE_SUBSTITUTE}/${userId}`, {
+                params: { userid: userId, domain },
+            });
+            return res.data?.datalist || [];
+        },
+        enabled: isSubstituteLeave,
+        staleTime: 2 * 60 * 1000,
+    });
+
     const { data: leaveReasonsList = [] } = useQuery<TypesModel[]>({
         queryKey: ['leaveReasonList'],
         queryFn: async () => {
@@ -807,6 +793,45 @@ export default function NewRequestPage() {
     const isTaxiClaimType = ['taxi fare', 'ferry taxi', 'onsite taxi'].includes(claimTypeDesc.trim().toLowerCase());
     const isBenefitBonusClaimType = ['benefit allowance', 'bonus allowance'].includes(claimTypeDesc.trim().toLowerCase());
 
+    // ── Auto-fetch leave duration from policy API ──
+    useEffect(() => {
+        if (selectedType !== 'leave') return;
+        if (!startDate || !leaveType) return;
+
+        // Convert 'YYYY-MM-DD' → 'yyyyMMdd'
+        const toApiDate = (d: string) => d.replace(/-/g, '');
+
+        const fetchDuration = async () => {
+            setDurationLoading(true);
+            try {
+                const [res] = await Promise.all([
+                    apiClient.post(GET_LEAVE_DURATION_POLICY, {
+                        syskey: '',
+                        requesttype: 'leave',
+                        requestsubtype: leaveType,
+                        startdate: toApiDate(startDate),
+                        enddate: isSubstituteLeave ? toApiDate(startDate) : toApiDate(endDate || startDate),
+                        starttime: isSubstituteLeave ? 'AM' : startPeriod,
+                        endtime: isSubstituteLeave ? 'PM' : endPeriod,
+                        userid: userId || '',
+                        domain: domain || '',
+                    }),
+                    new Promise(resolve => setTimeout(resolve, 1500)), // minimum 1.5s loading
+                ]);
+                const dur = res.data?.duration;
+                if (dur !== undefined && dur !== null) {
+                    setDuration(String(dur));
+                }
+            } catch {
+                // silently ignore — user can type duration manually
+            } finally {
+                setDurationLoading(false);
+            }
+        };
+
+        fetchDuration();
+    }, [selectedType, startDate, endDate, startPeriod, endPeriod, leaveType, userId, domain, isSubstituteLeave]);
+
     // Auto-populate remaining balance and claim type desc when claim type or list changes
     useEffect(() => {
         if (selectedType === 'claim' && claimType && claimTypeList.length > 0) {
@@ -827,7 +852,8 @@ export default function NewRequestPage() {
         if (!isEdit) {
             setLeaveType('');
             setStartPeriod('AM');
-            setEndPeriod('AM');
+            setEndPeriod('PM');
+            setSubstituteDay('');
         }
         setSubType('');
         if (selectedType && requestTypes.length > 0) {
@@ -846,7 +872,7 @@ export default function NewRequestPage() {
 
     // ── Central auto-sync: startDate → endDate (all types that use both date fields) ──
     // Excludes: travel (departure/arrival), leave (user controls), general/purchase/other (single date)
-    const DATE_RANGE_TYPES = ['overtime', 'leave', 'wfh', 'cashadvance', 'claim', 'transportation',
+    const DATE_RANGE_TYPES = ['overtime', 'wfh', 'cashadvance', 'claim', 'transportation',
         'reservation', 'earlyout', 'late', 'offinlieu'];
     useEffect(() => {
         if (!DATE_RANGE_TYPES.includes(selectedType) || !startDate) return;
@@ -1088,6 +1114,17 @@ export default function NewRequestPage() {
                     }
                     if ((flavor === 'prd' || flavor === 'mpt') && leaveReason) {
                         payload.leavereason = leaveReason;
+                    }
+                    if (isSubstituteLeave && substituteDay) {
+                        payload.substitutedate = substituteDay;
+                        const selDay = substituteDays.find((d) => d.syskey === substituteDay);
+                        payload.data = selDay ? [selDay] : [{ syskey: substituteDay }];
+                        
+                        payload.startdate = toApiDate(startDate);
+                        payload.enddate = toApiDate(startDate);
+                        payload.duration = '1';
+                        payload.starttime = 'AM';
+                        payload.endtime = 'PM';
                     }
                     payload.selectedHandovers = handovers.map((h) => ({ syskey: h.syskey, name: h.name }));
                 } else {
@@ -1365,9 +1402,16 @@ export default function NewRequestPage() {
                 toast.error('Please select a leave type');
                 return;
             }
-            if ((flavor === 'prd' || flavor === 'mpt') && !leaveReason) {
-                toast.error('Please select a leave reason');
+            if (isSubstituteLeave && !substituteDay) {
+                toast.error('Please select a substitute day (worked date)');
                 return;
+            }
+            if (isSubstituteLeave && substituteDay) {
+                const selectedSubDay = substituteDays.find((d) => d.syskey === substituteDay);
+                if (selectedSubDay && Number(selectedSubDay.leavecount) < Number(duration)) {
+                    toast.error("You can't request for Substitute Leave because of your remaining substitute leave count don't left");
+                    return;
+                }
             }
         }
 
@@ -1901,12 +1945,55 @@ export default function NewRequestPage() {
                                         id="leaveType"
                                         label="Leave Type"
                                         value={leaveType}
-                                        onChange={(e: any) => setLeaveType(e.target.value)}
+                                        onChange={(e: any) => {
+                                            setLeaveType(e.target.value);
+                                            setSubstituteDay(''); // reset when leave type changes
+                                        }}
                                         options={leaveTypeList.map((lt) => ({ value: lt.syskey, label: lt.description }))}
                                         placeholder="Select leave type…"
                                         required
                                     />
                                 </div>
+                                {/* ── Substitute Leave Date Picker ── */}
+                                {isSubstituteLeave && (
+                                    <div className={styles['new-request__full']} style={{ marginTop: 'var(--space-4)' }}>
+                                        <Select
+                                            id="substituteDay"
+                                            label="Substitute Day (Worked Date)"
+                                            value={substituteDay}
+                                            disabled={isEdit}
+                                            onChange={(e: any) => setSubstituteDay(e.target.value)}
+                                            options={substituteDays.map((d) => {
+                                                // Format yyyyMMdd → dd/MM/yyyy - EEEE
+                                                const raw = d.code || '';
+                                                let display = raw;
+                                                
+                                                if (raw.length === 8) {
+                                                    const year = Number(raw.slice(0, 4));
+                                                    const month = Number(raw.slice(4, 6)) - 1;
+                                                    const day = Number(raw.slice(6, 8));
+                                                    
+                                                    const dateObj = new Date(year, month, day);
+                                                    const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                                                    
+                                                    display = `${raw.slice(6, 8)}/${raw.slice(4, 6)}/${raw.slice(0, 4)} - ${dayOfWeek}`;
+                                                }
+                                                
+                                                return {
+                                                    value: d.syskey,
+                                                    label: display,
+                                                };
+                                            })}
+                                            placeholder={substituteDays.length === 0 ? 'No substitute days available' : 'Select worked date to redeem…'}
+                                            required
+                                        />
+                                        {substituteDays.length === 0 && (
+                                            <div style={{ color: 'red', fontSize: '0.875rem', marginTop: 'var(--space-1)', fontWeight: 'bold' }}>
+                                                You don't have Substitute Leave for request
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -1920,7 +2007,6 @@ export default function NewRequestPage() {
                                     onChange={(e: any) => setLeaveReason(e.target.value)}
                                     options={leaveReasonsList.map((r) => ({ value: r.syskey, label: r.description }))}
                                     placeholder="Choose your reason..."
-                                    required
                                 />
                             </div>
                         )}
@@ -1930,22 +2016,26 @@ export default function NewRequestPage() {
                             <div className={styles['new-request__section']}>
                                 <h3 className={styles['new-request__section-title']}>Date & Time</h3>
                                 <div className={styles['new-request__grid']}>
-                                    <DateInput id="startDate" label={t('request.startDate')} value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
-                                    <Select
-                                        id="startPeriod"
-                                        label={t('request.startTime')}
-                                        value={startPeriod}
-                                        onChange={(e: any) => setStartPeriod(e.target.value)}
-                                        options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
-                                    />
-                                    <DateInput id="endDate" label={t('request.endDate')} value={endDate || startDate} onChange={(e: any) => setEndDate(e.target.value)} />
-                                    <Select
-                                        id="endPeriod"
-                                        label={t('request.endTime')}
-                                        value={endPeriod}
-                                        onChange={(e: any) => setEndPeriod(e.target.value)}
-                                        options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
-                                    />
+                                    <DateInput id="startDate" label={isSubstituteLeave ? "Request for Substitute Leave Date" : t('request.startDate')} value={startDate} onChange={(e: any) => setStartDate(e.target.value)} required />
+                                    {!isSubstituteLeave && (
+                                        <>
+                                            <Select
+                                                id="startPeriod"
+                                                label={t('request.startTime')}
+                                                value={startPeriod}
+                                                onChange={(e: any) => setStartPeriod(e.target.value)}
+                                                options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
+                                            />
+                                            <DateInput id="endDate" label={t('request.endDate')} value={endDate || startDate} onChange={(e: any) => setEndDate(e.target.value)} />
+                                            <Select
+                                                id="endPeriod"
+                                                label={t('request.endTime')}
+                                                value={endPeriod}
+                                                onChange={(e: any) => setEndPeriod(e.target.value)}
+                                                options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
+                                            />
+                                        </>
+                                    )}
                                     <div style={{ position: 'relative' }}>
                                         <style>{`
                                             @keyframes duration-shimmer {

@@ -106,6 +106,7 @@ export const LEAVE_DETAIL = `${hxmPrefix}leave/getleavedetail`;
 export const DELETE_LEAVE = `${hxmPrefix}leave/deleteleaverequest`;
 export const LEAVE_TYPES = `${hxmPrefix}leave/empleavetypelist`;
 export const LEAVE_TYPE_LIST = `${hxmPrefix}leave/leavetypelist`;
+export const LEAVE_SUBSTITUTE = `${hxmPrefix}leave/substitute`;
 export const HANDOVER_PERSONS = `${hxmPrefix}leave/handoverpersonlist`;
 export const EXPORT_LEAVE_TEMPLATE = 'api/request/exportLeaverequesttemplate';
 export const EXPORT_LEAVE_DATA = 'api/request/export/leaverequestdata';
