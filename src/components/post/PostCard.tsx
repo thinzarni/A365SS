@@ -16,8 +16,8 @@ interface PostCardProps {
 }
 
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
-    const { toggleReaction, deletePost } = usePostStore();
-    const { user, domains } = useAuthStore();
+    const { toggleReaction, deletePost, organizations } = usePostStore();
+    const { user } = useAuthStore();
     const [imgError, setImgError] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -53,14 +53,20 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     const isDomainPost = post.user_info?.user_domain && post.user_info.user_domain !== post.name;
     const authorName = isDomainPost ? post?.user_info?.user_domain : post.name;
     
-    // Check and reference domain profile from domains array
+    // Check and reference domain profile from organizations array
     let authorLogo = post?.user_info?.profile;
     if (isDomainPost && post.user_info?.user_domain) {
-        const org = domains?.find((d: any) => (d.id || d.domaincode) === post.user_info!.user_domain);
+        // Fall back to icon if no valid logo found
+        authorLogo = undefined;
+        
+        const org = organizations?.find((o: any) => 
+            (o.syskey?.toString() === post.user_info!.user_domain || o.code === post.user_info!.user_domain || o.paycompany_name === post.user_info!.user_domain)
+        );
+        
         if (org?.profile) {
-            authorLogo = org.profile;
-        } else {
-            authorLogo = `https://iamassetsspace.mitcloud.com/domain/logomain/${post.user_info.user_domain}.png`;
+            authorLogo = org.profile.startsWith('http') || org.profile.startsWith('data:image') 
+                ? org.profile 
+                : `data:image/png;base64,${org.profile}`;
         }
     }
 
@@ -100,7 +106,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                         <img
                             src={authorLogo}
                             alt="avatar"
-                            className={styles.avatarImg}
+                            className={`${styles.avatarImg} ${isDomainPost ? styles.orgAvatarImg : ''}`}
                             onError={() => setImgError(true)}
                         />
                     ) : isDomainPost ? (

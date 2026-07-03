@@ -38,6 +38,12 @@
     object-fit: cover;
 }
 
+.orgAvatarImg {
+    object-fit: contain;
+    background-color: #ffffff;
+    padding: 4px;
+}
+
 .avatarFallback {
     width: 100%;
     height: 100%;

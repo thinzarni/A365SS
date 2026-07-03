@@ -7,13 +7,14 @@ import { Image as ImageIcon } from 'lucide-react';
 import styles from './FeedPage.module.css';
 
 const FeedPage: React.FC = () => {
-    const { posts, isLoading, fetchPosts } = usePostStore();
+    const { posts, isLoading, fetchPosts, fetchOrganizations } = usePostStore();
     const { user } = useAuthStore();
     const [showModal, setShowModal] = useState(false);
 
     useEffect(() => {
+        fetchOrganizations();
         fetchPosts(1);
-    }, [fetchPosts]);
+    }, [fetchPosts, fetchOrganizations]);
 
     return (
         <div className={styles.feedWrapper}>

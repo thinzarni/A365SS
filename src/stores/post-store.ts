@@ -5,12 +5,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import chatClient from '../lib/chat-client';
+import apiClient from '../lib/api-client';
 import * as routes from '../config/api-routes';
 import { useAuthStore } from './auth-store';
 import type { Post, CreatePostPayload } from '../types/post';
 
 interface PostState {
     posts: Post[];
+    organizations: any[];
+    organizationsDomain: string | null;
     isLoading: boolean;
     isCreating: boolean;
     error: string | null;
@@ -18,6 +21,7 @@ interface PostState {
 
     // Actions
     fetchPosts: (page?: number) => Promise<void>;
+    fetchOrganizations: () => Promise<void>;
     createPost: (payload: CreatePostPayload) => Promise<boolean>;
     deletePost: (postId: string) => Promise<boolean>;
     editPost: (payload: { messageid: string; content: string; image: any[]; file: any[] }) => Promise<boolean>;
@@ -34,10 +38,37 @@ export const usePostStore = create<PostState>()(
     persist(
         (set, get) => ({
             posts: [],
+            organizations: [],
+            organizationsDomain: null,
             isLoading: false,
             isCreating: false,
             error: null,
             hasMorePosts: true,
+
+            fetchOrganizations: async () => {
+                try {
+                    const { userId, domain } = useAuthStore.getState();
+                    if (!userId || !domain) return;
+                    
+                    const state = get();
+                    if (state.organizations.length > 0 && state.organizationsDomain === domain) {
+                        return; // Already cached for this domain
+                    }
+                    
+                    // Fetch organizations/paycompany list
+                    const response = await apiClient.get(routes.PAYCOMPANY_LIST, {
+                        params: { userid: userId, domain: domain }
+                    });
+                    if (response.data) {
+                        const orgs = Array.isArray(response.data) 
+                            ? response.data 
+                            : response.data.datalist || response.data.data || [];
+                        set({ organizations: orgs, organizationsDomain: domain });
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch organizations", error);
+                }
+            },
 
             fetchPosts: async (page = 1) => {
                 if (page === 1) set({ isLoading: true, error: null });

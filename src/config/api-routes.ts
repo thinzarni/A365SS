@@ -11,6 +11,7 @@ export const GENERATE_QR = 'generate/qr';
 export const QR_SUCCESS = 'qr-success';
 export const CHECK_PASSWORD_EXPIRY = 'check/password-expried';
 export const DOMAIN_LIST = `${hxmPrefix}payroll/domainlist`;
+export const PAYCOMPANY_LIST = `${hxmPrefix}employeepaycompany/paycompany`;
 export const PAYROLL_PERIOD = `${hxmPrefix}payroll/payperiod`;
 export const SAVE_DEVICE_INFO = `${hxmPrefix}payroll/savedeviceinfo`
 
