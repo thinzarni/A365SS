@@ -786,7 +786,7 @@ export default function NewRequestPage() {
         queryKey: ['claimTypeList', selectedMemberInfo?.syskey],
         queryFn: async () => {
             const params = selectedMemberInfo?.syskey && selectedMemberInfo.syskey !== '0' 
-                ? { employee_syskey: selectedMemberInfo.syskey } 
+                ? { employee_syskey: selectedMemberInfo.syskey, isPlatform: 'a365' } 
                 : {};
             const res = await apiClient.get(CLAIM_TYPES, { params });
             return res.data?.datalist || [];
@@ -1517,6 +1517,7 @@ export default function NewRequestPage() {
                                             id="employee"
                                             label="Select Employee"
                                             value={selectedMemberSyskey}
+                                            disabled
                                             onChange={(e: any) => setSelectedMemberSyskey(e.target.value)}
                                             options={employeeOptions}
                                         />

@@ -993,7 +993,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                         <button className={styles.refreshBtn} onClick={() => refetch()} disabled={isRefreshing} title="Refresh">
                             <RefreshCw size={14} className={isRefreshing ? styles.spinning : ''} />
                         </button>
-                        {records.pending.length < 2 && <button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('common.addContact')}</button>}
+                        {<button className={styles.addBtn} onClick={openAdd}><Plus size={15} /> {t('common.addContact')}</button>}
                     </div>
                 } />
 
