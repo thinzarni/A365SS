@@ -771,9 +771,12 @@ export default function NewRequestPage() {
     const { data: claimTypeList = [] } = useQuery<TypesModel[]>({
         queryKey: ['claimTypeList', selectedMemberInfo?.syskey],
         queryFn: async () => {
-            const params = selectedMemberInfo?.syskey && selectedMemberInfo.syskey !== '0' 
+            const params: Record<string, any> = selectedMemberInfo?.syskey && selectedMemberInfo.syskey !== '0' 
                 ? { employee_syskey: selectedMemberInfo.syskey } 
                 : {};
+            if (user?.employmenttypesyskey) params.employmenttypesyskey = user.employmenttypesyskey;
+            if (user?.employeetypesyskey) params.employeetypesyskey = user.employeetypesyskey;
+            
             const res = await apiClient.get(CLAIM_TYPES, { params });
             return res.data?.datalist || [];
         },

@@ -346,6 +346,8 @@ export interface UserProfile {
   phone?: string;
   joineddate?: string;
   rank?: string;
+  employmenttypesyskey?: string;
+  employeetypesyskey?: string | null;
 }
 
 export interface ApiResponse<T = unknown> {

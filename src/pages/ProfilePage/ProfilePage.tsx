@@ -25,12 +25,15 @@ interface ProfileData {
     rank: string;
     dob: string;
     ic: string;
+    nrcsr?: string | number | null;
     maritalstatus: string;
     joineddate: string;
     effectivedate: string;
     paylevel: string;
     profile?: string;
     paycompany?: string;
+    employeetypesyskey?: string | null;
+    ferryno?: string | null;
     domains?: string[];
 }
 
