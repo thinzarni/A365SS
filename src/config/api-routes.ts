@@ -132,9 +132,11 @@ export const MENU_ITEMS = `${hxmPrefix}integration/get/menuitems`;
 
 // ── Assets ──
 export const FILE_UPLOAD = `${hxmPrefix}fileUpload`;
+export const FILE_UPLOAD_EDUCATION = `${hxmPrefix}fileUpload/education`;
 export const FILE_GENERATE_UPLOAD_URL = `${hxmPrefix}fileUpload/generate-upload-url`;
 export const FILE_STREAM_UPLOAD = `${hxmPrefix}stream`;
 export const FILE_DIRECT_DOWNLOAD = `${hxmPrefix}fileUpload/directdownloadfile`;
+export const FILE_DOWNLOAD = `${hxmPrefix}fileUpload/download`;
 export const RULES_AND_REGULATIONS_LIST = `${hxmPrefix}rulesandregulations/getall`;
 export const RULES_AND_REGULATIONS_DETAIL = `${hxmPrefix}rulesandregulations`;
 export const PHOTO_UPLOAD = `${hxmPrefix}integration/photoupload`;

@@ -6,7 +6,7 @@ import {
     Mail, Calendar, Briefcase, Award, CreditCard, Clock,
     Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle,
     Building2, User, Phone, BookOpen, Users, MapPin, Plus, Trash2, Edit3,
-    FileText, AlertCircle, Save, UsersRound, RefreshCw
+    FileText, AlertCircle, Save, UsersRound, RefreshCw, Image, FileIcon, Download
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import authClient from '../../lib/auth-client';
@@ -31,6 +31,8 @@ import {
     FILE_GENERATE_UPLOAD_URL,
     FILE_STREAM_UPLOAD,
     FILE_DIRECT_DOWNLOAD,
+    FILE_DOWNLOAD,
+    FILE_UPLOAD_EDUCATION,
 } from '../../config/api-routes';
 import styles from './ProfilePagePrd.module.css';
 import mainClient from '../../lib/main-client';
@@ -130,6 +132,8 @@ interface Qualification {
     status: string;
     modOption?: string;
     isdelete?: boolean;
+    attachment?: string;
+    attachmentKey?: string;
 }
 interface Address {
     syskey: string;
@@ -1683,6 +1687,110 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 // ═══════════════════════════════════════════════════════════════════════
 // TAB 5 — Qualification (Create/Edit/View)
 // ═══════════════════════════════════════════════════════════════════════
+
+/** Resolves an attachment value to a viewable URL.
+ *  - If it is already a full URL (starts with http/https) → return as-is
+ *  - If it is a raw FS storage key (e.g. dev/employee/family/2026/5/file.jpg)
+ *    → build: mainUrl + 'api/' + key
+ */
+/** Calls HXM directdownloadfile API and opens the file in a new browser tab.
+ *  Works for both image and document attachments.
+ */
+async function openAttachment(fileName: string | undefined | null, mode: 'view' | 'download' = 'view'): Promise<void> {
+    if (!fileName) return;
+    const { userId, domain } = useAuthStore.getState();
+    try {
+        const response = await apiClient.get(FILE_DOWNLOAD, {
+            params: { fileName, userid: userId, domain: domain || 'dev' }
+        });
+
+        // The API now returns a JSON with base64String
+        if (response.data?.statuscode === 300 && response.data?.base64String) {
+            const base64String = response.data.base64String;
+            
+            // Determine content type based on extension
+            const ext = fileName.split('.').pop()?.toLowerCase() || '';
+            let ct = 'application/octet-stream';
+            if (ext === 'png') ct = 'image/png';
+            else if (ext === 'jpg' || ext === 'jpeg') ct = 'image/jpeg';
+            else if (ext === 'pdf') ct = 'application/pdf';
+            
+            // Convert base64 to Blob
+            const byteString = atob(base64String);
+            const arrayBuffer = new ArrayBuffer(byteString.length);
+            const intArray = new Uint8Array(arrayBuffer);
+            for (let i = 0; i < byteString.length; i++) {
+                intArray[i] = byteString.charCodeAt(i);
+            }
+            const blob = new Blob([intArray], { type: ct });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            
+            if (mode === 'download') {
+                link.download = fileName.split('/').pop() || 'attachment';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                // For viewable types (images, PDF) — open inline; others trigger download
+                if (ct.startsWith('image/') || ct === 'application/pdf') {
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.click();
+                } else {
+                    link.download = fileName.split('/').pop() || 'attachment';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            }
+            
+            // Use 5 minute timeout for "Save As" prompts
+            setTimeout(() => URL.revokeObjectURL(url), 300000);
+        } else {
+            toast.error(response.data?.message || response.data?.error || 'File not found');
+        }
+    } catch {
+        toast.error('Failed to open attachment');
+    }
+}
+
+const AttachmentActionButtons = ({ fileName, isDelete }: { fileName: string | undefined | null, isDelete?: boolean }) => {
+    if (!fileName) return <span style={{ color: '#94a3b8', fontSize: '12px' }}>-</span>;
+    
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    let Icon = FileText;
+    if (ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'gif') Icon = Image;
+    else if (ext === 'pdf') Icon = FileIcon;
+
+    return (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', opacity: isDelete ? 0.6 : 1, padding: '3px 8px', borderRadius: '6px', border: '1px solid #bfdbfe', background: '#eff6ff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0284c7' }}>
+                <Icon size={14} />
+            </div>
+            <button
+                type="button"
+                onClick={() => !isDelete && openAttachment(fileName, 'view')}
+                style={{ fontSize: '12px', color: '#3b82f6', background: 'none', border: 'none', cursor: isDelete ? 'default' : 'pointer', padding: 0, textDecoration: 'underline' }}
+                title="View"
+            >
+                View
+            </button>
+            <span style={{ color: '#bfdbfe' }}>|</span>
+            <button
+                type="button"
+                onClick={() => !isDelete && openAttachment(fileName, 'download')}
+                style={{ fontSize: '12px', color: '#3b82f6', background: 'none', border: 'none', cursor: isDelete ? 'default' : 'pointer', padding: 0, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: '2px' }}
+                title="Download"
+            >
+                <Download size={12} /> Download
+            </button>
+        </div>
+    );
+};
+
 function QualificationTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
     const [records, setRecords] = useState<{ current: Qualification[], pending: Qualification[] }>({ current: [], pending: [] });
@@ -1732,6 +1840,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
             todate: r.todate ? r.todate.replace(/-/g, '') : '',
             ishighest: r.isheight,
+            attachment: r.attachmentKey || r.attachment || null,
             modificationoption: 'Correct',
             status: r.id.length < 20 ? "0" : r.status,
             isdelete: !!r.isdelete,
@@ -1769,7 +1878,9 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                     todate: parseDateFromApi(item.todate),
                     isheight: highestRaw === true || highestRaw?.toString() === 'true' ? 'true' : 'false',
                     status: item.status?.toString() || '0',
-                    isdelete: !!item.isdelete
+                    isdelete: !!item.isdelete,
+                    attachment: item.signurl || item.attachment || '',
+                    attachmentKey: item.attachment || ''
                 };
             }) as Qualification[];
 
@@ -1789,7 +1900,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
 
     const blank = (): Qualification => ({
         id: '', type: 'Education', qualificationtype: 'Education', description: '', educationname: '', university: '', year: '', country: '', fromdate: '', todate: '', isheight: 'false', status: '0', modOption: 'New',
-        effectiveFrom: undefined
+        effectiveFrom: undefined, attachment: '', attachmentKey: ''
     });
     const [form, setForm] = useState<Qualification>(blank());
     const [showModal, setShowModal] = useState(false);
@@ -2022,6 +2133,14 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                                     <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.universityOrInstitution')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.university || '-'}</span></div>
                                                     <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.toDate')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{formatDateForDisplay(r.todate) || t('profile.experience.present')}</span></div>
                                                     <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.highestQualification')}</span><span style={{ fontWeight: 500, fontSize: '13px' }}>{r.isheight === 'true' ? 'Yes' : 'No'}</span></div>
+                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                        <span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Attachment</span>
+                                                        <span style={{ fontWeight: 500, fontSize: '13px' }}>
+                                                            {(r.attachmentKey || r.attachment) ? (
+                                                                <AttachmentActionButtons fileName={r.attachmentKey || r.attachment} />
+                                                            ) : '-'}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -2069,6 +2188,14 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                                     <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.universityOrInstitution')}</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.university || '-'}</span></div>
                                                     <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.toDate')}</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{formatDateForDisplay(r.todate) || t('profile.experience.present')}</span></div>
                                                     <div style={{ display: 'flex', gap: '10px' }}><span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>{t('profile.qualification.highestQualification')}</span><span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.isheight === 'true' ? 'Yes' : 'No'}</span></div>
+                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                        <span style={{ width: '130px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>Attachment</span>
+                                                        <span style={{ fontWeight: 500, fontSize: '13px', textDecoration: r.isdelete ? 'line-through' : 'none' }}>
+                                                            {(r.attachmentKey || r.attachment) ? (
+                                                                <AttachmentActionButtons fileName={r.attachmentKey || r.attachment} isDelete={r.isdelete} />
+                                                            ) : '-'}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div style={{ marginTop: '16px' }}>
@@ -2152,6 +2279,70 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                         </FormRow>
                     </div>
 
+                    <FormRow label={t('profile.qualification.attachment', 'Attachment')}>
+                        {editingId && (form.attachmentKey || form.attachment) && (() => {
+                            return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '8px 12px', borderRadius: '8px', background: '#f0f9ff', border: '1px solid #bae6fd' }}>
+                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                        <AttachmentActionButtons fileName={form.attachmentKey || form.attachment} />
+                                    </div>
+                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, attachment: '', attachmentKey: '' }))}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '2px', display: 'flex', flexShrink: 0 }}
+                                        title="Remove attachment"
+                                    >
+                                        <X size={13} />
+                                    </button>
+                                </div>
+                            );
+                        })()}
+                        <input
+                            className={styles.formInput}
+                            type="file"
+                            accept=".pdf,.docx,.jpg,.png"
+                            onChange={async e => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const uploadingToast = toast.loading(`Uploading ${file.name}...`);
+                                try {
+                                    const reader = new FileReader();
+                                    reader.readAsDataURL(file);
+                                    reader.onload = async () => {
+                                        try {
+                                            const base64Data = reader.result?.toString().split(',')[1];
+                                            if (!base64Data) throw new Error('Failed to parse file');
+                                            
+                                            const { userId, domain } = useAuthStore.getState();
+                                            const { data } = await apiClient.post(FILE_UPLOAD_EDUCATION, {
+                                                base64String: base64Data,
+                                                base64filename: file.name,
+                                                userid: userId,
+                                                domain: domain || 'dev'
+                                            });
+                                            
+                                            // Extract filename from response
+                                            const fileName = data?.data || data?.fileName || data?.url || (typeof data === 'string' ? data : '');
+                                            if (!fileName) {
+                                                throw new Error('No filename returned from server. Response: ' + JSON.stringify(data).substring(0, 50));
+                                            }
+                                            
+                                            setForm(prev => ({ ...prev, attachment: fileName, attachmentKey: fileName }));
+                                            toast.success('File uploaded', { id: uploadingToast });
+                                        } catch (err: any) {
+                                            const errMsg = err?.response?.data?.message || err?.response?.data?.error || err.message || 'Unknown error';
+                                            toast.error('File upload failed: ' + errMsg, { id: uploadingToast });
+                                        }
+                                    };
+                                    reader.onerror = () => {
+                                        toast.error('File read error', { id: uploadingToast });
+                                    };
+                                } catch (err) {
+                                    toast.error('Failed to initiate upload', { id: uploadingToast });
+                                }
+                            }}
+                        />
+                        {form.attachment && <p className={styles.fileHint}>Selected: {form.attachment}</p>}
+                    </FormRow>
+
                     {/* Delete toggle — only shown when editing */}
                     {editingId && (
                         <div style={{ marginTop: '8px', padding: '12px 16px', borderRadius: '10px', border: `1.5px solid ${form.isdelete ? '#f43f5e' : '#e2e8f0'}`, background: form.isdelete ? '#fff1f2' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}>
@@ -2199,60 +2390,6 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
 // ═══════════════════════════════════════════════════════════════════════
 // TAB 6 — Family Information for Tax Calculation (Create/Edit/View)
 // ═══════════════════════════════════════════════════════════════════════
-
-/** Resolves an attachment value to a viewable URL.
- *  - If it is already a full URL (starts with http/https) → return as-is
- *  - If it is a raw FS storage key (e.g. dev/employee/family/2026/5/file.jpg)
- *    → build: mainUrl + 'api/' + key
- */
-/** Calls HXM directdownloadfile API and opens the file in a new browser tab.
- *  Works for both image and document attachments.
- */
-async function openAttachment(fileName: string | undefined | null): Promise<void> {
-    if (!fileName) return;
-    const { userId, domain } = useAuthStore.getState();
-    try {
-        const response = await apiClient.get(FILE_DIRECT_DOWNLOAD, {
-            params: { fileName, userid: userId, domain: domain || 'dev' },
-            responseType: 'blob',
-        });
-        const blob = new Blob([response.data], {
-            type: response.headers['content-type'] || 'application/octet-stream',
-        });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        // For viewable types (images, PDF) — open inline; others trigger download
-        const ct = response.headers['content-type'] || '';
-        
-        // If the backend returned a JSON error instead of a file
-        if (ct.includes('application/json')) {
-            const text = await blob.text();
-            try {
-                const json = JSON.parse(text);
-                toast.error(json.message || json.error || 'File not found');
-            } catch {
-                toast.error('File not found');
-            }
-            return;
-        }
-
-        if (ct.startsWith('image/') || ct === 'application/pdf') {
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.click();
-        } else {
-            link.download = fileName.split('/').pop() || 'attachment';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-        // Use 5 minute timeout for "Save As" prompts
-        setTimeout(() => URL.revokeObjectURL(url), 300000);
-    } catch {
-        toast.error('Failed to open attachment');
-    }
-}
 
 function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const { t } = useTranslation();
@@ -2519,14 +2656,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
                                                 <td>
-                                                    {r.attachmentKey || r.attachment ? (
-                                                        <button
-                                                            onClick={() => openAttachment(r.attachmentKey || r.attachment)}
-                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#3b82f6', padding: '3px 8px', borderRadius: '6px', border: '1px solid #bfdbfe', background: '#eff6ff', cursor: 'pointer' }}
-                                                        >
-                                                            <FileText size={12} /> View
-                                                        </button>
-                                                    ) : <span style={{ color: '#cbd5e1', fontSize: '12px' }}>—</span>}
+                                                        <AttachmentActionButtons fileName={r.attachmentKey || r.attachment} />
                                                 </td>
                                                 <td>
                                                     <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
@@ -2570,14 +2700,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
                                                 <td>
-                                                    {r.attachmentKey || r.attachment ? (
-                                                        <button
-                                                            onClick={() => openAttachment(r.attachmentKey || r.attachment)}
-                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#3b82f6', padding: '3px 8px', borderRadius: '6px', border: '1px solid #bfdbfe', background: '#eff6ff', cursor: 'pointer', opacity: r.isdelete ? 0.6 : 1 }}
-                                                        >
-                                                            <FileText size={12} /> View
-                                                        </button>
-                                                    ) : <span style={{ color: '#cbd5e1', fontSize: '12px' }}>—</span>}
+                                                        <AttachmentActionButtons fileName={r.attachmentKey || r.attachment} isDelete={r.isdelete} />
                                                 </td>
                                                 <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} isDelete={r.isdelete} /></td>
                                                 <td>
@@ -2678,14 +2801,9 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                         {editingId && (form.attachmentKey || form.attachment) && (() => {
                             return (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '8px 12px', borderRadius: '8px', background: '#f0f9ff', border: '1px solid #bae6fd' }}>
-                                    <FileText size={14} style={{ color: '#0284c7', flexShrink: 0 }} />
-                                    <button
-                                        type="button"
-                                        onClick={() => openAttachment(form.attachmentKey || form.attachment)}
-                                        style={{ flex: 1, fontSize: '12px', color: '#0284c7', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                    >
-                                        View current attachment
-                                    </button>
+                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                        <AttachmentActionButtons fileName={form.attachmentKey || form.attachment} />
+                                    </div>
                                     <button type="button" onClick={() => setForm(prev => ({ ...prev, attachment: '', attachmentKey: '' }))}
                                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '2px', display: 'flex', flexShrink: 0 }}
                                         title="Remove attachment"
