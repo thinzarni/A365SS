@@ -9,8 +9,6 @@ import {
     CheckCircle,
     XCircle,
     Loader2,
-    Mail,
-    Phone,
     Paperclip,
     Edit3,
     X,
@@ -476,12 +474,12 @@ export default function FerryApprovalFormPage() {
     const isSuspension = resolvedChangeType?.toLowerCase().includes('suspension') || String(detail?.changetype || detail?.changetype_syskey) === '71';
 
     // Validation for Action
-    const resolvedAssignedFerry = useMemo(() => {
-        const syskey = assignedFerrySyskey || detail?.changeferry_syskey || detail?.changeferry;
-        if (!syskey) return '';
-        const found = ferryNos.find((f: any) => String(f.syskey) === String(syskey));
-        return found ? String(found.carno || found.description || found.ferryCarNo || syskey) : String(syskey);
-    }, [assignedFerrySyskey, detail?.changeferry_syskey, detail?.changeferry, ferryNos]);
+    // const resolvedAssignedFerry = useMemo(() => {
+    //     const syskey = assignedFerrySyskey || detail?.changeferry_syskey || detail?.changeferry;
+    //     if (!syskey) return '';
+    //     const found = ferryNos.find((f: any) => String(f.syskey) === String(syskey));
+    //     return found ? String(found.carno || found.description || found.ferryCarNo || syskey) : String(syskey);
+    // }, [assignedFerrySyskey, detail?.changeferry_syskey, detail?.changeferry, ferryNos]);
 
     const validateAction = (status: '2' | '3') => {
         const errors: Record<string, string> = {};

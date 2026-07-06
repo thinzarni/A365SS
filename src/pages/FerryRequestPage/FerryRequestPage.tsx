@@ -301,7 +301,7 @@ export default function FerryRequestPage() {
     const epData = employeeProfile as any;
     const profileFerryNo: string = currentAssignedFerry || epData?.ferryno || '';
     const displayPhone = user?.phoneno || user?.phone || epData?.phoneno || epData?.phone || '';
-    const displayRank = user?.rank || epData?.rank || '';
+
     const displayDept = user?.department || epData?.department || '';
     const displayJoinDate = user?.joineddate || epData?.joineddate || '';
     const displaySyskey = user?.syskey || user?.usersyskey || epData?.syskey || '';

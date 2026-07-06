@@ -1565,6 +1565,7 @@ export default function NewRequestPage() {
                                             id="employee"
                                             label="Select Employee"
                                             value={selectedMemberSyskey}
+                                            disabled
                                             onChange={(e: any) => setSelectedMemberSyskey(e.target.value)}
                                             options={employeeOptions}
                                         />

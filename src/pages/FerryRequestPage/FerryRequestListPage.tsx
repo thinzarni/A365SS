@@ -108,8 +108,6 @@ export default function FerryRequestListPage() {
     const [sortCol,     setSortCol]     = useState<SortCol>('date');
     const [sortDir,     setSortDir]     = useState<'asc'|'desc'>('desc');
 
-    const [fromFocused, setFromFocused] = useState(false);
-    const [toFocused, setToFocused] = useState(false);
     const fromRef = useRef<HTMLInputElement>(null);
     const toRef = useRef<HTMLInputElement>(null);
 
@@ -151,12 +149,12 @@ export default function FerryRequestListPage() {
 
     /* ── Global Stats Fetch ── */
     const { data: globalStatsList = [] } = useQuery<any[]>({
-        queryKey: ['ferryListGlobalStats', isHrComplaintView],
+        queryKey: ['ferryListGlobalStats', fromDate, toDate, isAllDate, typeSyskey, isHrComplaintView],
         queryFn: async () => {
             const res = await apiClient.post(GET_REQUEST_LIST, {
-                fromdate: "",
-                todate: "",
-                type: "",
+                fromdate: isAllDate ? "" : toApiDate(fromDate),
+                todate: isAllDate ? "" : toApiDate(toDate),
+                type: typeSyskey,
                 status: "0",
             });
             const all: any[] = res.data?.datalist ?? res.data?.data ?? [];

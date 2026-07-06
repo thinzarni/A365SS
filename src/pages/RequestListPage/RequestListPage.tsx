@@ -135,8 +135,7 @@ export default function RequestListPage() {
     const [showExportConfirm, setShowExportConfirm] = useState(false);
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
     const [sortColumn, setSortColumn] = useState<'date' | 'time'>('date');
-    const [fromFocused, setFromFocused] = useState(false);
-    const [toFocused, setToFocused] = useState(false);
+
     const fromRef = useRef<HTMLInputElement>(null);
     const toRef = useRef<HTMLInputElement>(null);
 
@@ -302,14 +301,14 @@ export default function RequestListPage() {
 
     // Summary stats
     const { data: generalSummaryData = [] } = useQuery<RequestModel[]>({
-        queryKey: ['summaryRequests', fromDate, toDate, requestType, attendanceRequestType, location.pathname],
+        queryKey: ['summaryRequests', fromDate, toDate, isAllDate, requestType, attendanceRequestType, location.pathname],
         queryFn: async () => {
             if (isAttendancePage) {
                 const res = await mainClient.post(GET_ATTENDANCE_REQ_LIST, {
                     userid: userId || '',
                     domain: domain || 'dev',
-                    fromdate: fromDate.replace(/-/g, ''),
-                    todate: toDate.replace(/-/g, ''),
+                    fromdate: isAllDate ? '' : fromDate.replace(/-/g, ''),
+                    todate: isAllDate ? '' : toDate.replace(/-/g, ''),
                     status: '',
                     type: attendanceRequestType,
                 });
@@ -322,8 +321,8 @@ export default function RequestListPage() {
             }
 
             const res = await apiClient.post(GET_REQUEST_LIST, {
-                fromdate: fromDate.replace(/-/g, ''),
-                todate: toDate.replace(/-/g, ''),
+                fromdate: isAllDate ? '' : fromDate.replace(/-/g, ''),
+                todate: isAllDate ? '' : toDate.replace(/-/g, ''),
                 type: isSubtypeView ? '' : requestType,
                 status: '0',
             });

@@ -386,6 +386,7 @@ export interface TeamMember {
   workingDays: string;
   timeInCount: string;
   timeOutCount: string;
+  checkInCount?: string;
   activityCount: string;
   leaveCount: string;
   requiredWorkDays: string;

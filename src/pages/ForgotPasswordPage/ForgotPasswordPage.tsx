@@ -89,7 +89,7 @@ export default function ForgotPasswordPage() {
                         label="Employee ID"
                         type="text"
                         value={email}
-                        onChange={e => setEmail(e.target.value)}
+                        onChange={e => setEmail(e.target.value.trim())}
                         placeholder="MP99999"
                         icon={<Mail size={18} />}
                         required

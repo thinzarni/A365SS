@@ -69,6 +69,7 @@ function parseTeamResponse(data: Record<string, unknown>, userId: string): TeamP
         workingDays: String(raw.workingDays ?? raw.workingdays ?? '0'),
         timeInCount: String(raw.timeInCount ?? raw.timeincount ?? '0'),
         timeOutCount: String(raw.timeOutCount ?? raw.timeoutcount ?? '0'),
+        checkInCount: String(raw.checkInCount ?? raw.checkincount ?? '0'),
         activityCount: String(raw.activityCount ?? raw.activitycount ?? '0'),
         leaveCount: String(raw.leaveCount ?? raw.leavecount ?? '0'),
         requiredWorkDays: String(raw.requiredWorkDays ?? raw.requiredworkdays ?? '0'),
@@ -490,6 +491,7 @@ export default function TeamPage() {
 /** Current user hero card (blue themed) */
 function UserCard({ member, t }: { member: TeamMember; t: (key: string) => string }) {
     const status = getStatusInfo(member);
+    const attSummary = `${member.timeInCount} of ${member.requiredWorkDays}`;
 
     return (
         <div className={styles.userCard}>
@@ -543,8 +545,8 @@ function UserCard({ member, t }: { member: TeamMember; t: (key: string) => strin
 
                 {/* Stats row */}
                 <div className={styles.statsRow}>
-                    <StatTile icon={<Clock size={16} />} value={member.workingDays} label={t('team.workingDays')} />
-                    <StatTile icon={<LogIn size={16} />} value={member.timeInCount} label={t('team.checkIns')} />
+                    <StatTile icon={<Clock size={16} />} value={attSummary} label={t('team.attSummary')} />
+                    <StatTile icon={<LogIn size={16} />} value={member.checkInCount ?? '0'} label={t('team.checkIns')} />
                     <StatTile icon={<Activity size={16} />} value={member.activityCount} label={t('team.activities')} />
                     <StatTile icon={<Palmtree size={16} />} value={member.leaveCount} label={t('team.leaves')} />
                 </div>
