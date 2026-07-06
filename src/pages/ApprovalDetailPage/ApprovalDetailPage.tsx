@@ -145,7 +145,7 @@ export default function ApprovalDetailPage() {
     const { data: leaveTypeList = [] } = useQuery<TypesModel[]>({
         queryKey: ['leaveTypeList'],
         queryFn: async () => {
-            const res = await apiClient.get(LEAVE_TYPES);
+            const res = await apiClient.get(LEAVE_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,
@@ -181,7 +181,7 @@ export default function ApprovalDetailPage() {
     const { data: claimTypesList = [] } = useQuery<TypesModel[]>({
         queryKey: ['claimTypesList'],
         queryFn: async () => {
-            const res = await apiClient.get(CLAIM_TYPES);
+            const res = await apiClient.get(CLAIM_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,

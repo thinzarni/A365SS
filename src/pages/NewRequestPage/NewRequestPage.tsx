@@ -617,7 +617,7 @@ export default function NewRequestPage() {
     const { data: requestTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['requestTypes'],
         queryFn: async () => {
-            const res = await apiClient.get(REQUEST_TYPES);
+            const res = await apiClient.get(REQUEST_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist || [];
         },
         select: (data) => data.filter((rt) => {
@@ -726,7 +726,7 @@ export default function NewRequestPage() {
     const { data: leaveTypeList = [] } = useQuery<LeaveType[]>({
         queryKey: ['leaveTypeList'],
         queryFn: async () => {
-            const res = await apiClient.get(LEAVE_TYPES);
+            const res = await apiClient.get(LEAVE_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist || [];
         },
         enabled: selectedType === 'leave',
@@ -776,6 +776,7 @@ export default function NewRequestPage() {
                 : {};
             if (user?.employmenttypesyskey) params.employmenttypesyskey = user.employmenttypesyskey;
             if (user?.employeetypesyskey) params.employeetypesyskey = user.employeetypesyskey;
+            params.isPlatform = 'a365';
             
             const res = await apiClient.get(CLAIM_TYPES, { params });
             return res.data?.datalist || [];
@@ -948,7 +949,7 @@ export default function NewRequestPage() {
             let types = requestTypes;
             if (!types.length) {
                 try {
-                    const res = await apiClient.get(REQUEST_TYPES);
+                    const res = await apiClient.get(REQUEST_TYPES, { params: { isPlatform: 'a365' } });
                     types = res.data?.datalist || [];
                 } catch {
                     types = [];

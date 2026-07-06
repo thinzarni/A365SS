@@ -139,7 +139,7 @@ export default function ApprovalListPage() {
     const { data: leaveTypeList = [] } = useQuery<{ syskey: string, description: string }[]>({
         queryKey: ['leaveTypeList'],
         queryFn: async () => {
-            const res = await apiClient.get(LEAVE_TYPES);
+            const res = await apiClient.get(LEAVE_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,
@@ -149,7 +149,7 @@ export default function ApprovalListPage() {
     const { data: requestTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['requestTypes'],
         queryFn: async () => {
-            const res = await apiClient.get(REQUEST_TYPES);
+            const res = await apiClient.get(REQUEST_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist || [];
         }
     });

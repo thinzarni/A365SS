@@ -186,7 +186,7 @@ export default function FerryRequestPage() {
     const { data: allRequestTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['requestTypes'],
         queryFn: async () => {
-            const res = await apiClient.get(REQUEST_TYPES);
+            const res = await apiClient.get(REQUEST_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist ?? [];
         },
         staleTime: 10 * 60 * 1000,

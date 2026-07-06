@@ -57,6 +57,7 @@ export default function ClaimDetailPage() {
             const params: Record<string, any> = (claim as any)?.employee_syskey ? { employee_syskey: (claim as any).employee_syskey } : {};
             if (user?.employmenttypesyskey) params.employmenttypesyskey = user.employmenttypesyskey;
             if (user?.employeetypesyskey) params.employeetypesyskey = user.employeetypesyskey;
+            params.isPlatform = 'a365';
             
             const res = await apiClient.get(CLAIM_TYPES, { params });
             return res.data?.datalist || [];
