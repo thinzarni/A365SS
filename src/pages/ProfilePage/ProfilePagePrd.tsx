@@ -51,7 +51,7 @@ interface ProfileData {
     ranksyskey?: string;
     dob: string;
     ic: string;
-    nrcsr?: string | null;
+    nrcsr?: string | number | null;
     nrcregion?: string | null;
     nrctype?: string | null;
     nrcno?: string | null;
@@ -70,6 +70,7 @@ interface ProfileData {
     departmentsyskey?: string;
     employmenttype?: string;
     employmenttypesyskey?: string;
+    employeetypesyskey?: string | null;
     officelocation?: string[] | string | null;
     officelocationsyskey?: string[] | string | null;
     worklocation?: string[] | string | null;
@@ -88,6 +89,7 @@ interface ProfileData {
     generateqraccess?: number;
     employeeaccess?: number;
     profilestatus?: number;
+    ferryno?: string | null;
     domains?: string[];
     hr_access?: boolean | number;
 }
