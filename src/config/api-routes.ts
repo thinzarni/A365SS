@@ -182,6 +182,7 @@ export const ADMIN_ATTENDANCE_LIST = 'api/checkin/members';
 export const ADMIN_ATTENDANCE_COUNTS = 'api/checkin/counts';
 export const ADMIN_MEMBER_LIST = `${hxmPrefix}integration/memberlist`;
 export const ADMIN_CARD_DATA = `${hxmPrefix}integration/getadmincarddata`;
+export const ATTENDANCE_EXCEPTIONS = `${hxmPrefix}integration/getattendanceexceptions`;
 // ── Chat (uses chatUrl) ──
 export const CHAT_CREATE = 'chat-new/create';
 export const CHAT_SEARCH = 'chat-new/search';

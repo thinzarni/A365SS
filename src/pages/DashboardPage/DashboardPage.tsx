@@ -28,10 +28,11 @@ import {
     ImageIcon,
     BarChart3,
     X,
+    AlertTriangle,
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
-import { ADMIN_MEMBER_LIST, ADMIN_CARD_DATA, USER_PROFILE } from '../../config/api-routes';
+import { ADMIN_MEMBER_LIST, ADMIN_CARD_DATA, USER_PROFILE, ATTENDANCE_EXCEPTIONS } from '../../config/api-routes';
 import styles from './DashboardPage.module.css';
 import AttendanceOverviewChart from '../../components/admin-attendance/AttendanceOverviewChart';
 import UserCard from '../../components/admin-attendance/UserCard';
@@ -308,6 +309,23 @@ export default function DashboardPage() {
                     isPersonal: true
                 });
                 return res.data?.data ?? res.data ?? null;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 60_000,
+    });
+
+    // ── Fetch attendance exceptions ──
+    const { data: exceptionData, isLoading: exceptionLoading } = useQuery({
+        queryKey: ['attendance-exceptions', todayStr],
+        queryFn: async () => {
+            try {
+                const res = await apiClient.post(ATTENDANCE_EXCEPTIONS, {
+                    fromdate: todayStr,
+                    todate: todayStr,
+                });
+                return res.data?.data ?? null;
             } catch {
                 return null;
             }
@@ -689,6 +707,93 @@ export default function DashboardPage() {
 
             {/* Spacer between sections */}
             <div style={{ marginBottom: '2rem' }} />
+
+            {/* ───────────────── SWIPE EXCEPTION SECTION ───────────────── */}
+            <section>
+                <div className={styles.sectionHeader}>
+                    <h2 className={styles.sectionTitle}>
+                        <AlertTriangle size={20} style={{ color: '#f59e0b' }} />
+                        Swipe Exceptions
+                    </h2>
+                    <span className={styles.monthLabel}>Today</span>
+                </div>
+
+                {exceptionLoading ? (
+                    <div className={styles.exceptionGrid}>
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className={`${styles.skeleton}`} style={{ height: 100 }} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className={styles.exceptionGrid}>
+                        {/* Total Exceptions */}
+                        <div className={`${styles.exceptionCard} ${styles.exceptionTotal}`}>
+                            <div className={styles.exceptionIconWrap} style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
+                                <AlertTriangle size={20} />
+                            </div>
+                            <div className={styles.exceptionCount} style={{ color: '#b45309' }}>
+                                {exceptionData?.total ?? 0}
+                            </div>
+                            <div className={styles.exceptionLabel}>Total Exceptions</div>
+                        </div>
+
+                        {/* Missing In */}
+                        <div className={styles.exceptionCard}>
+                            <div className={styles.exceptionIconWrap} style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                                <LogIn size={18} />
+                            </div>
+                            <div className={styles.exceptionCount} style={{ color: '#ef4444' }}>
+                                {exceptionData?.missingIn ?? 0}
+                            </div>
+                            <div className={styles.exceptionLabel}>Missing In</div>
+                        </div>
+
+                        {/* Missing Out */}
+                        <div className={styles.exceptionCard}>
+                            <div className={styles.exceptionIconWrap} style={{ background: 'rgba(249,115,22,0.1)', color: '#f97316' }}>
+                                <LogOut size={18} />
+                            </div>
+                            <div className={styles.exceptionCount} style={{ color: '#f97316' }}>
+                                {exceptionData?.missingOut ?? 0}
+                            </div>
+                            <div className={styles.exceptionLabel}>Missing Out</div>
+                        </div>
+
+                        {/* Absent */}
+                        <div className={styles.exceptionCard}>
+                            <div className={styles.exceptionIconWrap} style={{ background: 'rgba(139,92,246,0.1)', color: '#8b5cf6' }}>
+                                <UserCheck size={18} />
+                            </div>
+                            <div className={styles.exceptionCount} style={{ color: '#8b5cf6' }}>
+                                {exceptionData?.absent ?? 0}
+                            </div>
+                            <div className={styles.exceptionLabel}>Absent</div>
+                        </div>
+
+                        {/* Swipe Overlap */}
+                        <div className={styles.exceptionCard}>
+                            <div className={styles.exceptionIconWrap} style={{ background: 'rgba(14,165,233,0.1)', color: '#0ea5e9' }}>
+                                <Activity size={18} />
+                            </div>
+                            <div className={styles.exceptionCount} style={{ color: '#0ea5e9' }}>
+                                {exceptionData?.swipeOverlapWithLeave ?? 0}
+                            </div>
+                            <div className={styles.exceptionLabel}>Swipe Overlap</div>
+                        </div>
+
+                        {/* Odd Swipes */}
+                        <div className={styles.exceptionCard}>
+                            <div className={styles.exceptionIconWrap} style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
+                                <Clock size={18} />
+                            </div>
+                            <div className={styles.exceptionCount} style={{ color: '#10b981' }}>
+                                {exceptionData?.oddSwipes ?? 0}
+                            </div>
+                            <div className={styles.exceptionLabel}>Odd Swipes</div>
+                        </div>
+                    </div>
+                )}
+            </section>
 
             {/* ── Quick Actions ── */}
             {/* <section>
