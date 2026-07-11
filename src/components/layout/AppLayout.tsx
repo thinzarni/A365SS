@@ -60,7 +60,7 @@ import { chatSocket } from '../../lib/chat-socket';
 // import { appSocket } from '../../lib/app-socket';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
-import { CheckInConfig } from '../../types/models';
+import type { CheckInConfig } from '../../types/models';
 // import { useSocket } from '../../hooks/useSocket';
 // import { useQueryClient } from '@tanstack/react-query';
 

@@ -30,7 +30,6 @@ import {
     USER_PROFILE_BY_ID,
     FILE_GENERATE_UPLOAD_URL,
     FILE_STREAM_UPLOAD,
-    FILE_DIRECT_DOWNLOAD,
     FILE_DOWNLOAD,
     FILE_UPLOAD_EDUCATION,
 } from '../../config/api-routes';
