@@ -173,6 +173,101 @@
     color: #3730a3;
 }
 
+/* ── Session History ── */
+.sessionHistoryWrap {
+    margin-bottom: 20px;
+    margin-top: -8px;
+}
+
+.sessionHistoryToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.sessionHistoryToggle:hover {
+    background: #f8fafc;
+    color: #4338ca;
+    border-color: #c7d2fe;
+}
+
+.sessionToggleArrow {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 16px;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+.sessionTimeline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    animation: fadeUp 0.2s ease-out;
+}
+
+.sessionPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    transition: box-shadow 0.15s ease;
+}
+
+.sessionPill:hover {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+}
+
+.sessionPillNum {
+    font-weight: 700;
+    color: #94a3b8;
+    font-size: 11px;
+}
+
+.sessionPillIn {
+    display: inline-flex;
+    align-items: center;
+    color: #16a34a;
+    font-weight: 600;
+}
+
+.sessionPillArrow {
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.sessionPillOut {
+    display: inline-flex;
+    align-items: center;
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.sessionPillDur {
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 6px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 2px;
+}
+
 /* ── Stat Cards Row ── */
 .statsRow {
     display: grid;
@@ -730,7 +825,7 @@
     margin-top: 0;
     padding-top: 0;
     flex: 1;
-    min-height: 0;
+    min-height: 300px;
     display: flex;
     flex-direction: column;
 }
@@ -962,3 +1057,108 @@
         gap: 10px;
     }
 }
+
+/* ───────────────── SWIPE EXCEPTION SECTION ───────────────── */
+
+.exceptionGrid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    margin-bottom: 32px;
+}
+
+.exceptionCard {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    cursor: default;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.exceptionCard::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    border-radius: 0 0 18px 18px;
+}
+
+.exceptionCard:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.07);
+    border-color: #e2e8f0;
+}
+
+.exceptionCard:hover::after {
+    opacity: 0.35;
+}
+
+.exceptionTotal {
+    background: linear-gradient(135deg, #fffbeb, #fff7ed);
+    border-color: #fde68a;
+}
+
+.exceptionIconWrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.exceptionCount {
+    font-size: 28px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    letter-spacing: -1px;
+}
+
+.exceptionLabel {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.3;
+}
+
+/* Responsive exception grid */
+@media (max-width: 1100px) {
+    .exceptionGrid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 700px) {
+    .exceptionGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .exceptionCount {
+        font-size: 22px;
+    }
+}
+
+@media (max-width: 430px) {
+    .exceptionGrid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+}
