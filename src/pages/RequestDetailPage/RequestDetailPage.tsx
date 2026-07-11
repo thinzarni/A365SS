@@ -35,7 +35,7 @@ import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
 import { downloadOrOpenAttachment } from '../../lib/file-utils';
 import { useAuthStore } from '../../stores/auth-store';
-import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, SAVE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS, LEAVE_SUBSTITUTE, GET_ATTENDANCE_REASON, TRAVEL_TYPE_LIST, VEHICLE_USE_LIST, PRODUCT_LIST, PROJECT_LIST } from '../../config/api-routes';
+import { GET_REQUEST_DETAIL, GET_ATTENDANCE_REQ_DETAIL, DELETE_REQUEST, SAVE_REQUEST, CURRENCY_TYPES, LEAVE_REASONS, LEAVE_SUBSTITUTE, GET_ATTENDANCE_REASON, TRAVEL_TYPE_LIST, VEHICLE_USE_LIST, PRODUCT_LIST, PROJECT_LIST, LEAVE_TYPES } from '../../config/api-routes';
 import { flavor } from '../../config/features';
 import type { TypesModel, SubstituteLeaveDay } from '../../types/models';
 import styles from './RequestDetailPage.module.css';
@@ -168,6 +168,48 @@ export default function RequestDetailPage() {
     // True when the leave sub-type is a substitute leave (matched by description)
     const isSubstituteLeaveType = isLeave &&
         (detailData?.detail?.requestsubtypedesc || '').toLowerCase().includes('substitute');
+
+    const { data: leaveTypeList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['leaveTypeList'],
+        queryFn: async () => {
+            const res = await apiClient.get(LEAVE_TYPES, { params: { isPlatform: 'a365' } });
+            const list = res.data?.datalist || [];
+
+            try {
+                const configData = await queryClient.fetchQuery({
+                    queryKey: ['checkin-config', user?.userid, domain],
+                    queryFn: async () => {
+                        const cres = await mainClient.post('api/checkin/config', {
+                            userid: user?.userid || '',
+                            domain: domain || 'demouat',
+                        });
+                        return cres.data?.data ?? null;
+                    },
+                    staleTime: 5 * 60 * 1000,
+                });
+
+                if (configData?.leavepolicy && Array.isArray(configData.leavepolicy)) {
+                    return list.map((lt: any) => {
+                        const policy = configData.leavepolicy.find((p: any) => p.leavesk === lt.syskey);
+                        if (policy) {
+                            return {
+                                ...lt,
+                                ishandoverflag: policy.ishandoverflag,
+                                handovertype: policy.handovertype,
+                            };
+                        }
+                        return lt;
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to fetch checkin config for leave policy', e);
+            }
+
+            return list;
+        },
+        staleTime: 5 * 60 * 1000,
+        enabled: !!isLeave,
+    });
 
     const { data: leaveReasonsList = [] } = useQuery<TypesModel[]>({
         queryKey: ['leaveReasonList'],

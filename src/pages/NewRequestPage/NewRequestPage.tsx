@@ -727,7 +727,39 @@ export default function NewRequestPage() {
         queryKey: ['leaveTypeList'],
         queryFn: async () => {
             const res = await apiClient.get(LEAVE_TYPES, { params: { isPlatform: 'a365' } });
-            return res.data?.datalist || [];
+            const list = res.data?.datalist || [];
+
+            try {
+                const configData = await queryClient.fetchQuery({
+                    queryKey: ['checkin-config', userId, domain],
+                    queryFn: async () => {
+                        const cres = await mainClient.post('api/checkin/config', {
+                            userid: userId || '',
+                            domain: domain || 'demouat',
+                        });
+                        return cres.data?.data ?? null;
+                    },
+                    staleTime: 5 * 60 * 1000,
+                });
+
+                if (configData?.leavepolicy && Array.isArray(configData.leavepolicy)) {
+                    return list.map((lt: LeaveType) => {
+                        const policy = configData.leavepolicy.find((p: any) => p.leavesk === lt.syskey);
+                        if (policy) {
+                            return {
+                                ...lt,
+                                ishandoverflag: policy.ishandoverflag,
+                                handovertype: policy.handovertype,
+                            };
+                        }
+                        return lt;
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to fetch checkin config for leave policy', e);
+            }
+
+            return list;
         },
         enabled: selectedType === 'leave',
     });

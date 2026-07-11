@@ -22,10 +22,13 @@ import {
     CheckCircle2,
     XCircle,
     Circle,
+    X,
+    ChevronRight,
+    Hash,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
 import { RequestStatus } from '../../types/models';
-import type { RequestModel, TypesModel } from '../../types/models';
+import type { RequestModel, TypesModel, StepLevelData } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
 import {
@@ -109,7 +112,7 @@ export default function ApprovalListPage() {
     const [didInitDates, setDidInitDates] = useState(false);
     const [fromFocused, setFromFocused] = useState(false);
     const [toFocused, setToFocused] = useState(false);
-    const { userId, domain } = useAuthStore();
+    const { userId, domain, user } = useAuthStore();
     const queryClient = useQueryClient();
 
     const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -228,7 +231,75 @@ export default function ApprovalListPage() {
         [filteredApprovals]
     );
 
-    const isAllSelected = pendingRequests.length > 0 && selectedKeys.size === pendingRequests.length;
+    // All pending requests — filtered below to exclude ones where the logged-in user already approved
+    const allPendingRequests = pendingRequests;
+
+    /** Returns true if the logged-in user has a step in this request's stepLevelData
+     *  that is already Approved (status 2) — meaning they've already acted on it. */
+    const isAlreadyApprovedByMe = (req: RequestModel): boolean => {
+        const steps: StepLevelData[] = (req as any).stepLevelData || [];
+        if (!steps.length) return false;
+
+        const savedName = String(user?.name || '').trim().toLowerCase();
+        const savedId   = String(user?.userid || userId || '').trim().toLowerCase();
+        const savedRole = String(user?.role || '').trim().toLowerCase();
+
+        const myStep = steps.find(step => {
+            const stepName     = String(step.rankrole_specificperson || '').trim().toLowerCase();
+            const approvedById = String((step as any).approvedby_userid || '').trim().toLowerCase();
+            return stepName === savedName ||
+                   stepName === savedRole ||
+                   stepName === savedId ||
+                   (savedName !== '' && stepName.includes(savedName)) ||
+                   (approvedById !== '' && approvedById === savedId);
+        });
+
+        return !!myStep && (myStep.status === 2 || String(myStep.status) === '2');
+    };
+
+    const selectablePendingRequests = useMemo(
+        () => allPendingRequests.filter(r => !isAlreadyApprovedByMe(r)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [allPendingRequests, userId, user]
+    );
+
+    /** Returns an error message if this request has required fields that must be
+     *  filled in the detail page before it can be bulk-approved, or null if OK. */
+    const getItemRequiredFieldsError = (req: RequestModel): string | null => {
+        const name = req.name || req.eid || 'Employee';
+        const typeDesc = (req as any).requesttypedesc || req.requesttype || 'Request';
+        const label = `${name} · ${typeDesc}`;
+
+        const amt = (req as any).amount;
+        const maxAmt = (req as any).max_amount;
+        if (amt !== undefined && amt !== null && Number(amt) !== 0)
+            return `Required fields for ${label}`;
+        if (maxAmt !== undefined && maxAmt !== null && Number(maxAmt) !== 0)
+            return `Required fields for ${label}`;
+
+        const tDescLow = String(req.requesttypedesc || req.requesttype || '').toLowerCase().replace(/\s+/g, '');
+
+        // Ferry Registration always needs the detail form (ferry number must be assigned)
+        if (tDescLow === 'ferryregistration') {
+            return `Required fields for ${label}`;
+        }
+
+        // HR / user complaints: only block if the remark (comment) is not yet filled
+        if (
+            tDescLow === 'ferryusercomplaint' ||
+            tDescLow === 'usercomplaint' ||
+            tDescLow === 'hrcomplaint' ||
+            tDescLow === 'ferryhrcomplaint'
+        ) {
+            const remark = String((req as any).remark || '').trim();
+            if (!remark) return `Required fields for ${label}`;
+        }
+
+        return null;
+    };
+
+
+    const isAllSelected = selectablePendingRequests.length > 0 && selectedKeys.size === selectablePendingRequests.length;
 
     const toggleSelect = (syskey: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
@@ -244,8 +315,27 @@ export default function ApprovalListPage() {
         if (isAllSelected) {
             setSelectedKeys(new Set());
         } else {
-            setSelectedKeys(new Set(pendingRequests.map(r => String(r.syskey))));
+            setSelectedKeys(new Set(selectablePendingRequests.map(r => String(r.syskey))));
         }
+    };
+
+    const handleBulkAction = (status: '2' | '3') => {
+        // For Approve only: validate that each selected item has no missing required fields
+        if (status === '2') {
+            const errors: string[] = [];
+            for (const key of Array.from(selectedKeys)) {
+                const req = pendingRequests.find(r => String(r.syskey) === key);
+                if (!req) continue;
+                const err = getItemRequiredFieldsError(req);
+                if (err) errors.push(err);
+            }
+            if (errors.length > 0) {
+                // Show one toast per failing item
+                errors.forEach(msg => toast.error(msg, { duration: 4000 }));
+                return; // Block the approve
+            }
+        }
+        multiApproveMutation.mutate({ status });
     };
 
     const multiApproveMutation = useMutation({
@@ -508,7 +598,7 @@ export default function ApprovalListPage() {
                 </div>
             ) : (
                 <div className={styles['approval-page__list']}>
-                    {activeStatus === RequestStatus.Pending && pendingRequests.length > 0 && (
+                    {selectablePendingRequests.length > 0 && (
                         <div className={styles['select-all-row']} onClick={toggleSelectAll}>
                             <div className={`${styles['checkbox']} ${isAllSelected ? styles['checkbox--checked'] : ''}`}>
                                 {isAllSelected && <Check size={14} className={styles['checkbox-icon']} />}
@@ -546,10 +636,9 @@ export default function ApprovalListPage() {
                                 onClick={() => {
                                     const tStr = String(req.requesttype || '').toLowerCase();
                                     const dStr = String(req.requesttypedesc || '').toLowerCase();
-                                    const isFerry = tStr.includes('ferry') || dStr.includes('ferry') || 
+                                    const isFerry = tStr.includes('ferry') || dStr.includes('ferry') ||
                                                     tStr.includes('hr complaint') || dStr.includes('hr complaint') ||
                                                     tStr.includes('hrcomplaint') || dStr.includes('hrcomplaint');
-                                                    
                                     if (isFerry) {
                                         navigate(`/ferry_approval/${req.syskey}`, { state: { item: req } });
                                     } else {
@@ -557,7 +646,8 @@ export default function ApprovalListPage() {
                                     }
                                 }}
                             >
-                                {activeStatus === RequestStatus.Pending && (
+                                {/* Checkbox — hidden if the logged-in user already approved their step */}
+                                {String(req.requeststatus) === '1' && !isAlreadyApprovedByMe(req) && (
                                     <div className={styles['checkbox-wrapper']} onClick={(e) => toggleSelect(String(req.syskey), e)}>
                                         <div className={`${styles['checkbox']} ${selectedKeys.has(String(req.syskey)) ? styles['checkbox--checked'] : ''}`}>
                                             {selectedKeys.has(String(req.syskey)) && <Check size={14} className={styles['checkbox-icon']} />}
@@ -565,29 +655,24 @@ export default function ApprovalListPage() {
                                     </div>
                                 )}
 
-                                <div
-                                    className={styles['approval-page__card-icon']}
-                                    style={{ background: bg, color }}
-                                >
-                                    <Icon size={20} />
+                                {/* Type icon */}
+                                <div className={styles['approval-page__card-icon']} style={{ background: bg, color }}>
+                                    <Icon size={18} />
                                 </div>
 
+                                {/* Body: name / meta / ticker */}
                                 <div className={styles['approval-page__card-body']}>
                                     <div className={styles['approval-page__card-top']}>
-                                        <span className={styles['approval-page__card-name']}>
-                                            {reqName}
-                                        </span>
+                                        <span className={styles['approval-page__card-name']}>{reqName}</span>
                                         {typeDesc && (
-                                            <span
-                                                className={styles['approval-page__card-type']}
-                                                style={{ color, background: bg }}
-                                            >
-                                                {typeDesc}
-                                                {subTypeDesc ? ` · ${subTypeDesc}` : ''}
+                                            <span className={styles['approval-page__card-type']} style={{ color, background: bg }}>
+                                                {typeDesc}{subTypeDesc ? ` · ${subTypeDesc}` : ''}
                                             </span>
                                         )}
                                     </div>
+
                                     <div className={styles['approval-page__card-meta']}>
+                                        <Calendar size={10} className={styles['meta-icon']} />
                                         <span>{displayDate(req.startdate || req.date)}</span>
                                         {req.enddate && req.enddate !== req.startdate && (
                                             <>
@@ -598,19 +683,58 @@ export default function ApprovalListPage() {
                                         {req.eid && (
                                             <>
                                                 <span className={styles['approval-page__card-sep']}>·</span>
+                                                <Hash size={9} className={styles['meta-icon']} />
                                                 <span>{req.eid}</span>
                                             </>
                                         )}
                                     </div>
+
+                                    {/* ── Ticker inside body ── */}
+                                    {(() => {
+                                        const steps: StepLevelData[] = (req as any).stepLevelData || [];
+                                        if (!steps.length) return null;
+                                        const getStepConfig = (status: number) => {
+                                            switch (status) {
+                                                case 2: return { cls: styles['step-pill--approved'], icon: styles['step-circle--approved'], Icon: Check,       label: 'Approved' };
+                                                case 3: return { cls: styles['step-pill--rejected'], icon: styles['step-circle--rejected'], Icon: X,           label: 'Rejected' };
+                                                case 1: return { cls: styles['step-pill--waiting'],  icon: styles['step-circle--waiting'],  Icon: Clock,        label: 'Waiting'  };
+                                                default: return { cls: styles['step-pill--upcoming'], icon: styles['step-circle--upcoming'], Icon: ChevronRight, label: 'Upcoming' };
+                                            }
+                                        };
+                                        return (
+                                            <div className={styles['step-ticker']} onClick={(e) => e.stopPropagation()}>
+                                                {steps.map((step, si) => {
+                                                    const { cls, icon, Icon: StepIcon } = getStepConfig(step.status);
+                                                    const isLast = si === steps.length - 1;
+                                                    return (
+                                                        <div key={si} className={styles['step-ticker__entry']}>
+                                                            <div className={`${styles['step-pill']} ${cls}`}>
+                                                                <div className={`${styles['step-circle']} ${icon}`}>
+                                                                    <StepIcon size={7} />
+                                                                </div>
+                                                                <span className={styles['step-pill__name']}>
+                                                                    {step.rankrole_specificperson || `Level ${step.level}`}
+                                                                </span>
+                                                            </div>
+                                                            {!isLast && (
+                                                                <div className={`${styles['step-ticker__arrow']} ${step.status === 2 ? styles['step-ticker__arrow--done'] : ''}`}>
+                                                                    <ChevronRight size={10} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
 
+                                {/* Right: status + ref */}
                                 <div className={styles['approval-page__card-right']}>
                                     <StatusBadge status={req.requeststatus} />
-                                    {req.refno ? (
-                                        <span className={styles['approval-page__card-ref']}>
-                                            #{req.refno}
-                                        </span>
-                                    ) : null}
+                                    {req.refno && (
+                                        <span className={styles['approval-page__card-ref']}>#{req.refno}</span>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -635,7 +759,7 @@ export default function ApprovalListPage() {
                 <div className={styles['bulk-actions-btns']}>
                     <button
                         className={`${styles['bulk-btn']} ${styles['bulk-btn--approve']}`}
-                        onClick={() => multiApproveMutation.mutate({ status: '2' })}
+                        onClick={() => handleBulkAction('2')}
                         disabled={multiApproveMutation.isPending}
                     >
                         {multiApproveMutation.isPending ? <RotateCcw size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
@@ -643,7 +767,7 @@ export default function ApprovalListPage() {
                     </button>
                     <button
                         className={`${styles['bulk-btn']} ${styles['bulk-btn--reject']}`}
-                        onClick={() => multiApproveMutation.mutate({ status: '3' })}
+                        onClick={() => handleBulkAction('3')}
                         disabled={multiApproveMutation.isPending}
                     >
                         {multiApproveMutation.isPending ? <RotateCcw size={14} className="animate-spin" /> : <XCircle size={14} />}

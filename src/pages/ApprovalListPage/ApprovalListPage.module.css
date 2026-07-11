@@ -254,10 +254,10 @@
     background: var(--color-neutral-0);
     border: 1px solid var(--color-neutral-100);
     border-radius: var(--radius-xl);
-    padding: var(--space-4) var(--space-5);
+    padding: var(--space-3) var(--space-4);
     display: flex;
-    align-items: center;
-    gap: var(--space-4);
+    align-items: flex-start;
+    gap: var(--space-3);
     transition: all var(--transition-fast);
     cursor: pointer;
     animation: slideUp 0.35s ease-out both;
@@ -269,15 +269,23 @@
     transform: translateY(-2px);
 }
 
+.approval-page__card--selected {
+    border-color: var(--color-primary-300);
+    background: var(--color-primary-50);
+    box-shadow: 0 0 0 2px var(--color-primary-200);
+}
+
 .approval-page__card-icon {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-lg);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     transition: transform var(--transition-fast);
+    align-self: flex-start;
+    margin-top: 2px;
 }
 
 .approval-page__card:hover .approval-page__card-icon {
@@ -287,6 +295,9 @@
 .approval-page__card-body {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 
 .approval-page__card-top {
@@ -294,7 +305,6 @@
     align-items: center;
     gap: var(--space-2);
     flex-wrap: wrap;
-    margin-bottom: 4px;
 }
 
 .approval-page__card-name {
@@ -317,8 +327,13 @@
     color: var(--color-neutral-500);
     display: flex;
     align-items: center;
-    gap: var(--space-1);
+    gap: 4px;
     flex-wrap: wrap;
+}
+
+.meta-icon {
+    color: var(--color-neutral-400);
+    flex-shrink: 0;
 }
 
 .approval-page__card-sep {
@@ -332,6 +347,7 @@
     align-items: flex-end;
     gap: var(--space-1);
     flex-shrink: 0;
+    align-self: flex-start;
 }
 
 .approval-page__card-ref {
@@ -635,9 +651,129 @@
     }
 }
 
+/* ── Card inner row (main content row, sits above the stepper) ── */
+.approval-page__card-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    width: 100%;
+}
+
+/* ══════════════════════════════════════════════════════
+   Horizontal Ticker Stepper  (pill + arrow)
+   ══════════════════════════════════════════════════════ */
+
+/* Outer wrapper — lives inside card-body, no border */
+.step-ticker {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0;
+    margin-top: 4px;
+    scrollbar-width: none;
+}
+.step-ticker::-webkit-scrollbar { display: none; }
+
+/* Entry = pill + optional arrow, side by side */
+.step-ticker__entry {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* ── Pill: circle + name ── */
+.step-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px 2px 3px;
+    border-radius: var(--radius-full);
+    border: 0.3px solid transparent;
+    transition: opacity 0.15s;
+}
+
+/* Status colour variants */
+.step-pill--approved {
+    background: transparent;
+    border-color: var(--color-success-400);
+}
+.step-pill--rejected {
+    background: transparent;
+    border-color: var(--color-danger-400);
+}
+.step-pill--waiting {
+    background: transparent;
+    border-color: #f97316;
+}
+.step-pill--upcoming {
+    background: transparent;
+    border-color: var(--color-neutral-300);
+}
+
+/* ── Status circle (left side of pill) ── */
+.step-circle {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.step-circle--approved {
+    background: var(--color-success-500);
+    color: #fff;
+}
+.step-circle--rejected {
+    background: var(--color-danger-500);
+    color: #fff;
+}
+.step-circle--waiting {
+    background: #f97316;
+    color: #fff;
+}
+.step-circle--upcoming {
+    background: var(--color-neutral-200);
+    color: var(--color-neutral-500);
+    border: 1.5px solid var(--color-neutral-300);
+}
+
+/* ── Person name (right of circle) ── */
+.step-pill__name {
+    font-size: 11px;
+    font-weight: var(--font-medium);
+    color: var(--color-neutral-700);
+    white-space: nowrap;
+    line-height: 1;
+}
+
+/* Dim upcoming steps slightly */
+.step-pill--upcoming .step-pill__name {
+    color: var(--color-neutral-400);
+}
+
+/* ── Arrow connector between pills ── */
+.step-ticker__arrow {
+    display: flex;
+    align-items: center;
+    color: var(--color-neutral-300);
+    flex-shrink: 0;
+    margin: 0 1px;
+}
+
+.step-ticker__arrow--done {
+    color: var(--color-success-400);
+}
+
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
-    .approval-page__card {
+    .approval-page__card-row {
         flex-direction: column;
         align-items: flex-start;
         gap: var(--space-3);
