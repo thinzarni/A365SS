@@ -675,7 +675,7 @@
 
 .insightsSection {
     display: grid;
-    grid-template-columns: 1.1fr 1.2fr;
+    grid-template-columns: 1fr 1fr;
     gap: 16px;
     margin-top: 20px;
     align-items: stretch;
