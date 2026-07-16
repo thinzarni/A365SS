@@ -29,12 +29,14 @@ import {
     BarChart3,
     X,
     AlertTriangle,
+    Briefcase,
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
-import { ADMIN_MEMBER_LIST, ADMIN_CARD_DATA, USER_PROFILE, ATTENDANCE_EXCEPTIONS } from '../../config/api-routes';
+import { ADMIN_MEMBER_LIST, ADMIN_CARD_DATA, USER_PROFILE, ATTENDANCE_EXCEPTIONS, OT_RECORDS } from '../../config/api-routes';
 import styles from './DashboardPage.module.css';
 import AttendanceOverviewChart from '../../components/admin-attendance/AttendanceOverviewChart';
+import OvertimeAttendanceChart, { type OTRecordsData } from '../../components/admin-attendance/OvertimeAttendanceChart';
 import UserCard from '../../components/admin-attendance/UserCard';
 import apiClient from '../../lib/api-client';
 
@@ -148,7 +150,7 @@ function buildPairs(records: AttendanceRecord[]): InOutPair[] {
             }
             openIn = rec;
         } else if (Number(rec.type) === 602 && openIn) {
-            const inTime  = parseTimeStr(openIn.time);
+            const inTime = parseTimeStr(openIn.time);
             const outTime = parseTimeStr(rec.time);
             if (inTime && outTime && outTime.getTime() >= inTime.getTime()) {
                 // Accept OUT >= IN (same time = 0-min pair, still closed, not open)
@@ -270,7 +272,7 @@ function LiveHeader({ user, pairs }: LiveHeaderProps) {
     const activePair = pairs.length > 0 ? pairs[pairs.length - 1] : undefined;
     const pastPairs = pairs.length > 1 ? pairs.slice(0, -1) : [];
 
-    const timeIn  = activePair?.timeIn;
+    const timeIn = activePair?.timeIn;
     const timeOut = activePair?.timeOut;
     const isActive = activePair && !activePair.timeOut;
 
@@ -385,7 +387,7 @@ function LiveHeader({ user, pairs }: LiveHeaderProps) {
 export default function DashboardPage() {
     const { t, i18n } = useTranslation();
     const { user, userId, domain, setUser } = useAuthStore();
-    
+
     // Static date for API queries
     const [today] = useState(() => new Date());
     const [selectedStatus, setSelectedStatus] = useState<string>('0');
@@ -424,6 +426,26 @@ export default function DashboardPage() {
                     isPersonal: true
                 });
                 return res.data?.data ?? res.data ?? null;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 60_000,
+    });
+
+    // ── Fetch OT records ──
+    const { data: otData, isLoading: otLoading } = useQuery<OTRecordsData | null>({
+        queryKey: ['ot-records', todayStr],
+        queryFn: async () => {
+            try {
+                const res = await apiClient.post(OT_RECORDS, {
+                    fromdate: todayStr,
+                    todate: todayStr,
+                    userid: userId,
+                    domain: domain,
+                    isPersonal: true
+                });
+                return res.data?.data ?? null;
             } catch {
                 return null;
             }
@@ -814,6 +836,22 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </div>
+            </section>
+
+            {/* Spacer between sections */}
+            <div style={{ marginBottom: '2rem' }} />
+
+            {/* ───────────────── OVERTIME & ATTENDANCE SECTION ───────────────── */}
+            <section>
+                <div className={styles.sectionHeader}>
+                    <h2 className={styles.sectionTitle}>
+                        <Briefcase size={20} style={{ color: '#6366f1' }} />
+                        Overtime &amp; Attendance
+                    </h2>
+                    <span className={styles.monthLabel}>This Period</span>
+                </div>
+
+                <OvertimeAttendanceChart data={otData} isLoading={otLoading} />
             </section>
 
             {/* Spacer between sections */}
