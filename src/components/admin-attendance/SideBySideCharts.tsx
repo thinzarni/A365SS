@@ -217,11 +217,11 @@ interface SwipeExceptionChartProps {
 
 export const SwipeExceptionBarChart: React.FC<SwipeExceptionChartProps> = ({ data, isLoading }) => {
     const chartData = [
-        { name: 'Total', value: data?.total ?? 0, color: '#f59e0b' },
+        { name: 'Total', value: data?.total ?? 0, color: '#33b5ff' },
         { name: 'Miss. In', value: data?.missingIn ?? 0, color: '#ef4444' },
-        { name: 'Miss. Out', value: data?.missingOut ?? 0, color: '#f97316' },
-        { name: 'Absent', value: data?.absent ?? 0, color: '#8b5cf6' },
-        { name: 'Overlap', value: data?.swipeOverlapWithLeave ?? 0, color: '#0ea5e9' },
+        { name: 'Miss. Out', value: data?.missingOut ?? 0, color: '#9d0b93ff' },
+        { name: 'Absent', value: data?.absent ?? 0, color: '#ff9f0a' },
+        { name: 'Overlap', value: data?.swipeOverlapWithLeave ?? 0, color: '#ffee00ff' },
         { name: 'Odd Swipes', value: data?.oddSwipes ?? 0, color: '#10b981' },
     ];
 
