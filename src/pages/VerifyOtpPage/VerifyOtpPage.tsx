@@ -35,7 +35,7 @@ export default function VerifyOtpPage() {
     const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
     const otp = digits.join('');
-    const isEmail = (state?.userId || '').includes('@');
+    // const isEmail = (state?.userId || '').includes('@');
 
     /* ── OTP Input helpers ── */
     const handleDigitChange = (idx: number, val: string) => {
@@ -165,12 +165,12 @@ export default function VerifyOtpPage() {
                 setUser({ name: userId, domainName, usersyskey, role } as any);
 
                 // Non-blocking profile fetch
-                try {
-                    const { default: apiClient } = await import('../../lib/api-client');
-                    const profileRes = await apiClient.get('/api/employees/profile');
-                    const profile = profileRes.data?.datalist || profileRes.data?.data;
-                    if (profile) setUser(profile);
-                } catch { /* non-blocking */ }
+                // try {
+                //     const { default: apiClient } = await import('../../lib/api-client');
+                //     const profileRes = await apiClient.get('/api/employees/profile');
+                //     const profile = profileRes.data?.datalist || profileRes.data?.data;
+                //     if (profile) setUser(profile);
+                // } catch { /* non-blocking */ }
 
                 navigate('/dashboard', { replace: true });
             }

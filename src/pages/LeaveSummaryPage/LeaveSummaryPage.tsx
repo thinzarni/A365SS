@@ -1,13 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Palmtree, Stethoscope, Baby, HeartPulse, GraduationCap, Briefcase, CalendarDays, ArrowLeft } from 'lucide-react';
-import { StatusBadge } from '../../components/ui/Badge/Badge';
-import type { RequestModel } from '../../types/models';
+import { Palmtree, CalendarDays, ArrowLeft } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 import mainClient from '../../lib/main-client';
-import { LEAVE_SUMMARY, LEAVE_LIST, TEAM_LEAVE_SUMMARY } from '../../config/api-routes';
-import { displayDate } from '../../lib/date-utils';
+import { LEAVE_SUMMARY, TEAM_LEAVE_SUMMARY } from '../../config/api-routes';
 import styles from './LeaveSummaryPage.module.css';
 import '../../styles/pages.css';
 
@@ -15,18 +12,18 @@ import '../../styles/pages.css';
    Card colours — cycled per leave type
    ══════════════════════════════════════════════════════════════ */
 
-const CARD_STYLES = [
-    { accent: '#2563eb', bg: '#eff6ff', Icon: Palmtree },
-    { accent: '#059669', bg: '#ecfdf5', Icon: Stethoscope },
-    { accent: '#d97706', bg: '#fef3c7', Icon: Baby },
-    { accent: '#9333ea', bg: '#faf5ff', Icon: HeartPulse },
-    { accent: '#0891b2', bg: '#ecfeff', Icon: GraduationCap },
-    { accent: '#ea580c', bg: '#fff7ed', Icon: Briefcase },
-];
+// const CARD_STYLES = [
+//     { accent: '#2563eb', bg: '#eff6ff', Icon: Palmtree },
+//     { accent: '#059669', bg: '#ecfdf5', Icon: Stethoscope },
+//     { accent: '#d97706', bg: '#fef3c7', Icon: Baby },
+//     { accent: '#9333ea', bg: '#faf5ff', Icon: HeartPulse },
+//     { accent: '#0891b2', bg: '#ecfeff', Icon: GraduationCap },
+//     { accent: '#ea580c', bg: '#fff7ed', Icon: Briefcase },
+// ];
 
-function getCardStyle(index: number) {
-    return CARD_STYLES[index % CARD_STYLES.length];
-}
+// function getCardStyle(index: number) {
+//     return CARD_STYLES[index % CARD_STYLES.length];
+// }
 
 /* ══════════════════════════════════════════════════════════════
    Leave balance item — shape from GET hxm/leave/totalleavetaken
@@ -39,9 +36,9 @@ interface LeaveBalanceItem {
 
 /* ══════════════════════════════════════════════════════════════ */
 
-function toApiDate(d: Date): string {
-    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-}
+// function toApiDate(d: Date): string {
+//     return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+// }
 
 export default function LeaveSummaryPage() {
     const { t } = useTranslation();
@@ -98,21 +95,21 @@ export default function LeaveSummaryPage() {
     const leaveBalances = summaryData?.datalist ?? [];
 
     /* ── Leave history (POST — only for own user, not team member) ── */
-    const { data: leaveHistory = [], isLoading: loadingHistory } = useQuery<RequestModel[]>({
-        queryKey: ['leaveHistorySummary'],
-        queryFn: async () => {
-            const now = new Date();
-            const from = new Date(now.getFullYear(), 0, 1); // Jan 1
-            const to = new Date(now.getFullYear(), 11, 31); // Dec 31
-            const res = await apiClient.post(LEAVE_LIST, {
-                fromdate: toApiDate(from),
-                todate: toApiDate(to),
-                status: '4', // all statuses
-            });
-            return res.data?.datalist || [];
-        },
-        enabled: !isTeamMember, // Only fetch leave history for own user
-    });
+    // const { data: leaveHistory = [], isLoading: loadingHistory } = useQuery<RequestModel[]>({
+    //     queryKey: ['leaveHistorySummary'],
+    //     queryFn: async () => {
+    //         const now = new Date();
+    //         const from = new Date(now.getFullYear(), 0, 1); // Jan 1
+    //         const to = new Date(now.getFullYear(), 11, 31); // Dec 31
+    //         const res = await apiClient.post(LEAVE_LIST, {
+    //             fromdate: toApiDate(from),
+    //             todate: toApiDate(to),
+    //             status: '4', // all statuses
+    //         });
+    //         return res.data?.datalist || [];
+    //     },
+    //     enabled: !isTeamMember, // Only fetch leave history for own user
+    // });
 
     /* ═══════════════════════════ Render ═══════════════════════ */
 
@@ -172,54 +169,40 @@ export default function LeaveSummaryPage() {
                     </div>
 
                     {/* Balance cards */}
-                    <div className={styles['leave-cards']}>
-                        {leaveBalances.map((item, i) => {
-                            const style = getCardStyle(i);
-                            const used = Number(item.usedleave) || 0;
-                            const balance = Number(item.balancedleave) || 0;
-                            const remaining = balance - used;
-                            const usedPct = balance > 0 ? (used / balance) * 100 : 0;
+                    {/* Leave Balance List */}
+<div className={styles['leave-list']}>
+    {leaveBalances.map((item, i) => {
+        const used = Number(item.usedleave) || 0;
+        const balance = Number(item.balancedleave) || 0;
 
-                            return (
-                                <div key={i} className={styles['leave-card']}>
-                                    <div className={styles['leave-card__accent']} style={{ background: style.accent }} />
-                                    <div className={styles['leave-card__header']}>
-                                        <div className={styles['leave-card__icon']} style={{ background: style.bg, color: style.accent }}>
-                                            <style.Icon size={20} />
-                                        </div>
-                                        <span className={styles['leave-card__name']}>{item.leavetype}</span>
-                                    </div>
+        return (
+            <div key={i} className={styles['leave-list__item']}>
+                <div className={styles['leave-list__left']}>
+                    <span className={styles['leave-list__name']}>
+                        {item.leavetype}
+                    </span>
+                </div>
 
-                                    <div className={styles['leave-card__progress']}>
-                                        <div
-                                            className={styles['leave-card__progress-fill']}
-                                            style={{ width: `${Math.min(usedPct, 100)}%`, background: style.accent }}
-                                        />
-                                    </div>
-
-                                    <div className={styles['leave-card__stats']}>
-                                        <div className={styles['leave-card__stat']}>
-                                            <span className={styles['leave-card__stat-value']}>{balance}</span>
-                                            <span className={styles['leave-card__stat-label']}>{t('leave.balance')}</span>
-                                        </div>
-                                        <div className={styles['leave-card__stat']}>
-                                            <span className={styles['leave-card__stat-value']}>{used}</span>
-                                            <span className={styles['leave-card__stat-label']}>{t('leave.used')}</span>
-                                        </div>
-                                        <div className={styles['leave-card__stat']}>
-                                            <span className={styles['leave-card__stat-value']}>{remaining >= 0 ? remaining : 0}</span>
-                                            <span className={styles['leave-card__stat-label']}>{t('leave.remaining')}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                <div className={styles['leave-list__right']}>
+                    <span className={styles['leave-list__used']}>
+                        {used}
+                    </span>
+                    <span className={styles['leave-list__separator']}>
+                        /
+                    </span>
+                    <span className={styles['leave-list__balance']}>
+                        {balance}
+                    </span>
+                </div>
+            </div>
+        );
+    })}
+</div>
                 </>
             )}
 
             {/* ── Leave history table (only for own user) ── */}
-            {!isTeamMember && (
+            {/* {!isTeamMember && (
                 <div className={styles['leave-history']}>
                     <div className={styles['leave-history__header']}>
                         <h3 className={styles['leave-history__title']}>Leave History</h3>
@@ -263,7 +246,7 @@ export default function LeaveSummaryPage() {
                         </table>
                     )}
                 </div>
-            )}
+            )} */}
         </div>
     );
 }

@@ -30,7 +30,6 @@ import {
     USER_PROFILE_BY_ID,
     FILE_GENERATE_UPLOAD_URL,
     FILE_STREAM_UPLOAD,
-    FILE_DIRECT_DOWNLOAD,
     FILE_DOWNLOAD,
     FILE_UPLOAD_EDUCATION,
 } from '../../config/api-routes';
@@ -2476,9 +2475,8 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     const save = async () => {
         // Delete flow via form toggle
         if (form.isdelete && editingId) {
-            console.log(form);
 
-            if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
+            // if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
             const isCurrent = records.current.some(r => r.id === editingId);
             const pendingRecord = records.pending.find(p => p.id === editingId);
             let updatedPending: FamilyMember[];
@@ -2512,7 +2510,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
         }
 
         if (!form.name) { toast.error(t('profile.family.reqName')); return; }
-        if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
+        // if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
 
         const isUpdate = !!editingId;
         const newRecord = { ...form };
@@ -2798,7 +2796,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                             )}
                         </> 
                     )} */}
-                    <FormRow label={editingId && form.attachment ? t('profile.family.attachment') : `${t('profile.family.attachment')} *`}>
+                    <FormRow label={editingId && form.attachment ? t('profile.family.attachment') : `${t('profile.family.attachment')}`}>
                         {/* Show existing attachment when editing */}
                         {editingId && (form.attachmentKey || form.attachment) && (() => {
                             return (
@@ -2845,6 +2843,9 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                 }
                             }}
                         />
+                        <p className={styles.fileHint}>
+    Accepted file types: PDF, Word (.docx), JPG, PNG • Maximum file size: 2 MB
+</p>
                         {form.attachment && <p className={styles.fileHint}>Selected: {form.attachment}</p>}
                     </FormRow>
 

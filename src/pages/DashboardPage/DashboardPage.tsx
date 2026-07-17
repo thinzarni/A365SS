@@ -7,7 +7,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
     Clock,
     LogIn,
@@ -417,6 +417,8 @@ export default function DashboardPage() {
     const monthName = today.toLocaleDateString(i18n.language === 'my-MM' ? 'my-MM' : 'en-US', { month: 'long', year: 'numeric' });
     const isLoading = summaryLoading || homeLoading || adminLoading;
 
+    const navigate = useNavigate();
+
     // ── Loading state ──
     if (isLoading) {
         return (
@@ -496,6 +498,7 @@ export default function DashboardPage() {
                     <div
                         className={styles.statCard}
                         style={{ '--stat-color': '#ea580c', '--stat-bg': '#fff7ed' } as React.CSSProperties}
+                        onClick={() => navigate('/leave-summary')}
                     >
                         <div className={styles.statIcon}><TreePalm size={20} /></div>
                         <div className={styles.statValue}>
