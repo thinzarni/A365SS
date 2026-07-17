@@ -32,7 +32,7 @@ import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
 import { TEAM_BY_ID, TEAM_LIST, MENU_ITEMS } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
-import type { TeamMember } from '../../types/models';
+import type { TeamMember, CheckInConfig } from '../../types/models';
 import { getStatusInfo, getInitials, mapRawMember, checkTeamAccess } from './team-utils';
 import styles from './TeamDetailView.module.css';
 import '../../styles/pages.css';
@@ -75,7 +75,7 @@ export default function TeamDetailView() {
     const { userId } = useAuthStore();
 
     // ── System Config Query ──
-    const { data: configData } = useQuery({
+    const { data: configData } = useQuery<CheckInConfig | null>({
         queryKey: ['checkin-config'],
         queryFn: async () => {
             const res = await mainClient.post('api/checkin/config', {

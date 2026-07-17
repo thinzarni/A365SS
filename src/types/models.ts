@@ -289,6 +289,8 @@ export interface LeaveType {
   used?: number;
   remaining?: number;
   approvaltype?: string | number;
+  ishandoverflag?: boolean;
+  handovertype?: number;
 }
 
 export interface SubstituteLeaveDay {
@@ -442,4 +444,64 @@ export interface LeaveSummaryItem {
   usedDays: number;
   remainingDays: number;
   pendingDays: number;
+}
+
+export interface AllowedDateRange {
+  timeInOut: number;
+  activity: number;
+  checkIn: number;
+}
+
+export interface EnableReminders {
+  timeout: string;
+  timein: string;
+}
+
+export interface ReminderConfig {
+  reminderFlag: number;
+  enableReminders: EnableReminders;
+}
+
+export interface RemoteNotApprovalDepartment {
+  syskey: string;
+}
+
+export interface LeavePolicyConfig {
+  leavesk: string;
+  ishandoverflag: boolean;
+  handovertype: number;
+}
+
+export interface TopicNames {
+  notitopic: string;
+}
+
+export interface CheckInConfig {
+  allowBackdate: boolean;
+  allowedDateRange: AllowedDateRange;
+  serverLog: boolean;
+  reminder: ReminderConfig;
+  selfieConfig: number;
+  qrConfig: number;
+  mobilecardview: number;
+  attendance: number;
+  qrtime: string;
+  enablelocation: boolean;
+  qrwebview: number;
+  socialpost: boolean;
+  chat: boolean;
+  timeInOutDesc: number;
+  checkInDesc: number;
+  remotetimeinout: number;
+  backdatetimeinout: number;
+  backdateTimeinoutrange: AllowedDateRange;
+  locationregister: number;
+  remotenotapprovaldepartment: RemoteNotApprovalDepartment[];
+  leavepolicy: LeavePolicyConfig[];
+  organizationchat: string;
+  teammemberprofile: number;
+  otbyday: number;
+  otbyhour: number;
+  topicnames: TopicNames;
+  dailyattendance: number;
 }

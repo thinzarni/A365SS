@@ -31,9 +31,11 @@ import {
 } from 'lucide-react';
 import mainClient from '../../lib/main-client';
 import { useAuthStore } from '../../stores/auth-store';
-import { ADMIN_MEMBER_LIST, ADMIN_CARD_DATA, USER_PROFILE } from '../../config/api-routes';
+import { ADMIN_MEMBER_LIST, ADMIN_CARD_DATA, USER_PROFILE, ATTENDANCE_EXCEPTIONS, OT_RECORDS } from '../../config/api-routes';
 import styles from './DashboardPage.module.css';
 import AttendanceOverviewChart from '../../components/admin-attendance/AttendanceOverviewChart';
+import { OTBarChart, SwipeExceptionBarChart, type OTRecordsData } from '../../components/admin-attendance/SideBySideCharts';
+import sideBySideStyles from '../../components/admin-attendance/SideBySideCharts.module.css';
 import UserCard from '../../components/admin-attendance/UserCard';
 import apiClient from '../../lib/api-client';
 
@@ -109,38 +111,98 @@ function getAttTypeName(type: number): { label: string; color: string; dot: stri
     }
 }
 
-function calcWorkingHours(records: AttendanceRecord[]): string {
-    const timeEntries = records
-        .filter(r => r.type === 601 || r.type === 602)
-        .sort((a, b) => a.time.localeCompare(b.time));
+/* ── In/Out Pair ── */
+interface InOutPair {
+    index: number;        // pair number (1-based)
+    timeIn: AttendanceRecord;
+    timeOut?: AttendanceRecord;  // undefined = still active
+    durationMins: number; // minutes for this pair (0 if active/open)
+}
 
-    let totalMinutes = 0;
-    let lastIn: Date | null = null;
+/**
+ * Build chronological In/Out pairs from attendance records.
+ * Rules:
+ *   - Sort all 601/602 by time ascending.
+ *   - Greedily match: a 602 closes the nearest preceding 601
+ *     ONLY if the 602 time is strictly AFTER the 601 time.
+ *   - Orphan 602s (no preceding open 601, or time <= IN) are skipped.
+ */
+function buildPairs(records: AttendanceRecord[]): InOutPair[] {
+    const sorted = [...records]
+        .filter(r => Number(r.type) === 601 || Number(r.type) === 602)
+        .sort((a, b) => {
+            const ta = parseTimeStr(a.time);
+            const tb = parseTimeStr(b.time);
+            if (!ta || !tb) return 0;
+            return ta.getTime() - tb.getTime();
+        });
 
-    for (const entry of timeEntries) {
-        const dt = parseTimeStr(entry.time);
-        if (!dt) continue;
-        if (entry.type === 601) {
-            lastIn = dt;
-        } else if (entry.type === 602 && lastIn) {
-            const diff = dt.getTime() - lastIn.getTime();
-            if (diff > 0) totalMinutes += diff / 60000;
-            lastIn = null;
+    const pairs: InOutPair[] = [];
+    let openIn: AttendanceRecord | null = null;
+    let pairIdx = 1;
+
+    for (const rec of sorted) {
+        if (Number(rec.type) === 601) {
+            // New time-in: if there's an unclosed pair, close it as active first
+            if (openIn) {
+                pairs.push({ index: pairIdx++, timeIn: openIn, durationMins: 0 });
+            }
+            openIn = rec;
+        } else if (Number(rec.type) === 602 && openIn) {
+            const inTime = parseTimeStr(openIn.time);
+            const outTime = parseTimeStr(rec.time);
+            if (inTime && outTime && outTime.getTime() >= inTime.getTime()) {
+                // Accept OUT >= IN (same time = 0-min pair, still closed, not open)
+                const mins = (outTime.getTime() - inTime.getTime()) / 60000;
+                pairs.push({ index: pairIdx++, timeIn: openIn, timeOut: rec, durationMins: mins });
+                openIn = null;
+            }
+            // else: OUT strictly before IN → skip orphan OUT
         }
     }
 
-    // If last is time-in, count until now
-    if (lastIn) {
-        const now = new Date();
-        const ref = new Date(lastIn);
-        ref.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
-        const diff = now.getTime() - ref.getTime();
-        if (diff > 0) totalMinutes += diff / 60000;
+    // Trailing open IN (still clocked in)
+    if (openIn) {
+        pairs.push({ index: pairIdx, timeIn: openIn, durationMins: 0 });
     }
 
+    return pairs;
+}
+
+/** Format minutes as HH:MM */
+function fmtMins(totalMinutes: number): string {
     const h = Math.floor(totalMinutes / 60);
     const m = Math.floor(totalMinutes % 60);
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/**
+ * Total net working time = sum of each IN→OUT pair duration.
+ * For the active open pair (no OUT yet), adds time from that IN to now.
+ * Breaks between sessions are NOT counted.
+ *   e.g. 08:00–12:00 (4h) + 01:00–06:00 (5h) = 09:00, not 10:00
+ */
+function calcTotalWorkingHours(pairs: InOutPair[], now: Date): string {
+    if (pairs.length === 0) return '00:00';
+
+    let totalMins = 0;
+
+    for (const pair of pairs) {
+        if (pair.timeOut) {
+            // Completed pair — fixed duration (OUT - IN), does NOT tick
+            totalMins += pair.durationMins;
+        } else {
+            // Open pair (no OUT yet) — count from IN to NOW (ticks every second)
+            const inTime = parseTimeStr(pair.timeIn.time);
+            if (inTime) {
+                inTime.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
+                const diff = now.getTime() - inTime.getTime();
+                if (diff > 0) totalMins += diff / 60000;
+            }
+        }
+    }
+
+    return fmtMins(totalMins);
 }
 
 function parseTimeStr(t: string): Date | null {
@@ -182,14 +244,14 @@ const STATUS_LABELS: Record<string, string> = {
 /* ── Live Header Component ── */
 interface LiveHeaderProps {
     user: any;
-    timeIn?: AttendanceRecord;
-    timeOut?: AttendanceRecord;
-    workingHours: string;
+    pairs: InOutPair[];
+    // workingHours is computed internally using the live clock
 }
 
-function LiveHeader({ user, timeIn, timeOut, workingHours }: LiveHeaderProps) {
+function LiveHeader({ user, pairs }: LiveHeaderProps) {
     const { t, i18n } = useTranslation();
     const [now, setNow] = useState(new Date());
+    const [showHistory, setShowHistory] = useState(false);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 1000);
@@ -204,6 +266,17 @@ function LiveHeader({ user, timeIn, timeOut, workingHours }: LiveHeaderProps) {
         month: 'long',
         day: 'numeric',
     });
+
+    // Latest pair = current active session (last in list)
+    const activePair = pairs.length > 0 ? pairs[pairs.length - 1] : undefined;
+    const pastPairs = pairs.length > 1 ? pairs.slice(0, -1) : [];
+
+    const timeIn = activePair?.timeIn;
+    const timeOut = activePair?.timeOut;
+    const isActive = activePair && !activePair.timeOut;
+
+    // Recompute every second using the live `now` — ticks for open sessions
+    const workingHours = calcTotalWorkingHours(pairs, now);
 
     return (
         <>
@@ -221,11 +294,17 @@ function LiveHeader({ user, timeIn, timeOut, workingHours }: LiveHeaderProps) {
                 </div>
             </section>
 
+            {/* ── Active Session Clock Cards ── */}
             <section className={styles.clockRow}>
                 <div className={styles.clockCard}>
                     <div className={styles.clockLabel}>
                         <LogIn size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                         {t('dashboard.timeIn')}
+                        {pairs.length > 1 && (
+                            <span style={{ marginLeft: 6, fontSize: 10, background: '#e0e7ff', color: '#4338ca', borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>
+                                #{activePair?.index}
+                            </span>
+                        )}
                     </div>
                     <div className={`${styles.clockValue} ${!timeIn ? styles.dimmed : ''}`}>
                         {timeIn?.time || liveTime.slice(0, -3)}
@@ -257,10 +336,48 @@ function LiveHeader({ user, timeIn, timeOut, workingHours }: LiveHeaderProps) {
                         {workingHours}
                     </div>
                     <span className={`${styles.clockTag} ${styles.tagHours}`}>
-                        {timeIn && !timeOut ? t('dashboard.inProgress') : timeOut ? t('dashboard.complete') : t('dashboard.idle')}
+                        {isActive ? t('dashboard.inProgress') : timeOut ? t('dashboard.complete') : t('dashboard.idle')}
                     </span>
                 </div>
             </section>
+
+            {/* ── Session History ── */}
+            {pastPairs.length > 0 && (
+                <div className={styles.sessionHistoryWrap}>
+                    <button
+                        className={styles.sessionHistoryToggle}
+                        onClick={() => setShowHistory(v => !v)}
+                    >
+                        <Activity size={13} style={{ marginRight: 5 }} />
+                        {pastPairs.length} previous session{pastPairs.length > 1 ? 's' : ''} today
+                        <span className={styles.sessionToggleArrow} style={{ transform: showHistory ? 'rotate(90deg)' : 'rotate(0deg)' }}>›</span>
+                    </button>
+
+                    {showHistory && (
+                        <div className={styles.sessionTimeline}>
+                            {pastPairs.map(pair => (
+                                <div key={pair.index} className={styles.sessionPill}>
+                                    <span className={styles.sessionPillNum}>#{pair.index}</span>
+                                    <span className={styles.sessionPillIn}>
+                                        <LogIn size={11} style={{ marginRight: 3, opacity: 0.7 }} />
+                                        {pair.timeIn.time}
+                                    </span>
+                                    <span className={styles.sessionPillArrow}>→</span>
+                                    <span className={styles.sessionPillOut}>
+                                        <LogOut size={11} style={{ marginRight: 3, opacity: 0.7 }} />
+                                        {pair.timeOut?.time ?? '...'}
+                                    </span>
+                                    {pair.durationMins > 0 && (
+                                        <span className={styles.sessionPillDur}>
+                                            {fmtMins(pair.durationMins)}
+                                        </span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </>
     );
 }
@@ -269,7 +386,7 @@ function LiveHeader({ user, timeIn, timeOut, workingHours }: LiveHeaderProps) {
 export default function DashboardPage() {
     const { t, i18n } = useTranslation();
     const { user, userId, domain, setUser } = useAuthStore();
-    
+
     // Static date for API queries
     const [today] = useState(() => new Date());
     const [selectedStatus, setSelectedStatus] = useState<string>('0');
@@ -308,6 +425,43 @@ export default function DashboardPage() {
                     isPersonal: true
                 });
                 return res.data?.data ?? res.data ?? null;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 60_000,
+    });
+
+    // ── Fetch OT records ──
+    const { data: otData, isLoading: otLoading } = useQuery<OTRecordsData | null>({
+        queryKey: ['ot-records', todayStr],
+        queryFn: async () => {
+            try {
+                const res = await apiClient.post(OT_RECORDS, {
+                    fromdate: todayStr,
+                    todate: todayStr,
+                    userid: userId,
+                    domain: domain,
+                    isPersonal: true
+                });
+                return res.data?.data ?? null;
+            } catch {
+                return null;
+            }
+        },
+        staleTime: 60_000,
+    });
+
+    // ── Fetch attendance exceptions ──
+    const { data: exceptionData, isLoading: exceptionLoading } = useQuery({
+        queryKey: ['attendance-exceptions', todayStr],
+        queryFn: async () => {
+            try {
+                const res = await apiClient.post(ATTENDANCE_EXCEPTIONS, {
+                    fromdate: todayStr,
+                    todate: todayStr,
+                });
+                return res.data?.data ?? null;
             } catch {
                 return null;
             }
@@ -410,9 +564,7 @@ export default function DashboardPage() {
         return list.filter(r => [601, 602, 603, 604].includes(Number(r.type)));
     }, [homeData]);
 
-    const timeIn = useMemo(() => records.find(r => r.type === 601), [records]);
-    const timeOut = useMemo(() => records.find(r => r.type === 602), [records]);
-    const workingHours = useMemo(() => calcWorkingHours(records), [records]);
+    const pairs = useMemo(() => buildPairs(records), [records]);
 
     const monthName = today.toLocaleDateString(i18n.language === 'my-MM' ? 'my-MM' : 'en-US', { month: 'long', year: 'numeric' });
     const isLoading = summaryLoading || homeLoading || adminLoading;
@@ -445,11 +597,9 @@ export default function DashboardPage() {
     return (
         <div className={styles.page}>
             {/* ── Live Hero and Clocks ── */}
-            <LiveHeader 
-                user={user} 
-                timeIn={timeIn} 
-                timeOut={timeOut} 
-                workingHours={workingHours} 
+            <LiveHeader
+                user={user}
+                pairs={pairs}
             />
 
             {/* ── Monthly Summary Stats ── */}
@@ -692,6 +842,14 @@ export default function DashboardPage() {
 
             {/* Spacer between sections */}
             <div style={{ marginBottom: '2rem' }} />
+
+            {/* ───────────────── OVERTIME & SWIPE EXCEPTIONS SIDE-BY-SIDE ───────────────── */}
+            <section>
+                <div className={sideBySideStyles.sideBySide}>
+                    <OTBarChart data={otData} isLoading={otLoading} />
+                    <SwipeExceptionBarChart data={exceptionData} isLoading={exceptionLoading} />
+                </div>
+            </section>
 
             {/* ── Quick Actions ── */}
             {/* <section>

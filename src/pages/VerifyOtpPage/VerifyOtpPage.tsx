@@ -231,7 +231,7 @@ export default function VerifyOtpPage() {
                     </div>
                     <h1 className={styles.title}>Two-Factor Authentication</h1>
                     <p className={styles.subtitle}>
-                        Enter the 6-digit code sent to your 
+                        Enter the 6-digit code sent to your
                         {/* {isEmail
                             ? `Enter the 6-digit code sent to your email`
                             : `Enter the 6-digit code sent to your phone`} */}

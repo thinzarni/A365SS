@@ -60,6 +60,7 @@ import { chatSocket } from '../../lib/chat-socket';
 // import { appSocket } from '../../lib/app-socket';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
+import type { CheckInConfig } from '../../types/models';
 // import { useSocket } from '../../hooks/useSocket';
 // import { useQueryClient } from '@tanstack/react-query';
 
@@ -364,7 +365,7 @@ export default function AppLayout() {
     });
 
     // ── Fetch Checkin Config for extras like Social tab ──
-    const { data: configData } = useQuery({
+    const { data: configData } = useQuery<CheckInConfig | null>({
         queryKey: ['checkin-config', userId, domain],
         queryFn: async () => {
             if (!token || !userId) return null;

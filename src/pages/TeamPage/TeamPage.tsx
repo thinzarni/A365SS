@@ -34,7 +34,7 @@ import mainClient from '../../lib/main-client';
 import apiClient from '../../lib/api-client';
 import { TEAM_LIST, MENU_ITEMS } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
-import type { TeamMember, Team, TeamPageModel } from '../../types/models';
+import type { TeamMember, Team, TeamPageModel, CheckInConfig } from '../../types/models';
 import { checkTeamAccess } from './team-utils';
 import styles from './TeamPage.module.css';
 import '../../styles/pages.css';
@@ -166,7 +166,7 @@ export default function TeamPage() {
     });
 
     // ── System Config Query ──
-    const { data: configData } = useQuery({
+    const { data: configData } = useQuery<CheckInConfig | null>({
         queryKey: ['checkin-config'],
         queryFn: async () => {
             const res = await mainClient.post('api/checkin/config', {
