@@ -167,8 +167,7 @@ export default function LeaveSummaryPage() {
     const leaveBalances = summaryData?.datalist ?? [];
     // Use totalusedcount from API (guaranteed to match the cards).
     // Falls back to summing usedleave locally if the backend hasn't been updated yet.
-    const totalLeaveTaken = summaryData?.totalusedcount
-        ?? leaveBalances.reduce((sum, item) => sum + (Number(item.usedleave) || 0), 0);
+    const totalLeaveTaken = summaryData?.totalcount ?? 0;
 
     /* ── Leave history (POST — only for own user, not team member) ── */
     const { data: leaveHistory = [], isLoading: loadingHistory } = useQuery<RequestModel[]>({
