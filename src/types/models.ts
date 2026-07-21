@@ -281,6 +281,8 @@ export interface TypesModel {
   remaining_balance?: number;
   max_amount?: number;
   approvaltype?: string | number;
+  ishandoverflag?: boolean;
+  handovertype?: number;
 }
 
 export interface LeaveType {

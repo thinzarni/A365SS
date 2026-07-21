@@ -169,7 +169,7 @@ export default function RequestDetailPage() {
     const isSubstituteLeaveType = isLeave &&
         (detailData?.detail?.requestsubtypedesc || '').toLowerCase().includes('substitute');
 
-    useQuery<TypesModel[]>({
+    const { data: leaveTypeList = [] } = useQuery<TypesModel[]>({
         queryKey: ['leaveTypeList'],
         queryFn: async () => {
             const res = await apiClient.get(LEAVE_TYPES, { params: { isPlatform: 'a365' } });
