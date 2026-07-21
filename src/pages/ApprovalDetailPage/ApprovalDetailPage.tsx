@@ -38,8 +38,10 @@ import {
     PRODUCT_LIST,
     PROJECT_LIST,
     GET_REVIEW_PROCESS_STATUS,
-    LEAVE_TYPES
+    LEAVE_TYPES,
+    LEAVE_REASONS,
 } from '../../config/api-routes';
+import { flavor } from '../../config/features';
 import { useAuthStore } from '../../stores/auth-store';
 import mainClient from '../../lib/main-client';
 import ApprovalWorkflowModal from '../../components/modals/ApprovalWorkflowModal';
@@ -272,6 +274,29 @@ export default function ApprovalDetailPage() {
         staleTime: 5 * 60 * 1000,
     });
 
+    // Leave Reasons — keyed on the leave subtype syskey so it refetches per leave type
+    const isLeave = String(detail?.datalist?.requesttypedesc || detail?.datalist?.requesttype || '').toLowerCase().includes('leave');
+    const leaveSubtypeSyskey = String((detail?.datalist as any)?.requestsubtype || '');
+
+    const { data: leaveReasonsList = [] } = useQuery<TypesModel[]>({
+        queryKey: ['leaveReasonList', leaveSubtypeSyskey],
+        queryFn: async () => {
+            const payload = {
+                currentpage: 0,
+                pagesize: 0,
+                searchVal: '',
+                searchObj: { order: '', orderType: '' },
+                leavetype: leaveSubtypeSyskey,
+                userid: userId || '',
+                domain: domain || '',
+            };
+            const res = await apiClient.post(LEAVE_REASONS, payload);
+            return res.data?.datalist || [];
+        },
+        enabled: !!isLeave && !!leaveSubtypeSyskey && (flavor === 'prd' || flavor === 'mpt'),
+        staleTime: 5 * 60 * 1000,
+    });
+
     // Process status options (for claim with max amount)
     const { data: reviewProcessStatusOptions = [] } = useQuery<{ syskey: string; description: string; code: string }[]>({
         queryKey: ['reviewProcessStatusOptions'],
@@ -463,6 +488,11 @@ export default function ApprovalDetailPage() {
     const carName = carsList.find(c => c.syskey === d.car)?.carno || d.car || '';
     const driverName = driversList.find(c => c.syskey === d.driver)?.name || d.driver || '';
 
+    // Resolve leave reason syskey → description
+    const leaveReasonText = isLeave && d.leavereason
+        ? leaveReasonsList.find(r => r.syskey === d.leavereason)?.description || d.leavereason
+        : '';
+
     // Resolve request subtype description
     let resolvedSubtype = d.requestsubtypedesc || '';
     if (!resolvedSubtype && d.requestsubtype) {
@@ -574,6 +604,12 @@ export default function ApprovalDetailPage() {
                                 {!isSubstituteLeaveType && !requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
                                 {!requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
                             </div>
+                            {/* ── Leave Reason ── */}
+                            {isLeave && leaveReasonsList.length > 0 && leaveReasonText && (
+                                <div style={{ marginTop: 'var(--space-2)' }}>
+                                    <Field label="Leave Reason" value={leaveReasonText} />
+                                </div>
+                            )}
                         </div>
                     )}
 

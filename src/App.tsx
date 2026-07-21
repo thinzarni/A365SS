@@ -44,7 +44,12 @@ export default function App() {
   const language = useAuthStore((state) => state.language);
 
   useEffect(() => {
-    msalPromise.then(() => setReady(true));
+    msalPromise
+      .then(() => setReady(true))
+      .catch((e) => {
+        console.error("MSAL init promise rejected:", e);
+        setReady(true); // Fallback to still render the app
+      });
   }, []);
 
   useEffect(() => {

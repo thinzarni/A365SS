@@ -211,19 +211,25 @@ export default function RequestDetailPage() {
         enabled: !!isLeave,
     });
 
+    // Syskey of the selected leave sub-type — used as the leavetype param
+    const leaveSubtypeSyskey = String((detailData?.detail as any)?.requestsubtype || '');
+
     const { data: leaveReasonsList = [] } = useQuery<TypesModel[]>({
-        queryKey: ['leaveReasonList'],
+        queryKey: ['leaveReasonList', leaveSubtypeSyskey],
         queryFn: async () => {
             const payload = {
                 currentpage: 0,
                 pagesize: 0,
                 searchVal: '',
-                searchObj: { order: '', orderType: '' }
+                searchObj: { order: '', orderType: '' },
+                leavetype: leaveSubtypeSyskey,
+                userid: user?.userid || '',
+                domain: domain || '',
             };
             const res = await apiClient.post(LEAVE_REASONS, payload);
             return res.data?.datalist || [];
         },
-        enabled: !!isLeave && (flavor === 'prd' || flavor === 'mpt'),
+        enabled: !!isLeave && !!leaveSubtypeSyskey && (flavor === 'prd' || flavor === 'mpt'),
     });
 
     // Substitute leave days — fetch only when detail.substitutedate syskey is present
@@ -824,6 +830,25 @@ export default function RequestDetailPage() {
                             </div>
                         </div>
                     )}
+
+                    {/* Handovers */}
+                    {detailData?.selectedHandovers &&
+                        detailData.selectedHandovers.length > 0 &&
+                        (!detail.requesttypedesc?.toLowerCase().includes('leave') || leaveTypeList.find((lt) => String(lt.syskey) === String(detail.requestsubtype))?.ishandoverflag === true) && (
+                            <div className={styles['request-detail__section']}>
+                                <h4 className={styles['request-detail__section-title']}>Handover To</h4>
+                                <div className={styles['request-detail__approver-list']}>
+                                    {detailData.selectedHandovers.map((p) => (
+                                        <span key={p.syskey} className={styles['request-detail__approver-chip']}>
+                                            <span className={styles['request-detail__approver-dot']}>
+                                                {p.name?.charAt(0).toUpperCase() || '?'}
+                                            </span>
+                                            {p.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                     {/* Approved By */}
                     {(detail.approvaltype === '0' || String(detail.approvaltype) === '0') && approverList.length > 0 && (

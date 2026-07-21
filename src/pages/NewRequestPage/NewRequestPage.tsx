@@ -786,18 +786,21 @@ export default function NewRequestPage() {
     });
 
     const { data: leaveReasonsList = [] } = useQuery<TypesModel[]>({
-        queryKey: ['leaveReasonList'],
+        queryKey: ['leaveReasonList', leaveType],
         queryFn: async () => {
             const payload = {
                 currentpage: 0,
                 pagesize: 0,
                 searchVal: '',
-                searchObj: { order: '', orderType: '' }
+                searchObj: { order: '', orderType: '' },
+                leavetype: leaveType,
+                userid: userId,
+                domain,
             };
             const res = await apiClient.post(LEAVE_REASONS, payload);
             return res.data?.datalist || [];
         },
-        enabled: selectedType === 'leave' && (flavor === 'prd' || flavor === 'mpt'),
+        enabled: selectedType === 'leave' && !!leaveType && (flavor === 'prd' || flavor === 'mpt'),
     });
 
     const { data: claimTypeList = [] } = useQuery<TypesModel[]>({
@@ -1001,6 +1004,15 @@ export default function NewRequestPage() {
                Flutter (office_api.dart LeaveApi.uploadOne) sends JSON:
                { base64String: <base64 content>, base64filename: <name> }
                Server returns { fileName } which goes in payload.attachment */
+            /* ── Handover Validation ── */
+            if (selectedType === 'leave') {
+                const selectedLt = leaveTypeList.find((lt) => String(lt.syskey) === String(leaveType));
+                if (selectedLt?.ishandoverflag === true && selectedLt?.handovertype === 1 && handovers.length === 0) {
+                    toast.error('Handover person is required for this leave type');
+                    return;
+                }
+            }
+
             let attachmentFileNames: string[] = [];
             if (files.length > 0) {
                 // Helper: File → base64 string (strips data:...;base64, prefix)
@@ -2034,7 +2046,7 @@ export default function NewRequestPage() {
                         )}
 
                         {/* ── Leave Reason ── */}
-                        {(flavor === 'prd' || flavor === 'mpt') && selectedType === 'leave' && (
+                        {(flavor === 'prd' || flavor === 'mpt') && selectedType === 'leave' && leaveReasonsList.length > 0 && (
                             <div className={styles['new-request__full']} style={{ marginBottom: 'var(--space-4)' }}>
                                 <Select
                                     id="leaveReason"
@@ -2387,13 +2399,16 @@ export default function NewRequestPage() {
                         )}
 
                         {/* ── Leave-specific handover ── */}
-                        {selectedType === 'leave' && (
+                        {selectedType === 'leave' && leaveTypeList.find(lt => String(lt.syskey) === String(leaveType))?.ishandoverflag === true && (
                             <div className={styles['new-request__section']}>
                                 <MemberPicker
-                                    label="Handover Persons"
+                                    label={`Handover Persons${leaveTypeList.find(lt => String(lt.syskey) === String(leaveType))?.handovertype === 1 ? ' *' : ''}`}
                                     members={handovers}
                                     onChange={setHandovers}
                                 />
+                                {leaveTypeList.find(lt => String(lt.syskey) === String(leaveType))?.handovertype === 1 && handovers.length === 0 && (
+                                    <p style={{ color: 'var(--color-danger-500)', fontSize: '12px', marginTop: '4px' }}>Handover person is required.</p>
+                                )}
                             </div>
                         )}
 

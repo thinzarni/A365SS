@@ -209,6 +209,7 @@ export interface RequestDetail {
   statuscode: number;
   datalist: RequestDetailModel;
   approverList: Approver[];
+  selectedHandovers?: Approver[];
 }
 
 export interface ClaimModel {
