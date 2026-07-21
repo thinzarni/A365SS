@@ -4,6 +4,74 @@
     gap: var(--space-5);
 }
 
+.leave-list {
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.leave-list__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background .2s ease;
+}
+
+.leave-list__item:last-child {
+    border-bottom: none;
+}
+
+.leave-list__item:hover {
+    background: #fafafa;
+}
+
+.leave-list__left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.leave-list__icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.leave-list__name {
+    font-size: 15px;
+    font-weight: 500;
+    color: #1e293b;
+}
+
+.leave-list__right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.leave-list__used {
+    min-width: 24px;
+    text-align: right;
+}
+
+.leave-list__separator {
+    color: #94a3b8;
+}
+
+.leave-list__balance {
+    color: #0f172a;
+    min-width: 24px;
+}
+
 /* ── Back button (when viewing team member leave) ── */
 .back-btn {
     display: flex;
@@ -56,7 +124,7 @@
 }
 
 .total-stat__value {
-    font-size: var(--text-2xl);
+    font-size: var(--text-md);
     font-weight: var(--font-bold);
     line-height: 1.2;
 }

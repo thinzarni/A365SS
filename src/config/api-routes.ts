@@ -107,6 +107,7 @@ export const LEAVE_DETAIL = `${hxmPrefix}leave/getleavedetail`;
 export const DELETE_LEAVE = `${hxmPrefix}leave/deleteleaverequest`;
 export const LEAVE_TYPES = `${hxmPrefix}leave/empleavetypelist`;
 export const LEAVE_TYPE_LIST = `${hxmPrefix}leave/leavetypelist`;
+export const LEAVE_SUBSTITUTE = `${hxmPrefix}leave/substitute`;
 export const HANDOVER_PERSONS = `${hxmPrefix}leave/handoverpersonlist`;
 export const EXPORT_LEAVE_TEMPLATE = 'api/request/exportLeaverequesttemplate';
 export const EXPORT_LEAVE_DATA = 'api/request/export/leaverequestdata';
@@ -132,9 +133,11 @@ export const MENU_ITEMS = `${hxmPrefix}integration/get/menuitems`;
 
 // ── Assets ──
 export const FILE_UPLOAD = `${hxmPrefix}fileUpload`;
+export const FILE_UPLOAD_EDUCATION = `${hxmPrefix}fileUpload/education`;
 export const FILE_GENERATE_UPLOAD_URL = `${hxmPrefix}fileUpload/generate-upload-url`;
 export const FILE_STREAM_UPLOAD = `${hxmPrefix}stream`;
 export const FILE_DIRECT_DOWNLOAD = `${hxmPrefix}fileUpload/directdownloadfile`;
+export const FILE_DOWNLOAD = `${hxmPrefix}fileUpload/download`;
 export const RULES_AND_REGULATIONS_LIST = `${hxmPrefix}rulesandregulations/getall`;
 export const RULES_AND_REGULATIONS_DETAIL = `${hxmPrefix}rulesandregulations`;
 export const PHOTO_UPLOAD = `${hxmPrefix}integration/photoupload`;
@@ -180,6 +183,8 @@ export const ADMIN_ATTENDANCE_LIST = 'api/checkin/members';
 export const ADMIN_ATTENDANCE_COUNTS = 'api/checkin/counts';
 export const ADMIN_MEMBER_LIST = `${hxmPrefix}integration/memberlist`;
 export const ADMIN_CARD_DATA = `${hxmPrefix}integration/getadmincarddata`;
+export const ATTENDANCE_EXCEPTIONS = `${hxmPrefix}integration/getattendanceexceptions`;
+export const OT_RECORDS = `${hxmPrefix}integration/getotrecords`;
 // ── Chat (uses chatUrl) ──
 export const CHAT_CREATE = 'chat-new/create';
 export const CHAT_SEARCH = 'chat-new/search';

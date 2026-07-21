@@ -252,7 +252,7 @@ export default function FerryApprovalFormPage() {
     const { data: requestTypes = [] } = useQuery({
         queryKey: ['getrequesttypelist'],
         queryFn: async () => {
-            const res = await apiClient.get(REQUEST_TYPES);
+            const res = await apiClient.get(REQUEST_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,

@@ -1,0 +1,154 @@
+/* SideBySideCharts.module.css
+   Aligned with DashboardPage analyticsCard / AttendanceOverviewChart style
+*/
+
+/* ── Two-panel wrapper ── */
+.sideBySide {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 900px) {
+    .sideBySide {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Panel — matches .analyticsCard exactly ── */
+.panel {
+    position: relative;
+    overflow: hidden;
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 20px 16px 16px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow:
+        0 20px 50px rgba(15, 23, 42, 0.06),
+        0 2px 8px rgba(15, 23, 42, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* Soft radial gradient glow — matches analyticsCard::before */
+.panelGlow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        circle at top right,
+        color-mix(in srgb, var(--accent, #6366f1) 8%, transparent),
+        transparent 40%
+    );
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ── Header ── */
+.panelHeader {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 4px;
+}
+
+.panelTitle {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+}
+
+.panelSubtitle {
+    margin-top: 4px;
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* ── Divider ── */
+.divider {
+    width: 100%;
+    height: 1px;
+    background: #e5e7eb;
+    margin: 12px 0 8px;
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Chart area — same as .chartContainer ── */
+.chartArea {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-height: 280px;
+    height: 280px;
+}
+
+/* Remove focus outlines (same as dashboard) */
+.chartArea:focus,
+.chartArea:focus-visible,
+.chartArea *:focus,
+.chartArea *:focus-visible {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* ── Bar hover — same as AttendanceOverviewChart ── */
+.barGroup {
+    cursor: default;
+    transition: filter 0.15s ease;
+}
+
+.barGroup:hover {
+    filter: brightness(1.22) saturate(1.1);
+}
+
+/* ── Legend ── */
+.legendRow {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-top: 10px;
+    justify-content: center;
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legendDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.legendText {
+    font-size: 11px;
+    color: #4b5563;
+    font-weight: 500;
+}
+
+/* ── Loading skeleton ── */
+.skeleton {
+    width: 100%;
+    min-height: 280px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    position: relative;
+    z-index: 1;
+}
+
+@keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, NavLink, Outlet, useNavigate, ScrollRestoration } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { flavor } from '../../config/features';
 import {
     LayoutDashboard,
     ClipboardList,
@@ -59,6 +60,7 @@ import { chatSocket } from '../../lib/chat-socket';
 // import { appSocket } from '../../lib/app-socket';
 import styles from './AppLayout.module.css';
 import toast from 'react-hot-toast';
+import type { CheckInConfig } from '../../types/models';
 // import { useSocket } from '../../hooks/useSocket';
 // import { useQueryClient } from '@tanstack/react-query';
 
@@ -364,7 +366,7 @@ export default function AppLayout() {
     });
 
     // ── Fetch Checkin Config for extras like Social tab ──
-    const { data: configData } = useQuery({
+    const { data: configData } = useQuery<CheckInConfig | null>({
         queryKey: ['checkin-config', userId, domain],
         queryFn: async () => {
             if (!token || !userId) return null;
@@ -639,9 +641,14 @@ export default function AppLayout() {
                         onClick={() => { setSidebarOpen(false); navigate('/dashboard'); }}
                         title="Go to Dashboard"
                     >
-                        <img src={`${import.meta.env.BASE_URL}favicon.png`} className={styles.sidebar__logo} alt="A365 Logo" />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <img src={`${import.meta.env.BASE_URL}favicon.png`} className={styles.sidebar__logo} alt="A365 Logo" style={{ width: '28px', height: '28px' }} />
+                            {(flavor === 'prd' || flavor === 'mpt') && (
+                                <img src={`${import.meta.env.BASE_URL}mpt-logo.png`} className={styles.sidebar__logo} alt={`${flavor} Logo`} style={{ width: '28px', height: '28px' }} />
+                            )}
+                        </div>
                         <div className={styles['sidebar__brand-text']}>
-                            <span className={styles.sidebar__title}>A365 HR</span>
+                            <span className={styles.sidebar__title}>A365-MPT</span>
                             <span className={styles.sidebar__subtitle}>Self-Service</span>
                         </div>
                     </div>

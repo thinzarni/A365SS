@@ -41,6 +41,7 @@ import {
     LEAVE_TYPES
 } from '../../config/api-routes';
 import { useAuthStore } from '../../stores/auth-store';
+import mainClient from '../../lib/main-client';
 import ApprovalWorkflowModal from '../../components/modals/ApprovalWorkflowModal';
 import styles from './ApprovalDetailPage.module.css';
 
@@ -145,8 +146,40 @@ export default function ApprovalDetailPage() {
     const { data: leaveTypeList = [] } = useQuery<TypesModel[]>({
         queryKey: ['leaveTypeList'],
         queryFn: async () => {
-            const res = await apiClient.get(LEAVE_TYPES);
-            return res.data?.datalist || [];
+            const res = await apiClient.get(LEAVE_TYPES, { params: { isPlatform: 'a365' } });
+            const list = res.data?.datalist || [];
+
+            try {
+                const configData = await queryClient.fetchQuery({
+                    queryKey: ['checkin-config', userId, domain],
+                    queryFn: async () => {
+                        const cres = await mainClient.post('api/checkin/config', {
+                            userid: userId || '',
+                            domain: domain || 'demouat',
+                        });
+                        return cres.data?.data ?? null;
+                    },
+                    staleTime: 5 * 60 * 1000,
+                });
+
+                if (configData?.leavepolicy && Array.isArray(configData.leavepolicy)) {
+                    return list.map((lt: any) => {
+                        const policy = configData.leavepolicy.find((p: any) => p.leavesk === lt.syskey);
+                        if (policy) {
+                            return {
+                                ...lt,
+                                ishandoverflag: policy.ishandoverflag,
+                                handovertype: policy.handovertype,
+                            };
+                        }
+                        return lt;
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to fetch checkin config for leave policy', e);
+            }
+
+            return list;
         },
         staleTime: 5 * 60 * 1000,
     });
@@ -181,7 +214,7 @@ export default function ApprovalDetailPage() {
     const { data: claimTypesList = [] } = useQuery<TypesModel[]>({
         queryKey: ['claimTypesList'],
         queryFn: async () => {
-            const res = await apiClient.get(CLAIM_TYPES);
+            const res = await apiClient.get(CLAIM_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist || [];
         },
         staleTime: 5 * 60 * 1000,
@@ -453,6 +486,21 @@ export default function ApprovalDetailPage() {
     const isClaim = requestTypeString.includes('claim') || requestTypeString.includes('advance');
     const hasMaxAmount = isClaim && d.max_amount !== undefined && Number(d.max_amount) !== 0;
 
+    const isSubstituteLeaveType = requestTypeString.includes('leave') && resolvedSubtype.toLowerCase().includes('substitute');
+    
+    const substituteWorkedDate = (() => {
+        const raw = String(d.substitutedatedescription || '');
+        if (raw.length === 8 && /^\d{8}$/.test(raw)) {
+            const year = Number(raw.slice(0, 4));
+            const month = Number(raw.slice(4, 6)) - 1;
+            const day = Number(raw.slice(6, 8));
+            const dateObj = new Date(year, month, day);
+            const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+            return `${raw.slice(6, 8)}/${raw.slice(4, 6)}/${raw.slice(0, 4)} - ${dayOfWeek}`;
+        }
+        return raw;
+    })();
+
     // Derive the syskey of the "Completed" option from the fetched list
     const isClaimWithMax = isClaim && hasMaxAmount;
 
@@ -515,10 +563,15 @@ export default function ApprovalDetailPage() {
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>Date &amp; Time</h4>
                             <div className={styles['approval-detail__grid']}>
-                                <Field label="Date" value={displayDate(d.startdate || d.date || d.selectday)} />
-                                {!requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
+                                {isSubstituteLeaveType && substituteWorkedDate && (
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <Field label="Substitute Day (Worked Date)" value={substituteWorkedDate} />
+                                    </div>
+                                )}
+                                <Field label={isSubstituteLeaveType ? "Request for Substitute Leave Date" : "Date"} value={displayDate(d.startdate || d.date || d.selectday)} />
+                                {!isSubstituteLeaveType && !requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
 
-                                {!requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
+                                {!isSubstituteLeaveType && !requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
                                 {!requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
                             </div>
                         </div>
@@ -850,7 +903,8 @@ export default function ApprovalDetailPage() {
 
                     {/* Handovers */}
                     {(d as unknown as { selectedHandovers?: Array<{ syskey: string; name: string }> }).selectedHandovers &&
-                        (d as unknown as { selectedHandovers?: Array<{ syskey: string; name: string }> }).selectedHandovers!.length > 0 && (
+                        (d as unknown as { selectedHandovers?: Array<{ syskey: string; name: string }> }).selectedHandovers!.length > 0 &&
+                        (!d.requesttypedesc?.toLowerCase().includes('leave') || (leaveTypeList as any[]).find((lt) => String(lt.syskey) === String(d.requestsubtype))?.ishandoverflag === true) && (
                             <div className={styles['approval-detail__section']}>
                                 <h4 className={styles['approval-detail__section-title']}>Handover To</h4>
                                 <div className={styles['approval-detail__approver-list']}>

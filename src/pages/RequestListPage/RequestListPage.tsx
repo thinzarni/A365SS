@@ -165,7 +165,7 @@ export default function RequestListPage() {
     const { data: requestTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['requestTypes'],
         queryFn: async () => {
-            const res = await apiClient.get(REQUEST_TYPES);
+            const res = await apiClient.get(REQUEST_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist || [];
         },
     });
@@ -388,7 +388,7 @@ export default function RequestListPage() {
                 const exportObj: any = {
                     'Employee ID': req.eid || '—',
                     'Employee Name': req.name || '—',
-                    'Ref #': `#${idx + 1}`,
+                    'Ref #': req.refno ? `#${req.refno}` : `#${idx + 1}`,
                     'Date': displayDate(req.startdate || req.date) || '—',
                     'Type': typeDesc,
                 };
@@ -740,7 +740,7 @@ export default function RequestListPage() {
                                         }}>
                                             <td>{req.eid || '—'}</td>
                                             <td>{req.name || '—'}</td>
-                                            <td>{`#${i + 1}`}</td>
+                                            <td>{req.refno ? `#${req.refno}` : `#${i + 1}`}</td>
                                             <td className={styles['requests-table__dates']}>
                                                 {displayDate(req.startdate || req.date) || '—'}
                                                 {req.enddate && req.enddate !== req.startdate ? ` → ${displayDate(req.enddate)}` : ''}

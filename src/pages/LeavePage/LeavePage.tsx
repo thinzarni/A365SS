@@ -58,7 +58,7 @@ export default function LeavePage() {
     const { data: leaveTypes = [] } = useQuery<LeaveType[]>({
         queryKey: ['leaveTypes'],
         queryFn: async () => {
-            const res = await apiClient.get(LEAVE_TYPES);
+            const res = await apiClient.get(LEAVE_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist || [];
         },
     });

@@ -11,6 +11,7 @@ import type { ClaimModel } from '../../types/models';
 import apiClient from '../../lib/api-client';
 import { CLAIM_DETAIL, DELETE_CLAIM, CURRENCY_TYPES, CLAIM_TYPES } from '../../config/api-routes';
 import type { TypesModel } from '../../types/models';
+import { useAuthStore } from '../../stores/auth-store';
 import ConfirmModal from '../../components/ui/ConfirmModal/ConfirmModal';
 import styles from './ClaimsPage.module.css';
 
@@ -31,6 +32,7 @@ export default function ClaimDetailPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const { user } = useAuthStore();
 
     const { data: claim, isLoading } = useQuery<ClaimModel>({
         queryKey: ['claimDetail', id],
@@ -52,7 +54,11 @@ export default function ClaimDetailPage() {
     const { data: claimTypeList = [] } = useQuery<TypesModel[]>({
         queryKey: ['claimTypeList', (claim as any)?.employee_syskey || ''],
         queryFn: async () => {
-            const params = (claim as any)?.employee_syskey ? { employee_syskey: (claim as any).employee_syskey } : {};
+            const params: Record<string, any> = (claim as any)?.employee_syskey ? { employee_syskey: (claim as any).employee_syskey } : {};
+            if (user?.employmenttypesyskey) params.employmenttypesyskey = user.employmenttypesyskey;
+            if (user?.employeetypesyskey) params.employeetypesyskey = user.employeetypesyskey;
+            params.isPlatform = 'a365';
+            
             const res = await apiClient.get(CLAIM_TYPES, { params });
             return res.data?.datalist || [];
         },

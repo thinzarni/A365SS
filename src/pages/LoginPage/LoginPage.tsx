@@ -11,6 +11,7 @@ import { useMsal } from '@azure/msal-react';
 import { InteractionStatus } from '@azure/msal-browser';
 import { loginRequest } from '../../config/msal-config';
 import { appConfig } from '../../config/app-config';
+import { flavor } from '../../config/features';
 // import { isMsalSupported } from '../../App';
 import styles from './LoginPage.module.css';
 
@@ -337,7 +338,12 @@ export default function LoginPage() {
         <div className={styles.login}>
             <div className={styles.login__hero}>
                 <div className={styles['login__hero-content']}>
-                    <img src={`${import.meta.env.BASE_URL}favicon.png`} className={styles['login__hero-logo']} alt="A365 Logo" />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: 'var(--space-8)' }}>
+                        <img src={`${import.meta.env.BASE_URL}favicon.png`} className={styles['login__hero-logo']} style={{ margin: 0 }} alt="A365 Logo" />
+                        {(flavor === 'prd' || flavor === 'mpt') && (
+                            <img src={`${import.meta.env.BASE_URL}mpt-logo.png`} className={styles['login__hero-logo']} style={{ margin: 0 }} alt={`${flavor} Logo`} />
+                        )}
+                    </div>
                     <h1 className={styles['login__hero-title']}>HR Self-Service Portal</h1>
                     <div className={styles.login__lang_wrapper}>
                         <button

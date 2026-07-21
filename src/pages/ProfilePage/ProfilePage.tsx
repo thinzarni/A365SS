@@ -25,6 +25,7 @@ interface ProfileData {
     rank: string;
     dob: string;
     ic: string;
+    nrcsr?: string | number | null;
     maritalstatus: string;
     joineddate: string;
     effectivedate: string;
@@ -32,6 +33,8 @@ interface ProfileData {
     profile?: string;
     paycompany?: string;
     paycompanysyskey?: string;
+    employeetypesyskey?: string | null;
+    ferryno?: string | null;
     domains?: string[];
 }
 

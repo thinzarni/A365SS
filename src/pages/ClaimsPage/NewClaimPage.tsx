@@ -39,7 +39,7 @@ export default function NewClaimPage() {
     const { data: claimTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['claimTypes'],
         queryFn: async () => {
-            const res = await apiClient.get(CLAIM_TYPES);
+            const res = await apiClient.get(CLAIM_TYPES, { params: { isPlatform: 'a365' } });
             return res.data?.datalist || [];
         },
     });
