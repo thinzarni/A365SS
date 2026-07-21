@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
- 
+
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -101,11 +101,11 @@ export default function RequestDetailPage() {
                 const raw = res.data?.data || res.data?.datalist || {};
 
                 // Map attendance request specifics to generic detail model
-                const requesttypedesc = (raw.type === "601") ? 'Time In' 
-                    : (raw.type === "602") ? 'Time Out' 
-                    : (raw.attendancerequesttype === 1) ? 'Remote Time in'
-                    : (raw.attendancerequesttype === 2) ? 'Backdate Time in'
-                    : 'Attendance';
+                const requesttypedesc = (raw.type === "601") ? 'Time In'
+                    : (raw.type === "602") ? 'Time Out'
+                        : (raw.attendancerequesttype === 1) ? 'Remote Time in'
+                            : (raw.attendancerequesttype === 2) ? 'Backdate Time in'
+                                : 'Attendance';
 
                 const mappedDetail: any = {
                     ...raw,
@@ -169,7 +169,7 @@ export default function RequestDetailPage() {
     const isSubstituteLeaveType = isLeave &&
         (detailData?.detail?.requestsubtypedesc || '').toLowerCase().includes('substitute');
 
-    const { data: leaveTypeList = [] } = useQuery<TypesModel[]>({
+    useQuery<TypesModel[]>({
         queryKey: ['leaveTypeList'],
         queryFn: async () => {
             const res = await apiClient.get(LEAVE_TYPES, { params: { isPlatform: 'a365' } });
@@ -326,7 +326,7 @@ export default function RequestDetailPage() {
     });
 
     const [showDeleteModal, setShowDeleteModal] = useState(false);
- 
+
     const [rating, setRating] = useState<number>(0);
     const [feedbacks, setFeedbacks] = useState<string>('');
 
@@ -374,7 +374,7 @@ export default function RequestDetailPage() {
     const isStrictClaim = typeDesc.includes('claim');
     const hasPositiveMax = Number(detail?.max_amount || 0) > 0;
     const pStatusVal = String((detail as any)?.processstatus || '').toLowerCase();
-    
+
     // Restricted codes: '1' (EB Team), '2' (Third Party), '3' (Completed)
     const isRestrictedProcess = isStrictClaim && hasPositiveMax && (
         ['1', '2', '3'].includes(pStatusVal) ||
@@ -676,17 +676,17 @@ export default function RequestDetailPage() {
                                             rawName = potentialName[0];
                                         }
                                     }
-                                    
+
                                     let displayName = typeof rawName === 'string' ? rawName : '';
-                                    
+
                                     if (displayName) {
                                         displayName = displayName.split('/').pop() || displayName;
                                         displayName = displayName.split('\\').pop() || displayName;
                                         displayName = displayName.split('?')[0]; // remove query params
                                     }
-                                    
+
                                     displayName = displayName || `File ${i + 1}`;
-                                    
+
                                     // Ensure it's absolutely a string to prevent [object Object] rendering issues
                                     if (typeof displayName !== 'string') {
                                         displayName = `File ${i + 1}`;
@@ -711,16 +711,16 @@ export default function RequestDetailPage() {
 
                                     return (
                                         <button key={i} type="button" onClick={() => downloadOrOpenAttachment(att)}
-                                            style={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                gap: '8px', 
-                                                fontSize: 'var(--text-sm)', 
-                                                color: 'var(--color-primary-600)', 
-                                                background: 'var(--color-primary-50)', 
-                                                border: '1px solid var(--color-primary-200)', 
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                fontSize: 'var(--text-sm)',
+                                                color: 'var(--color-primary-600)',
+                                                background: 'var(--color-primary-50)',
+                                                border: '1px solid var(--color-primary-200)',
                                                 borderRadius: '6px',
-                                                cursor: 'pointer', 
+                                                cursor: 'pointer',
                                                 padding: '8px 12px',
                                                 width: 'fit-content',
                                                 transition: 'background-color 0.2s',
@@ -762,31 +762,31 @@ export default function RequestDetailPage() {
                     )}
 
                     {/* Approval Details */}
-                    {((hasMaxAmount && (isPending || isApproved || isRejected)) || 
-                      processStatusDesc === 'Review By EB Team' || 
-                      ((isApproved || isRejected) && detail.comment)) && (
-                        <div className={styles['request-detail__section']}>
-                            <h4 className={styles['request-detail__section-title']}>Approval Details</h4>
-                            <div className={styles['request-detail__grid']}>
-                                {/* 1. Confirmed Amount */}
-                                {(isApproved || isRejected) && detail.confirmed_amount !== undefined && hasMaxAmount && (
-                                    <Field label="Confirmed Amount" value={Number(detail.confirmed_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />
-                                )}
+                    {((hasMaxAmount && (isPending || isApproved || isRejected)) ||
+                        processStatusDesc === 'Review By EB Team' ||
+                        ((isApproved || isRejected) && detail.comment)) && (
+                            <div className={styles['request-detail__section']}>
+                                <h4 className={styles['request-detail__section-title']}>Approval Details</h4>
+                                <div className={styles['request-detail__grid']}>
+                                    {/* 1. Confirmed Amount */}
+                                    {(isApproved || isRejected) && detail.confirmed_amount !== undefined && hasMaxAmount && (
+                                        <Field label="Confirmed Amount" value={Number(detail.confirmed_amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} />
+                                    )}
 
-                                {/* 2. Approver Comment */}
-                                {(isApproved || isRejected) && detail.comment && (
-                                    <div style={{ gridColumn: '1 / -1' }}>
-                                        <Field label="Approver Comment" value={detail.comment} />
-                                    </div>
-                                )}
+                                    {/* 2. Approver Comment */}
+                                    {(isApproved || isRejected) && detail.comment && (
+                                        <div style={{ gridColumn: '1 / -1' }}>
+                                            <Field label="Approver Comment" value={detail.comment} />
+                                        </div>
+                                    )}
 
-                                {/* 3. Process Status */}
-                                {((hasMaxAmount && (isPending || isApproved || isRejected)) || processStatusDesc === 'Review By EB Team') && (
-                                    <Field label="Process Status" value={processStatusDesc || '-'} />
-                                )}
+                                    {/* 3. Process Status */}
+                                    {((hasMaxAmount && (isPending || isApproved || isRejected)) || processStatusDesc === 'Review By EB Team') && (
+                                        <Field label="Process Status" value={processStatusDesc || '-'} />
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
                     {/* Feedback Section */}
                     {isClaim && hasMaxAmount && (isApproved || isRejected) && (
@@ -923,30 +923,30 @@ export default function RequestDetailPage() {
                             <ApprovalWorkflowModal steps={detail.stepLevelData} />
                         </div>
                     )}
-                {(canDelete || canEdit) && (
-                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-start', paddingTop: '16px', marginTop: '24px', borderTop: '1px solid var(--color-neutral-200)' }}>
-                        {canDelete && (
-                            <Button
-                                variant="danger"
-                                size="sm"
-                                loading={deleteMutation.isPending}
-                                onClick={() => setShowDeleteModal(true)}
-                                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                            >
-                                <Trash2 size={14} /> Delete
-                            </Button>
-                        )}
-                        {canEdit && (
-                            <Button
-                                size="sm"
-                                onClick={() => navigate(isAttendance ? `/attendancerequest/edit/${id}` : `/requests/edit/${id}`, { state: { item: detailData?.detail, refIndex: listRefIndex } })}
-                                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                            >
-                                <Edit size={14} /> Edit
-                            </Button>
-                        )}
-                    </div>
-                )}
+                    {(canDelete || canEdit) && (
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-start', paddingTop: '16px', marginTop: '24px', borderTop: '1px solid var(--color-neutral-200)' }}>
+                            {canDelete && (
+                                <Button
+                                    variant="danger"
+                                    size="sm"
+                                    loading={deleteMutation.isPending}
+                                    onClick={() => setShowDeleteModal(true)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                                >
+                                    <Trash2 size={14} /> Delete
+                                </Button>
+                            )}
+                            {canEdit && (
+                                <Button
+                                    size="sm"
+                                    onClick={() => navigate(isAttendance ? `/attendancerequest/edit/${id}` : `/requests/edit/${id}`, { state: { item: detailData?.detail, refIndex: listRefIndex } })}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                                >
+                                    <Edit size={14} /> Edit
+                                </Button>
+                            )}
+                        </div>
+                    )}
                 </div> {/* Closes request-detail__body */}
             </div> {/* Closes request-detail__card */}
 
