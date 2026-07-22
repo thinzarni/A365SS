@@ -209,7 +209,7 @@ export default function ProfilePage() {
                     </div>
 
                     {/* ── Settings Panel ── */}
-                    {(isOwnProfile || hasHrAccess) && (
+                    {/* {(isOwnProfile || hasHrAccess) && (
                         <div className={styles.settingsPanel}>
                             <p className={styles.settingsPanelTitle}>Settings</p>
                             {(isOwnProfile || hasHrAccess) && (
@@ -233,7 +233,7 @@ export default function ProfilePage() {
                                 </button>
                             )}
                         </div>
-                    )}
+                    )} */}
                 </div>
 
                 {/* ── Right Column: Info Grid ── */}
