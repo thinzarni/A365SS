@@ -1,9 +1,26 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import fs from 'fs'
+import path from 'path'
+
+const generateVersion = () => {
+  return {
+    name: 'generate-version',
+    buildStart() {
+      const versionInfo = { version: new Date().getTime().toString() };
+      // Ensure public directory exists
+      const publicDir = path.resolve(__dirname, 'public');
+      if (!fs.existsSync(publicDir)) {
+        fs.mkdirSync(publicDir);
+      }
+      fs.writeFileSync(path.join(publicDir, 'version.json'), JSON.stringify(versionInfo, null, 2));
+    }
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), generateVersion()],
   server: {
     proxy: {
       '/chat-new': {

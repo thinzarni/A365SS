@@ -46,7 +46,7 @@ const configs: Record<string, AppConfig> = {
         chatUrl: import.meta.env.VITE_CHAT_URL || IAM_URL + '/api/',
         wsUrl: import.meta.env.VITE_WS_URL || IAM_URL + '/api/',
         appName: 'A365 HR',
-        appVersion: import.meta.env.VITE_APP_VERSION || '1.0.23',
+        appVersion: import.meta.env.VITE_APP_VERSION || '1.0.24',
         appId: import.meta.env.VITE_APP_ID || '004',
         environment: 'dev',
     },
