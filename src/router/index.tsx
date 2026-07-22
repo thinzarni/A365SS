@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { RequireAuth, GuestOnly } from '../components/auth/AuthGuard';
+import { RouteGuard } from '../components/auth/RouteGuard';
 import AppLayout from '../components/layout/AppLayout';
 import GlobalErrorBoundary from '../components/layout/GlobalErrorBoundary';
 import { Loader2 } from 'lucide-react';
@@ -98,7 +99,10 @@ export const router = createBrowserRouter([
                 element: <AppLayout />,
                 errorElement: <GlobalErrorBoundary />,
                 children: [
-                    { index: true, element: <Navigate to="/dashboard" replace /> },
+                    {
+                        element: <RouteGuard />,
+                        children: [
+                            { index: true, element: <Navigate to="/dashboard" replace /> },
                     { path: '/dashboard', element: <DashboardPage /> },
                     // ── Plural routes (canonical) ──
                     { path: '/requests', element: <RequestListPage /> },
@@ -191,6 +195,8 @@ export const router = createBrowserRouter([
 
                     // ── Catch-all for unimplemented tabs (e.g., socialpost, customai, visionai) ──
                     { path: '*', element: <ComingSoonPage /> },
+                        ],
+                    },
                 ],
             },
         ],

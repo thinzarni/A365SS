@@ -61,7 +61,10 @@ interface ChatState {
     // WebSocket
     setTypingStatus: (conversationId: string, username: string, isTyping: boolean) => void;
     receiveSocketMessage: (decodedMessage: any) => void;
+    connectSocket: () => void;
 }
+
+type SocketMessageHandler = (decoded: any) => void;
 
 let activeSocketHandler: SocketMessageHandler | null = null;
 

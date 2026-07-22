@@ -455,7 +455,7 @@ export default function ChatPage() {
     const [firstUnreadIndex, setFirstUnreadIndex] = useState<number | null>(null);
     const hasSetUnreadDividerRef = useRef(false);
     const isFetchingMoreMsgRef = useRef(false);
-    const [isFetchingMore, setIsFetchingMore] = useState(false);
+    // const [isFetchingMore, setIsFetchingMore] = useState(false);
     const [floatingReactions, setFloatingReactions] = useState<{ id: string, emoji: string, msgId: string }[]>([]);
 
     useEffect(() => {
@@ -505,12 +505,10 @@ export default function ChatPage() {
         // Scroll up to load older messages
         if (scrollTop === 0 && hasMoreMessages && !isLoading && !isFetchingMoreMsgRef.current && activeConversationId) {
             isFetchingMoreMsgRef.current = true;
-            setIsFetchingMore(true);
             setMsgPage(p => {
                 const n = p + 1;
                 fetchMessages(activeConversationId, n).finally(() => {
                     isFetchingMoreMsgRef.current = false;
-                    setIsFetchingMore(false);
                 });
                 return n;
             });

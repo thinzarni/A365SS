@@ -65,8 +65,8 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose }) => {
                     new Promise<{ caption: string; data: string }>((resolve, reject) => {
                         const reader = new FileReader();
                         reader.onload = () => {
-                            const base64 = (reader.result as string).split(',')[1];
-                            resolve({ caption: file.name, data: base64 });
+                            const base64WithPrefix = reader.result as string;
+                            resolve({ caption: file.name, data: base64WithPrefix });
                         };
                         reader.onerror = reject;
                         reader.readAsDataURL(file);

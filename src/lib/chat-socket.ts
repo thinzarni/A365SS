@@ -78,7 +78,8 @@ class ChatSocketService {
 
         // 3. chatUrl is relative ('/' — Vite proxy in dev): proxy /v1 via vite.config.ts ws:true
         //    Uses wss at the same host (vite dev server proxies /v1 to the real chat WS server)
-        const wsBase = `wss://${window.location.host}`;
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsBase = `${wsProtocol}//${window.location.host}`;
         return `${wsBase}/v1?user=${encodeURIComponent(userId)}&app=${APP_ID}&domain=${encodeURIComponent(dom)}`;
     }
 

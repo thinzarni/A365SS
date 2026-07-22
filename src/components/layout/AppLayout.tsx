@@ -492,7 +492,7 @@ export default function AppLayout() {
         // 1.b. Password Expiry WebSocket — uses per-flavor wsUrl from app-config.ts
         // mpt flavor uses ws:// (internal network), prd flavor uses wss:// (cloud)
         let pwdWsObj: WebSocket | null = null;
-        if (import.meta.env.VITE_FLAVOR === 'prd' || import.meta.env.VITE_FLAVOR === 'mpt') {
+        if (import.meta.env.VITE_FLAVOR === 'prd' || import.meta.env.VITE_FLAVOR === 'mpt' || import.meta.env.VITE_FLAVOR === 'a365') {
             const pwdWsBase = appConfig.wsUrl
                 ? appConfig.wsUrl.replace(/\/$/, '')                             // use configured wsUrl as-is
                 : (appConfig.iamUrl || '').replace(/^https?/, 'wss') + '/api';  // fallback: derive from iamUrl
@@ -648,7 +648,7 @@ export default function AppLayout() {
                             )}
                         </div>
                         <div className={styles['sidebar__brand-text']}>
-                            <span className={styles.sidebar__title}>A365-MPT</span>
+                            <span className={styles.sidebar__title}>A365{flavor == 'prd' || flavor == 'mpt' && '-MPT'}</span>
                             <span className={styles.sidebar__subtitle}>Self-Service</span>
                         </div>
                     </div>

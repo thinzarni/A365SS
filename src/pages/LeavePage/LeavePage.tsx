@@ -15,6 +15,7 @@ import { LEAVE_TYPES, GET_REQUEST_LIST } from '../../config/api-routes';
 import { displayDate } from '../../lib/date-utils';
 import styles from './LeavePage.module.css';
 import '../../styles/pages.css';
+import { flavor } from '../../config/features';
 
 /* ══════════════════════════════════════════════════════════════ */
 
@@ -174,11 +175,18 @@ export default function LeavePage() {
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                        {(flavor === 'prd' || flavor === 'mpt') && (
                         <Button variant="ghost" onClick={() => setImportModalOpen(true)}>
                             <FileSpreadsheet size={16} />
                             {t('leave.importExcel')}
                         </Button>
-
+                        )}
+                        {(flavor !== 'prd' && flavor !== 'mpt') && (
+                            <Button variant="ghost" onClick={() => navigate('/leave-summary')}>
+                            <FileSpreadsheet size={16} />
+                            Leave Summary
+                        </Button>
+                        )}
                         <Button onClick={() => navigate('/requests/new?type=leave')}>
                             <Plus size={16} />
                             {t('leave.apply')}
