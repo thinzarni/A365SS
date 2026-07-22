@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Mail, Calendar, Briefcase, Award, CreditCard, Clock, Activity, Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle, Pencil } from 'lucide-react';
+import { Mail, Calendar, Briefcase, Award, CreditCard, Clock, Activity, Loader2, KeyRound, Eye, EyeOff, X, CheckCircle2, Circle } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth-store';
 import mainClient from '../../lib/main-client';
 import authClient from '../../lib/auth-client';
