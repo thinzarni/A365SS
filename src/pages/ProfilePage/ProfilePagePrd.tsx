@@ -36,6 +36,7 @@ import {
 import styles from './ProfilePagePrd.module.css';
 import mainClient from '../../lib/main-client';
 import toast from 'react-hot-toast';
+import { t } from 'i18next';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -913,7 +914,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
             }
             close();
             toast.success(t('profile.emergency.saveSuccess'));
-        } catch (err) {
+        } catch {
             toast.error('Failed to save emergency contact');
         } finally {
             setSaving(false);
@@ -976,7 +977,7 @@ function EmergencyContactTab({ profile }: { profile: ProfileData }) {
                 pending: updatedPending
             }));
             toast.success(isReverting ? 'Reverted deletion' : 'Marked for deletion');
-        } catch (err) {
+        } catch {
             toast.error('Failed to update record');
         }
     };
@@ -1310,7 +1311,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
         const updatedPending = records.pending.filter(r => r.id !== id);
         const { domain } = useAuthStore.getState();
         const experiencelist = updatedPending.filter(r => r.status === 'Pending').map(r => ({
-            syskey: r.id && r.id.length > 15 ? r.id : "", 
+            syskey: r.id && r.id.length > 15 ? r.id : "",
             orgrecordsyskey: r.orgrecordsyskey || (r.id && r.id.length > 15 && records.current.some(c => c.id === r.id) ? r.id : ""),
             organization: r.organization, organizationtype: r.orgType || null, industry: r.industry || null,
             designation: r.designation, fromdate: r.fromdate ? r.fromdate.replace(/-/g, '') : '',
@@ -1431,7 +1432,7 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
             }
             closeExp();
             toast.success(isUpdate ? t('profile.experience.saveSuccessUpdate') : t('profile.experience.saveSuccessAdd'));
-        } catch (err) {
+        } catch {
             toast.error('Failed to save experience information');
         } finally {
             setSaving(false);
@@ -1708,14 +1709,14 @@ async function openAttachment(fileName: string | undefined | null, mode: 'view' 
         // The API now returns a JSON with base64String
         if (response.data?.statuscode === 300 && response.data?.base64String) {
             const base64String = response.data.base64String;
-            
+
             // Determine content type based on extension
             const ext = fileName.split('.').pop()?.toLowerCase() || '';
             let ct = 'application/octet-stream';
             if (ext === 'png') ct = 'image/png';
             else if (ext === 'jpg' || ext === 'jpeg') ct = 'image/jpeg';
             else if (ext === 'pdf') ct = 'application/pdf';
-            
+
             // Convert base64 to Blob
             const byteString = atob(base64String);
             const arrayBuffer = new ArrayBuffer(byteString.length);
@@ -1725,10 +1726,10 @@ async function openAttachment(fileName: string | undefined | null, mode: 'view' 
             }
             const blob = new Blob([intArray], { type: ct });
             const url = URL.createObjectURL(blob);
-            
+
             const link = document.createElement('a');
             link.href = url;
-            
+
             if (mode === 'download') {
                 link.download = fileName.split('/').pop() || 'attachment';
                 document.body.appendChild(link);
@@ -1747,7 +1748,7 @@ async function openAttachment(fileName: string | undefined | null, mode: 'view' 
                     document.body.removeChild(link);
                 }
             }
-            
+
             // Use 5 minute timeout for "Save As" prompts
             setTimeout(() => URL.revokeObjectURL(url), 300000);
         } else {
@@ -1760,7 +1761,7 @@ async function openAttachment(fileName: string | undefined | null, mode: 'view' 
 
 const AttachmentActionButtons = ({ fileName, isDelete }: { fileName: string | undefined | null, isDelete?: boolean }) => {
     if (!fileName) return <span style={{ color: '#94a3b8', fontSize: '12px' }}>-</span>;
-    
+
     const ext = fileName.split('.').pop()?.toLowerCase() || '';
     let Icon = FileText;
     if (ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'gif') Icon = Image;
@@ -2039,7 +2040,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
             }
             close();
             toast.success(isUpdate ? t('profile.qualification.saveSuccessUpdate') : t('profile.qualification.saveSuccessAdd'));
-        } catch (err) {
+        } catch {
             toast.error('Failed to save qualification information');
         } finally {
             setSaving(false);
@@ -2077,7 +2078,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                 pending: updatedPending
             }));
             toast.success(t('profile.experience.removeSuccess'));
-        } catch (err) {
+        } catch {
             toast.error('Failed to remove qualification');
         }
     };
@@ -2311,7 +2312,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                         try {
                                             const base64Data = reader.result?.toString().split(',')[1];
                                             if (!base64Data) throw new Error('Failed to parse file');
-                                            
+
                                             const { userId, domain } = useAuthStore.getState();
                                             const { data } = await apiClient.post(FILE_UPLOAD_EDUCATION, {
                                                 base64String: base64Data,
@@ -2319,13 +2320,13 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                                 userid: userId,
                                                 domain: domain || 'dev'
                                             });
-                                            
+
                                             // Extract filename from response
                                             const fileName = data?.data || data?.fileName || data?.url || (typeof data === 'string' ? data : '');
                                             if (!fileName) {
                                                 throw new Error('No filename returned from server. Response: ' + JSON.stringify(data).substring(0, 50));
                                             }
-                                            
+
                                             setForm(prev => ({ ...prev, attachment: fileName, attachmentKey: fileName }));
                                             toast.success('File uploaded', { id: uploadingToast });
                                         } catch (err: any) {
@@ -2336,7 +2337,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                                     reader.onerror = () => {
                                         toast.error('File read error', { id: uploadingToast });
                                     };
-                                } catch (err) {
+                                } catch {
                                     toast.error('Failed to initiate upload', { id: uploadingToast });
                                 }
                             }}
@@ -2561,7 +2562,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
             }
             close();
             toast.success(isUpdate ? t('profile.family.saveSuccessUpdate') : t('profile.family.saveSuccessAdd'));
-        } catch (err) {
+        } catch {
             toast.error('Failed to save family information');
         } finally {
             setSaving(false);
@@ -2609,7 +2610,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                 pending: updatedPending
             }));
             toast.success(pendingRecord ? 'Pending request removed' : 'Marked for deletion');
-        } catch (err) {
+        } catch {
             toast.error('Failed to update family information');
         }
     };
@@ -2656,7 +2657,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
                                                 <td>
-                                                        <AttachmentActionButtons fileName={r.attachmentKey || r.attachment} />
+                                                    <AttachmentActionButtons fileName={r.attachmentKey || r.attachment} />
                                                 </td>
                                                 <td>
                                                     <div className={styles.rowActions} style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
@@ -2700,7 +2701,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                                 <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}>{r.relationship && r.relationship !== 'null' ? t(`profile.options.relationships.${r.relationship}` as any, r.relationship) : '-'}</td>
                                                 <td style={{ opacity: r.isdelete ? 0.6 : 1, textDecoration: r.isdelete ? 'line-through' : 'none' }}><span className={r.taxEligible === 'Yes' ? styles.badgeGreen : styles.badgeGray}>{t(`profile.options.yesno.${r.taxEligible}` as any, r.taxEligible)}</span></td>
                                                 <td>
-                                                        <AttachmentActionButtons fileName={r.attachmentKey || r.attachment} isDelete={r.isdelete} />
+                                                    <AttachmentActionButtons fileName={r.attachmentKey || r.attachment} isDelete={r.isdelete} />
                                                 </td>
                                                 <td><StatusBadge status={t(`profile.options.status.${r.status}` as any, r.status)} isDelete={r.isdelete} /></td>
                                                 <td>
@@ -2838,14 +2839,14 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                                     // Step 3: store the returned fileName key (no base64)
                                     setForm(prev => ({ ...prev, attachment: fileName, attachmentKey: fileName }));
                                     toast.success('File uploaded', { id: uploadingToast });
-                                } catch (err) {
+                                } catch {
                                     toast.error('File upload failed', { id: uploadingToast });
                                 }
                             }}
                         />
                         <p className={styles.fileHint}>
-    Accepted file types: PDF, Word (.docx), JPG, PNG • Maximum file size: 2 MB
-</p>
+                            Accepted file types: PDF, Word (.docx), JPG, PNG • Maximum file size: 2 MB
+                        </p>
                         {form.attachment && <p className={styles.fileHint}>Selected: {form.attachment}</p>}
                     </FormRow>
 
@@ -2893,537 +2894,425 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
     );
 }
 
+
+// Pure helper used by AddressCard (module-level to avoid prop-drilling)
+const fmtEffAddr = (d?: string): string => d && d.length === 8 ? `${d.substring(0, 4)}-${d.substring(4, 6)}-${d.substring(6, 8)}` : (d || '');
+
 // ═══════════════════════════════════════════════════════════════════════
-// TAB 7 — Contact Information (Create/Edit/View)
+// AddressCard — module-level component (must NOT be inside ContactInfoTab
+// to avoid focus loss on every keystroke due to re-mount)
 // ═══════════════════════════════════════════════════════════════════════
-function ContactInfoTab({ profile }: { profile: ProfileData }) {
-    const { t } = useTranslation();
-    const { domain } = useAuthStore();
-    const [records, setRecords] = useState<{ current: Address[], pending: Address[] }>({ current: [], pending: [] });
-    const [isEditing, setIsEditing] = useState(false);
-    const [saving, setSaving] = useState(false);
+type AddressMeta = { modOption: string; effectiveFrom: string; primaryEmail: string; secondaryEmail: string; primaryMobile: string; };
 
-    const [contactDetails, setContactDetails] = useState({
-        primaryEmail: '',
-        secondaryEmail: '',
-        primaryMobile: '',
-        modOption: 'New',
-        effectiveFrom: ''
-    });
+interface AddressCardProps {
+    addrStatus: 0 | 1;
+    cardLabel: string;
+    editTarget: 'permanent' | 'current' | null;
+    saving: boolean;
+    form: Address;
+    meta: AddressMeta;
+    countries?: any[];
+    states?: any[];
+    districts?: any[];
+    townships?: any[];
+    cities?: any[];
+    wards?: any[];
+    currentAddr?: Address;
+    pendingAddr?: Address;
+    rejectedAddr?: Address;
+    approvedAddr?: Address;
+    hasPendingFlag: boolean;
+    hasRejectedFlag: boolean;
+    hasApprovedFlag: boolean;
+    onStartEdit: () => void;
+    onCancel: () => void;
+    onSave: () => void;
+    onAddrChange: (field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+    onMetaChange: (key: keyof AddressMeta, value: string) => void;
+    // t, styles, fmtEff, MOD_OPTIONS are module-level — no need to pass as props
+}
 
-    const [form, setForm] = useState<{ permanent: Address, temporary: Address }>({
-        permanent: {
-            syskey: '', orgrecordsyskey: '', employeeid: '', address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 0, status: '0',
-            statesyskey: '',
-            districtsyskey: '',
-            townshipsyskey: '',
-            citysyskey: '',
-            wardsyskey: '',
-            countrysyskey: '',
-            personalprimaryemail: '',
-            personalsecondarymail: '',
-            personalmobilephone: ''
-        },
-        temporary: {
-            syskey: '', employeeid: '', address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 1, status: '0',
-            statesyskey: '',
-            districtsyskey: '',
-            townshipsyskey: '',
-            citysyskey: '',
-            wardsyskey: '',
-            countrysyskey: '',
-            personalprimaryemail: '',
-            personalsecondarymail: '',
-            personalmobilephone: ''
-        }
-    });
-
-    // Fetch countries for the dropdown
-    const { data: countries } = useQuery({
-        queryKey: ['countries', domain],
-        queryFn: async () => {
-            const res = await mainClient.post(GET_SETUP_LIST, {
-                userid: profile.userid,
-                domain: domain || 'demouat',
-                tblname: 'country'
-            });
-            return res.data?.datalist || [];
-        }
-    });
-
-    // Fetch states for the dropdown
-    const { data: states } = useQuery({
-        queryKey: ['states', domain],
-        queryFn: async () => {
-            const res = await mainClient.post(GET_SETUP_LIST, {
-                userid: profile.userid,
-                domain: domain || 'demouat',
-                tblname: 'state'
-            });
-            return res.data?.datalist || [];
-        }
-    });
-
-    // Locations for Permanent Address
-    const { data: permDistricts } = useQuery({
-        queryKey: ['districts', domain, form.permanent.statesyskey],
-        queryFn: async () => {
-            const res = await mainClient.post(GET_DISTRICT_LIST, { statesyskey: form.permanent.statesyskey, domain: domain || 'demouat' });
-            return res.data?.datalist || [];
-        },
-        enabled: !!form.permanent.statesyskey
-    });
-    const { data: permTownships } = useQuery({
-        queryKey: ['townships', domain, form.permanent.statesyskey, form.permanent.districtsyskey],
-        queryFn: async () => {
-            const res = await mainClient.post(GET_TOWNSHIP_LIST, { statesyskey: form.permanent.statesyskey, districtsyskey: form.permanent.districtsyskey, domain: domain || 'demouat' });
-            return res.data?.datalist || [];
-        },
-        enabled: !!form.permanent.statesyskey && !!form.permanent.districtsyskey
-    });
-
-    // Locations for Temporary Address
-    const { data: tempDistricts } = useQuery({
-        queryKey: ['districts', domain, form.temporary.statesyskey],
-        queryFn: async () => {
-            const res = await mainClient.post(GET_DISTRICT_LIST, { statesyskey: form.temporary.statesyskey, domain: domain || 'demouat' });
-            return res.data?.datalist || [];
-        },
-        enabled: !!form.temporary.statesyskey
-    });
-
-    const { data: tempTownships } = useQuery({
-        queryKey: ['townships', domain, form.temporary.statesyskey, form.temporary.districtsyskey],
-        queryFn: async () => {
-            const res = await mainClient.post(GET_TOWNSHIP_LIST, { statesyskey: form.temporary.statesyskey, districtsyskey: form.temporary.districtsyskey, domain: domain || 'demouat' });
-            return res.data?.datalist || [];
-        },
-        enabled: !!form.temporary.statesyskey && !!form.temporary.districtsyskey
-    });
-
-    // Cities for Permanent Address
-    const { data: permCities } = useQuery({
-        queryKey: ['cities', domain, form.permanent.statesyskey, form.permanent.districtsyskey, form.permanent.townshipsyskey],
-        queryFn: async () => {
-            const res = await mainClient.post(GET_CITY_LIST, { statesyskey: form.permanent.statesyskey, districtsyskey: form.permanent.districtsyskey, townshipsyskey: form.permanent.townshipsyskey, domain: domain || 'demouat' });
-            return res.data?.datalist || [];
-        },
-        enabled: !!form.permanent.statesyskey && !!form.permanent.districtsyskey && !!form.permanent.townshipsyskey
-    });
-    // Wards for Permanent Address
-    const { data: permWards } = useQuery({
-        queryKey: ['wards', domain, form.permanent.statesyskey, form.permanent.districtsyskey, form.permanent.townshipsyskey, form.permanent.citysyskey],
-        queryFn: async () => {
-            const res = await mainClient.post(GET_WARD_LIST, { statesyskey: form.permanent.statesyskey, districtsyskey: form.permanent.districtsyskey, townshipsyskey: form.permanent.townshipsyskey, citysyskey: form.permanent.citysyskey, domain: domain || 'demouat' });
-            return res.data?.datalist || [];
-        },
-        enabled: !!form.permanent.statesyskey && !!form.permanent.districtsyskey && !!form.permanent.townshipsyskey && !!form.permanent.citysyskey
-    });
-
-    // Cities for Temporary Address
-    const { data: tempCities } = useQuery({
-        queryKey: ['cities', domain, form.temporary.statesyskey, form.temporary.districtsyskey, form.temporary.townshipsyskey],
-        queryFn: async () => {
-            const res = await mainClient.post(GET_CITY_LIST, { statesyskey: form.temporary.statesyskey, districtsyskey: form.temporary.districtsyskey, townshipsyskey: form.temporary.townshipsyskey, domain: domain || 'demouat' });
-            return res.data?.datalist || [];
-        },
-        enabled: !!form.temporary.statesyskey && !!form.temporary.districtsyskey && !!form.temporary.townshipsyskey
-    });
-    // Wards for Temporary Address
-    const { data: tempWards } = useQuery({
-        queryKey: ['wards', domain, form.temporary.statesyskey, form.temporary.districtsyskey, form.temporary.townshipsyskey, form.temporary.citysyskey],
-        queryFn: async () => {
-            const res = await mainClient.post(GET_WARD_LIST, { statesyskey: form.temporary.statesyskey, districtsyskey: form.temporary.districtsyskey, townshipsyskey: form.temporary.townshipsyskey, citysyskey: form.temporary.citysyskey, domain: domain || 'demouat' });
-            return res.data?.datalist || [];
-        },
-        enabled: !!form.temporary.statesyskey && !!form.temporary.districtsyskey && !!form.temporary.townshipsyskey && !!form.temporary.citysyskey
-    });
-
-
-    const { data: fetchedData, refetch: refetchContact, isLoading, isFetching: isContactRefreshing } = useQuery({
-        queryKey: ['address', profile.userid, profile.eid],
-        queryFn: async () => {
-            const res = await mainClient.post(ADDRESS_COMPARE, {
-                userid: profile.userid,
-                domain: domain || 'demouat',
-                employeeid: profile.eid
-            });
-
-            const processArr = (arr: any[]) => (arr || []).map((item: any) => ({
-                syskey: item.syskey || '',
-                orgrecordsyskey: item.orgrecordsyskey || '',
-                employeeid: item.employeeid,
-                address: item.address,
-                postalcode: item.postalcode,
-                state: item.state || item.state,
-                statesyskey: item.statesyskey || item.state,
-                districtsyskey: item.districtsyskey || item.district,
-                district: item.district || item.district,
-                townshipsyskey: item.townshipsyskey || item.township,
-                township: item.township || item.township,
-                citysyskey: item.citysyskey || item.city,
-                city: item.city || item.city,
-                wardsyskey: item.wardsyskey || item.ward,
-                ward: item.ward || item.ward,
-                countrysyskey: item.countrysyskey || item.country,
-                country: item.country || item.country,
-                addressstatus: Number(item.addressstatus),
-                status: item.status?.toString() || '0',
-                personalprimaryemail: item.personalprimaryemail || item.personalprimaymail || '',
-                personalsecondarymail: item.personalsecondarymail || '',
-                personalmobilephone: item.personalmobilephone || '',
-                modificationoption: item.modificationoption || '',
-                effectivedate: item.effectivedate || ''
-            })) as Address[];
-
-            return {
-                current: processArr(res.data?.data?.current || []),
-                pending: processArr(res.data?.data?.update || [])
-            };
-        },
-        enabled: !!profile.userid && !!profile.eid
-    });
-
-    useEffect(() => {
-        if (fetchedData) {
-            setRecords(fetchedData);
-        }
-    }, [fetchedData]);
-
-    const startEdit = () => {
-        const curPerm = records.pending.find(a => a.addressstatus === 0) || records.current.find(a => a.addressstatus === 0);
-        const curTemp = records.pending.find(a => a.addressstatus === 1) || records.current.find(a => a.addressstatus === 1);
-
-        setForm({
-            permanent: curPerm ? { ...curPerm } : { syskey: '', orgrecordsyskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 0, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '', personalprimaryemail: '', personalsecondarymail: '', personalmobilephone: '' },
-            temporary: curTemp ? { ...curTemp } : { syskey: '', orgrecordsyskey: '', employeeid: profile.eid, address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '', addressstatus: 1, status: '0', statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '', personalprimaryemail: '', personalsecondarymail: '', personalmobilephone: '' }
-        });
-
-        const contactRef = (records.pending[0] || records.current[0] || {}) as any;
-        const isCurrent = !records.pending[0] && !!records.current[0];
-        setContactDetails({
-            primaryEmail: contactRef.personalprimaryemail || '',
-            secondaryEmail: contactRef.personalsecondarymail || '',
-            primaryMobile: contactRef.personalmobilephone || '',
-            modOption: isCurrent ? 'Update' : (contactRef.modificationoption || 'New'),
-            effectiveFrom: contactRef.effectivedate && contactRef.effectivedate.length === 8 ? `${contactRef.effectivedate.substring(0, 4)}-${contactRef.effectivedate.substring(4, 6)}-${contactRef.effectivedate.substring(6, 8)}` : (contactRef.effectivedate || '')
-        });
-
-        setIsEditing(true);
-    };
-
-    const cancel = () => setIsEditing(false);
-
-    const save = async () => {
-        if ((contactDetails.modOption === 'Update' || contactDetails.modOption === 'New') && !contactDetails.effectiveFrom) { toast.error('Effective Date is required'); return; }
-        
-        setSaving(true);
-        const toPayload = (addr: Address) => ({
-            syskey: addr.syskey,
-            orgrecordsyskey: addr.orgrecordsyskey || (records.current.find(c => c.addressstatus === addr.addressstatus)?.syskey || ''),
-            employeeid: profile.eid,
-            address: addr.address,
-            postalcode: addr.postalcode,
-            state: addr.statesyskey || '',
-            district: addr.districtsyskey || '',
-            township: addr.townshipsyskey || '',
-            city: addr.citysyskey || '',
-            ward: addr.wardsyskey || '',
-            country: addr.countrysyskey || '',
-            addressstatus: addr.addressstatus,
-            modificationoption: contactDetails.modOption,
-            effectivedate: contactDetails.effectiveFrom ? contactDetails.effectiveFrom.replace(/-/g, '') : '',
-            status: '0'
-        });
-        const addressinfo = [toPayload(form.permanent), toPayload(form.temporary)];
-
-        try {
-            await mainClient.post(ADDRESS_UPDATE, {
-                userid: profile.userid,
-                domain: domain || 'demouat',
-                employeeid: profile.eid,
-                addressinfo,
-                personalprimaymail: contactDetails.primaryEmail,
-                personalsecondarymail: contactDetails.secondaryEmail,
-                personalmobilephone: contactDetails.primaryMobile
-            });
-            toast.success(t('profile.contact.saveSuccess'));
-            setIsEditing(false);
-            refetchContact();
-        } catch (err) {
-            toast.error('Failed to update address information');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const updateAddr = (type: 'permanent' | 'temporary', field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const val = e.target.value;
-        setForm(prev => {
-            const updated = { ...prev[type], [field]: val };
-
-            // Sync Name and Syskey fields for cascading logic and form binding
-            if (field === 'state') updated.statesyskey = val;
-            if (field === 'district') updated.districtsyskey = val;
-            if (field === 'township') updated.townshipsyskey = val;
-            if (field === 'city') updated.citysyskey = val;
-            if (field === 'ward') updated.wardsyskey = val;
-            if (field === 'country') updated.countrysyskey = val;
-
-            // Clear child fields when parent changes
-            if (field === 'state' || field === 'statesyskey') {
-                updated.district = '';
-                updated.districtsyskey = '';
-                updated.township = '';
-                updated.townshipsyskey = '';
-                updated.city = '';
-                updated.citysyskey = '';
-                updated.ward = '';
-                updated.wardsyskey = '';
-            } else if (field === 'district' || field === 'districtsyskey') {
-                updated.township = '';
-                updated.townshipsyskey = '';
-                updated.city = '';
-                updated.citysyskey = '';
-                updated.ward = '';
-                updated.wardsyskey = '';
-            } else if (field === 'township' || field === 'townshipsyskey') {
-                updated.city = '';
-                updated.citysyskey = '';
-                updated.ward = '';
-                updated.wardsyskey = '';
-            } else if (field === 'city' || field === 'citysyskey') {
-                updated.ward = '';
-                updated.wardsyskey = '';
-            }
-
-            return {
-                ...prev,
-                [type]: updated
-            };
-        });
-    };
-
-    const updateContact = (field: keyof typeof contactDetails) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setContactDetails(prev => ({ ...prev, [field]: e.target.value }));
-    };
-
-    const renderAddressTable = (addrs: Address[], title: string, background: string = 'transparent') => {
-        if (addrs.length === 0) return null;
-        return (
-            <div className={styles.tableWrapper} style={{ marginBottom: '24px' }}>
-                <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: background === 'transparent' ? 'var(--color-neutral-800)' : 'var(--color-warning-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {title}
-                </div>
-                <table className={styles.table}>
-                    <thead style={{ background }}>
-                        <tr>
-                            <th>{t('profile.contact.type')}</th>
-                            <th>{t('profile.contact.address')}</th>
-                            <th>{t('profile.contact.cityWard')}</th>
-                            <th>{t('profile.contact.districtTownship')}</th>
-                            <th>{t('profile.contact.stateCountry')}</th>
-                            {typeof background === 'string' && background !== 'transparent' && <th>{t('common.status')}</th>}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {addrs.map(a => (
-                            <tr key={a.syskey || a.addressstatus}>
-                                <td><strong>{a.addressstatus === 0 ? t('profile.contact.permanent') : t('profile.contact.current')}</strong></td>
-                                <td>{a.address}</td>
-                                <td>{a.city}{a.city && a.ward ? ' / ' : ''}{a.ward}</td>
-                                <td>{(a.addressstatus === 0 ? permDistricts : tempDistricts)?.find((d: any) => d.syskey === a.district)?.description || a.district}{a.district && a.township ? ' / ' : ''}{(a.addressstatus === 0 ? permTownships : tempTownships)?.find((t: any) => t.syskey === a.township)?.description || a.township}</td>
-                                <td>{states?.find((s: any) => s.syskey === a.state)?.description || a.state}{(a.state && a.country) ? ' / ' : ''}{countries?.find((c: any) => c.syskey === a.country)?.description || a.country}</td>
-                                {typeof background === 'string' && background !== 'transparent' && <td><StatusBadge status={a.status} /></td>}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        );
-    };
-
-    if (isLoading) {
-        return (
-            <div className={styles.sectionCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', minHeight: '300px' }}>
-                <Loader2 className="animate-spin" size={32} style={{ color: '#3b82f6', marginBottom: '16px' }} />
-                <p style={{ color: 'var(--color-neutral-500)' }}>{t('profile.loading', 'Loading...')}</p>
-            </div>
-        );
-    }
+function AddressCard({
+    addrStatus, cardLabel, editTarget, saving, form, meta,
+    countries, states, districts, townships, cities, wards,
+    currentAddr: cAddr, pendingAddr: pAddr, rejectedAddr: rAddr, approvedAddr: aAddr,
+    hasPendingFlag: isPend, hasRejectedFlag, hasApprovedFlag,
+    onStartEdit, onCancel, onSave, onAddrChange: uf, onMetaChange: sm,
+    // t, styles, fmtEff, MOD_OPTIONS come from module scope
+}: AddressCardProps) {
+    const isRej = !isPend && !hasApprovedFlag && hasRejectedFlag;
+    const isAppr = !isPend && hasApprovedFlag;
+    const ek: 'permanent' | 'current' = addrStatus === 0 ? 'permanent' : 'current';
+    const isOpen = editTarget === ek;
+    const disp = pAddr || aAddr || cAddr || rAddr;
+    const ac = addrStatus === 0 ? 'var(--color-primary-600)' : '#059669';
+    const ab = addrStatus === 0 ? 'rgba(59,130,246,0.08)' : 'rgba(16,185,129,0.08)';
+    const borderColor = isOpen ? ac : isPend ? 'var(--color-warning-300)' : isAppr ? '#86efac' : isRej ? '#fca5a5' : 'var(--color-neutral-200)';
+    const headerBg = isOpen ? ab : isPend ? 'var(--color-warning-50)' : isAppr ? '#f0fdf4' : isRej ? '#fff1f2' : 'var(--color-neutral-50)';
+    const headerBorder = isPend ? 'var(--color-warning-200)' : isAppr ? '#bbf7d0' : isRej ? '#fecaca' : 'var(--color-neutral-200)';
 
     return (
-        <div className={styles.sectionCard}>
-            <SectionHeader icon={<MapPin size={20} />} title={t('profile.tabs.contact')} subtitle={t('profile.contact.subtitle')}
-                action={
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button className={styles.refreshBtn} onClick={() => refetchContact()} disabled={isContactRefreshing} title="Refresh">
-                            <RefreshCw size={14} className={isContactRefreshing ? styles.spinning : ''} />
-                        </button>
-                        {!isEditing && <button className={styles.editOutlineBtn} onClick={startEdit}><Edit3 size={14} /> {t('profile.personal.editHint')}</button>}
-                    </div>
-                
-                }
-            />
-
-            {isEditing ? (
-                <div className={styles.editForm}>
-                    {/* Permanent Address */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                        <p className={styles.subSectionTitle} style={{ margin: 0 }}>{t('profile.contact.permanentAddress')}</p>
-                        <span style={{ fontSize: '12px', background: 'var(--color-neutral-100)', padding: '2px 8px', borderRadius: '4px', color: 'var(--color-neutral-600)' }}>Status: 0</span>
-                    </div>
-                    <div className={styles.formGrid2}>
-                        <FormRow label={t('profile.contact.state')}>
-                            <select className={styles.formSelect} value={form.permanent.statesyskey} onChange={updateAddr('permanent', 'state')}>
-                                <option value="">{t('profile.contact.selectState')}</option>
-                                {states?.map((s: any) => <option key={s.syskey} value={s.syskey}>{s.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.country')}>
-                            <select className={styles.formSelect} value={form.permanent.countrysyskey} onChange={updateAddr('permanent', 'country')}>
-                                <option value="">{t('profile.contact.selectCountry')}</option>
-                                {countries?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.district')}>
-                            <select className={styles.formSelect} value={form.permanent.districtsyskey} onChange={updateAddr('permanent', 'district')}>
-                                <option value="">{t('profile.contact.selectDistrict')}</option>
-                                {permDistricts?.map((d: any) => <option key={d.syskey} value={d.syskey}>{d.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.township')}>
-                            <select className={styles.formSelect} value={form.permanent.townshipsyskey} onChange={updateAddr('permanent', 'township')}>
-                                <option value="">{t('profile.contact.selectTownship')}</option>
-                                {permTownships?.map((t: any) => <option key={t.syskey} value={t.syskey}>{t.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.city')}>
-                            <select className={styles.formSelect} value={form.permanent.citysyskey} onChange={updateAddr('permanent', 'city')}>
-                                <option value="">{t('profile.contact.selectCity')}</option>
-                                {permCities?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.ward')}>
-                            <select className={styles.formSelect} value={form.permanent.wardsyskey} onChange={updateAddr('permanent', 'ward')}>
-                                <option value="">{t('profile.contact.selectWard')}</option>
-                                {permWards?.map((w: any) => <option key={w.syskey} value={w.syskey}>{w.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.addressDetails')} fullWidth>
-                            <input className={styles.formInput} value={form.permanent.address} onChange={updateAddr('permanent', 'address')} placeholder={t('profile.contact.addressPlaceholder')} />
-                        </FormRow>
-                    </div>
-
-                    {/* Current Address */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', marginTop: 'var(--space-8)' }}>
-                        <p className={styles.subSectionTitle} style={{ margin: 0 }}>{t('profile.contact.currentAddress')}</p>
-                        <span style={{ fontSize: '12px', background: 'var(--color-neutral-100)', padding: '2px 8px', borderRadius: '4px', color: 'var(--color-neutral-600)' }}>Status: 1</span>
-                    </div>
-                    <div className={styles.formGrid2}>
-                        <FormRow label={t('profile.contact.state')}>
-                            <select className={styles.formSelect} value={form.temporary.statesyskey} onChange={updateAddr('temporary', 'state')}>
-                                <option value="">{t('profile.contact.selectState')}</option>
-                                {states?.map((s: any) => <option key={s.syskey} value={s.syskey}>{s.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.country')}>
-                            <select className={styles.formSelect} value={form.temporary.countrysyskey} onChange={updateAddr('temporary', 'country')}>
-                                <option value="">{t('profile.contact.selectCountry')}</option>
-                                {countries?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.district')}>
-                            <select className={styles.formSelect} value={form.temporary.districtsyskey} onChange={updateAddr('temporary', 'district')}>
-                                <option value="">{t('profile.contact.selectDistrict')}</option>
-                                {tempDistricts?.map((d: any) => <option key={d.syskey} value={d.syskey}>{d.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.township')}>
-                            <select className={styles.formSelect} value={form.temporary.townshipsyskey} onChange={updateAddr('temporary', 'township')}>
-                                <option value="">{t('profile.contact.selectTownship')}</option>
-                                {tempTownships?.map((t: any) => <option key={t.syskey} value={t.syskey}>{t.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.city')}>
-                            <select className={styles.formSelect} value={form.temporary.citysyskey} onChange={updateAddr('temporary', 'city')}>
-                                <option value="">{t('profile.contact.selectCity')}</option>
-                                {tempCities?.map((c: any) => <option key={c.syskey} value={c.syskey}>{c.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.ward')}>
-                            <select className={styles.formSelect} value={form.temporary.wardsyskey} onChange={updateAddr('temporary', 'ward')}>
-                                <option value="">{t('profile.contact.selectWard')}</option>
-                                {tempWards?.map((w: any) => <option key={w.syskey} value={w.syskey}>{w.description}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={t('profile.contact.addressDetails')} fullWidth>
-                            <input className={styles.formInput} value={form.temporary.address} onChange={updateAddr('temporary', 'address')} placeholder={t('profile.contact.addressPlaceholder')} />
-                        </FormRow>
-                    </div>
-
-                    {/* Email & Phone */}
-                    <p className={styles.subSectionTitle} style={{ marginTop: 'var(--space-8)' }}>{t('profile.contact.contactDetails')}</p>
-                    <div className={styles.formGrid2}>
-                        <FormRow label={t('profile.contact.primaryEmail')}>
-                            <input className={styles.formInput} type="email" value={contactDetails.primaryEmail} onChange={updateContact('primaryEmail')} placeholder="primary@email.com" />
-                        </FormRow>
-                        <FormRow label={t('profile.contact.secondaryEmail')}>
-                            <input className={styles.formInput} type="email" value={contactDetails.secondaryEmail} onChange={updateContact('secondaryEmail')} placeholder="secondary@email.com" />
-                        </FormRow>
-                        <FormRow label={t('profile.contact.primaryMobile')}>
-                            <input className={styles.formInput} type="tel" value={contactDetails.primaryMobile} onChange={updateContact('primaryMobile')} placeholder="09-xxx-xxx-xxx" />
-                        </FormRow>
-
-                    </div>
-                    <div className={styles.formGrid2}>
-                        <FormRow label={`${t('profile.family.modOption', 'Modification Option')} *`}>
-                            <select className={styles.formSelect} value={contactDetails.modOption} onChange={e => setContactDetails(prev => ({ ...prev, modOption: e.target.value, effectiveFrom: e.target.value === 'Correct' ? '' : prev.effectiveFrom }))}>
-                                {MOD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
-                        </FormRow>
-                        <FormRow label={`${t('profile.family.effectiveFrom', 'Effective Date')}${contactDetails.modOption !== 'Correct' ? ' *' : ''}`}>
-                            <input className={styles.formInput} type="date" value={contactDetails.effectiveFrom} onChange={updateContact('effectiveFrom')} disabled={contactDetails.modOption === 'Correct'} />
-                        </FormRow>
-                    </div>
-
-                    <div className={styles.formActions} style={{ marginTop: 'var(--space-8)' }}>
-                        <button className={styles.btnGhost} onClick={cancel} disabled={saving}>{t('common.cancel')}</button>
-                        <button className={styles.btnPrimary} onClick={save} disabled={saving}>
-                            {saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} {t('request.save')}
-                        </button>
+        <div style={{ border: `1.5px solid ${borderColor}`, borderRadius: '12px', overflow: 'hidden', background: 'var(--color-neutral-0)', boxShadow: isOpen ? '0 4px 16px rgba(0,0,0,0.08)' : '0 1px 4px rgba(0,0,0,0.05)', transition: 'box-shadow 0.2s,border-color 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 18px', background: headerBg, borderBottom: `1px solid ${headerBorder}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: ab, color: ac, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><MapPin size={15} /></div>
+                    <div>
+                        <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--color-neutral-800)' }}>{cardLabel}</span>
+                        {isPend && <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, color: 'var(--color-warning-700)', background: 'var(--color-warning-100)', padding: '2px 8px', borderRadius: '999px' }}>⏳ Pending Approval</span>}
+                        {isAppr && <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '999px' }}>✓ Approved</span>}
+                        {isRej && <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, color: '#b91c1c', background: '#fee2e2', padding: '2px 8px', borderRadius: '999px' }}>✕ Rejected</span>}
                     </div>
                 </div>
-            ) : (
-                <div style={{ padding: '0 16px 16px' }}>
-                    {renderAddressTable(records.current, t('profile.contact.currentAddresses'))}
-                    {renderAddressTable(records.pending, t('common.pendingHRApproval'), 'var(--color-warning-50)')}
+                {!isOpen ? (
+                    <button id={`edit-${ek}-address-btn`} className={styles.editOutlineBtn} onClick={onStartEdit} disabled={editTarget !== null} style={{ opacity: editTarget !== null ? 0.4 : 1 }}>
+                        <Edit3 size={13} /> {isRej ? 'Re-submit' : t('profile.personal.editHint')}
+                    </button>
+                ) : <span style={{ fontSize: '12px', color: ac, fontWeight: 600 }}>Editing</span>}
+            </div>
 
-                    {records.current.length === 0 && records.pending.length === 0 && (
-                        <p className={styles.emptySlot} style={{ textAlign: 'center', padding: '24px' }}>{t('common.noData')}</p>
+            {/* View mode */}
+            {!isOpen && (
+                <div style={{ padding: '16px 18px' }}>
+                    {disp ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px' }}>
+                            {[
+                                { label: 'Address', value: disp.address },
+                                { label: 'State / Region', value: disp.state },
+                                { label: 'District', value: disp.district },
+                                { label: 'Township', value: disp.township },
+                                { label: 'City', value: disp.city },
+                                { label: 'Ward', value: disp.ward },
+                                { label: 'Postal Code', value: disp.postalcode },
+                                { label: 'Country', value: disp.country },
+                            ].map(({ label: lbl, value }) => (
+                                <div key={lbl}>
+                                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-neutral-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{lbl}</div>
+                                    <div style={{ fontSize: '13px', color: value ? 'var(--color-neutral-800)' : 'var(--color-neutral-300)', fontWeight: value ? 500 : 400 }}>{value || '—'}</div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : <p style={{ color: 'var(--color-neutral-400)', fontSize: '13px', textAlign: 'center', padding: '16px 0' }}>No address on record</p>}
+
+                    {isPend && cAddr && (
+                        <div style={{ marginTop: '12px', padding: '10px 14px', background: 'var(--color-warning-50)', border: '1px dashed var(--color-warning-300)', borderRadius: '8px', fontSize: '12px', color: 'var(--color-warning-800)' }}>
+                            <strong>Pending change:</strong> {pAddr?.address || '—'}{pAddr?.city ? `, ${pAddr.city}` : ''}{pAddr?.state ? `, ${pAddr.state}` : ''}
+                            {pAddr?.effectivedate && <span style={{ marginLeft: '8px', color: 'var(--color-neutral-500)', fontSize: '11px' }}>Effective: {fmtEffAddr(pAddr.effectivedate)}</span>}
+                        </div>
                     )}
 
-                    <div className={styles.addressBlock} style={{ marginTop: '24px' }}>
-                        <p className={styles.subSectionTitle}>Current Personal Contact Details</p>
-                        <div className={styles.infoGrid}>
-                            <InfoItem icon={<Mail size={18} />} label={t('profile.contact.primaryEmail')} value={records.current[0]?.personalprimaryemail || '-'} />
-                            <InfoItem icon={<Mail size={18} />} label={t('profile.contact.secondaryEmail')} value={records.current[0]?.personalsecondarymail || '-'} />
-                            <InfoItem icon={<Phone size={18} />} label={t('profile.contact.primaryMobile')} value={records.current[0]?.personalmobilephone || '-'} />
+                    {isAppr && (
+                        <div style={{ marginTop: '12px', padding: '10px 14px', background: '#f0fdf4', border: '1px dashed #86efac', borderRadius: '8px', fontSize: '12px', color: '#15803d' }}>
+                            <strong>Approved:</strong> {aAddr?.address || '—'}{aAddr?.city ? `, ${aAddr.city}` : ''}{aAddr?.state ? `, ${aAddr.state}` : ''}
+                            {aAddr?.effectivedate && <span style={{ marginLeft: '8px', color: 'var(--color-neutral-500)', fontSize: '11px' }}>Effective: {fmtEffAddr(aAddr.effectivedate)}</span>}
                         </div>
-                    </div>
+                    )}
 
-                    {records.pending.length > 0 && (
-                        <div className={styles.addressBlock} style={{ marginTop: '24px', padding: '16px', background: 'var(--color-warning-50)', borderRadius: '8px', border: '1px solid var(--color-warning-200)' }}>
-                            <p className={styles.subSectionTitle} style={{ color: 'var(--color-warning-700)' }}>{t('profile.contact.pendingContactDetails')}</p>
-                            <div className={styles.infoGrid}>
-                                <InfoItem icon={<Mail size={18} />} label={t('profile.contact.primaryEmail')} value={records.pending[0]?.personalprimaryemail || '-'} />
-                                <InfoItem icon={<Mail size={18} />} label={t('profile.contact.secondaryEmail')} value={records.pending[0]?.personalsecondarymail || '-'} />
-                                <InfoItem icon={<Phone size={18} />} label={t('profile.contact.primaryMobile')} value={records.pending[0]?.personalmobilephone || '-'} />
-                            </div>
+                    {isRej && (
+                        <div style={{ marginTop: '12px', padding: '10px 14px', background: '#fff1f2', border: '1px dashed #fca5a5', borderRadius: '8px', fontSize: '12px', color: '#b91c1c' }}>
+                            <strong>Rejected request:</strong> {rAddr?.address || '—'}{rAddr?.city ? `, ${rAddr.city}` : ''}{rAddr?.state ? `, ${rAddr.state}` : ''}
+                            {rAddr?.effectivedate && <span style={{ marginLeft: '8px', color: 'var(--color-neutral-500)', fontSize: '11px' }}>Was effective: {fmtEffAddr(rAddr.effectivedate)}</span>}
+                            <span style={{ marginLeft: '8px', fontStyle: 'italic', color: '#9f1239' }}>Click "Re-submit" to send a new request.</span>
                         </div>
                     )}
                 </div>
             )}
+
+            {/* Edit mode */}
+            {isOpen && (
+                <div style={{ padding: '20px 18px' }}>
+                    <div style={{ padding: '10px 14px', background: ab, border: `1px solid ${addrStatus === 0 ? 'var(--color-primary-200)' : '#a7f3d0'}`, borderRadius: '8px', marginBottom: '18px', fontSize: '12px', color: addrStatus === 0 ? 'var(--color-primary-700)' : '#065f46', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <MapPin size={13} style={{ flexShrink: 0 }} />
+                        <span>Editing <strong>{addrStatus === 0 ? 'Permanent' : 'Current'} Address</strong> only — the other address will not be affected.</span>
+                    </div>
+                    <div className={styles.formGrid2}>
+                        <FormRow label={t('profile.contact.state', 'State/Region')}><select className={styles.formSelect} value={form.statesyskey} onChange={uf('state')}><option value="">{t('profile.contact.selectState', 'Select State')}</option>{states?.map((s: any) => <option key={s.syskey} value={s.syskey}>{s.description}</option>)}</select></FormRow>
+                        <FormRow label={t('profile.contact.country', 'Country')}><select className={styles.formSelect} value={form.countrysyskey} onChange={uf('country')}><option value="">{t('profile.contact.selectCountry', 'Select Country')}</option>{countries?.map((co: any) => <option key={co.syskey} value={co.syskey}>{co.description}</option>)}</select></FormRow>
+                        <FormRow label={t('profile.contact.district', 'District')}><select className={styles.formSelect} value={form.districtsyskey} onChange={uf('district')} disabled={!form.statesyskey}><option value="">{t('profile.contact.selectDistrict', 'Select District')}</option>{districts?.map((d: any) => <option key={d.syskey} value={d.syskey}>{d.description}</option>)}</select></FormRow>
+                        <FormRow label={t('profile.contact.township', 'Township')}><select className={styles.formSelect} value={form.townshipsyskey} onChange={uf('township')} disabled={!form.districtsyskey}><option value="">{t('profile.contact.selectTownship', 'Select Township')}</option>{townships?.map((tp: any) => <option key={tp.syskey} value={tp.syskey}>{tp.description}</option>)}</select></FormRow>
+                        <FormRow label={t('profile.contact.city', 'City')}><select className={styles.formSelect} value={form.citysyskey} onChange={uf('city')} disabled={!form.townshipsyskey}><option value="">{t('profile.contact.selectCity', 'Select City')}</option>{cities?.map((ci: any) => <option key={ci.syskey} value={ci.syskey}>{ci.description}</option>)}</select></FormRow>
+                        <FormRow label={t('profile.contact.ward', 'Ward')}><select className={styles.formSelect} value={form.wardsyskey} onChange={uf('ward')} disabled={!form.citysyskey}><option value="">{t('profile.contact.selectWard', 'Select Ward')}</option>{wards?.map((w: any) => <option key={w.syskey} value={w.syskey}>{w.description}</option>)}</select></FormRow>
+                        <FormRow label={t('profile.contact.addressDetails', 'Street / Detail Address')} fullWidth><input className={styles.formInput} value={form.address} onChange={uf('address')} placeholder={t('profile.contact.addressPlaceholder', 'e.g. No.12, Street Name')} /></FormRow>
+                        <FormRow label="Postal Code"><input className={styles.formInput} value={form.postalcode || ''} onChange={uf('postalcode')} placeholder="e.g. 11221" /></FormRow>
+                    </div>
+
+                    {/* Contact Details — embedded so they are submitted together with the address */}
+                    <div style={{ marginTop: '16px', padding: '14px 16px', background: 'rgba(139,92,246,0.04)', borderRadius: '8px', border: '1px solid rgba(139,92,246,0.18)' }}>
+                        <p style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Mail size={12} /> Contact Details
+                        </p>
+                        <div className={styles.formGrid2}>
+                            <FormRow label={t('profile.contact.primaryEmail', 'Primary Email')}><input className={styles.formInput} type="email" value={meta.primaryEmail} onChange={e => sm('primaryEmail', e.target.value)} placeholder="primary@email.com" /></FormRow>
+                            <FormRow label={t('profile.contact.secondaryEmail', 'Secondary Email')}><input className={styles.formInput} type="email" value={meta.secondaryEmail} onChange={e => sm('secondaryEmail', e.target.value)} placeholder="secondary@email.com" /></FormRow>
+                            <FormRow label={t('profile.contact.primaryMobile', 'Mobile Phone')}><input className={styles.formInput} type="tel" value={meta.primaryMobile} onChange={e => sm('primaryMobile', e.target.value)} placeholder="09-xxx-xxx-xxx" /></FormRow>
+                        </div>
+                    </div>
+
+                    {/* Request Options — required for HR approval workflow */}
+                    <div style={{ marginTop: '10px', padding: '14px 16px', background: 'var(--color-neutral-50)', borderRadius: '8px', border: '1px solid var(--color-neutral-200)' }}>
+                        <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-neutral-500)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Request Options</p>
+                        <div className={styles.formGrid2}>
+                            <FormRow label={`${t('profile.family.modOption', 'Modification Option')} *`}><select className={styles.formSelect} value={meta.modOption} onChange={e => sm('modOption', e.target.value)}>{MOD_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select></FormRow>
+                            <FormRow label={`${t('profile.family.effectiveFrom', 'Effective Date')}${meta.modOption !== 'Correct' ? ' *' : ''}`}><input className={styles.formInput} type="date" value={meta.effectiveFrom} onChange={e => sm('effectiveFrom', e.target.value)} disabled={meta.modOption === 'Correct'} /></FormRow>
+                        </div>
+                    </div>
+
+                    <div className={styles.formActions} style={{ marginTop: '16px' }}>
+                        <button className={styles.btnGhost} onClick={onCancel} disabled={saving}>{t('common.cancel')}</button>
+                        <button id={`save-${ek}-address-btn`} className={styles.btnPrimary} onClick={onSave} disabled={saving}>
+                            {saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} Submit {addrStatus === 0 ? 'Permanent' : 'Current'} Address Request
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB 7 — Contact Information (Separate per-address editing)
+// ═══════════════════════════════════════════════════════════════════════
+function ContactInfoTab({ profile }: { profile: ProfileData }) {
+    const { t } = useTranslation();
+    const { domain } = useAuthStore();
+
+    const [records, setRecords] = useState<{ current: Address[], pending: Address[] }>({ current: [], pending: [] });
+
+    // Which card is currently open for editing: 'permanent' | 'current' | null
+    type EditTarget = 'permanent' | 'current' | null;
+    const [editTarget, setEditTarget] = useState<EditTarget>(null);
+    const [saving, setSaving] = useState(false);
+
+    // ── Per-address form state ──
+    const emptyAddr = (status: 0 | 1): Address => ({
+        syskey: '', orgrecordsyskey: '', employeeid: profile.eid,
+        address: '', postalcode: '', state: '', district: '', township: '', city: '', ward: '', country: '',
+        addressstatus: status, status: '0',
+        statesyskey: '', districtsyskey: '', townshipsyskey: '', citysyskey: '', wardsyskey: '', countrysyskey: '',
+        personalprimaryemail: '', personalsecondarymail: '', personalmobilephone: ''
+    });
+
+    const [permForm, setPermForm] = useState<Address>(emptyAddr(0));
+    const [tempForm, setTempForm] = useState<Address>(emptyAddr(1));
+    // permMeta / tempMeta now include contact fields so they are submitted together with the address
+    const [permMeta, setPermMeta] = useState({ modOption: 'New', effectiveFrom: '', primaryEmail: '', secondaryEmail: '', primaryMobile: '' });
+    const [tempMeta, setTempMeta] = useState({ modOption: 'New', effectiveFrom: '', primaryEmail: '', secondaryEmail: '', primaryMobile: '' });
+
+    // ── Lookup data ──
+    const { data: countries } = useQuery({ queryKey: ['countries', domain], queryFn: async () => { const res = await mainClient.post(GET_SETUP_LIST, { userid: profile.userid, domain: domain || 'demouat', tblname: 'country' }); return res.data?.datalist || []; } });
+    const { data: states } = useQuery({ queryKey: ['states', domain], queryFn: async () => { const res = await mainClient.post(GET_SETUP_LIST, { userid: profile.userid, domain: domain || 'demouat', tblname: 'state' }); return res.data?.datalist || []; } });
+
+    const { data: permDistricts } = useQuery({ queryKey: ['districts', domain, permForm.statesyskey], queryFn: async () => { const res = await mainClient.post(GET_DISTRICT_LIST, { statesyskey: permForm.statesyskey, domain: domain || 'demouat' }); return res.data?.datalist || []; }, enabled: !!permForm.statesyskey });
+    const { data: permTownships } = useQuery({ queryKey: ['townships', domain, permForm.statesyskey, permForm.districtsyskey], queryFn: async () => { const res = await mainClient.post(GET_TOWNSHIP_LIST, { statesyskey: permForm.statesyskey, districtsyskey: permForm.districtsyskey, domain: domain || 'demouat' }); return res.data?.datalist || []; }, enabled: !!permForm.statesyskey && !!permForm.districtsyskey });
+    const { data: permCities } = useQuery({ queryKey: ['cities', domain, permForm.statesyskey, permForm.districtsyskey, permForm.townshipsyskey], queryFn: async () => { const res = await mainClient.post(GET_CITY_LIST, { statesyskey: permForm.statesyskey, districtsyskey: permForm.districtsyskey, townshipsyskey: permForm.townshipsyskey, domain: domain || 'demouat' }); return res.data?.datalist || []; }, enabled: !!permForm.statesyskey && !!permForm.districtsyskey && !!permForm.townshipsyskey });
+    const { data: permWards } = useQuery({ queryKey: ['wards', domain, permForm.statesyskey, permForm.districtsyskey, permForm.townshipsyskey, permForm.citysyskey], queryFn: async () => { const res = await mainClient.post(GET_WARD_LIST, { statesyskey: permForm.statesyskey, districtsyskey: permForm.districtsyskey, townshipsyskey: permForm.townshipsyskey, citysyskey: permForm.citysyskey, domain: domain || 'demouat' }); return res.data?.datalist || []; }, enabled: !!permForm.statesyskey && !!permForm.districtsyskey && !!permForm.townshipsyskey && !!permForm.citysyskey });
+
+    const { data: tempDistricts } = useQuery({ queryKey: ['districts', domain, tempForm.statesyskey], queryFn: async () => { const res = await mainClient.post(GET_DISTRICT_LIST, { statesyskey: tempForm.statesyskey, domain: domain || 'demouat' }); return res.data?.datalist || []; }, enabled: !!tempForm.statesyskey });
+    const { data: tempTownships } = useQuery({ queryKey: ['townships', domain, tempForm.statesyskey, tempForm.districtsyskey], queryFn: async () => { const res = await mainClient.post(GET_TOWNSHIP_LIST, { statesyskey: tempForm.statesyskey, districtsyskey: tempForm.districtsyskey, domain: domain || 'demouat' }); return res.data?.datalist || []; }, enabled: !!tempForm.statesyskey && !!tempForm.districtsyskey });
+    const { data: tempCities } = useQuery({ queryKey: ['cities', domain, tempForm.statesyskey, tempForm.districtsyskey, tempForm.townshipsyskey], queryFn: async () => { const res = await mainClient.post(GET_CITY_LIST, { statesyskey: tempForm.statesyskey, districtsyskey: tempForm.districtsyskey, townshipsyskey: tempForm.townshipsyskey, domain: domain || 'demouat' }); return res.data?.datalist || []; }, enabled: !!tempForm.statesyskey && !!tempForm.districtsyskey && !!tempForm.townshipsyskey });
+    const { data: tempWards } = useQuery({ queryKey: ['wards', domain, tempForm.statesyskey, tempForm.districtsyskey, tempForm.townshipsyskey, tempForm.citysyskey], queryFn: async () => { const res = await mainClient.post(GET_WARD_LIST, { statesyskey: tempForm.statesyskey, districtsyskey: tempForm.districtsyskey, townshipsyskey: tempForm.townshipsyskey, citysyskey: tempForm.citysyskey, domain: domain || 'demouat' }); return res.data?.datalist || []; }, enabled: !!tempForm.statesyskey && !!tempForm.districtsyskey && !!tempForm.townshipsyskey && !!tempForm.citysyskey });
+
+    // ── Data fetch ──
+    const { data: fetchedData, refetch: refetchContact, isLoading, isFetching: isContactRefreshing } = useQuery({
+        queryKey: ['address', profile.userid, profile.eid],
+        queryFn: async () => {
+            const res = await mainClient.post(ADDRESS_COMPARE, { userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid });
+            const p = (arr: any[]) => (arr || []).map((item: any) => ({
+                syskey: item.syskey || '', orgrecordsyskey: item.orgrecordsyskey || '', employeeid: item.employeeid,
+                address: item.address || '', postalcode: item.postalcode || '', state: item.state || '',
+                statesyskey: item.statesyskey || item.state || '', districtsyskey: item.districtsyskey || item.district || '',
+                district: item.district || '', townshipsyskey: item.townshipsyskey || item.township || '',
+                township: item.township || '', citysyskey: item.citysyskey || item.city || '', city: item.city || '',
+                wardsyskey: item.wardsyskey || item.ward || '', ward: item.ward || '',
+                countrysyskey: item.countrysyskey || item.country || '', country: item.country || '',
+                addressstatus: Number(item.addressstatus), status: item.status?.toString() || '0',
+                personalprimaryemail: item.personalprimaryemail || item.personalprimaymail || '',
+                personalsecondarymail: item.personalsecondarymail || '', personalmobilephone: item.personalmobilephone || '',
+                modificationoption: item.modificationoption || '', effectivedate: item.effectivedate || ''
+            })) as Address[];
+            return { current: p(res.data?.data?.current || []), pending: p(res.data?.data?.update || []) };
+        },
+        enabled: !!profile.userid && !!profile.eid
+    });
+
+    useEffect(() => { if (fetchedData) setRecords(fetchedData); }, [fetchedData]);
+
+    // ── Status-aware helpers ──
+    const fmtEff = (d?: string) => d && d.length === 8 ? `${d.substring(0, 4)}-${d.substring(4, 6)}-${d.substring(6, 8)}` : (d || '');
+    // Current approved address
+    const getCurrent = (st: 0 | 1) => records.current.find(a => a.addressstatus === st);
+    // Pending (status='0') — waiting for HR approval
+    const getPending = (st: 0 | 1) => records.pending.find(a => a.addressstatus === st && a.status === '0');
+    // Rejected (status='2') — HR rejected, still in staging table
+    const getRejected = (st: 0 | 1) => records.pending.find(a => a.addressstatus === st && a.status === '2');
+    // Approved (status='1') — HR approved, still in staging table until processed
+    const getApproved = (st: 0 | 1) => records.pending.find(a => a.addressstatus === st && a.status === '1');
+    const hasPending = (st: 0 | 1) => !!getPending(st);
+    const hasRejected = (st: 0 | 1) => !!getRejected(st);
+    const hasApproved = (st: 0 | 1) => !!getApproved(st);
+    // For contact pre-fill in address edit: use latest pending (status='0') row's contact data
+    const getContactPending = () => records.pending.find(a => a.status === '0');
+
+    // ── Open edit for a specific address card ──
+    // Contact fields are pre-filled from current (approved) data and submitted together with the address
+    const startEditAddress = (type: 'permanent' | 'current') => {
+        const st: 0 | 1 = type === 'permanent' ? 0 : 1;
+        const liveRow = getPending(st) || getCurrent(st);
+        const hasCur = !!getCurrent(st);
+        const hasPend = !!getPending(st);
+        // Read contact info from current approved data first (authoritative), then pending fallback
+        const contactSrc = (records.current[0] || getContactPending() || {}) as any;
+        const m = {
+            modOption: hasPend ? (liveRow?.modificationoption || 'Update') : (hasCur ? 'Update' : 'New'),
+            effectiveFrom: fmtEff(liveRow?.effectivedate),
+            primaryEmail: contactSrc.personalprimaryemail || '',
+            secondaryEmail: contactSrc.personalsecondarymail || '',
+            primaryMobile: contactSrc.personalmobilephone || '',
+        };
+        if (type === 'permanent') { setPermForm(liveRow ? { ...liveRow } : emptyAddr(0)); setPermMeta(m); }
+        else { setTempForm(liveRow ? { ...liveRow } : emptyAddr(1)); setTempMeta(m); }
+        setEditTarget(type);
+    };
+
+    const cancelEdit = () => setEditTarget(null);
+
+    // ── Cascade dropdown updater ──
+    const makeAddrUpdater = (setter: React.Dispatch<React.SetStateAction<Address>>) =>
+        (field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+            const val = e.target.value;
+            setter(prev => {
+                const u = { ...prev, [field]: val };
+                if (field === 'state') u.statesyskey = val;
+                if (field === 'district') u.districtsyskey = val;
+                if (field === 'township') u.townshipsyskey = val;
+                if (field === 'city') u.citysyskey = val;
+                if (field === 'ward') u.wardsyskey = val;
+                if (field === 'country') u.countrysyskey = val;
+                if (field === 'state' || field === 'statesyskey') { u.district = ''; u.districtsyskey = ''; u.township = ''; u.townshipsyskey = ''; u.city = ''; u.citysyskey = ''; u.ward = ''; u.wardsyskey = ''; }
+                else if (field === 'district' || field === 'districtsyskey') { u.township = ''; u.townshipsyskey = ''; u.city = ''; u.citysyskey = ''; u.ward = ''; u.wardsyskey = ''; }
+                else if (field === 'township' || field === 'townshipsyskey') { u.city = ''; u.citysyskey = ''; u.ward = ''; u.wardsyskey = ''; }
+                else if (field === 'city' || field === 'citysyskey') { u.ward = ''; u.wardsyskey = ''; }
+                return u;
+            });
+        };
+
+    const updatePermAddr = makeAddrUpdater(setPermForm);
+    const updateTempAddr = makeAddrUpdater(setTempForm);
+
+    // ── Save: sends ONLY the edited address row, contact fields included ──
+    const save = async () => {
+        const isPerm = editTarget === 'permanent';
+        const addrForm = isPerm ? permForm : tempForm;
+        const meta = isPerm ? permMeta : tempMeta;
+        if ((meta.modOption === 'Update' || meta.modOption === 'New') && !meta.effectiveFrom) { toast.error('Effective Date is required'); return; }
+        setSaving(true);
+        const ap = {
+            syskey: addrForm.syskey,
+            orgrecordsyskey: addrForm.orgrecordsyskey || records.current.find(c => c.addressstatus === addrForm.addressstatus)?.syskey || '',
+            employeeid: profile.eid, address: addrForm.address, postalcode: addrForm.postalcode || '',
+            state: addrForm.statesyskey || '', district: addrForm.districtsyskey || '',
+            township: addrForm.townshipsyskey || '', city: addrForm.citysyskey || '',
+            ward: addrForm.wardsyskey || '', country: addrForm.countrysyskey || '',
+            addressstatus: addrForm.addressstatus,
+            modificationoption: meta.modOption,
+            effectivedate: meta.effectiveFrom ? meta.effectiveFrom.replace(/-/g, '') : '',
+            status: '0'
+        };
+        try {
+            await mainClient.post(ADDRESS_UPDATE, {
+                userid: profile.userid, domain: domain || 'demouat', employeeid: profile.eid,
+                addressinfo: [ap],
+                // Contact fields submitted together with the address
+                personalprimaymail: meta.primaryEmail,
+                personalsecondarymail: meta.secondaryEmail,
+                personalmobilephone: meta.primaryMobile
+            });
+            toast.success(isPerm ? 'Permanent address request submitted' : 'Current address request submitted');
+            setEditTarget(null); refetchContact();
+        } catch { toast.error('Failed to submit address update request'); }
+        finally { setSaving(false); }
+    };
+
+    if (isLoading) return (
+        <div className={styles.sectionCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', minHeight: '300px' }}>
+            <Loader2 className="animate-spin" size={32} style={{ color: '#3b82f6', marginBottom: '16px' }} />
+            <p style={{ color: 'var(--color-neutral-500)' }}>{t('profile.loading', 'Loading...')}</p>
+        </div>
+    );
+
+    // Contact info for the read-only display card — current approved data takes priority
+    const contactDisplayRef = records.current[0] || getContactPending();
+
+    return (
+        <div className={styles.sectionCard}>
+            <SectionHeader icon={<MapPin size={20} />} title={t('profile.tabs.contact')} subtitle={t('profile.contact.subtitle')}
+                action={<button className={styles.refreshBtn} onClick={() => refetchContact()} disabled={isContactRefreshing} title="Refresh"><RefreshCw size={14} className={isContactRefreshing ? styles.spinning : ''} /></button>}
+            />
+            <div style={{ padding: '0 16px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+                <AddressCard
+                    addrStatus={0}
+                    cardLabel={t('profile.contact.permanent', 'Permanent Address')}
+                    editTarget={editTarget} saving={saving}
+                    form={permForm} meta={permMeta}
+                    countries={countries} states={states}
+                    districts={permDistricts} townships={permTownships}
+                    cities={permCities} wards={permWards}
+                    currentAddr={getCurrent(0)} pendingAddr={getPending(0)} rejectedAddr={getRejected(0)} approvedAddr={getApproved(0)}
+                    hasPendingFlag={hasPending(0)} hasRejectedFlag={hasRejected(0)} hasApprovedFlag={hasApproved(0)}
+                    onStartEdit={() => startEditAddress('permanent')}
+                    onCancel={cancelEdit} onSave={save}
+                    onAddrChange={updatePermAddr}
+                    onMetaChange={(k, v) => setPermMeta(p => ({ ...p, [k]: v }))}
+                />
+                <AddressCard
+                    addrStatus={1}
+                    cardLabel={t('profile.contact.current', 'Current Address')}
+                    editTarget={editTarget} saving={saving}
+                    form={tempForm} meta={tempMeta}
+                    countries={countries} states={states}
+                    districts={tempDistricts} townships={tempTownships}
+                    cities={tempCities} wards={tempWards}
+                    currentAddr={getCurrent(1)} pendingAddr={getPending(1)} rejectedAddr={getRejected(1)} approvedAddr={getApproved(1)}
+                    hasPendingFlag={hasPending(1)} hasRejectedFlag={hasRejected(1)} hasApprovedFlag={hasApproved(1)}
+                    onStartEdit={() => startEditAddress('current')}
+                    onCancel={cancelEdit} onSave={save}
+                    onAddrChange={updateTempAddr}
+                    onMetaChange={(k, v) => setTempMeta(p => ({ ...p, [k]: v }))}
+                />
+
+                {/* Contact Details — read-only display, updated via address edit forms above */}
+                <div style={{ border: '1.5px solid var(--color-neutral-200)', borderRadius: '12px', overflow: 'hidden', background: 'var(--color-neutral-0)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 18px', background: 'var(--color-neutral-50)', borderBottom: '1px solid var(--color-neutral-200)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Mail size={15} /></div>
+                            <div>
+                                <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--color-neutral-800)' }}>{t('profile.contact.contactDetails', 'Personal Contact Details')}</span>
+                                <div style={{ fontSize: '11px', color: 'var(--color-neutral-400)', marginTop: '1px' }}>Updated when you edit Permanent or Current address</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ padding: '16px 18px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px' }}>
+                            {[
+                                { icon: <Mail size={14} />, label: t('profile.contact.primaryEmail', 'Primary Email'), value: contactDisplayRef?.personalprimaryemail },
+                                { icon: <Mail size={14} />, label: t('profile.contact.secondaryEmail', 'Secondary Email'), value: contactDisplayRef?.personalsecondarymail },
+                                { icon: <Phone size={14} />, label: t('profile.contact.primaryMobile', 'Mobile Phone'), value: contactDisplayRef?.personalmobilephone },
+                            ].map(({ icon, label: lbl, value }) => (
+                                <div key={lbl} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', background: 'var(--color-neutral-50)', borderRadius: '8px', border: '1px solid var(--color-neutral-100)' }}>
+                                    <div style={{ color: '#7c3aed', marginTop: '2px', flexShrink: 0 }}>{icon}</div>
+                                    <div>
+                                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-neutral-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{lbl}</div>
+                                        <div style={{ fontSize: '13px', color: value ? 'var(--color-neutral-800)' : 'var(--color-neutral-300)', fontWeight: value ? 500 : 400 }}>{value || '—'}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.12)', borderRadius: '8px', fontSize: '11px', color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Edit3 size={11} /> To update email or phone, click <strong>Edit</strong> on either address card above — contact fields are included in the form.
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
