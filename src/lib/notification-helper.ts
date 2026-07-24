@@ -121,11 +121,17 @@ export function getNotiRoute(
 
         // ── Ferry service (company ferry registration / change / complaint) ──
         case 'ferry registration':
+        case 'ferryregistration':
         case 'ferry change':
+        case 'ferrychange':
         case 'ferry user complaint':
+        case 'ferryusercomplaint':
         case 'user compliant':
+        case 'usercompliant':
         case 'hr compliant':
+        case 'hrcompliant':
         case 'ferry hr complaint':
+        case 'ferryhrcomplaint':
             if (notiDirection === 'request') return `/ferry/${requestSyskey}`;
             return `/approvals/${requestSyskey}`;
 

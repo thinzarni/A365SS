@@ -5,7 +5,7 @@ import {
     Bell, CheckSquare, Receipt, Clock, Home, Activity, 
     CalendarCheck, Car, Bus, ShoppingBag, Plane, ArrowRightLeft, 
     BookOpen, PartyPopper, ClipboardCheck, Wifi, History, RefreshCw, 
-    MapPin, UserPlus, MoreHorizontal 
+    MapPin, UserPlus, MoreHorizontal, Briefcase 
 } from 'lucide-react';
 import { useNotificationStore } from '../../stores/notification-store';
 import type { NotificationModel } from '../../stores/notification-store';
@@ -26,7 +26,16 @@ function getNotificationIconConfig(requestType: string = '', isRead: boolean) {
         case 'late': config = { Icon: Clock, bg: '#FEF9C3', fg: '#CA8A04' }; break;
         case 'earlyout': config = { Icon: Activity, bg: '#FFF1F2', fg: '#E11D48' }; break;
         case 'reservation': config = { Icon: CalendarCheck, bg: '#F5F3FF', fg: '#7C3AED' }; break;
-        case 'ferry taxi': config = { Icon: Car, bg: '#ECFEFF', fg: '#0891B2' }; break;
+        case 'ferry taxi': 
+        case 'ferryregistration':
+        case 'ferry registration':
+        case 'ferrychange':
+        case 'ferry change':
+        case 'ferryusercomplaint':
+        case 'ferry user complaint':
+        case 'ferryhrcomplaint':
+        case 'ferry hr complaint':
+            config = { Icon: Car, bg: '#ECFEFF', fg: '#0891B2' }; break;
         case 'transportation': config = { Icon: Bus, bg: '#F0F9FF', fg: '#0369A1' }; break;
         case 'purchase': config = { Icon: ShoppingBag, bg: '#FDF4FF', fg: '#9333EA' }; break;
         case 'travel': config = { Icon: Plane, bg: '#EFFBFF', fg: '#06B6D4' }; break;
@@ -39,6 +48,7 @@ function getNotificationIconConfig(requestType: string = '', isRead: boolean) {
         case 'remote and backdate': config = { Icon: RefreshCw, bg: '#EDE9FE', fg: '#6D28D9' }; break;
         case 'location': config = { Icon: MapPin, bg: '#FFF1F2', fg: '#BE123C' }; break;
         case 'employeerequisition': config = { Icon: UserPlus, bg: '#F0FDF4', fg: '#0D9488' }; break;
+        case 'jobpost': config = { Icon: Briefcase, bg: '#FFF7ED', fg: '#F97316' }; break;
         case 'other': config = { Icon: MoreHorizontal, bg: '#EEF2FF', fg: '#4F46E5' }; break;
         default: config = { Icon: Bell, bg: '#EFF6FF', fg: '#2563EB' }; break;
     }
@@ -91,6 +101,13 @@ export default function NotificationPage() {
             if (!item.read_status) {
                 await markNotificationRead(item.syskey);
             }
+            
+            // Handle external deep links (e.g., for JOBPOST)
+            if (item.deeplink && item.deeplink.startsWith('http')) {
+                window.open(item.deeplink, '_blank', 'noopener,noreferrer');
+                return;
+            }
+
             const route = getNotiRoute(item.requesttype, item.to_noti_type, item.request_syskey);
             if (route) navigate(route);
         } finally {
