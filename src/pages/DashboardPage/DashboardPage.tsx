@@ -177,22 +177,20 @@ function fmtMins(totalMinutes: number): string {
 }
 
 /**
- * Working hours calculation — matches the mobile app (time_label_box.dart):
+ * Working hours calculation — always shows only the current pair's duration:
  *
  * If the last pair is OPEN (still clocked in, no Time-Out):
- *   → Show ONLY `now − lastTimeIn`.  Previous completed pairs are NOT summed.
- *     (Mobile Scenario C: live counter shows only the current session.)
+ *   → Show `now − lastTimeIn` (live counter for the current session).
  *
- * If ALL pairs are CLOSED (last record is Time-Out):
- *   → Sum all completed IN→OUT pair durations.
- *     (Mobile Scenario B: finalized total for the day.)
+ * If the last pair is CLOSED (Time-Out recorded):
+ *   → Show only the last pair's own duration (not a sum of previous pairs).
  */
 function calcTotalWorkingHours(pairs: InOutPair[], now: Date): string {
     if (pairs.length === 0) return '00:00';
 
     const lastPair = pairs[pairs.length - 1];
 
-    // ── Scenario C: Still working — only show time since last Time-In ──
+    // ── Open session — live counter from last Time-In ──
     if (!lastPair.timeOut) {
         const inTime = parseTimeStr(lastPair.timeIn.time);
         if (!inTime) return '00:00';
@@ -201,14 +199,8 @@ function calcTotalWorkingHours(pairs: InOutPair[], now: Date): string {
         return diff > 0 ? fmtMins(diff / 60000) : '00:00';
     }
 
-    // ── Scenario B: All pairs closed — sum all completed durations ──
-    let totalMins = 0;
-    for (const pair of pairs) {
-        if (pair.timeOut) {
-            totalMins += pair.durationMins;
-        }
-    }
-    return fmtMins(totalMins);
+    // ── Closed session — show only the current (last) pair duration ──
+    return fmtMins(lastPair.durationMins);
 }
 
 function parseTimeStr(t: string): Date | null {
