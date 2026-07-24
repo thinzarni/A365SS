@@ -277,7 +277,7 @@ export default function ApprovalListPage() {
         if (maxAmt !== undefined && maxAmt !== null && Number(maxAmt) !== 0)
             return `Required fields for ${label}`;
 
-        const tDescLow = String(req.requesttypedesc || req.requesttype || '').toLowerCase().replace(/\s+/g, '');
+        const tDescLow = String(req.requesttypecode || req.requesttypedesc || req.requesttype || '').toLowerCase().replace(/\s+/g, '');
 
         // Ferry Registration always needs the detail form (ferry number must be assigned)
         if (tDescLow === 'ferryregistration') {
@@ -288,8 +288,8 @@ export default function ApprovalListPage() {
         if (
             tDescLow === 'ferryusercomplaint' ||
             tDescLow === 'usercomplaint' ||
-            tDescLow === 'hrcomplaint' ||
-            tDescLow === 'ferryhrcomplaint'
+            tDescLow === 'hrquery' ||
+            tDescLow === 'ferryhrquery'
         ) {
             const remark = String((req as any).remark || '').trim();
             if (!remark) return `Required fields for ${label}`;
@@ -612,11 +612,11 @@ export default function ApprovalListPage() {
                         const reqName = req.name || req.eid || 'Employee';
                         const typeDescRaw = req.requesttypedesc || req.requesttype || '';
                         let typeDesc = typeDescRaw;
-                        const tDescLow = typeDescRaw.toLowerCase().replace(/\s+/g, '');
+                        const tDescLow = String(req.requesttypecode || typeDescRaw).toLowerCase().replace(/\s+/g, '');
                         if (tDescLow === 'ferrychange') typeDesc = 'Ferry Change';
                         else if (tDescLow === 'ferryregistration' ) typeDesc = 'Ferry Registration';
                         else if (tDescLow === 'ferryusercomplaint' || tDescLow === 'usercomplaint') typeDesc = 'Ferry User Complaint';
-                        else if (tDescLow === 'hrcomplaint' || tDescLow === 'ferryhrcomplaint') typeDesc = 'HR Complaint';
+                        else if (tDescLow === 'hrquery' || tDescLow === 'ferryhrquery') typeDesc = 'HR Query';
 
                         const subTypeDescRaw = req.requestsubtypedesc || '';
                         let subTypeDesc = subTypeDescRaw;
@@ -635,10 +635,10 @@ export default function ApprovalListPage() {
                                 style={{ animationDelay: `${i * 40}ms` }}
                                 onClick={() => {
                                     const tStr = String(req.requesttype || '').toLowerCase();
-                                    const dStr = String(req.requesttypedesc || '').toLowerCase();
+                                    const dStr = String(req.requesttypecode || req.requesttypedesc || '').toLowerCase();
                                     const isFerry = tStr.includes('ferry') || dStr.includes('ferry') ||
-                                                    tStr.includes('hr complaint') || dStr.includes('hr complaint') ||
-                                                    tStr.includes('hrcomplaint') || dStr.includes('hrcomplaint');
+                                                    tStr.includes('hr complaint') || tStr.includes('hr query') || dStr.includes('hr complaint') || dStr.includes('hr query') ||
+                                                    tStr.includes('hrquery') || dStr.includes('hrquery');
                                     if (isFerry) {
                                         navigate(`/ferry_approval/${req.syskey}`, { state: { item: req } });
                                     } else {
@@ -732,9 +732,7 @@ export default function ApprovalListPage() {
                                 {/* Right: status + ref */}
                                 <div className={styles['approval-page__card-right']}>
                                     <StatusBadge status={req.requeststatus} />
-                                    {req.refno && (
-                                        <span className={styles['approval-page__card-ref']}>#{req.refno}</span>
-                                    )}
+                                    <span className={styles['approval-page__card-ref']}>#{i + 1}</span>
                                 </div>
                             </div>
                         );

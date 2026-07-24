@@ -33,8 +33,8 @@ function getNotificationIconConfig(requestType: string = '', isRead: boolean) {
         case 'ferry change':
         case 'ferryusercomplaint':
         case 'ferry user complaint':
-        case 'ferryhrcomplaint':
-        case 'ferry hr complaint':
+        case 'ferryhrquery':
+        case 'ferry hr query':
             config = { Icon: Car, bg: '#ECFEFF', fg: '#0891B2' }; break;
         case 'transportation': config = { Icon: Bus, bg: '#F0F9FF', fg: '#0369A1' }; break;
         case 'purchase': config = { Icon: ShoppingBag, bg: '#FDF4FF', fg: '#9333EA' }; break;

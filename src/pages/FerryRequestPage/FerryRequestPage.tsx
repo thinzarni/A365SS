@@ -22,7 +22,7 @@ import {
     FileVideo,
     FileAudio,
     FileText,
-    RefreshCw, Megaphone,
+    RefreshCw, Megaphone, Bus
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 import { Textarea } from '../../components/ui/Input/Input';
@@ -59,7 +59,7 @@ const FerryRequestType = {
     registration: 'registration',
     change: 'change',
     usercomplaint: 'usercomplaint',
-    hrcomplaint: 'hrcomplaint',
+    hrquery: 'hrquery',
 } as const;
 
 type FerryRequestType = typeof FerryRequestType[keyof typeof FerryRequestType];
@@ -90,7 +90,7 @@ const FERRY_TYPE_VISUAL: Record<string, { icon: any; color: string; bgColor: str
     [FerryRequestType.registration]: { icon: FileText, color: '#16a34a', bgColor: '#f0fdf4' },
     [FerryRequestType.change]: { icon: RefreshCw, color: '#2563eb', bgColor: '#eff6ff' },
     [FerryRequestType.usercomplaint]: { icon: Megaphone, color: '#ea580c', bgColor: '#fff7ed' },
-    [FerryRequestType.hrcomplaint]: { icon: Building2, color: '#9333ea', bgColor: '#faf5ff' },
+    [FerryRequestType.hrquery]: { icon: Building2, color: '#9333ea', bgColor: '#faf5ff' },
 };
 
 function fromApiDate(d: string) {
@@ -157,7 +157,7 @@ function descToFerryType(desc: string): FerryRequestType {
     const d = desc.toLowerCase();
     if (d.includes('registration') || d.includes('new')) return FerryRequestType.registration;
     if (d.includes('change')) return FerryRequestType.change;
-    if (d.includes('hr')) return FerryRequestType.hrcomplaint;
+    if (d.includes('hr')) return FerryRequestType.hrquery;
     return FerryRequestType.usercomplaint;
 }
 
@@ -177,8 +177,8 @@ export default function FerryRequestPage() {
     const queryClient = useQueryClient();
     const { user, userId, domain } = useAuthStore();
 
-    const isHrComplaintView = location.pathname.startsWith('/hr_complaint') || location.pathname.startsWith('/hrcomplaint');
-    const basePath = isHrComplaintView ? (location.pathname.startsWith('/hr_complaint') ? '/hr_complaint' : '/hrcomplaint') : '/ferry_request';
+    const isHrQueryView = location.pathname.startsWith('/hr_query') || location.pathname.startsWith('/hrquery');
+    const basePath = isHrQueryView ? (location.pathname.startsWith('/hr_query') ? '/hr_query' : '/hrquery') : '/ferry_request';
 
     const isNew = !id;
 
@@ -195,19 +195,20 @@ export default function FerryRequestPage() {
     const ferryTypeOptions: FerryTypeOption[] = (() => {
         const raw = allRequestTypes.filter((t) => {
             const d = (t.description ?? '').toLowerCase();
-            if (isHrComplaintView) {
-                return d.includes('hr compliant') || d.includes('hr complaint') || d.includes('hrcomplaint');
+            const code = ((t as any).code ?? '').toLowerCase();
+            if (isHrQueryView) {
+                return code.includes('hr') || d.includes('hr compliant') || d.includes('hr complaint') || d.includes('hr query') || d.includes('hrquery');
             }
-            return d.includes('ferry');
+            return code.includes('ferry') || d.includes('ferry');
         });
         const options: FerryTypeOption[] = raw.map((t) => ({
             label: t.description,
-            value: descToFerryType(t.description),
+            value: descToFerryType((t as any).code || t.description),
             syskey: t.syskey,
             approvaltype: (t as any).approvaltype ?? null,
         }));
-        const ORDER = isHrComplaintView
-            ? [FerryRequestType.hrcomplaint]
+        const ORDER = isHrQueryView
+            ? [FerryRequestType.hrquery]
             : [FerryRequestType.registration, FerryRequestType.change, FerryRequestType.usercomplaint];
         options.sort((a, b) => (ORDER as string[]).indexOf(a.value) - (ORDER as string[]).indexOf(b.value));
         return options;
@@ -326,12 +327,13 @@ export default function FerryRequestPage() {
     ═══════════════════════════════════════════════ */
     const [selectedOpt, setSelectedOpt] = useState<FerryTypeOption | null>(null);
     const [selectedType, setSelectedType] = useState<FerryRequestType>(
-        isHrComplaintView ? FerryRequestType.hrcomplaint : FerryRequestType.registration
+        isHrQueryView ? FerryRequestType.hrquery : FerryRequestType.registration
     );
     const [approvalType, setApprovalType] = useState<string | null>('0');
 
     // Common
     const [phoneNumber, setPhoneNumber] = useState('');
+    const [operationStartDate, setOperationStartDate] = useState('');
     const [currentFerryNo, setCurrentFerryNo] = useState('');
     const [remark, setRemark] = useState('');
     const [approvers, setApprovers] = useState<MemberItem[]>([]);
@@ -362,8 +364,8 @@ export default function FerryRequestPage() {
     // User Complaint
     const [selectedComplaints, setSelectedComplaints] = useState<string[]>([]);
 
-    // HR Complaint
-    const [hrComplaintText, setHrComplaintText] = useState('');
+    // HR Query
+    const [hrQueryText, setHrComplaintText] = useState('');
     const [userComplaintText, setUserComplaintText] = useState('');
 
     const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
@@ -419,7 +421,7 @@ export default function FerryRequestPage() {
             setSelectedType(opt.value);
             setApprovalType(opt.approvaltype ?? d.approvaltype ?? '0');
         } else {
-            const t = descToFerryType(d.requesttypedesc ?? '');
+            const t = descToFerryType(d.requesttypecode ?? d.requesttypedesc ?? '');
             setSelectedType(t);
             setSelectedOpt(ferryTypeOptions.find(o => o.value === t) ?? null);
             // fallback: read approvaltype directly from the API response
@@ -427,6 +429,7 @@ export default function FerryRequestPage() {
         }
 
         setPhoneNumber(d.phoneno ?? '');
+        setOperationStartDate(d.startdate ? fromApiDate(d.startdate) : '');
         setCurrentFerryNo(d.ferryno ?? '');
         setRemark(d.remark ?? '');
         setWorkingHourSyskey(d.workinghour_syskey ?? '');
@@ -509,6 +512,7 @@ export default function FerryRequestPage() {
 
         if (selectedType === FerryRequestType.registration) {
             if (!workingHourSyskey.trim()) errors.workingHourSyskey = 'Working hours is required';
+            if (!operationStartDate.trim()) errors.operationStartDate = 'Operation start date is required';
             if (!phoneNumber.trim()) errors.phoneNumber = 'Contact phone number is required';
             else if (!isValidPhone(phoneNumber)) errors.phoneNumber = 'Enter a valid number (e.g. +95912345678 or 09912345678)';
             if (!township.trim())    errors.township    = 'Township is required';
@@ -556,8 +560,8 @@ export default function FerryRequestPage() {
             if (!userComplaintText.trim()) errors.userComplaintText = 'Complaint description is required';
         }
 
-        if (selectedType === FerryRequestType.hrcomplaint) {
-            if (!hrComplaintText.trim()) errors.hrComplaintText = 'Complaint description is required';
+        if (selectedType === FerryRequestType.hrquery) {
+            if (!hrQueryText.trim()) errors.hrQueryText = 'Complaint description is required';
         }
 
         if (Object.keys(errors).length > 0) {
@@ -616,14 +620,15 @@ export default function FerryRequestPage() {
                 base.township = township;
                 base.phoneno = phoneNumber;
                 base.ferryno = currentFerryNo;
+                base.startdate = toApiDate(operationStartDate);
             } else if (selectedType === FerryRequestType.usercomplaint) {
                 const sorted = [...selectedComplaints].sort();
                 base.ferrycomplaint = sorted.join(',');
                 base.ferryno = currentFerryNo || profileFerryNo;
                 base.phoneno = phoneNumber || displayPhone;
                 base.remark = userComplaintText;
-            } else if (selectedType === FerryRequestType.hrcomplaint) {
-                base.remark = hrComplaintText;
+            } else if (selectedType === FerryRequestType.hrquery) {
+                base.remark = hrQueryText;
                 base.ferryno = currentFerryNo || profileFerryNo;
                 base.phoneno = phoneNumber || displayPhone;
             } else {
@@ -670,7 +675,7 @@ export default function FerryRequestPage() {
             await apiClient.post(endpoint, base);
         },
         onSuccess: () => {
-            toast.success(isHrComplaintView ? 'HR complaint submitted successfully' : 'Ferry request submitted successfully');
+            toast.success(isHrQueryView ? 'HR query submitted successfully' : 'Ferry request submitted successfully');
             queryClient.invalidateQueries({ queryKey: ['requests'] });
             navigate(basePath);
         },
@@ -705,11 +710,11 @@ export default function FerryRequestPage() {
 
             <div className="page-header">
                 <h1 className="page-header__title">
-                    {isNew ? `New ${selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request')}` : (detail?.requesttypedesc || selectedOpt?.label || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request'))}
+                    {isNew ? `New ${selectedOpt?.label || (isHrQueryView ? 'HR Query' : 'Ferry Request')}` : (detail?.requesttypedesc || selectedOpt?.label || (isHrQueryView ? 'HR Query' : 'Ferry Request'))}
                 </h1>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 4, marginBottom: 12 }}>
                     <p className="page-header__subtitle" style={{ margin: 0 }}>
-                        {!isNew && detail?.refno ? `Ref # ${detail.refno}` : (!isHrComplaintView ? 'Company ferry / bus service' : 'Fill out the form below')}
+                        {!isNew && detail?.refno ? `Ref # ${detail.refno}` : (!isHrQueryView ? 'Company ferry / bus service' : 'Fill out the form below')}
                     </p>
                     {!isNew && (
                         <StatusBadge status={String(detail?.requeststatus ?? '1')} />
@@ -830,6 +835,39 @@ export default function FerryRequestPage() {
                             </div>
                         </div>
 
+                        {(profileFerryNo || currentFerryNo) && (
+                            <div style={{ 
+                                marginTop: 16,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 12,
+                                padding: '12px 16px',
+                                background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                                border: '1px solid #bae6fd',
+                                borderRadius: 12,
+                            }}>
+                                <div style={{ 
+                                    background: '#ffffff', 
+                                    padding: 8, 
+                                    borderRadius: 8, 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                }}>
+                                    <Bus size={20} color="#0369a1" />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0369a1', marginBottom: 2, letterSpacing: '0.03em' }}>
+                                        Current Ferry Number
+                                    </div>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0c4a6e' }}>
+                                        {currentFerryNo || profileFerryNo}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Phone + Current Ferry No */}
                         {(selectedType === FerryRequestType.registration || selectedType === FerryRequestType.change) && (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14 }}>
@@ -838,27 +876,20 @@ export default function FerryRequestPage() {
                                     onChange={e => { setPhoneNumber(e.target.value); clearFieldError('phoneNumber'); }}
                                     placeholder="+95 9xxxxxxxx or 09xxxxxxxx" readOnly={isReadOnly}
                                     error={fieldErrors.phoneNumber} />
-                                {(profileFerryNo || currentFerryNo) && (
-                                    <Input id="ferry-current-no" label="Current Ferry Number"
-                                        value={currentFerryNo || profileFerryNo}
-                                        onChange={e => setCurrentFerryNo(e.target.value)}
-                                        readOnly />
-                                )}
+                                {selectedType === FerryRequestType.registration ? (
+                                    <DateInput 
+                                        id="ferry-operation-start-date" 
+                                        label="Ferry Operation Start Date *"
+                                        value={operationStartDate}
+                                        onChange={(e: any) => { setOperationStartDate(e.target.value); clearFieldError('operationStartDate'); }}
+                                        readOnly={isReadOnly}
+                                        error={fieldErrors.operationStartDate}
+                                        rightIcon={<Calendar size={18} color="#94a3b8" />}
+                                    />
+                                ) : <div />}
                             </div>
                         )}
 
-                        {/* Current Ferry No only (placed on left) for User Complaints — not shown for HR Complaint */}
-                        {selectedType === FerryRequestType.usercomplaint && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14 }}>
-                                {(profileFerryNo || currentFerryNo) && (
-                                    <Input id="ferry-current-no" label="Current Ferry Number"
-                                        value={currentFerryNo || profileFerryNo}
-                                        onChange={e => setCurrentFerryNo(e.target.value)}
-                                        readOnly />
-                                )}
-                                <div /> {/* Empty div to keep it strictly on the left half */}
-                            </div>
-                        )}
 
                         {/* ════════════════════════════════
                             REGISTRATION (Merged into upper box)
@@ -1159,17 +1190,17 @@ export default function FerryRequestPage() {
                     )}
 
                     {/* ════════════════════════════════
-                        HR COMPLAINT
+                        HR QUERY
                     ════════════════════════════════ */}
-                    {selectedType === FerryRequestType.hrcomplaint && (
+                    {selectedType === FerryRequestType.hrquery && (
                         <section className={newReqStyles['new-request__section']}>
-                            <h3 className={newReqStyles['new-request__section-title']}>HR Complaint</h3>
+                            <h3 className={newReqStyles['new-request__section-title']}>HR Query</h3>
                             <Textarea id="ferry-hr-text" label="Complaint Description *"
-                                value={hrComplaintText}
-                                onChange={e => { setHrComplaintText(e.target.value); clearFieldError('hrComplaintText'); }}
+                                value={hrQueryText}
+                                onChange={e => { setHrComplaintText(e.target.value); clearFieldError('hrQueryText'); }}
                                 placeholder="Describe your complaint in detail..."
                                 rows={4}
-                                error={fieldErrors.hrComplaintText}
+                                error={fieldErrors.hrQueryText}
                                 readOnly={isReadOnly} />
 
                         </section>

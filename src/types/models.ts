@@ -41,6 +41,7 @@ export interface RequestModel {
   refno: number;
   requesttype: string;
   requesttypedesc: string;
+  requesttypecode: string;
   requestsubtype: string;
   requestsubtypedesc: string;
   requeststatus: RequestStatusCode;
@@ -144,6 +145,7 @@ export interface RequestDetailModel {
   remark: string;
   requesttype: string;
   requesttypedesc: string;
+  requesttypecode: string;
   requestsubtype: string;
   requestsubtypedesc: string;
   approvedby: string;
@@ -257,6 +259,7 @@ export interface ApprovalModel {
   eid?: string;
   requeststatus?: number | string;
   requesttype?: string;
+  requesttypecode?: string;
   requestsubtype?: string | null;
   startdate?: string;
   enddate?: string;

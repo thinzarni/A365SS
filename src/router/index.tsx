@@ -107,7 +107,15 @@ export const router = createBrowserRouter([
                     { path: '/approvals', element: <ApprovalListPage /> },
                     { path: '/approvals/:id', element: <ApprovalDetailPage /> },
                     { path: '/ferry_approval/:id', element: <FerryApprovalFormPage /> },
-                    { path: '/reservations', element: <ReservationsPage /> },
+                    // ── HR Query Request Flow ──
+                    { path: '/hr_query', element: <FerryRequestListPage /> },
+                    { path: '/hr_query/new', element: <FerryRequestPage /> },
+                    { path: '/hr_query/edit/:id', element: <FerryRequestPage /> },
+                    { path: '/hr_query/:id', element: <FerryRequestDetailPage /> },
+                    { path: '/hrquery', element: <FerryRequestListPage /> },
+                    { path: '/hrquery/new', element: <FerryRequestPage /> },
+                    { path: '/hrquery/edit/:id', element: <FerryRequestPage /> },
+                    { path: '/hrquery/:id', element: <FerryRequestDetailPage /> },
                     { path: '/claims', element: <ClaimsPage /> },
                     { path: '/claims/new', element: <NewClaimPage /> },
                     { path: '/claims/:id', element: <ClaimDetailPage /> },
@@ -143,15 +151,14 @@ export const router = createBrowserRouter([
                     { path: '/ferry_request/new', element: <FerryRequestPage /> },
                     { path: '/ferry_request/edit/:id', element: <FerryRequestPage /> },
                     { path: '/ferry_request/:id', element: <FerryRequestDetailPage /> },
-                    // ── HR Complaint Request Flow ──
-                    { path: '/hr_complaint', element: <FerryRequestListPage /> },
-                    { path: '/hr_complaint/new', element: <FerryRequestPage /> },
-                    { path: '/hr_complaint/edit/:id', element: <FerryRequestPage /> },
-                    { path: '/hr_complaint/:id', element: <FerryRequestDetailPage /> },
-                    { path: '/hrcomplaint', element: <FerryRequestListPage /> },
-                    { path: '/hrcomplaint/new', element: <FerryRequestPage /> },
-                    { path: '/hrcomplaint/edit/:id', element: <FerryRequestPage /> },
-                    { path: '/hrcomplaint/:id', element: <FerryRequestDetailPage /> },
+                    // ── HR Query Request Flow ──
+                  
+
+                    { path: '/hr_query', element: <FerryRequestListPage /> },
+                    { path: '/hr_query/new', element: <FerryRequestPage /> },
+                    { path: '/hr_query/edit/:id', element: <FerryRequestPage /> },
+                    { path: '/hr_query/:id', element: <FerryRequestDetailPage /> },
+                 
                     // ── Attendance subtypes — use existing approval pages ──
                     { path: '/attendanceapproval', element: <AttendanceApprovalListPage /> },
                     { path: '/attendanceapproval/:id/:type', element: <AttendanceApprovalDetailPage /> },

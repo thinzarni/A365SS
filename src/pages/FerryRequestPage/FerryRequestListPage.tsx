@@ -87,15 +87,15 @@ export default function FerryRequestListPage() {
     const { t }     = useTranslation();
     const qc        = useQueryClient();
 
-    const isHrComplaintView = location.pathname.startsWith('/hr_complaint') || location.pathname.startsWith('/hrcomplaint');
-    const basePath = isHrComplaintView ? (location.pathname.startsWith('/hr_complaint') ? '/hr_complaint' : '/hrcomplaint') : '/ferry_request';
+    const isHrQueryView = location.pathname.startsWith('/hr_query') || location.pathname.startsWith('/hrquery');
+    const basePath = isHrQueryView ? (location.pathname.startsWith('/hr_query') ? '/hr_query' : '/hrquery') : '/ferry_request';
 
-    function isMatchedType(desc: string) {
-        const d = (desc ?? '').toLowerCase();
-        if (isHrComplaintView) {
-            return d.includes('hr compliant') || d.includes('hr complaint') || d.includes('hrcomplaint');
+    function isMatchedType(typeCode: string) {
+        const d = (typeCode ?? '').toLowerCase();
+        if (isHrQueryView) {
+            return d.includes('hr compliant') || d.includes('hr complaint') || d.includes('hr query') || d.includes('hrquery');
         }
-        return d.includes('ferry');
+        return d.includes('ferry') && !d.includes('hr');
     }
 
     /* ── Filter state ── */
@@ -126,14 +126,14 @@ export default function FerryRequestListPage() {
 
     const ferryTypes = useMemo(() => [
         { syskey: '', description: 'All Types' } as TypesModel,
-        ...allTypes.filter(t => isMatchedType(t.description)),
-    ], [allTypes, isHrComplaintView]);
+        ...allTypes.filter(t => isMatchedType(t.code ?? t.description ?? '')),
+    ], [allTypes, isHrQueryView]);
 
     const typeOptions = ferryTypes.map(t => ({ value: t.syskey, label: t.description }));
 
     /* ── Fetch list ── */
     const { data: rawList = [], isLoading, refetch } = useQuery<any[]>({
-        queryKey: ['ferryList', fromDate, toDate, isAllDate, typeSyskey, activeStatus, isHrComplaintView],
+        queryKey: ['ferryList', fromDate, toDate, isAllDate, typeSyskey, activeStatus, isHrQueryView],
         queryFn:  async () => {
             const res = await apiClient.post(GET_REQUEST_LIST, {
                 fromdate: isAllDate ? "" : toApiDate(fromDate),
@@ -142,14 +142,14 @@ export default function FerryRequestListPage() {
                 status:   activeStatus === 0 ? '0' : String(activeStatus),
             });
             const all: any[] = res.data?.datalist ?? res.data?.data ?? [];
-            return all.filter(r => isMatchedType(r.requesttypedesc ?? r.requesttype ?? ''));
+            return all.filter(r => isMatchedType(r.requesttypecode ?? r.requesttypedesc ?? r.requesttype ?? ''));
         },
         staleTime: 0,
     });
 
     /* ── Global Stats Fetch ── */
     const { data: globalStatsList = [] } = useQuery<any[]>({
-        queryKey: ['ferryListGlobalStats', fromDate, toDate, isAllDate, typeSyskey, isHrComplaintView],
+        queryKey: ['ferryListGlobalStats', fromDate, toDate, isAllDate, typeSyskey, isHrQueryView],
         queryFn: async () => {
             const res = await apiClient.post(GET_REQUEST_LIST, {
                 fromdate: isAllDate ? "" : toApiDate(fromDate),
@@ -158,7 +158,7 @@ export default function FerryRequestListPage() {
                 status: "0",
             });
             const all: any[] = res.data?.datalist ?? res.data?.data ?? [];
-            return all.filter(r => isMatchedType(r.requesttypedesc ?? r.requesttype ?? ''));
+            return all.filter(r => isMatchedType(r.requesttypecode ?? r.requesttypedesc ?? r.requesttype ?? ''));
         },
         staleTime: 5 * 60 * 1000,
     });
@@ -223,21 +223,21 @@ export default function FerryRequestListPage() {
                 <div className="page-header__row">
                     <div>
                         <h1 className="page-header__title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            {isHrComplaintView ? (
+                            {isHrQueryView ? (
                                 <Building2 size={22} style={{ color: 'var(--color-primary-600)' }} />
                             ) : (
                                 <Car size={22} style={{ color: 'var(--color-primary-600)' }} />
                             )}
-                            {isHrComplaintView ? 'HR Complaint' : 'Ferry Request'}
+                            {isHrQueryView ? 'HR Query' : 'Ferry Request'}
                         </h1>
                         <p className="page-header__subtitle">
-                            {displayList.length} {isHrComplaintView ? 'complaint' : 'ferry request'}{displayList.length === 1 ? '' : 's'}
+                            {displayList.length} {isHrQueryView ? 'complaint' : 'ferry request'}{displayList.length === 1 ? '' : 's'}
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         <Button onClick={() => navigate(`${basePath}/new`)}>
                             <Plus size={16} />
-                            {isHrComplaintView ? 'New HR Complaint' : 'New Ferry Request'}
+                            {isHrQueryView ? 'New HR Query' : 'New Ferry Request'}
                         </Button>
                     </div>
                 </div>
@@ -368,7 +368,7 @@ export default function FerryRequestListPage() {
             {/* ── List Card (table) ── */}
             <div className={styles['requests-list-card']}>
                 <div className={styles['requests-list-card__header']}>
-                    <h3 className={styles['requests-list-card__title']}>{isHrComplaintView ? 'HR Complaints' : 'Ferry Requests'}</h3>
+                    <h3 className={styles['requests-list-card__title']}>{isHrQueryView ? 'HR Queries' : 'Ferry Requests'}</h3>
                     <div className={styles['requests-list-card__actions']}>
                         {/* Filter toggle */}
                         <button
@@ -406,10 +406,10 @@ export default function FerryRequestListPage() {
                     <div className="empty-state" style={{ padding: '2rem' }}>
                         <ClipboardList size={48} className="empty-state__icon" />
                         <h3 className="empty-state__title">{t('request.noRequests')}</h3>
-                        <p className="empty-state__desc">No {isHrComplaintView ? 'HR complaints' : 'ferry requests'} found for the selected filters.</p>
+                        <p className="empty-state__desc">No {isHrQueryView ? 'HR queries' : 'ferry requests'} found for the selected filters.</p>
                         <Button onClick={() => navigate(`${basePath}/new`)} style={{ marginTop: '0.5rem' }}>
                             <Plus size={16} />
-                            {isHrComplaintView ? 'New HR Complaint' : 'New Ferry Request'}
+                            {isHrQueryView ? 'New HR Query' : 'New Ferry Request'}
                         </Button>
                     </div>
                 ) : (
@@ -440,7 +440,7 @@ export default function FerryRequestListPage() {
                             </thead>
                             <tbody>
                                 {displayList.map((req, i) => {
-                                    const typeDesc = req.requesttypedesc || req.requesttype || '';
+                                    const typeDesc = req.requesttypecode || req.requesttypedesc || req.requesttype || '';
                                     const { cls, icon } = ferryTypeBadge(typeDesc);
                                     return (
                                         <tr key={req.syskey || i}
@@ -480,8 +480,8 @@ export default function FerryRequestListPage() {
                     if (deleteTarget) doDelete(deleteTarget.syskey);
                     setDeleteTarget(null);
                 }}
-                title={isHrComplaintView ? 'Delete HR Complaint' : 'Delete Ferry Request'}
-                                message={`Delete this ${deleteTarget?.requesttypedesc ?? (isHrComplaintView ? 'HR complaint' : 'ferry')} request? This cannot be undone.`}
+                title={isHrQueryView ? 'Delete HR Query' : 'Delete Ferry Request'}
+                                message={`Delete this ${deleteTarget?.requesttypedesc ?? (isHrQueryView ? 'HR query' : 'ferry')} request? This cannot be undone.`}
                 confirmLabel="Delete"
                 loading={deleting}
                 variant="danger"

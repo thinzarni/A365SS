@@ -613,7 +613,7 @@ export default function NewRequestPage() {
     }, [editData, user]);
 
     // ── API Queries for lookups ──
-    const EXCLUDED_REQUEST_TYPES = ['ferry', 'hr complaint'];
+    const EXCLUDED_REQUEST_TYPES = ['ferry', 'hr complaint', 'hr query', 'hrquery'];
     const { data: requestTypes = [] } = useQuery<TypesModel[]>({
         queryKey: ['requestTypes'],
         queryFn: async () => {
@@ -622,7 +622,8 @@ export default function NewRequestPage() {
         },
         select: (data) => data.filter((rt) => {
             const desc = (rt.description || '').toLowerCase();
-            return !EXCLUDED_REQUEST_TYPES.some((ex) => desc.includes(ex));
+            const code = ((rt as any).code || '').toLowerCase();
+            return !EXCLUDED_REQUEST_TYPES.some((ex) => code.includes(ex) || desc.includes(ex));
         }),
     });
 

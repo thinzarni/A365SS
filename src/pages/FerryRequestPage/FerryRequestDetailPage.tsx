@@ -20,6 +20,7 @@ import {
     FileArchive,
     FileVideo,
     FileAudio,
+    Bus
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { StatusBadge } from '../../components/ui/Badge/Badge';
@@ -49,7 +50,7 @@ const FerryRequestType = {
     registration: 'registration',
     change: 'change',
     usercomplaint: 'usercomplaint',
-    hrcomplaint: 'hrcomplaint',
+    hrquery: 'hrquery',
 } as const;
 type FerryRequestType = typeof FerryRequestType[keyof typeof FerryRequestType];
 
@@ -57,7 +58,7 @@ function descToFerryType(desc: string): FerryRequestType {
     const d = desc.toLowerCase();
     if (d.includes('registration') || d.includes('new')) return FerryRequestType.registration;
     if (d.includes('change')) return FerryRequestType.change;
-    if (d.includes('hr')) return FerryRequestType.hrcomplaint;
+    if (d.includes('hr')) return FerryRequestType.hrquery;
     return FerryRequestType.usercomplaint;
 }
 
@@ -130,8 +131,8 @@ export default function FerryRequestDetailPage() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const isHrComplaintView = location.pathname.startsWith('/hr_complaint') || location.pathname.startsWith('/hrcomplaint');
-    const basePath = isHrComplaintView ? (location.pathname.startsWith('/hr_complaint') ? '/hr_complaint' : '/hrcomplaint') : '/ferry_request';
+    const isHrQueryView = location.pathname.startsWith('/hr_query') || location.pathname.startsWith('/hrquery') || location.pathname.startsWith('/hr_complaint') || location.pathname.startsWith('/hrcomplaint');
+    const basePath = isHrQueryView ? (location.pathname.startsWith('/hr_query') ? '/hr_query' : (location.pathname.startsWith('/hr_complaint') ? '/hr_complaint' : (location.pathname.startsWith('/hrcomplaint') ? '/hrcomplaint' : '/hrquery'))) : '/ferry_request';
 
     const goBack = () => {
         const from = (location.state as any)?.from || basePath;
@@ -338,18 +339,18 @@ export default function FerryRequestDetailPage() {
                         <ArrowLeft size={20} />
                     </button>
                     <div className={styles.headerIcon}>
-                        {isHrComplaintView ? (
+                        {isHrQueryView ? (
                             <Building2 size={22} color="#0c4a6e" />
                         ) : (
                             <Car size={22} color="#0c4a6e" />
                         )}
                     </div>
                     <div>
-                        <h1 className={styles.headerTitle}>{detail?.requesttypedesc || (isHrComplaintView ? 'HR Complaint' : 'Ferry Request')}</h1>
+                        <h1 className={styles.headerTitle}>{detail?.requesttypedesc || (isHrQueryView ? 'HR Query' : 'Ferry Request')}</h1>
                         {detail?.refno ? (
                             <p className={styles.headerSub}>Ref # {detail.refno}</p>
                         ) : (
-                            !isHrComplaintView ? <p className={styles.headerSub}>Company ferry / bus service</p> : null
+                            !isHrQueryView ? <p className={styles.headerSub}>Company ferry / bus service</p> : null
                         )}
                     </div>
                 </div>
@@ -418,11 +419,44 @@ export default function FerryRequestDetailPage() {
                             </div>
                         </div>
 
+                        {(currentAssignedFerry || detail?.ferryno || ep?.ferryno) && (
+                            <div style={{ 
+                                marginTop: 16,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 12,
+                                padding: '12px 16px',
+                                background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                                border: '1px solid #bae6fd',
+                                borderRadius: 12,
+                            }}>
+                                <div style={{ 
+                                    background: '#ffffff', 
+                                    padding: 8, 
+                                    borderRadius: 8, 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                }}>
+                                    <Bus size={20} color="#0369a1" />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0369a1', marginBottom: 2, letterSpacing: '0.03em' }}>
+                                        Current Ferry Number
+                                    </div>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0c4a6e' }}>
+                                        {currentAssignedFerry || detail?.ferryno || ep?.ferryno}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* ── 3. Registration Details (Merged) ── */}
                         {ferryType === FerryRequestType.registration && (
                             <div className={styles.grid} style={{ marginTop: 16 }}>
                                 {(detail?.phoneno || ep?.phoneno || ep?.phone) && <ReadField label="Contact Phone Number *" value={detail?.phoneno || ep?.phoneno || ep?.phone} />}
-                                {(currentAssignedFerry || detail?.ferryno || ep?.ferryno) && <ReadField label="Assigned Ferry Number" value={currentAssignedFerry || detail?.ferryno || ep?.ferryno} />}
+                                {detail?.startdate && <ReadField label="Ferry Operation Start Date *" value={fromApiDate(detail.startdate)} />}
                                 {workingHourDesc && (
                                     <div>
                                         <ReadField label="Working Hours" value={workingHourDesc} />
@@ -498,7 +532,6 @@ export default function FerryRequestDetailPage() {
                             </h3>
                             <div className={styles.grid}>
                                 {(detail?.phoneno || ep?.phoneno || ep?.phone) && <ReadField label="Contact Phone Number *" value={detail?.phoneno || ep?.phoneno || ep?.phone} />}
-                                {(currentAssignedFerry || detail?.ferryno || ep?.ferryno) && <ReadField label="Assigned Ferry Number" value={currentAssignedFerry || detail?.ferryno || ep?.ferryno} />}
                                 <div className={styles.fullCol}>
                                     <ReadField label="Change Type *" value={resolvedChangeTypeDesc || '—'} />
                                 </div>
@@ -549,11 +582,6 @@ export default function FerryRequestDetailPage() {
                     {/* ── 5. User Complaint ── */}
                     {ferryType === FerryRequestType.usercomplaint && (
                         <section className={styles.section}>
-                            {(currentAssignedFerry || detail?.ferryno || ep?.ferryno) && (
-                                <div className={styles.fullCol} style={{ marginBottom: 16 }}>
-                                    <ReadField label="Assigned Ferry Number" value={currentAssignedFerry || detail?.ferryno || ep?.ferryno} />
-                                </div>
-                            )}
                             <h3 className={styles.sectionTitle}>
                                 <Phone size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                                 User Complaint
@@ -619,10 +647,10 @@ export default function FerryRequestDetailPage() {
                         </section>
                     )}
 
-                    {/* ── 6. HR Complaint ── */}
-                    {ferryType === FerryRequestType.hrcomplaint && (
+                    {/* ── 6. HR Query ── */}
+                    {ferryType === FerryRequestType.hrquery && (
                         <section className={styles.section}>
-                            <h3 className={styles.sectionTitle}>HR Complaint</h3>
+                            <h3 className={styles.sectionTitle}>HR Query</h3>
                             <ReadField label="Complaint Description" value={detail?.remark || '—'} minLines={3} />
                             {status === '2' && (detail?.comment || detail?.approver_comment) && (
                                 <div className={styles.fullCol} style={{ 
@@ -789,8 +817,8 @@ export default function FerryRequestDetailPage() {
                 open={showDelete}
                 onClose={() => setShowDelete(false)}
                 onConfirm={() => { doDelete(); setShowDelete(false); }}
-                title={isHrComplaintView ? 'Delete HR Complaint' : 'Delete Ferry Request'}
-                message={`This will permanently delete this ${isHrComplaintView ? 'HR complaint' : 'ferry request'}. This action cannot be undone.`}
+                title={isHrQueryView ? 'Delete HR Query' : 'Delete Ferry Request'}
+                message={`This will permanently delete this ${isHrQueryView ? 'HR query' : 'ferry request'}. This action cannot be undone.`}
                 confirmLabel="Delete"
                 loading={deleting}
                 variant="danger"

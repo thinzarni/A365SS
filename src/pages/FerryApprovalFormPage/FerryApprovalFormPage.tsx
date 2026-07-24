@@ -21,7 +21,9 @@ import {
     FileArchive,
     FileVideo,
     FileAudio,
-    Trash2
+    Trash2,
+    Building2,
+    Bus
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { Textarea, Input } from '../../components/ui/Input/Input';
@@ -120,7 +122,7 @@ const FerryRequestType = {
     registration: 'registration',
     change: 'change',
     usercomplaint: 'usercomplaint',
-    hrcomplaint: 'hrcomplaint',
+    hrquery: 'hrquery',
 } as const;
 type FerryRequestType = typeof FerryRequestType[keyof typeof FerryRequestType];
 
@@ -128,7 +130,7 @@ function descToFerryType(desc: string): FerryRequestType {
     const d = desc.toLowerCase();
     if (d.includes('registration') || d.includes('new') || d.includes('request')) return FerryRequestType.registration;
     if (d.includes('change')) return FerryRequestType.change;
-    if (d.includes('hr')) return FerryRequestType.hrcomplaint;
+    if (d.includes('hr')) return FerryRequestType.hrquery;
     return FerryRequestType.usercomplaint;
 }
 
@@ -186,6 +188,7 @@ export default function FerryApprovalFormPage() {
 
     const [isEditMode, setIsEditMode] = useState(false);
     const [editPhoneNumber, setEditPhoneNumber] = useState('');
+    const [editOperationStartDate, setEditOperationStartDate] = useState('');
     const [editCurrentFerryNo, setEditCurrentFerryNo] = useState('');
     const [editWorkingHourSyskey, setEditWorkingHourSyskey] = useState('');
     const [editTownship, setEditTownship] = useState('');
@@ -205,7 +208,7 @@ export default function FerryApprovalFormPage() {
     const [editTempDateTo, setEditTempDateTo] = useState('');
     const [editSuspDateFrom, setEditSuspDateFrom] = useState('');
     const [editSuspDateTo, setEditSuspDateTo] = useState('');
-    const [editHrComplaintText, setEditHrComplaintText] = useState('');
+    const [editHrQueryText, setEditHrComplaintText] = useState('');
     const [editUserComplaintText, setEditUserComplaintText] = useState('');
     const [editSelectedComplaints, setEditSelectedComplaints] = useState<string[]>([]);
     const [editExistingAttachments, setEditExistingAttachments] = useState<any[]>([]);
@@ -343,6 +346,7 @@ export default function FerryApprovalFormPage() {
 
             if (detail.startdate) {
                 const f = fromApiDateInput(detail.startdate);
+                setEditOperationStartDate(f);
                 setEditOfficeChangeStartDate(f); setEditHomeChangeStartDate(f);
                 setEditTempDateFrom(f); setEditSuspDateFrom(f);
             }
@@ -366,11 +370,12 @@ export default function FerryApprovalFormPage() {
         return found ? String(found.description || found.code || found.locationname || loc) : String(loc);
     }, [detail?.locationname, detail?.location, detail?.officelocation, officeLocations]);
     const ferryTypeDesc = useMemo((): string => {
+        if (detail?.requesttypecode) return String(detail.requesttypecode);
         if (detail?.requesttypedesc) return String(detail.requesttypedesc);
         if (!detail?.requesttype) return '';
         const found = requestTypes.find((r: any) => String(r.syskey) === String(detail.requesttype));
-        return found ? String(found.description || found.code || detail.requesttype) : String(detail.requesttype || '');
-    }, [detail?.requesttypedesc, detail?.requesttype, requestTypes]);
+        return found ? String(found.code || found.description || detail.requesttype) : String(detail.requesttype || '');
+    }, [detail?.requesttypecode, detail?.requesttypedesc, detail?.requesttype, requestTypes]);
     const ferryType = descToFerryType(ferryTypeDesc);
     const isApproved = String(detail?.requeststatus || detail?.status) === '2';
     const isRejected = String(detail?.requeststatus || detail?.status) === '3';
@@ -381,7 +386,7 @@ export default function FerryApprovalFormPage() {
         if (desc === 'ferrychange') return 'Ferry Change';
         if (desc === 'ferryregistration' ) return 'Ferry Registration';
         if (desc === 'ferryusercomplaint' || desc === 'usercomplaint') return 'Ferry User Complaint';
-        if (desc === 'hrcomplaint' || desc === 'ferryhrcomplaint') return 'HR Complaint';
+        if (desc === 'hrquery' || desc === 'ferryhrquery') return 'HR Query';
         return ferryTypeDesc || 'Ferry Request';
     }, [ferryTypeDesc]);
 
@@ -484,7 +489,7 @@ export default function FerryApprovalFormPage() {
     const validateAction = (status: '2' | '3') => {
         const errors: Record<string, string> = {};
         
-        if ((ferryType === FerryRequestType.usercomplaint || ferryType === FerryRequestType.hrcomplaint) && !comment.trim()) {
+        if ((ferryType === FerryRequestType.usercomplaint || ferryType === FerryRequestType.hrquery) && !comment.trim()) {
             errors.comment = `Comment is required for ${status === '2' ? 'approval' : 'rejection'}`;
         }
 
@@ -571,8 +576,9 @@ export default function FerryApprovalFormPage() {
             
             const base: any = {
                 syskey,
-                requesttype: requestTypes.find((r: any) => r.description?.toLowerCase() === (detail.requesttypedesc || ferryTypeDesc)?.toLowerCase() || String(r.syskey) === String(detail.requesttype) || r.description?.toLowerCase().replace(/\s+/g, '') === detail.requesttype?.toLowerCase().replace(/\s+/g, ''))?.syskey || detail.requesttype,
+                requesttype: requestTypes.find((r: any) => r.code?.toLowerCase() === (detail.requesttypecode || ferryTypeDesc)?.toLowerCase() || r.description?.toLowerCase() === (detail.requesttypedesc || ferryTypeDesc)?.toLowerCase() || String(r.syskey) === String(detail.requesttype) || r.description?.toLowerCase().replace(/\s+/g, '') === detail.requesttype?.toLowerCase().replace(/\s+/g, ''))?.syskey || detail.requesttype,
                 requesttypedesc: detail.requesttypedesc || ferryTypeDesc || '',
+                requesttypecode: detail.requesttypecode || ferryTypeDesc || '',
                 requeststatus: '1',
                 employeeid: detail.eid || '',
                 employee_syskey: (employeeProfile as any)?.syskey || detail.employee_syskey || '',
@@ -604,6 +610,7 @@ export default function FerryApprovalFormPage() {
                 base.township = editTownship;
                 base.phoneno = editPhoneNumber;
                 base.ferryno = editCurrentFerryNo;
+                base.startdate = editOperationStartDate ? editOperationStartDate.replace(/-/g, '') : '';
                 base.remark = editTemporaryReason; // usually mapped to remark
                 base.changeferry_syskey = assignedFerrySyskey;
                 base.driver_phoneno = driverPhone;
@@ -615,8 +622,8 @@ export default function FerryApprovalFormPage() {
                 base.phoneno = detail.phoneno || '';
                 base.remark = editUserComplaintText;
                 base.comment = comment.trim();
-            } else if (ferryType === FerryRequestType.hrcomplaint) {
-                base.remark = editHrComplaintText;
+            } else if (ferryType === FerryRequestType.hrquery) {
+                base.remark = editHrQueryText;
                 base.ferryno = editCurrentFerryNo;
                 base.phoneno = detail.phoneno || '';
                 base.comment = comment.trim();
@@ -686,7 +693,7 @@ export default function FerryApprovalFormPage() {
     });
 
     const handleSaveEdit = () => {
-        if (ferryType === FerryRequestType.usercomplaint || ferryType === FerryRequestType.hrcomplaint) {
+        if (ferryType === FerryRequestType.usercomplaint || ferryType === FerryRequestType.hrquery) {
             if (ferryType === FerryRequestType.usercomplaint) {
                 if (editSelectedComplaints.length === 0) {
                     toast.error('Please select at least one complaint type');
@@ -698,8 +705,8 @@ export default function FerryApprovalFormPage() {
                 }
             }
 
-            if (ferryType === FerryRequestType.hrcomplaint) {
-                if (!editHrComplaintText || !editHrComplaintText.trim()) {
+            if (ferryType === FerryRequestType.hrquery) {
+                if (!editHrQueryText || !editHrQueryText.trim()) {
                     toast.error('Complaint Description is required');
                     return;
                 }
@@ -775,7 +782,7 @@ export default function FerryApprovalFormPage() {
                 <div className={styles['approval-detail__header']}>
                     <div className={styles['approval-detail__header-left']}>
                         <div className={styles['approval-detail__icon']} style={{ background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)', color: '#0c4a6e' }}>
-                            <Car size={24} />
+                            {displayTitle === 'HR Query' ? <Building2 size={24} /> : <Car size={24} />}
                         </div>
                         <div className={styles['approval-detail__title-group']}>
                             <h2>{displayTitle}</h2>
@@ -818,6 +825,41 @@ export default function FerryApprovalFormPage() {
                         </div>
                     </div>
 
+                    {/* Current Assigned Ferry Number Banner */}
+                    {(isEditMode || resolvedCurrentFerry || detail?.ferryno) && (
+                        <div className={styles['approval-detail__section']} style={{ paddingTop: 0, marginTop: -16 }}>
+                            <div style={{ 
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 12,
+                                padding: '12px 16px',
+                                background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                                border: '1px solid #bae6fd',
+                                borderRadius: 12,
+                            }}>
+                                <div style={{ 
+                                    background: '#ffffff', 
+                                    padding: 8, 
+                                    borderRadius: 8, 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                }}>
+                                    <Bus size={20} color="#0369a1" />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0369a1', marginBottom: 2, letterSpacing: '0.03em' }}>
+                                        Current Assigned Ferry Number
+                                    </div>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0c4a6e' }}>
+                                        {resolvedCurrentFerry || detail?.ferryno || '—'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* 1. Registration */}
                     {ferryType === FerryRequestType.registration && (
                         <div className={styles['approval-detail__section']}>
@@ -825,15 +867,16 @@ export default function FerryApprovalFormPage() {
                                 {isEditMode ? (
                                     <>
                                         <Input label="Contact Phone Number *" value={editPhoneNumber} onChange={e => setEditPhoneNumber(e.target.value)} />
-                                        {resolvedCurrentFerry && (
-                                            <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
-                                        )}
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-neutral-700)', marginBottom: 6 }}>Ferry Operation Start Date *</label>
+                                            <input type="date" value={editOperationStartDate} onChange={e => setEditOperationStartDate(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 14 }} />
+                                        </div>
                                     </>
                                 ) : (
                                     <>
                                         <Field label="Contact Phone Number" value={detail.contactphone || detail.phoneno} />
-                                        {resolvedCurrentFerry && (
-                                            <Field label="Current Assigned Ferry Number" value={resolvedCurrentFerry} />
+                                        {detail.startdate && (
+                                            <Field label="Ferry Operation Start Date" value={fromApiDate(detail.startdate)} />
                                         )}
                                     </>
                                 )}
@@ -887,15 +930,9 @@ export default function FerryApprovalFormPage() {
                             </div>
                             <div className={styles['approval-detail__grid']}>
                                 {isEditMode ? (
-                                    <>
-                                        <Input label="Contact Phone Number *" value={editPhoneNumber} onChange={e => setEditPhoneNumber(e.target.value)} />
-                                        <Input label="Current Assigned Ferry" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
-                                    </>
+                                    <Input label="Contact Phone Number *" value={editPhoneNumber} onChange={e => setEditPhoneNumber(e.target.value)} />
                                 ) : (
-                                    <>
-                                        <Field label="Contact Phone Number" value={detail.contactphone || detail.phoneno} />
-                                        <Field label="Current Assigned Ferry" value={resolvedCurrentFerry} />
-                                    </>
+                                    <Field label="Contact Phone Number" value={detail.contactphone || detail.phoneno} />
                                 )}
                             </div>
                                 
@@ -1021,13 +1058,7 @@ export default function FerryApprovalFormPage() {
                         <div className={styles['approval-detail__section']}>
                             <h4 className={styles['approval-detail__section-title']}>User Complaint</h4>
                             <div className={styles['approval-detail__grid']} style={{ marginBottom: 16 }}>
-                                {isEditMode ? (
-                                    resolvedCurrentFerry && (
-                                        <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
-                                    )
-                                ) : (
-                                    resolvedCurrentFerry && <Field label="Current Assigned Ferry Number" value={resolvedCurrentFerry} />
-                                )}
+                                {/* Current Assigned Ferry Number moved to top */}
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 0, border: '1px solid var(--color-neutral-200)', borderRadius: 8, overflow: 'hidden' }}>
                                 {COMPLAINT_OPTS.map((opt, i) => {
@@ -1065,19 +1096,15 @@ export default function FerryApprovalFormPage() {
                         </div>
                     )}
 
-                    {/* 4. HR Complaint */}
-                    {ferryType === FerryRequestType.hrcomplaint && (
+                    {/* 4. HR Query */}
+                    {ferryType === FerryRequestType.hrquery && (
                         <div className={styles['approval-detail__section']}>
-                            <h4 className={styles['approval-detail__section-title']}>HR Complaint</h4>
-                            {isEditMode && resolvedCurrentFerry && (
-                                <div className={styles['approval-detail__grid']} style={{ marginBottom: 16 }}>
-                                    <Input label="Current Assigned Ferry Number" value={editCurrentFerryNo} onChange={e => setEditCurrentFerryNo(e.target.value)} />
-                                </div>
-                            )}
+                            <h4 className={styles['approval-detail__section-title']}>HR Query</h4>
+                            {/* Current Assigned Ferry Number moved to top */}
                             <div>
                                 <div className={styles['approval-detail__field-label']} style={{ marginBottom: 4 }}>Complaint Description</div>
                                 {isEditMode ? (
-                                    <Textarea value={editHrComplaintText} onChange={e => setEditHrComplaintText(e.target.value)} rows={3} />
+                                    <Textarea value={editHrQueryText} onChange={e => setEditHrComplaintText(e.target.value)} rows={3} />
                                 ) : (
                                     <div className={styles['approval-detail__remark']}>{detail.remark || '—'}</div>
                                 )}
@@ -1283,7 +1310,7 @@ export default function FerryApprovalFormPage() {
                     )}
 
                     {/* Approver Action Details */}
-                    {((isPending && displayTitle !== 'Ferry Change') || ferryType === FerryRequestType.usercomplaint || ferryType === FerryRequestType.hrcomplaint) && (
+                    {((isPending && displayTitle !== 'Ferry Change') || ferryType === FerryRequestType.usercomplaint || ferryType === FerryRequestType.hrquery) && (
                         <div className={styles['approval-detail__section']} style={{ marginTop: 24, padding: 20, background: 'var(--color-primary-50)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-primary-200)' }}>
                             <h4 className={styles['approval-detail__section-title']} style={{ color: 'var(--color-primary-700)' }}>
                                 Approver Action Details

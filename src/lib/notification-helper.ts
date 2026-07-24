@@ -130,10 +130,9 @@ export function getNotiRoute(
         case 'usercompliant':
         case 'hr compliant':
         case 'hrcompliant':
-        case 'ferry hr complaint':
-        case 'ferryhrcomplaint':
-            if (notiDirection === 'request') return `/ferry/${requestSyskey}`;
-            return `/approvals/${requestSyskey}`;
+        case 'hrquery':
+            if (notiDirection === 'request') return `/ferry_request/${requestSyskey}`;
+            return `/ferry_approval/${requestSyskey}`;
 
 
         default:

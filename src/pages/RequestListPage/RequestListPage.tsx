@@ -681,7 +681,7 @@ export default function RequestListPage() {
                                 <tr>
                                     <th>Employee ID</th>
                                     <th>Employee Name</th>
-                                    <th>Ref #</th>
+                                    <th>No.</th>
                                     <th
                                         onClick={() => {
                                             if (sortColumn === 'date') setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
@@ -722,7 +722,7 @@ export default function RequestListPage() {
                             </thead>
                             <tbody>
                                 {(displayRequests as any[]).map((req, i) => {
-                                    const typeDesc = req.requesttypedesc || req.requesttype || '';
+                                    const typeDesc = req.requesttypecode ||req.requesttypedesc || req.requesttype || '';
                                     const variant = getTypeVariant(typeDesc);
                                     const Icon = getTypeIcon(variant);
                                     return (
@@ -731,7 +731,13 @@ export default function RequestListPage() {
                                                 navigate(`/attendancerequest/${req.syskey}`, { state: { item: req, refIndex: i + 1 } });
                                             } else {
                                                 const d = typeDesc.toLowerCase();
-                                                if (d.includes('ferry') || d.includes('hr complaint') || d.includes('hrcomplaint')) {
+                                                const typeCode = (req.requesttypecode || '').toLowerCase();
+                                                const isHrQuery = typeCode.includes('hrquery') || typeCode.includes('hr query') || d.includes('hrquery') || d.includes('hr query');
+                                                const isFerry = typeCode.includes('ferry') || d.includes('ferry');
+
+                                                if (isHrQuery) {
+                                                    navigate(`/hr_query/${req.syskey}`, { state: { from: '/requests' } });
+                                                } else if (isFerry) {
                                                     navigate(`/ferry_request/${req.syskey}`, { state: { from: '/requests' } });
                                                 } else {
                                                     navigate(`/requests/${req.syskey}`, { state: { from: '/requests' } });
@@ -740,7 +746,7 @@ export default function RequestListPage() {
                                         }}>
                                             <td>{req.eid || '—'}</td>
                                             <td>{req.name || '—'}</td>
-                                            <td>{req.refno ? `#${req.refno}` : `#${i + 1}`}</td>
+                                            <td>#{i + 1}</td>
                                             <td className={styles['requests-table__dates']}>
                                                 {displayDate(req.startdate || req.date) || '—'}
                                                 {req.enddate && req.enddate !== req.startdate ? ` → ${displayDate(req.enddate)}` : ''}
