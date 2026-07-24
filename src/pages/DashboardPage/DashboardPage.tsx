@@ -177,31 +177,37 @@ function fmtMins(totalMinutes: number): string {
 }
 
 /**
- * Total net working time = sum of each IN→OUT pair duration.
- * For the active open pair (no OUT yet), adds time from that IN to now.
- * Breaks between sessions are NOT counted.
- *   e.g. 08:00–12:00 (4h) + 01:00–06:00 (5h) = 09:00, not 10:00
+ * Working hours calculation — matches the mobile app (time_label_box.dart):
+ *
+ * If the last pair is OPEN (still clocked in, no Time-Out):
+ *   → Show ONLY `now − lastTimeIn`.  Previous completed pairs are NOT summed.
+ *     (Mobile Scenario C: live counter shows only the current session.)
+ *
+ * If ALL pairs are CLOSED (last record is Time-Out):
+ *   → Sum all completed IN→OUT pair durations.
+ *     (Mobile Scenario B: finalized total for the day.)
  */
 function calcTotalWorkingHours(pairs: InOutPair[], now: Date): string {
     if (pairs.length === 0) return '00:00';
 
-    let totalMins = 0;
+    const lastPair = pairs[pairs.length - 1];
 
-    for (const pair of pairs) {
-        if (pair.timeOut) {
-            // Completed pair — fixed duration (OUT - IN), does NOT tick
-            totalMins += pair.durationMins;
-        } else {
-            // Open pair (no OUT yet) — count from IN to NOW (ticks every second)
-            const inTime = parseTimeStr(pair.timeIn.time);
-            if (inTime) {
-                inTime.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
-                const diff = now.getTime() - inTime.getTime();
-                if (diff > 0) totalMins += diff / 60000;
-            }
-        }
+    // ── Scenario C: Still working — only show time since last Time-In ──
+    if (!lastPair.timeOut) {
+        const inTime = parseTimeStr(lastPair.timeIn.time);
+        if (!inTime) return '00:00';
+        inTime.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
+        const diff = now.getTime() - inTime.getTime();
+        return diff > 0 ? fmtMins(diff / 60000) : '00:00';
     }
 
+    // ── Scenario B: All pairs closed — sum all completed durations ──
+    let totalMins = 0;
+    for (const pair of pairs) {
+        if (pair.timeOut) {
+            totalMins += pair.durationMins;
+        }
+    }
     return fmtMins(totalMins);
 }
 
