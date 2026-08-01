@@ -1,16 +1,18 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { 
     Bell, CheckSquare, Receipt, Clock, Home, Activity, 
     CalendarCheck, Car, Bus, ShoppingBag, Plane, ArrowRightLeft, 
     BookOpen, PartyPopper, ClipboardCheck, Wifi, History, RefreshCw, 
-    MapPin, UserPlus, MoreHorizontal, Briefcase 
+    MapPin, UserPlus, MoreHorizontal, Briefcase,
+    ChevronDown, ChevronUp, FileText
 } from 'lucide-react';
 import { useNotificationStore } from '../../stores/notification-store';
 import type { NotificationModel } from '../../stores/notification-store';
 import { parseApiDate, formatNotiTime, getNotiRoute } from '../../lib/notification-helper';
 import styles from './NotificationPage.module.css';
+import { downloadOrOpenAttachment } from '../../lib/file-utils';
 
 function getNotificationIconConfig(requestType: string = '', isRead: boolean) {
     const dim = isRead ? 0.55 : 1.0;
@@ -58,6 +60,182 @@ function getNotificationIconConfig(requestType: string = '', isRead: boolean) {
         bgStyle: { backgroundColor: config.bg, opacity: dim },
         fgStyle: { color: config.fg, opacity: dim }
     };
+}
+
+function NotificationItemView({ item, onTab }: { item: NotificationModel, onTab: (i: NotificationModel) => void }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const isRead = item.read_status;
+    const { Icon, bgStyle, fgStyle } = getNotificationIconConfig(item.requesttype, isRead);
+    const parsedDate = item.createddate ? parseApiDate(item.createddate) : new Date();
+    const timeLabel = formatNotiTime(parsedDate);
+
+    const isImageAttachment = (filePath: string) => {
+        const ext = filePath.split('.').pop()?.toLowerCase();
+        return ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'gif' || ext === 'webp';
+    };
+
+    return (
+        <div
+            className={`${styles['noti-page__item']} ${!isRead ? styles['noti-page__item--unread'] : ''}`}
+            onClick={() => onTab(item)}
+        >
+            <div className={styles['noti-page__avatar-wrap']}>
+                <div className={styles['noti-page__avatar']} style={bgStyle}>
+                    <Icon size={20} style={fgStyle} />
+                </div>
+                {!isRead && <div className={styles['noti-page__unread-dot']} />}
+            </div>
+
+            <div className={styles['noti-page__content']}>
+                <div className={styles['noti-page__row']}>
+                    <span className={`${styles['noti-page__item-title']} ${isRead ? styles['noti-page__item-title--normal'] : styles['noti-page__item-title--bold']}`}>
+                        {item.title}
+                    </span>
+                    <span className={styles['noti-page__item-time']}>{timeLabel}</span>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                    <p
+                        className={`${styles['noti-page__item-desc']} ${!isRead ? styles['noti-page__item-desc--unread'] : ''}`}
+                        style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: isExpanded ? 'unset' : 1,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            margin: 0,
+                            flex: 1
+                        }}
+                    >
+                        {item.description}
+                    </p>
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+                        style={{ background: 'none', border: 'none', padding: '4px', color: 'var(--color-neutral-400)', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center' }}
+                    >
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
+                </div>
+
+                {item.processstatus && (() => {
+                    const pStatus = item.processstatus.toLowerCase();
+                    let bg = 'var(--color-primary-50, #eff6ff)';
+                    let fg = 'var(--color-primary-700, #1d4ed8)';
+                    let bd = 'var(--color-primary-200, #bfdbfe)';
+
+                    if (pStatus.includes('third party') || pStatus.includes('thirdparty')) {
+                        bg = 'var(--color-warning-50, #fff7ed)';
+                        fg = 'var(--color-warning-700, #c2410c)';
+                        bd = 'var(--color-warning-200, #fed7aa)';
+                    } else if (pStatus.includes('complete') || pStatus.includes('completed')) {
+                        bg = 'var(--color-success-50, #f0fdf4)';
+                        fg = 'var(--color-success-700, #15803d)';
+                        bd = 'var(--color-success-200, #bbf7d0)';
+                    } else if (pStatus.includes('eb team') || pStatus.includes('eb')) {
+                        bg = 'var(--color-primary-50, #eff6ff)';
+                        fg = 'var(--color-primary-700, #1d4ed8)';
+                        bd = 'var(--color-primary-200, #bfdbfe)';
+                    } else {
+                        bg = 'var(--color-neutral-50, #f9fafb)';
+                        fg = 'var(--color-neutral-700, #374151)';
+                        bd = 'var(--color-neutral-200, #e5e7eb)';
+                    }
+
+                    return (
+                        <div style={{ marginTop: '8px' }}>
+                            <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: '3px 10px',
+                                borderRadius: '9999px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                backgroundColor: bg,
+                                color: fg,
+                                border: `1px solid ${bd}`
+                            }}>
+                                {item.processstatus}
+                            </span>
+                        </div>
+                    );
+                })()}
+
+                {item.attachments && item.attachments.length > 0 && (
+                    <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {item.attachments.map((att, idx) => {
+                            const fileName = att.filePath ? att.filePath.split('/').pop() : `Attachment ${idx + 1}`;
+                            const isImg = att.filePath ? isImageAttachment(att.filePath) : false;
+
+                            return (
+                                <a
+                                    key={idx}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        // Pass filename instead of signedURL to bypass spaces/404 issues,
+                                        // forcing file-utils to use the direct download API instead of window.open()
+                                        downloadOrOpenAttachment({ filename: att.filePath });
+                                    }}
+                                    style={{
+                                        display: 'inline-flex',
+                                        flexDirection: 'column',
+                                        textDecoration: 'none',
+                                        width: 'fit-content',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {isImg ? (
+                                        <div style={{
+                                            border: '1px solid var(--color-neutral-200, #e5e7eb)',
+                                            borderRadius: '8px',
+                                            overflow: 'hidden',
+                                            display: 'flex',
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                            width: '80px',
+                                            height: '80px',
+                                            backgroundColor: '#f9fafb'
+                                        }}>
+                                            <img src={att.signedURL} alt={fileName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '8px 12px',
+                                            backgroundColor: 'var(--color-neutral-50, #f9fafb)',
+                                            border: '1px solid var(--color-neutral-200, #e5e7eb)',
+                                            borderRadius: '8px',
+                                            color: 'var(--color-neutral-700)',
+                                        }}>
+                                            <FileText size={16} color="var(--color-neutral-500)" />
+                                            <span style={{ 
+                                                maxWidth: '220px', 
+                                                whiteSpace: 'nowrap', 
+                                                overflow: 'hidden', 
+                                                textOverflow: 'ellipsis',
+                                                fontSize: '12px',
+                                                fontWeight: 500
+                                            }} title={fileName}>
+                                                {fileName}
+                                            </span>
+                                        </div>
+                                    )}
+                                </a>
+                            );
+                        })}
+                    </div>
+                )}
+                
+                {item.date && (
+                    <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--color-neutral-400)' }}>
+                        {item.date.length === 8 ? `${item.date.substring(6,8)}/${item.date.substring(4,6)}/${item.date.substring(2,4)}` : item.date}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 }
 
 export default function NotificationPage() {
@@ -169,52 +347,9 @@ export default function NotificationPage() {
             ) : (
                 /* ── Notification list ── */
                 <div className={styles['noti-page__list']} ref={listRef}>
-                    {items.map((item) => {
-                        const isRead = item.read_status;
-                        const { Icon, bgStyle, fgStyle } = getNotificationIconConfig(item.requesttype, isRead);
-                        const parsedDate = item.createddate ? parseApiDate(item.createddate) : new Date();
-                        const timeLabel = formatNotiTime(parsedDate);
-
-                        return (
-                            <div
-                                key={item.syskey}
-                                className={`${styles['noti-page__item']} ${!isRead ? styles['noti-page__item--unread'] : ''}`}
-                                onClick={() => handleItemTap(item)}
-                            >
-                                {/* Avatar */}
-                                <div className={styles['noti-page__avatar-wrap']}>
-                                    <div
-                                        className={styles['noti-page__avatar']}
-                                        style={bgStyle}
-                                    >
-                                        <Icon size={20} style={fgStyle} />
-                                    </div>
-                                    {!isRead && <div className={styles['noti-page__unread-dot']} />}
-                                </div>
-
-                                {/* Content */}
-                                <div className={styles['noti-page__content']}>
-                                    <div className={styles['noti-page__row']}>
-                                        <span
-                                            className={`${styles['noti-page__item-title']} ${isRead
-                                                ? styles['noti-page__item-title--normal']
-                                                : styles['noti-page__item-title--bold']
-                                                }`}
-                                        >
-                                            {item.title}
-                                        </span>
-                                        <span className={styles['noti-page__item-time']}>{timeLabel}</span>
-                                    </div>
-                                    <p
-                                        className={`${styles['noti-page__item-desc']} ${!isRead ? styles['noti-page__item-desc--unread'] : ''
-                                            }`}
-                                    >
-                                        {item.description}
-                                    </p>
-                                </div>
-                            </div>
-                        );
-                    })}
+                    {items.map((item) => (
+                        <NotificationItemView key={item.syskey} item={item} onTab={handleItemTap} />
+                    ))}
 
                     {/* Load-more trigger / button */}
                     {hasMore && !isLoading && (

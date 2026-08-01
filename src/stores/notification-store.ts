@@ -25,6 +25,9 @@ export interface NotificationModel {
     requesttype: string;
     startdate: string;
     enddate: string;
+    date?: string;
+    processstatus?: string;
+    attachments?: { filePath: string; signedURL: string }[];
 }
 
 interface NotificationState {
@@ -107,6 +110,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                 requesttype: item.requesttype ?? '',
                 startdate: item.startdate ?? '',
                 enddate: item.enddate ?? '',
+                date: item.date ?? '',
+                processstatus: item.processstatus ?? '',
+                attachments: item.attachments ?? [],
             }));
 
             set((state) => {

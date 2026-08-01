@@ -242,6 +242,7 @@ export default function RequestListPage() {
             const all: RequestModel[] = datalist.map(item => ({
                 ...item,
                 eid: item.employeeid || item.employee_id || item.eid || '',
+                processstatus: item.processstatus || item.claimProcessStatus || item.claimprocessstatus || '',
             }));
             if (pathTypeCfg) {
                 const filterRx = new RegExp(pathTypeCfg.filter, 'i');
@@ -330,6 +331,7 @@ export default function RequestListPage() {
             const all: RequestModel[] = datalist.map(item => ({
                 ...item,
                 eid: item.employeeid || item.employee_id || item.eid || '',
+                processstatus: item.processstatus || item.claimProcessStatus || item.claimprocessstatus || '',
             }));
             if (pathTypeCfg) {
                 const filterRx = new RegExp(pathTypeCfg.filter, 'i');
@@ -372,10 +374,27 @@ export default function RequestListPage() {
                 else if (st === '4') statusText = 'Draft';
 
                 const typeDesc = req.requesttypedesc || req.requesttype || '—';
+                const variant = getTypeVariant(typeDesc);
 
                 let details = '—';
                 const typeStr = typeDesc.toLowerCase();
-                if (typeStr.includes('early out') || typeStr.includes('late')) {
+                
+                if (variant === 'claim') {
+                    const parts = [];
+                    
+                    let cleanSubType = req.requestsubtypedesc || '';
+                    if (cleanSubType.includes(' - ')) {
+                        cleanSubType = cleanSubType.split(' - ')[0];
+                    }
+                    if (cleanSubType) parts.push(cleanSubType);
+                    
+                    const isStatusFinal = req.status && (req.status.toLowerCase() === 'approved' || req.status.toLowerCase() === 'rejected');
+                    if (req.processstatus && !isStatusFinal) {
+                        parts.push(`(${req.processstatus})`);
+                    }
+                    
+                    details = parts.length > 0 ? parts.join(' - ') : '—';
+                } else if (typeStr.includes('early out') || typeStr.includes('late')) {
                     details = typeDesc; // Just show 'Early Out' or 'Late'
                 } else if (req.requestsubtypedesc) {
                     details = req.requestsubtypedesc;
@@ -760,6 +779,64 @@ export default function RequestListPage() {
                                             <td>
                                                 {(() => {
                                                     const typeStr = typeDesc.toLowerCase();
+                                                    
+                                                    if (variant === 'claim') {
+                                                        const parts = [];
+                                                        
+                                                        let cleanSubType = req.requestsubtypedesc || '';
+                                                        if (cleanSubType.includes(' - ')) {
+                                                            cleanSubType = cleanSubType.split(' - ')[0];
+                                                        }
+                                                        if (cleanSubType) parts.push(cleanSubType);
+                                                        
+                                                        const isStatusFinal = req.status && (req.status.toLowerCase() === 'approved' || req.status.toLowerCase() === 'rejected');
+                                                        
+                                                        if (req.processstatus && !isStatusFinal) {
+                                                            const pStatus = req.processstatus.toLowerCase();
+                                                            let bg = 'var(--color-primary-50, #eff6ff)';
+                                                            let fg = 'var(--color-primary-700, #1d4ed8)';
+                                                            let bd = 'var(--color-primary-200, #bfdbfe)';
+
+                                                            if (pStatus.includes('third party') || pStatus.includes('thirdparty')) {
+                                                                bg = 'var(--color-warning-50, #fff7ed)';
+                                                                fg = 'var(--color-warning-700, #c2410c)';
+                                                                bd = 'var(--color-warning-200, #fed7aa)';
+                                                            } else if (pStatus.includes('complete') || pStatus.includes('completed')) {
+                                                                bg = 'var(--color-success-50, #f0fdf4)';
+                                                                fg = 'var(--color-success-700, #15803d)';
+                                                                bd = 'var(--color-success-200, #bbf7d0)';
+                                                            } else if (pStatus.includes('eb team') || pStatus.includes('eb')) {
+                                                                bg = 'var(--color-primary-50, #eff6ff)';
+                                                                fg = 'var(--color-primary-700, #1d4ed8)';
+                                                                bd = 'var(--color-primary-200, #bfdbfe)';
+                                                            } else {
+                                                                bg = 'var(--color-neutral-50, #f9fafb)';
+                                                                fg = 'var(--color-neutral-700, #374151)';
+                                                                bd = 'var(--color-neutral-200, #e5e7eb)';
+                                                            }
+
+                                                            return (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+                                                                    <span style={{ fontWeight: 500 }}>{parts.length > 0 ? parts.join(' - ') : '—'}</span>
+                                                                    <span style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        padding: '3px 10px',
+                                                                        borderRadius: '9999px',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 600,
+                                                                        backgroundColor: bg,
+                                                                        color: fg,
+                                                                        border: `1px solid ${bd}`
+                                                                    }}>
+                                                                        {req.processstatus}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return parts.length > 0 ? parts.join(' - ') : '—';
+                                                    }
+                                                    
                                                     if (typeStr.includes('early out') || typeStr.includes('late')) {
                                                         return typeDesc; // Just show 'Early Out' or 'Late'
                                                     }

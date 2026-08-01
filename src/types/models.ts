@@ -117,6 +117,7 @@ export interface RequestModel {
   remaining_balance?: number;
   max_amount?: number;
   confirmed_amount?: number;
+  processstatus?: string;
 }
 
 export interface StepLevelData {
