@@ -71,6 +71,34 @@ function Field({ label, value }: { label: string; value: string | number | undef
     );
 }
 
+function getLeaveTimeDisplay(days: any, start: string, end: string) {
+    const numDays = Number(days);
+    
+    if (!numDays || numDays <= 1) {
+        if (start === 'AM' && end === 'AM') return 'Morning Leave';
+        if (start === 'PM' && end === 'PM') return 'Evening Leave';
+        if (start === 'AM' && end === 'PM') return 'The Whole Day Leave';
+        if (numDays === 1) return '1 Day';
+        return start && end ? `${start} - ${end}` : (start || end || (numDays ? `${numDays} Day` : ''));
+    }
+    
+    const fullDays = Math.floor(numDays);
+    const hasHalfDay = numDays % 1 !== 0;
+    
+    if (hasHalfDay) {
+        const dayStr = fullDays === 1 ? '1 Day' : `${fullDays} Days`;
+        if (start === 'AM' && end === 'AM') {
+            return `${dayStr} and Morning`;
+        }
+        if (start === 'PM' && end === 'PM') {
+            return `${dayStr} and Evening`;
+        }
+        return `${numDays} Days`;
+    }
+    
+    return `${fullDays} Days`;
+}
+
 export default function RequestDetailPage() {
     const { id } = useParams<{ id: string }>();
     const { t } = useTranslation();
@@ -501,11 +529,14 @@ export default function RequestDetailPage() {
                             )}
                             {(detail.startdate || detail.date) && <Field label={isSubstituteLeaveType ? "Request for Substitute Leave Date" : "Start Date"} value={displayDate(detail.startdate || detail.date)} />}
                             {!isSubstituteLeaveType && detail.enddate && <Field label="End Date" value={displayDate(detail.enddate)} />}
-                            {!isSubstituteLeaveType && (detail.starttime || detail.time) && <Field label="Start Time" value={detail.starttime || detail.time} />}
-                            {!isSubstituteLeaveType && detail.endtime && <Field label="End Time" value={detail.endtime} />}
-                            {detail.duration && <Field label="Duration" value={detail.duration} />}
+                            {!isSubstituteLeaveType && !isLeave && (detail.starttime || detail.time) && <Field label="Start Time" value={detail.starttime || detail.time} />}
+                            {!isSubstituteLeaveType && !isLeave && detail.endtime && <Field label="End Time" value={detail.endtime} />}
+                            {!isLeave && detail.duration && <Field label="Duration" value={detail.duration} />}
                             {detail.selectday && <Field label="Select Day" value={detail.selectday} />}
-                            {detail.days && <Field label="Days" value={String(detail.days)} />}
+                            {(!isLeave || isSubstituteLeaveType) && detail.days && <Field label="Days" value={String(detail.days)} />}
+                            {isLeave && !isSubstituteLeaveType && (detail.starttime || detail.endtime || detail.days || detail.duration) && (
+                                <Field label="Leave Duration" value={getLeaveTimeDisplay(detail.days || detail.duration, detail.starttime || '', detail.endtime || '')} />
+                            )}
                             {detail.hour && <Field label="Hours" value={detail.hour} />}
                             {detail.otday && <Field label="OT Day" value={detail.otday} />}
                         </div>

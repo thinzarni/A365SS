@@ -411,8 +411,9 @@ export default function NewRequestPage() {
     const [orgRelocationTo, setOrgRelocationTo] = useState('');
 
     // ── Leave-specific AM/PM & duration ──
-    const [startPeriod, setStartPeriod] = useState('AM');
-    const [endPeriod, setEndPeriod] = useState('PM');
+    const [startPeriod, setStartPeriod] = useState('Morning');
+    const [endPeriod, setEndPeriod] = useState('Evening');
+    const [lockedBy, setLockedBy] = useState<'start' | 'end' | null>(null);
     const [duration, setDuration] = useState('1');
     const [durationLoading, setDurationLoading] = useState(false);
 
@@ -536,8 +537,17 @@ export default function NewRequestPage() {
         // Specific fields
         if (typeKey === 'leave') {
             setLeaveType(d.requestsubtype || '');
-            setStartPeriod(d.starttime || 'AM');
-            setEndPeriod(d.endtime || 'PM');
+            const isWholeDay = d.starttime === 'AM' && d.endtime === 'PM';
+            if (isWholeDay) {
+                setStartPeriod('Whole day');
+                setEndPeriod('Whole day');
+                setLockedBy('start');
+            } else {
+                setStartPeriod(d.starttime === 'AM' ? 'Morning' : d.starttime === 'PM' ? 'Evening' : d.starttime || 'Morning');
+                setEndPeriod(d.endtime === 'AM' ? 'Morning' : d.endtime === 'PM' ? 'Evening' : d.endtime || 'Evening');
+                if (d.starttime === 'Whole day') setLockedBy('start');
+                else if (d.endtime === 'Whole day') setLockedBy('end');
+            }
             setDuration(String(d.duration || '1'));
             setLeaveReason(d.leavereason || '');
             setSubstituteDay(d.substitutedate || ''); // pre-select substitute day from saved syskey
@@ -851,8 +861,8 @@ export default function NewRequestPage() {
                         requestsubtype: leaveType,
                         startdate: toApiDate(startDate),
                         enddate: isSubstituteLeave ? toApiDate(startDate) : toApiDate(endDate || startDate),
-                        starttime: isSubstituteLeave ? 'AM' : startPeriod,
-                        endtime: isSubstituteLeave ? 'PM' : endPeriod,
+                        starttime: isSubstituteLeave ? 'AM' : (startPeriod === 'Evening' ? 'PM' : 'AM'),
+                        endtime: isSubstituteLeave ? 'PM' : (endPeriod === 'Morning' ? 'AM' : 'PM'),
                         userid: userId || '',
                         domain: domain || '',
                     }),
@@ -891,8 +901,9 @@ export default function NewRequestPage() {
     useEffect(() => {
         if (!isEdit) {
             setLeaveType('');
-            setStartPeriod('AM');
-            setEndPeriod('PM');
+            setStartPeriod('Morning');
+            setEndPeriod('Evening');
+            setLockedBy(null);
             setSubstituteDay('');
         }
         setSubType('');
@@ -1151,8 +1162,8 @@ export default function NewRequestPage() {
                 payload.enddate = toApiDate(endDate || startDate);
                 payload.requeststatus = "1";
                 if (selectedType === 'leave') {
-                    payload.starttime = startPeriod;
-                    payload.endtime = endPeriod;
+                    payload.starttime = startPeriod === 'Evening' ? 'PM' : 'AM';
+                    payload.endtime = endPeriod === 'Morning' ? 'AM' : 'PM';
                     payload.duration = duration;
                     if (leaveType) {
                         const selectedLt = leaveTypeList.find((lt) => lt.syskey === leaveType);
@@ -2072,16 +2083,50 @@ export default function NewRequestPage() {
                                                 id="startPeriod"
                                                 label={t('request.startTime')}
                                                 value={startPeriod}
-                                                onChange={(e: any) => setStartPeriod(e.target.value)}
-                                                options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
+                                                onChange={(e: any) => {
+                                                    const val = e.target.value;
+                                                    setStartPeriod(val);
+                                                    if (val === 'Whole day') {
+                                                        setEndPeriod('Whole day');
+                                                        setLockedBy('start');
+                                                    } else if (lockedBy === 'start') {
+                                                        setEndPeriod('Evening');
+                                                        setLockedBy(null);
+                                                    } else if (lockedBy === 'end') {
+                                                        setLockedBy(null);
+                                                    }
+                                                }}
+                                                disabled={lockedBy === 'end'}
+                                                options={[
+                                                    { value: 'Morning', label: 'Morning' },
+                                                    { value: 'Evening', label: 'Evening' },
+                                                    { value: 'Whole day', label: 'Whole day' }
+                                                ]}
                                             />
                                             <DateInput id="endDate" label={t('request.endDate')} value={endDate || startDate} onChange={(e: any) => setEndDate(e.target.value)} />
                                             <Select
                                                 id="endPeriod"
                                                 label={t('request.endTime')}
                                                 value={endPeriod}
-                                                onChange={(e: any) => setEndPeriod(e.target.value)}
-                                                options={[{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }]}
+                                                onChange={(e: any) => {
+                                                    const val = e.target.value;
+                                                    setEndPeriod(val);
+                                                    if (val === 'Whole day') {
+                                                        setStartPeriod('Whole day');
+                                                        setLockedBy('end');
+                                                    } else if (lockedBy === 'end') {
+                                                        setStartPeriod('Morning');
+                                                        setLockedBy(null);
+                                                    } else if (lockedBy === 'start') {
+                                                        setLockedBy(null);
+                                                    }
+                                                }}
+                                                disabled={lockedBy === 'start'}
+                                                options={[
+                                                    { value: 'Morning', label: 'Morning' },
+                                                    { value: 'Evening', label: 'Evening' },
+                                                    { value: 'Whole day', label: 'Whole day' }
+                                                ]}
                                             />
                                         </>
                                     )}

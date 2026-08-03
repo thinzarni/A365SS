@@ -106,6 +106,34 @@ function Field({ label, value }: { label: string; value: string | number | undef
     );
 }
 
+function getLeaveTimeDisplay(days: any, start: string, end: string) {
+    const numDays = Number(days);
+    
+    if (!numDays || numDays <= 1) {
+        if (start === 'AM' && end === 'AM') return 'Morning Leave';
+        if (start === 'PM' && end === 'PM') return 'Evening Leave';
+        if (start === 'AM' && end === 'PM') return 'The Whole Day Leave';
+        if (numDays === 1) return '1 Day';
+        return start && end ? `${start} - ${end}` : (start || end || (numDays ? `${numDays} Day` : ''));
+    }
+    
+    const fullDays = Math.floor(numDays);
+    const hasHalfDay = numDays % 1 !== 0;
+    
+    if (hasHalfDay) {
+        const dayStr = fullDays === 1 ? '1 Day' : `${fullDays} Days`;
+        if (start === 'AM' && end === 'AM') {
+            return `${dayStr} and Morning`;
+        }
+        if (start === 'PM' && end === 'PM') {
+            return `${dayStr} and Evening`;
+        }
+        return `${numDays} Days`;
+    }
+    
+    return `${fullDays} Days`;
+}
+
 /* ══════════════════════════════════════════════════════════════ */
 
 
@@ -601,8 +629,14 @@ export default function ApprovalDetailPage() {
                                 <Field label={isSubstituteLeaveType ? "Request for Substitute Leave Date" : "Date"} value={displayDate(d.startdate || d.date || d.selectday)} />
                                 {!isSubstituteLeaveType && !requestTypeString.includes('claim') && <Field label="End Date" value={displayDate(d.enddate)} />}
 
-                                {!isSubstituteLeaveType && !requestTypeString.includes('claim') && <Field label="End Time" value={String(d.endtime || '')} />}
-                                {!requestTypeString.includes('claim') && <Field label="Duration" value={String(d.duration || '')} />}
+                                {!isSubstituteLeaveType && !requestTypeString.includes('claim') && !isLeave && (d.starttime || d.time) && <Field label="Start Time" value={String(d.starttime || d.time || '')} />}
+                                {!isSubstituteLeaveType && !requestTypeString.includes('claim') && !isLeave && d.endtime && <Field label="End Time" value={String(d.endtime || '')} />}
+                                {!requestTypeString.includes('claim') && !isLeave && d.duration && <Field label="Duration" value={String(d.duration || '')} />}
+                                {(!isLeave || isSubstituteLeaveType) && d.days && <Field label="Days" value={String(d.days || '')} />}
+                                
+                                {isLeave && !isSubstituteLeaveType && (d.starttime || d.endtime || d.days || d.duration) && (
+                                    <Field label="Leave Duration" value={getLeaveTimeDisplay(d.days || d.duration, d.starttime || '', d.endtime || '')} />
+                                )}
                             </div>
                             {/* ── Leave Reason ── */}
                             {isLeave && leaveReasonsList.length > 0 && leaveReasonText && (
