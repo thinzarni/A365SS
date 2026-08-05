@@ -62,6 +62,14 @@ function getNotificationIconConfig(requestType: string = '', isRead: boolean) {
     };
 }
 
+/** Remove trailing raw syskey / UUID from description strings.
+ *  e.g. "New Job Posting: 3ffdf764-cf27-410e-8607-14cdd6bad601" → "New Job Posting"
+ */
+const UUID_PATTERN = /\s*[:\-–]\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\s*$/i;
+function sanitizeDescription(desc: string): string {
+    return desc.replace(UUID_PATTERN, '').trim();
+}
+
 function NotificationItemView({ item, onTab }: { item: NotificationModel, onTab: (i: NotificationModel) => void }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const isRead = item.read_status;
@@ -107,7 +115,10 @@ function NotificationItemView({ item, onTab }: { item: NotificationModel, onTab:
                             flex: 1
                         }}
                     >
-                        {item.description}
+                        {item.requesttype?.toLowerCase() === 'jobpost' && item.jobtitle_display
+                            ? item.jobtitle_display
+                            : sanitizeDescription(item.description)
+                        }
                     </p>
                     <button 
                         onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
