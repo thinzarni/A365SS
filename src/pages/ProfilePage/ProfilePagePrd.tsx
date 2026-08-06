@@ -2012,6 +2012,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         }
 
         if (!form.description) { toast.error(t('profile.qualification.reqDegree', 'Description is required')); return; }
+        if (!form.attachment && !form.attachmentKey) { toast.error(t('profile.qualification.reqAttachment', 'Attachment is required')); return; }
 
         const isUpdate = !!editingId;
         const newRecord: Qualification & { _displayEduName?: string } = { ...form };
@@ -2295,7 +2296,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                         </FormRow>
                     </div>
 
-                    <FormRow label={t('profile.qualification.attachment', 'Attachment')}>
+                    <FormRow label={<>{t('profile.qualification.attachment', 'Attachment')}<span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span></>}>
                         {editingId && (form.attachmentKey || form.attachment) && (() => {
                             return (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '8px 12px', borderRadius: '8px', background: '#f0f9ff', border: '1px solid #bae6fd' }}>
@@ -3460,7 +3461,7 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 
-function FormRow({ label, children, fullWidth }: { label: string; children: React.ReactNode; fullWidth?: boolean }) {
+function FormRow({ label, children, fullWidth }: { label: React.ReactNode; children: React.ReactNode; fullWidth?: boolean }) {
     return (
         <div className={`${styles.formRow} ${fullWidth ? styles.fullWidth : ''}`}>
             <label className={styles.formLabel}>{label}</label>
