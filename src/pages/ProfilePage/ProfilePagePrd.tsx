@@ -2526,6 +2526,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
         }
 
         if (!form.name) { toast.error(t('profile.family.reqName')); return; }
+        if (!form.attachment) { toast.error('Attachment is required'); return; }
         // if ((form.modOption === 'Update' || form.modOption === 'New') && !form.effectiveFrom) { toast.error('Effective Date is required'); return; }
 
         const isUpdate = !!editingId;
@@ -2812,7 +2813,7 @@ function FamilyInfoTab({ profile }: { profile: ProfileData }) {
                             )}
                         </> 
                     )} */}
-                    <FormRow label={editingId && form.attachment ? t('profile.family.attachment') : `${t('profile.family.attachment')}`}>
+                    <FormRow label={`${t('profile.family.attachment')} *`}>
                         {/* Show existing attachment when editing */}
                         {editingId && (form.attachmentKey || form.attachment) && (() => {
                             return (
