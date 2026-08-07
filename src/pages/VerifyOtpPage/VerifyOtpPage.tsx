@@ -69,7 +69,7 @@ export default function VerifyOtpPage() {
         setResending(true);
         setDigits(Array(6).fill(''));
         try {
-            const payload = await makeSignInPayload(state.userId, 1, state.b64Password || '');
+            const payload = await makeSignInPayload(state.userId.toUpperCase(), 1, state.b64Password || '');
             const res = await authClient.post('signin', payload);
             if (res.data.status === 200) {
                 const newSession = res.data.data?.session_id || res.data.session_id || '';
@@ -186,7 +186,7 @@ export default function VerifyOtpPage() {
         setLoading(true);
         try {
             const res = await authClient.post('verify-otp', {
-                user_id: state?.userId,
+                user_id: state?.userId?.toUpperCase(),
                 otp,
                 session,
                 app_id: APP_ID,
@@ -236,7 +236,7 @@ export default function VerifyOtpPage() {
                             ? `Enter the 6-digit code sent to your email`
                             : `Enter the 6-digit code sent to your phone`} */}
                     </p>
-                    <p className={styles.userId}>{state.userId}</p>
+                    <p className={styles.userId}>{state.userId?.toUpperCase()}</p>
                 </div>
 
                 {/* OTP Input */}

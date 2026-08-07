@@ -121,7 +121,7 @@ export default function RequestListPage() {
 
     const { userId, domain } = useAuthStore();
 
-    const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
+    const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.All);
     const [fromDate, setFromDate] = useState<string>(dateToInput(DEFAULT_FROM_DATE));
     const [toDate, setToDate] = useState<string>(dateToInput(DEFAULT_TO_DATE));
     const [isAllDate, setIsAllDate] = useState(true);

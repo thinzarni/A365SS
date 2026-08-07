@@ -103,7 +103,7 @@ function getTypeVisual(req: RequestModel) {
 export default function ApprovalListPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.Pending);
+    const [activeStatus, setActiveStatus] = useState<RequestStatus>(RequestStatus.All);
     const [showFilter, setShowFilter] = useState(false);
     const [selectedType, setSelectedType] = useState<string>('');
     const [fromDate, setFromDate] = useState(defaultFromDate);

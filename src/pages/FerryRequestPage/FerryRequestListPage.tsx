@@ -103,7 +103,7 @@ export default function FerryRequestListPage() {
     const [toDate,      setToDate]      = useState(monthEnd);
     const [isAllDate,   setIsAllDate]   = useState(true);
     const [typeSyskey,  setTypeSyskey]  = useState('');
-    const [activeStatus,setActiveStatus]= useState<number>(1);
+    const [activeStatus,setActiveStatus]= useState<number>(0);
     const [filterOpen,  setFilterOpen]  = useState(false);
     const [sortCol,     setSortCol]     = useState<SortCol>('date');
     const [sortDir,     setSortDir]     = useState<'asc'|'desc'>('desc');

@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
         setLoading(true);
         try {
             // req_type 3 = forgot password (mirrors Flutter's ForgotPwd)
-            const payload = await makeResetPayload(email, 3);
+            const payload = await makeResetPayload(email.toUpperCase(), 3);
             const res = await authClient.post('reset-mail', payload);
             const data = res.data;
 
