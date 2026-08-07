@@ -30,7 +30,7 @@ import {
     USER_PROFILE_BY_ID,
     FILE_GENERATE_UPLOAD_URL,
     FILE_STREAM_UPLOAD,
-    FILE_DOWNLOAD,
+    FILE_DIRECT_DOWNLOAD,
     FILE_UPLOAD_EDUCATION,
 } from '../../config/api-routes';
 import styles from './ProfilePagePrd.module.css';
@@ -1690,70 +1690,84 @@ function WorkExperienceTab({ profile }: { profile: ProfileData }) {
 // TAB 5 — Qualification (Create/Edit/View)
 // ═══════════════════════════════════════════════════════════════════════
 
-/** Resolves an attachment value to a viewable URL.
- *  - If it is already a full URL (starts with http/https) → return as-is
- *  - If it is a raw FS storage key (e.g. dev/employee/family/2026/5/file.jpg)
- *    → build: mainUrl + 'api/' + key
+/**
+ * Normalizes a stored attachment path that may be a full mpta365 URL
+ * (old DB records stored the full URL; new records store the plain storage key).
+ * Returns a plain S3 storage key for the directdownloadfile endpoint.
  */
-/** Calls HXM directdownloadfile API and opens the file in a new browser tab.
- *  Works for both image and document attachments.
+function normalizeAttachmentKey(raw: string): string {
+    if (!raw) return raw;
+    if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
+        return raw; // already a plain storage key
+    }
+    try {
+        const url = new URL(raw);
+        // Handle stream?path= format: ...?path=uploads%2F...
+        const pathParam = url.searchParams.get('path');
+        if (pathParam) return decodeURIComponent(pathParam);
+        // Strip /api/hxm/ or /api/ prefix from pathname
+        const match = url.pathname.match(/\/api\/(?:hxm\/)?(.+)/);
+        if (match) return match[1];
+        return url.pathname.replace(/^\//, '');
+    } catch {
+        return raw;
+    }
+}
+
+/** Calls HXM directdownloadfile API (blob streaming) and opens or downloads the file.
+ *  Handles both plain storage keys and old full mpta365 URLs stored in the DB.
  */
-async function openAttachment(fileName: string | undefined | null, mode: 'view' | 'download' = 'view'): Promise<void> {
-    if (!fileName) return;
+async function openAttachment(rawFileName: string | undefined | null, mode: 'view' | 'download' = 'view'): Promise<void> {
+    if (!rawFileName) return;
+    // Normalize: old records may store full URL — extract the plain storage key
+    const fileName = normalizeAttachmentKey(rawFileName);
     const { userId, domain } = useAuthStore.getState();
     try {
-        const response = await apiClient.get(FILE_DOWNLOAD, {
-            params: { fileName, userid: userId, domain: domain || 'dev' }
+        const response = await apiClient.get(FILE_DIRECT_DOWNLOAD, {
+            params: { fileName, userid: userId, domain: domain || 'dev' },
+            responseType: 'blob',
         });
 
-        // The API now returns a JSON with base64String
-        if (response.data?.statuscode === 300 && response.data?.base64String) {
-            const base64String = response.data.base64String;
+        const ct = response.headers['content-type'] || '';
 
-            // Determine content type based on extension
-            const ext = fileName.split('.').pop()?.toLowerCase() || '';
-            let ct = 'application/octet-stream';
-            if (ext === 'png') ct = 'image/png';
-            else if (ext === 'jpg' || ext === 'jpeg') ct = 'image/jpeg';
-            else if (ext === 'pdf') ct = 'application/pdf';
-
-            // Convert base64 to Blob
-            const byteString = atob(base64String);
-            const arrayBuffer = new ArrayBuffer(byteString.length);
-            const intArray = new Uint8Array(arrayBuffer);
-            for (let i = 0; i < byteString.length; i++) {
-                intArray[i] = byteString.charCodeAt(i);
+        // If backend returned a JSON error instead of a file
+        if (ct.includes('application/json')) {
+            const text = await (response.data as Blob).text();
+            try {
+                const json = JSON.parse(text);
+                toast.error(json.message || json.error || 'File not found');
+            } catch {
+                toast.error('File not found');
             }
-            const blob = new Blob([intArray], { type: ct });
-            const url = URL.createObjectURL(blob);
+            return;
+        }
 
-            const link = document.createElement('a');
-            link.href = url;
+        const blob = new Blob([response.data], { type: ct || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
 
-            if (mode === 'download') {
+        if (mode === 'download') {
+            link.download = fileName.split('/').pop() || 'attachment';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            // For viewable types (images, PDF) — open inline; others trigger download
+            if (ct.startsWith('image/') || ct === 'application/pdf') {
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.click();
+            } else {
                 link.download = fileName.split('/').pop() || 'attachment';
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-            } else {
-                // For viewable types (images, PDF) — open inline; others trigger download
-                if (ct.startsWith('image/') || ct === 'application/pdf') {
-                    link.target = '_blank';
-                    link.rel = 'noopener noreferrer';
-                    link.click();
-                } else {
-                    link.download = fileName.split('/').pop() || 'attachment';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                }
             }
-
-            // Use 5 minute timeout for "Save As" prompts
-            setTimeout(() => URL.revokeObjectURL(url), 300000);
-        } else {
-            toast.error(response.data?.message || response.data?.error || 'File not found');
         }
+
+        // 5 minute timeout so 'Save As' prompts don't expire the blob URL
+        setTimeout(() => URL.revokeObjectURL(url), 300000);
     } catch {
         toast.error('Failed to open attachment');
     }
@@ -1998,6 +2012,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
         }
 
         if (!form.description) { toast.error(t('profile.qualification.reqDegree', 'Description is required')); return; }
+        if (!form.attachment && !form.attachmentKey) { toast.error(t('profile.qualification.reqAttachment', 'Attachment is required')); return; }
 
         const isUpdate = !!editingId;
         const newRecord: Qualification & { _displayEduName?: string } = { ...form };
@@ -2281,7 +2296,7 @@ function QualificationTab({ profile }: { profile: ProfileData }) {
                         </FormRow>
                     </div>
 
-                    <FormRow label={t('profile.qualification.attachment', 'Attachment')}>
+                    <FormRow label={<>{t('profile.qualification.attachment', 'Attachment')}<span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span></>}>
                         {editingId && (form.attachmentKey || form.attachment) && (() => {
                             return (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '8px 12px', borderRadius: '8px', background: '#f0f9ff', border: '1px solid #bae6fd' }}>
@@ -3446,7 +3461,7 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 
-function FormRow({ label, children, fullWidth }: { label: string; children: React.ReactNode; fullWidth?: boolean }) {
+function FormRow({ label, children, fullWidth }: { label: React.ReactNode; children: React.ReactNode; fullWidth?: boolean }) {
     return (
         <div className={`${styles.formRow} ${fullWidth ? styles.fullWidth : ''}`}>
             <label className={styles.formLabel}>{label}</label>

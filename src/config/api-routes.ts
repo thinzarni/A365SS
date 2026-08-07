@@ -216,6 +216,9 @@ export const COMMENT_DELETE = 'chat-new/delete-comment';
 export const NOTIFICATION_LIST = 'api/notification/list';
 export const NOTIFICATION_READ = 'api/notification/read-status';
 
+// ── Job Posting ──
+export const JOB_POST_DETAIL = `${hxmPrefix}jobpost`;   // GET /:syskey → { datalist: { jobtitle_display, ... } }
+
 // ── ESS Profile (UI-only placeholders — no backend yet) ──
 export const ESS_EMPLOYMENT_PROFILE = 'api/employees/employment-profile';
 export const ESS_PERSONAL_PROFILE = 'api/employees/personal-profile';

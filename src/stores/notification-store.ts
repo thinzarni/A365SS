@@ -4,8 +4,12 @@
 
 import { create } from 'zustand';
 import mainClient from '../lib/main-client';
+import apiClient from '../lib/api-client';
 import { useAuthStore } from './auth-store';
-import { NOTIFICATION_LIST, NOTIFICATION_READ } from '../config/api-routes';
+import { NOTIFICATION_LIST, NOTIFICATION_READ, JOB_POST_DETAIL } from '../config/api-routes';
+
+/** In-memory cache: jobpost syskey → resolved position title */
+const jobTitleCache = new Map<string, string>();
 
 export interface NotificationModel {
     syskey: string;
@@ -28,6 +32,8 @@ export interface NotificationModel {
     date?: string;
     processstatus?: string;
     attachments?: { filePath: string; signedURL: string }[];
+    /** Resolved job position title (only for requesttype === 'jobpost') */
+    jobtitle_display?: string;
 }
 
 interface NotificationState {
@@ -135,6 +141,72 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                     hasMore: newItems.length >= PAGE_SIZE,
                 };
             });
+
+            // ── Enrich jobpost notifications with the human-readable position title ──
+            const jobPostItems = newItems.filter(
+                (n) => n.requesttype?.toLowerCase() === 'jobpost' && n.request_syskey
+            );
+            const uncachedJobPosts = jobPostItems.filter(
+                (n) => !jobTitleCache.has(n.request_syskey)
+            );
+
+            if (uncachedJobPosts.length > 0) {
+                // Fire in parallel, silently ignore individual failures
+                await Promise.allSettled(
+                    uncachedJobPosts.map(async (n) => {
+                        try {
+                            const res = await apiClient.get(
+                                `${JOB_POST_DETAIL}/${n.request_syskey}`
+                            );
+                            const title =
+                                res.data?.datalist?.jobtitle_display ||
+                                res.data?.datalist?.jobtitle ||
+                                null;
+                            if (title) jobTitleCache.set(n.request_syskey, title);
+                        } catch {
+                            // silently skip — description will fall back to sanitized text
+                        }
+                    })
+                );
+
+                // Patch the resolved titles into the store
+                if (jobTitleCache.size > 0) {
+                    set((state) => ({
+                        items: state.items.map((item) => {
+                            if (
+                                item.requesttype?.toLowerCase() === 'jobpost' &&
+                                item.request_syskey &&
+                                jobTitleCache.has(item.request_syskey)
+                            ) {
+                                return {
+                                    ...item,
+                                    jobtitle_display: jobTitleCache.get(item.request_syskey),
+                                };
+                            }
+                            return item;
+                        }),
+                    }));
+                }
+            }
+
+            // Apply cached titles for items already in the cache (e.g. pagination)
+            if (jobPostItems.some((n) => jobTitleCache.has(n.request_syskey))) {
+                set((state) => ({
+                    items: state.items.map((item) => {
+                        if (
+                            item.requesttype?.toLowerCase() === 'jobpost' &&
+                            item.request_syskey &&
+                            jobTitleCache.has(item.request_syskey)
+                        ) {
+                            return {
+                                ...item,
+                                jobtitle_display: jobTitleCache.get(item.request_syskey),
+                            };
+                        }
+                        return item;
+                    }),
+                }));
+            }
         } catch (err) {
             console.error('[NotificationStore] fetchNotifications failed:', err);
         } finally {
